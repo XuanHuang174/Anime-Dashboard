@@ -1529,6 +1529,29 @@ class JournalDataTransferApiTests(APITestCase):
             ).exists()
         )
 
+    def test_one_users_export_can_replace_another_users_journal(self):
+        export_response = self.client.get(reverse("anime_api:journal-export"))
+        payload = json.loads(export_response.content)
+        self.client.force_authenticate(self.other_user)
+
+        import_response = self.client.post(
+            reverse("anime_api:journal-import"),
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(import_response.status_code, status.HTTP_200_OK)
+        imported = UserAnimeRecord.objects.get(user=self.other_user)
+        self.assertEqual(imported.anime, self.old_anime)
+        self.assertEqual(imported.review, "原有评价")
+        self.assertEqual(
+            {
+                tag.name: tag.color
+                for tag in imported.tag_preferences.all()
+            },
+            {"日常": "blue", "收藏": "rose"},
+        )
+
     def test_multipart_json_file_import_is_supported(self):
         upload = SimpleUploadedFile(
             "journal.json",

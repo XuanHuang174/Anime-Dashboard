@@ -682,6 +682,13 @@ class UserJournalImportView(APIView):
                 from .signals import suppress_showcase_cleanup
 
                 with suppress_showcase_cleanup():
+                    # Delete the newly introduced child rows explicitly before
+                    # replacing records. This keeps SQLite's deferred foreign-key
+                    # checks valid even when a long-running development server
+                    # loaded the old relationship graph before the migration.
+                    UserAnimeTag.objects.filter(
+                        record__user=request.user,
+                    ).delete()
                     UserAnimeRecord.objects.filter(user=request.user).delete()
                 UserAnimeRecord.objects.bulk_create(replacement_records)
                 created_records = UserAnimeRecord.objects.filter(
