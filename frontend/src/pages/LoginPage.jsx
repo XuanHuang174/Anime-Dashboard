@@ -286,13 +286,13 @@ function LoginPage() {
 
               <div className="login-piece mt-auto grid grid-cols-3 items-stretch gap-2.5 pt-4">
                 {[
-                  ['01', '多视图', '列表 / 海报墙', 'LIST + GRID', 'fa-layer-group', 'border-[var(--memphis-teal)] shadow-[5px_5px_0_0_var(--memphis-coral)] -rotate-1'],
-                  ['02', '自由筛选', '状态 / 标签 / 年份', 'FILTER IT!', 'fa-tags', 'border-black shadow-[5px_5px_0_0_var(--memphis-teal)] translate-y-2 -rotate-2'],
-                  ['03', '私人长评', '记录只属于你的感受', 'YOUR STORY', 'fa-pen-nib', 'border-[var(--memphis-teal)] shadow-[5px_5px_0_0_var(--memphis-coral)] rotate-1'],
+                  ['01', '多视图', '列表 / 海报墙', 'LIST + GRID', 'fa-layer-group', '-rotate-1'],
+                  ['02', '自由筛选', '状态 / 标签 / 年份', 'FILTER IT!', 'fa-tags', 'translate-y-2 -rotate-2'],
+                  ['03', '私人长评', '记录只属于你的感受', 'YOUR STORY', 'fa-pen-nib', 'rotate-1'],
                 ].map(([number, label, description, caption, icon, frame]) => (
                   <div
                     key={number}
-                    className={`flex min-h-[116px] flex-col border-[3px] bg-white p-2.5 ${frame}`}
+                    className={`flex min-h-[116px] flex-col border-[3px] border-black bg-white p-2.5 shadow-[5px_5px_0_0_var(--memphis-ink)] ${frame}`}
                   >
                     <div className="flex items-start justify-between gap-1">
                       <span className="bg-black px-1.5 py-0.5 text-[9px] font-black tracking-[0.18em] text-white">{number}</span>
@@ -348,10 +348,10 @@ function LoginPage() {
                       role="tab"
                       aria-selected={mode === value}
                       onClick={() => switchMode(value)}
-                      className={`border-4 px-4 py-2.5 text-sm font-black uppercase transition-none ${
+                      className={`border-4 border-black px-4 py-2.5 text-sm font-black uppercase transition-none ${
                         mode === value
-                          ? 'border-black bg-[var(--memphis-teal)] shadow-[5px_5px_0_0_var(--memphis-coral)]'
-                          : 'border-[var(--memphis-teal)] bg-[var(--memphis-coral)] shadow-[5px_5px_0_0_var(--memphis-ink)] hover:translate-x-[2px] hover:translate-y-[2px] hover:border-black hover:bg-[var(--memphis-teal)] hover:shadow-[3px_3px_0_0_var(--memphis-coral)]'
+                          ? 'bg-[var(--memphis-coral)] shadow-[4px_4px_0_0_var(--memphis-ink)]'
+                          : 'bg-white shadow-[4px_4px_0_0_var(--memphis-ink)] hover:bg-[var(--memphis-yellow)]'
                       }`}
                     >
                       <i className={`fa-solid ${icon} mr-2`} />
