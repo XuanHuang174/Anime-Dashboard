@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Anime, UserAnimeRecord, UserProfile, UserQuickFilter
+from .models import Anime, UserAnimeRecord, UserAnimeTag, UserProfile, UserQuickFilter
 
 
 @admin.register(UserProfile)
@@ -84,6 +84,26 @@ class UserAnimeRecordAdmin(admin.ModelAdmin):
         ("个人评价", {"fields": ("review",)}),
         ("系统信息", {"fields": ("created_at", "updated_at"), "classes": ("collapse",)}),
     )
+
+
+@admin.register(UserAnimeTag)
+class UserAnimeTagAdmin(admin.ModelAdmin):
+    list_display = ("name", "color", "record", "record_owner", "updated_at")
+    list_filter = ("color",)
+    search_fields = (
+        "name",
+        "record__user__username",
+        "record__user__email",
+        "record__anime__chinese_title",
+        "record__anime__japanese_title",
+    )
+    autocomplete_fields = ("record",)
+    list_select_related = ("record__user", "record__anime")
+    readonly_fields = ("created_at", "updated_at")
+
+    @admin.display(description="用户", ordering="record__user__username")
+    def record_owner(self, obj):
+        return obj.record.user
 
 
 @admin.register(UserQuickFilter)

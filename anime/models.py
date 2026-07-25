@@ -224,6 +224,48 @@ class UserAnimeRecord(models.Model):
         return f"{self.user.get_username()} - {self.anime.chinese_title}"
 
 
+class UserAnimeTag(models.Model):
+    """A tag color owned by one user's private anime record."""
+
+    record = models.ForeignKey(
+        UserAnimeRecord,
+        verbose_name="私人手账记录",
+        on_delete=models.CASCADE,
+        related_name="tag_preferences",
+    )
+    name = models.CharField("标签名称", max_length=50)
+    color = models.CharField(
+        "标签配色",
+        max_length=16,
+        choices=tuple((key, key) for key in sorted(TAG_COLOR_KEYS)),
+    )
+    created_at = models.DateTimeField("创建时间", auto_now_add=True)
+    updated_at = models.DateTimeField("更新时间", auto_now=True)
+
+    class Meta:
+        verbose_name = "用户番剧标签"
+        verbose_name_plural = "用户私人标签配色"
+        ordering = ("name",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=("record", "name"),
+                name="unique_record_tag_name",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=("record", "name"),
+                name="record_tag_lookup_idx",
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.record.user.get_username()} - "
+            f"{self.record.anime.chinese_title} - {self.name}"
+        )
+
+
 class UserQuickFilter(models.Model):
     """A reusable tag combination owned by one user."""
 

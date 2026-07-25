@@ -23,13 +23,20 @@ from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
 
-from .models import Anime, UserAnimeRecord, UserProfile, UserQuickFilter
+from .models import (
+    Anime,
+    UserAnimeRecord,
+    UserAnimeTag,
+    UserProfile,
+    UserQuickFilter,
+)
 from .pagination import UserAnimeRecordPagination
 from .serializers import (
     AccountDeletionSerializer,
     AnimeSerializer,
     ChangePasswordSerializer,
     CustomTokenObtainPairSerializer,
+    JsonStringMapField,
     JournalRecordImportSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
@@ -39,6 +46,11 @@ from .serializers import (
     UserAnimeRecordSerializer,
     UserProfileSerializer,
     UserQuickFilterSerializer,
+)
+from .tag_services import (
+    get_record_tag_colors,
+    initialize_record_tag_colors,
+    replace_record_tag_colors,
 )
 from .throttles import SensitiveAuthRateThrottle
 
@@ -102,7 +114,7 @@ def _apply_record_filters(queryset, request, filter_owner):
         "anime__base_tags",
         "anime__chinese_title",
     )
-    for record in records.iterator():
+    for record in records.iterator(chunk_size=2000):
         tags = _combined_record_tags(record)
         title_upper = (record["anime__chinese_title"] or "").upper()
 
@@ -195,7 +207,7 @@ def _build_filter_options(queryset):
         "custom_tags",
         "anime__base_tags",
         "anime__airing_period",
-    ).iterator():
+    ).iterator(chunk_size=2000):
         tags.update(_combined_record_tags(record))
         period = record["anime__airing_period"] or ""
         year = period[:4]
@@ -227,7 +239,7 @@ def _build_record_stats(queryset):
         "anime__airing_period",
         "anime__base_tags",
     )
-    for record in records.iterator():
+    for record in records.iterator(chunk_size=2000):
         score = record["personal_score"]
         title = record["anime__chinese_title"] or ""
         period = record["anime__airing_period"] or ""
@@ -510,11 +522,13 @@ class UserJournalExportView(APIView):
         records = (
             UserAnimeRecord.objects.filter(user=request.user)
             .select_related("anime")
+            .prefetch_related("tag_preferences")
             .order_by("pk")
         )
         exported_records = []
         for record in records:
             anime = record.anime
+            private_tag_colors = get_record_tag_colors(record)
             poster_url = anime.poster_url
             if not poster_url and anime.poster_image:
                 poster_url = request.build_absolute_uri(anime.poster_image.url)
@@ -531,7 +545,7 @@ class UserJournalExportView(APIView):
                         "poster_url": poster_url,
                         "baike_url": anime.baike_url,
                         "base_tags": anime.base_tags,
-                        "tag_colors": anime.tag_colors,
+                        "tag_colors": private_tag_colors,
                     },
                     "personal_score": (
                         str(record.personal_score)
@@ -546,7 +560,7 @@ class UserJournalExportView(APIView):
 
         payload = {
             "format": "anime-journal",
-            "version": 1,
+            "version": 2,
             "exported_at": timezone.now().isoformat(),
             "records": exported_records,
         }
@@ -638,8 +652,10 @@ class UserJournalImportView(APIView):
             with transaction.atomic():
                 get_user_model().objects.select_for_update().get(pk=request.user.pk)
                 replacement_records = []
+                private_colors_by_anime_id = {}
                 for item in validated_records:
                     anime_data = dict(item["anime"])
+                    private_tag_colors = anime_data.pop("tag_colors", {})
                     lookup = {
                         "chinese_title": anime_data.pop("chinese_title"),
                         "japanese_title": anime_data.pop("japanese_title"),
@@ -659,6 +675,7 @@ class UserJournalImportView(APIView):
                             custom_tags=item["custom_tags"],
                         )
                     )
+                    private_colors_by_anime_id[anime.pk] = private_tag_colors
 
                 # Replacing a showcase owner's private journal must not make the
                 # intermediate empty state delete shared Anime rows.
@@ -667,6 +684,19 @@ class UserJournalImportView(APIView):
                 with suppress_showcase_cleanup():
                     UserAnimeRecord.objects.filter(user=request.user).delete()
                 UserAnimeRecord.objects.bulk_create(replacement_records)
+                created_records = UserAnimeRecord.objects.filter(
+                    user=request.user,
+                    anime_id__in=private_colors_by_anime_id,
+                )
+                UserAnimeTag.objects.bulk_create(
+                    [
+                        UserAnimeTag(record=record, name=name, color=color)
+                        for record in created_records
+                        for name, color in private_colors_by_anime_id[
+                            record.anime_id
+                        ].items()
+                    ]
+                )
         except Exception:
             logger.exception(
                 "Journal import failed for user %s; transaction rolled back.",
@@ -722,6 +752,7 @@ class PublicShowcaseViewSet(viewsets.ReadOnlyModelViewSet):
                 anime__is_active=True,
             )
             .select_related("user", "anime")
+            .prefetch_related("tag_preferences")
         )
 
     def get_queryset(self):
@@ -798,6 +829,7 @@ class UserAnimeRecordViewSet(viewsets.ModelViewSet):
         return (
             UserAnimeRecord.objects.filter(user=self.request.user)
             .select_related("user", "anime")
+            .prefetch_related("tag_preferences")
         )
 
     def get_queryset(self):
@@ -822,7 +854,11 @@ class UserAnimeRecordViewSet(viewsets.ModelViewSet):
         return Response(_build_filter_options(self._base_queryset()))
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        record = serializer.save(user=self.request.user)
+        initialize_record_tag_colors(
+            record=record,
+            user=self.request.user,
+        )
 
     @transaction.atomic
     def create(self, request, *args, **kwargs):
@@ -868,6 +904,12 @@ class UserAnimeRecordViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        anime_payload = dict(anime_payload)
+        raw_tag_colors = anime_payload.pop("tag_colors", None)
+        private_tag_colors = None
+        if raw_tag_colors is not None:
+            private_tag_colors = JsonStringMapField().run_validation(raw_tag_colors)
+
         record_payload = {
             key: value
             for key, value in request.data.items()
@@ -888,6 +930,12 @@ class UserAnimeRecordViewSet(viewsets.ModelViewSet):
         record_serializer.is_valid(raise_exception=True)
         anime_serializer.save()
         record_serializer.save()
+        if private_tag_colors is not None:
+            replace_record_tag_colors(
+                record=record,
+                user=request.user,
+                colors=private_tag_colors,
+            )
         record.refresh_from_db()
         return Response(self.get_serializer(record).data)
 

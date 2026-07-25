@@ -17,7 +17,13 @@ from PIL import Image
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .models import Anime, UserAnimeRecord, UserProfile, UserQuickFilter
+from .models import (
+    Anime,
+    UserAnimeRecord,
+    UserAnimeTag,
+    UserProfile,
+    UserQuickFilter,
+)
 
 
 @override_settings(
@@ -719,6 +725,21 @@ class AnimeApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("tag_colors", response.data)
 
+    def test_public_anime_endpoint_cannot_change_private_tag_colors(self):
+        self.anime.tag_colors = {"日常": "blue"}
+        self.anime.save(update_fields=("tag_colors",))
+        self.client.force_authenticate(self.user)
+
+        response = self.client.patch(
+            reverse("anime_api:animes-detail", kwargs={"pk": self.anime.pk}),
+            {"tag_colors": {"日常": "rose"}},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.anime.refresh_from_db()
+        self.assertEqual(self.anime.tag_colors, {"日常": "blue"})
+
     def test_direct_anime_create_accepts_multipart_tags_and_poster(self):
         image_buffer = BytesIO()
         Image.new("RGB", (2, 2), color="blue").save(image_buffer, format="PNG")
@@ -1292,8 +1313,16 @@ class AnimeApiTests(APITestCase):
         self.record.refresh_from_db()
         self.assertEqual(self.anime.chinese_title, "修改后的番剧名")
         self.assertEqual(self.anime.base_tags, ["新标签", "治愈"])
+        self.assertEqual(self.anime.tag_colors, {})
         self.assertEqual(
-            self.anime.tag_colors,
+            {
+                tag.name: tag.color
+                for tag in self.record.tag_preferences.all()
+            },
+            {"新标签": "violet", "治愈": "emerald"},
+        )
+        self.assertEqual(
+            response.data["anime"]["tag_colors"],
             {"新标签": "violet", "治愈": "emerald"},
         )
         self.assertEqual(self.anime.baike_url, "https://example.com/new-baike")
@@ -1302,6 +1331,53 @@ class AnimeApiTests(APITestCase):
         self.assertEqual(
             response.data["anime"]["description"],
             "更新后的剧情简介",
+        )
+
+    def test_tag_color_update_is_isolated_between_users(self):
+        other_record = UserAnimeRecord.objects.create(
+            user=self.other_user,
+            anime=self.anime,
+            watch_status=UserAnimeRecord.WatchStatus.WATCHING,
+        )
+        UserAnimeTag.objects.bulk_create(
+            [
+                UserAnimeTag(record=self.record, name="日常", color="sky"),
+                UserAnimeTag(record=other_record, name="日常", color="sky"),
+            ]
+        )
+        self.client.force_authenticate(self.user)
+
+        response = self.client.patch(
+            reverse(
+                "anime_api:user-anime-record-update-details",
+                kwargs={"pk": self.record.pk},
+            ),
+            {"anime": {"tag_colors": {"日常": "rose"}}},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.anime.refresh_from_db()
+        self.assertEqual(self.anime.tag_colors, {})
+        self.assertEqual(
+            UserAnimeTag.objects.get(record=self.record, name="日常").color,
+            "rose",
+        )
+        self.assertEqual(
+            UserAnimeTag.objects.get(record=other_record, name="日常").color,
+            "sky",
+        )
+
+        self.client.force_authenticate(self.other_user)
+        other_response = self.client.get(
+            reverse(
+                "anime_api:user-anime-record-detail",
+                kwargs={"pk": other_record.pk},
+            )
+        )
+        self.assertEqual(
+            other_response.data["anime"]["tag_colors"],
+            {"日常": "sky"},
         )
 
     def test_user_can_delete_only_their_own_record(self):
@@ -1359,6 +1435,12 @@ class JournalDataTransferApiTests(APITestCase):
             review="原有评价",
             custom_tags=["收藏"],
         )
+        UserAnimeTag.objects.bulk_create(
+            [
+                UserAnimeTag(record=self.old_record, name="日常", color="blue"),
+                UserAnimeTag(record=self.old_record, name="收藏", color="rose"),
+            ]
+        )
         UserAnimeRecord.objects.create(
             user=self.other_user,
             anime=self.old_anime,
@@ -1403,6 +1485,7 @@ class JournalDataTransferApiTests(APITestCase):
         self.assertIn("attachment;", response["Content-Disposition"])
         payload = json.loads(response.content)
         self.assertEqual(payload["format"], "anime-journal")
+        self.assertEqual(payload["version"], 2)
         self.assertEqual(len(payload["records"]), 1)
         exported_record = payload["records"][0]
         self.assertNotIn("id", exported_record)
@@ -1410,6 +1493,10 @@ class JournalDataTransferApiTests(APITestCase):
         self.assertNotIn("anime_id", exported_record)
         self.assertNotIn("id", exported_record["anime"])
         self.assertEqual(exported_record["anime"]["chinese_title"], "原有番剧")
+        self.assertEqual(
+            exported_record["anime"]["tag_colors"],
+            {"日常": "blue", "收藏": "rose"},
+        )
         self.assertEqual(exported_record["personal_score"], "8.5")
 
     def test_json_import_replaces_only_current_users_records(self):
@@ -1427,6 +1514,14 @@ class JournalDataTransferApiTests(APITestCase):
         self.assertEqual(imported.anime.chinese_title, "导入番剧")
         self.assertEqual(imported.personal_score, Decimal("9.7"))
         self.assertEqual(imported.custom_tags, ["年度推荐"])
+        self.assertEqual(imported.anime.tag_colors, {})
+        self.assertEqual(
+            {
+                tag.name: tag.color
+                for tag in imported.tag_preferences.all()
+            },
+            {"治愈": "emerald", "日常": "blue"},
+        )
         self.assertTrue(
             UserAnimeRecord.objects.filter(
                 user=self.other_user,

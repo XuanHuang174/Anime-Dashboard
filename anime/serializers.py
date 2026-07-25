@@ -9,6 +9,7 @@ from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from .models import Anime, TAG_COLOR_KEYS, UserAnimeRecord, UserProfile, UserQuickFilter
+from .tag_services import get_record_tag_colors, initialize_record_tag_colors
 
 
 STRICT_EMAIL_PATTERN = re.compile(
@@ -314,6 +315,17 @@ class AnimeSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ("id", "created_at", "updated_at")
 
+    def update(self, instance, validated_data):
+        if "tag_colors" in validated_data:
+            raise serializers.ValidationError(
+                {
+                    "tag_colors": (
+                        "标签配色属于用户私人手账，请通过追番记录详情接口修改。"
+                    )
+                }
+            )
+        return super().update(instance, validated_data)
+
 
 class JournalAnimeImportSerializer(serializers.Serializer):
     """Portable anime metadata accepted by the journal import endpoint."""
@@ -411,7 +423,7 @@ class JournalRecordImportSerializer(serializers.Serializer):
 
 class UserAnimeRecordSerializer(serializers.ModelSerializer):
     user = serializers.CharField(source="user.username", read_only=True)
-    anime = AnimeBasicSerializer(read_only=True)
+    anime = serializers.SerializerMethodField()
     anime_id = serializers.PrimaryKeyRelatedField(
         source="anime",
         queryset=Anime.objects.filter(is_active=True),
@@ -458,6 +470,16 @@ class UserAnimeRecordSerializer(serializers.ModelSerializer):
             )
 
         return attrs
+
+    def get_anime(self, record):
+        data = AnimeBasicSerializer(
+            record.anime,
+            context=self.context,
+        ).data
+        # Keep the existing frontend contract while replacing the shared map
+        # with colors owned exclusively by this user's private record.
+        data["tag_colors"] = get_record_tag_colors(record)
+        return data
 
 
 class UserQuickFilterSerializer(serializers.ModelSerializer):
@@ -586,8 +608,10 @@ class UserAnimeRecordAddSerializer(serializers.Serializer):
         if anime is None:
             anime = anime_serializer.save()
 
-        return UserAnimeRecord.objects.create(
+        record = UserAnimeRecord.objects.create(
             user=request.user,
             anime=anime,
             **validated_data,
         )
+        initialize_record_tag_colors(record=record, user=request.user)
+        return record
