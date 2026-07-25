@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import api from '../api/api.js'
 import AccountDeletionModal from './AccountDeletionModal.jsx'
+import JournalDataTransfer from './JournalDataTransfer.jsx'
 import ProfileModal from './ProfileModal.jsx'
 
 const DEFAULT_SUBTITLE = '记录每一次与动画相遇，也珍藏属于自己的追番时光。'
@@ -9,6 +10,7 @@ function DashboardHeader({
   isPreviewMode,
   onTogglePreview,
   onAddAnime,
+  onRecordsImported,
   onLogout,
   onAccountDeleted,
   onUnauthorized,
@@ -86,6 +88,10 @@ function DashboardHeader({
 
   const actions = (
     <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+      <JournalDataTransfer
+        onImported={onRecordsImported}
+        showToast={showToast}
+      />
       <button
         type="button"
         onClick={onTogglePreview}

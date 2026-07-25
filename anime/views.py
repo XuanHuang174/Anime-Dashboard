@@ -1,3 +1,5 @@
+import json
+import logging
 from urllib.parse import urlencode
 
 from django.conf import settings
@@ -7,6 +9,8 @@ from django.core.mail import send_mail
 from django.db import transaction
 from django.db.models import Case, IntegerField, Q, Value, When
 from django.db.models.functions import Cast, Substr
+from django.http import HttpResponse
+from django.utils import timezone
 from django.utils.encoding import force_bytes, force_str
 from django.utils.decorators import method_decorator
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
@@ -26,6 +30,7 @@ from .serializers import (
     AnimeSerializer,
     ChangePasswordSerializer,
     CustomTokenObtainPairSerializer,
+    JournalRecordImportSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
     PublicUserProfileSerializer,
@@ -37,6 +42,8 @@ from .serializers import (
 )
 from .throttles import SensitiveAuthRateThrottle
 
+
+logger = logging.getLogger(__name__)
 
 PRESET_QUICK_FILTER_TAGS = {
     "yuri": ("真百", "轻百", "真百合", "轻百合"),
@@ -492,6 +499,191 @@ class CurrentUserAccountView(APIView):
                 robust=True,
             )
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class UserJournalExportView(APIView):
+    """Download the authenticated user's journal without internal identifiers."""
+
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request):
+        records = (
+            UserAnimeRecord.objects.filter(user=request.user)
+            .select_related("anime")
+            .order_by("pk")
+        )
+        exported_records = []
+        for record in records:
+            anime = record.anime
+            poster_url = anime.poster_url
+            if not poster_url and anime.poster_image:
+                poster_url = request.build_absolute_uri(anime.poster_image.url)
+
+            exported_records.append(
+                {
+                    "anime": {
+                        "chinese_title": anime.chinese_title,
+                        "japanese_title": anime.japanese_title,
+                        "airing_period": anime.airing_period,
+                        "studio": anime.studio,
+                        "episodes": anime.episodes,
+                        "description": anime.description,
+                        "poster_url": poster_url,
+                        "baike_url": anime.baike_url,
+                        "base_tags": anime.base_tags,
+                        "tag_colors": anime.tag_colors,
+                    },
+                    "personal_score": (
+                        str(record.personal_score)
+                        if record.personal_score is not None
+                        else None
+                    ),
+                    "watch_status": record.watch_status,
+                    "review": record.review,
+                    "custom_tags": record.custom_tags,
+                }
+            )
+
+        payload = {
+            "format": "anime-journal",
+            "version": 1,
+            "exported_at": timezone.now().isoformat(),
+            "records": exported_records,
+        }
+        content = json.dumps(payload, ensure_ascii=False, indent=2)
+        filename = timezone.localdate().strftime("anime-journal-%Y%m%d.json")
+        response = HttpResponse(
+            content,
+            content_type="application/json; charset=utf-8",
+        )
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
+
+
+class UserJournalImportView(APIView):
+    """Atomically replace the authenticated user's journal from portable JSON."""
+
+    permission_classes = (permissions.IsAuthenticated,)
+    parser_classes = (
+        parsers.JSONParser,
+        parsers.FormParser,
+        parsers.MultiPartParser,
+    )
+    max_file_size = 5 * 1024 * 1024
+
+    def _read_payload(self, request):
+        uploaded_file = request.FILES.get("file")
+        if uploaded_file is not None:
+            if uploaded_file.size > self.max_file_size:
+                raise ValueError("JSON 文件不能超过 5MB。")
+            try:
+                return json.loads(uploaded_file.read().decode("utf-8-sig"))
+            except (UnicodeDecodeError, json.JSONDecodeError) as error:
+                raise ValueError("上传的文件不是有效的 UTF-8 JSON 文件。") from error
+
+        payload = request.data
+        if isinstance(payload, dict) and isinstance(payload.get("data"), str):
+            try:
+                return json.loads(payload["data"])
+            except json.JSONDecodeError as error:
+                raise ValueError("提交的数据不是有效的 JSON。") from error
+        return payload
+
+    def post(self, request):
+        try:
+            payload = self._read_payload(request)
+        except ValueError as error:
+            return Response(
+                {"detail": str(error)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if isinstance(payload, list):
+            record_data = payload
+        elif isinstance(payload, dict):
+            record_data = payload.get("records")
+        else:
+            record_data = None
+
+        if not isinstance(record_data, list):
+            return Response(
+                {"detail": "JSON 顶层必须是记录数组，或包含 records 数组。"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if len(record_data) > settings.USER_ANIME_RECORD_LIMIT:
+            return Response(
+                {"detail": "您的追番记录已达到容量上限"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = JournalRecordImportSerializer(data=record_data, many=True)
+        serializer.is_valid(raise_exception=True)
+        validated_records = serializer.validated_data
+
+        anime_keys = [
+            (
+                item["anime"]["chinese_title"],
+                item["anime"]["japanese_title"],
+                item["anime"]["airing_period"],
+            )
+            for item in validated_records
+        ]
+        if len(anime_keys) != len(set(anime_keys)):
+            return Response(
+                {"detail": "导入文件中包含重复的番剧记录。"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            with transaction.atomic():
+                get_user_model().objects.select_for_update().get(pk=request.user.pk)
+                replacement_records = []
+                for item in validated_records:
+                    anime_data = dict(item["anime"])
+                    lookup = {
+                        "chinese_title": anime_data.pop("chinese_title"),
+                        "japanese_title": anime_data.pop("japanese_title"),
+                        "airing_period": anime_data.pop("airing_period"),
+                    }
+                    anime, _created = Anime.objects.get_or_create(
+                        **lookup,
+                        defaults=anime_data,
+                    )
+                    replacement_records.append(
+                        UserAnimeRecord(
+                            user=request.user,
+                            anime=anime,
+                            personal_score=item["personal_score"],
+                            watch_status=item["watch_status"],
+                            review=item["review"],
+                            custom_tags=item["custom_tags"],
+                        )
+                    )
+
+                # Replacing a showcase owner's private journal must not make the
+                # intermediate empty state delete shared Anime rows.
+                from .signals import suppress_showcase_cleanup
+
+                with suppress_showcase_cleanup():
+                    UserAnimeRecord.objects.filter(user=request.user).delete()
+                UserAnimeRecord.objects.bulk_create(replacement_records)
+        except Exception:
+            logger.exception(
+                "Journal import failed for user %s; transaction rolled back.",
+                request.user.pk,
+            )
+            return Response(
+                {"detail": "导入失败，原有手账数据已完整保留。"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(
+            {
+                "detail": "手账数据导入成功。",
+                "imported_count": len(replacement_records),
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 @method_decorator(never_cache, name="dispatch")

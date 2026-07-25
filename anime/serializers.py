@@ -315,6 +315,100 @@ class AnimeSerializer(serializers.ModelSerializer):
         read_only_fields = ("id", "created_at", "updated_at")
 
 
+class JournalAnimeImportSerializer(serializers.Serializer):
+    """Portable anime metadata accepted by the journal import endpoint."""
+
+    chinese_title = serializers.CharField(max_length=200)
+    japanese_title = serializers.CharField(
+        max_length=200,
+        required=False,
+        allow_blank=True,
+        default="",
+    )
+    airing_period = serializers.CharField(max_length=32)
+    studio = serializers.CharField(
+        max_length=200,
+        required=False,
+        allow_blank=True,
+        default="",
+    )
+    episodes = serializers.CharField(
+        max_length=50,
+        required=False,
+        allow_blank=True,
+        default="",
+    )
+    description = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default="",
+    )
+    poster_url = serializers.URLField(
+        max_length=1000,
+        required=False,
+        allow_blank=True,
+        default="",
+    )
+    baike_url = serializers.URLField(
+        max_length=1000,
+        required=False,
+        allow_blank=True,
+        default="",
+    )
+    base_tags = serializers.ListField(
+        child=serializers.CharField(max_length=50, allow_blank=False),
+        required=False,
+        default=list,
+        max_length=100,
+    )
+    tag_colors = serializers.DictField(
+        child=serializers.ChoiceField(choices=sorted(TAG_COLOR_KEYS)),
+        required=False,
+        default=dict,
+    )
+
+    def validate_base_tags(self, tags):
+        return list(dict.fromkeys(tag.strip() for tag in tags if tag.strip()))
+
+    def validate_tag_colors(self, tag_colors):
+        normalized = {}
+        for tag, color in tag_colors.items():
+            normalized_tag = tag.strip()
+            if not normalized_tag:
+                raise serializers.ValidationError("标签名称不能为空。")
+            normalized[normalized_tag] = color
+        return normalized
+
+
+class JournalRecordImportSerializer(serializers.Serializer):
+    """Validate one portable record without accepting user or database IDs."""
+
+    anime = JournalAnimeImportSerializer()
+    personal_score = serializers.DecimalField(
+        max_digits=3,
+        decimal_places=1,
+        min_value=Decimal("0.0"),
+        max_value=Decimal("10.0"),
+        required=False,
+        allow_null=True,
+        default=None,
+    )
+    watch_status = serializers.ChoiceField(
+        choices=UserAnimeRecord.WatchStatus.choices,
+        default=UserAnimeRecord.WatchStatus.PLAN_TO_WATCH,
+    )
+    review = serializers.CharField(required=False, allow_blank=True, default="")
+    custom_tags = serializers.ListField(
+        child=serializers.CharField(max_length=50, allow_blank=False),
+        required=False,
+        default=list,
+        max_length=100,
+    )
+
+    def validate_custom_tags(self, tags):
+        return list(dict.fromkeys(tag.strip() for tag in tags if tag.strip()))
+
+
 class UserAnimeRecordSerializer(serializers.ModelSerializer):
     user = serializers.CharField(source="user.username", read_only=True)
     anime = AnimeBasicSerializer(read_only=True)

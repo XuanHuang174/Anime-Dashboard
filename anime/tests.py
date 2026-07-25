@@ -1325,3 +1325,186 @@ class AnimeApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(UserAnimeRecord.objects.filter(pk=self.record.pk).exists())
         self.assertTrue(UserAnimeRecord.objects.filter(pk=other_record.pk).exists())
+
+
+class JournalDataTransferApiTests(APITestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="journal-owner@example.com",
+            email="journal-owner@example.com",
+            password="Journal-Owner-2026!",
+        )
+        self.other_user = get_user_model().objects.create_user(
+            username="other-journal@example.com",
+            email="other-journal@example.com",
+            password="Other-Journal-2026!",
+        )
+        self.old_anime = Anime.objects.create(
+            chinese_title="原有番剧",
+            japanese_title="元のアニメ",
+            airing_period="2024-1",
+            studio="原制作公司",
+            episodes="12",
+            description="原剧情简介",
+            poster_url="https://example.com/old.jpg",
+            baike_url="https://example.com/old",
+            base_tags=["日常"],
+            tag_colors={"日常": "blue"},
+        )
+        self.old_record = UserAnimeRecord.objects.create(
+            user=self.user,
+            anime=self.old_anime,
+            personal_score=Decimal("8.5"),
+            watch_status=UserAnimeRecord.WatchStatus.COMPLETED,
+            review="原有评价",
+            custom_tags=["收藏"],
+        )
+        UserAnimeRecord.objects.create(
+            user=self.other_user,
+            anime=self.old_anime,
+            watch_status=UserAnimeRecord.WatchStatus.WATCHING,
+        )
+        self.client.force_authenticate(self.user)
+
+    def _replacement_payload(self):
+        return {
+            "format": "anime-journal",
+            "version": 1,
+            "records": [
+                {
+                    "anime": {
+                        "chinese_title": "导入番剧",
+                        "japanese_title": "インポートアニメ",
+                        "airing_period": "2026-7",
+                        "studio": "导入制作公司",
+                        "episodes": "13",
+                        "description": "导入剧情简介",
+                        "poster_url": "https://example.com/imported.jpg",
+                        "baike_url": "https://example.com/imported",
+                        "base_tags": ["治愈", "日常"],
+                        "tag_colors": {"治愈": "emerald", "日常": "blue"},
+                    },
+                    "personal_score": "9.7",
+                    "watch_status": UserAnimeRecord.WatchStatus.COMPLETED,
+                    "review": "导入后的评价",
+                    "custom_tags": ["年度推荐"],
+                }
+            ],
+        }
+
+    def test_export_contains_portable_data_without_internal_ids(self):
+        response = self.client.get(reverse("anime_api:journal-export"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            response["Content-Type"],
+            "application/json; charset=utf-8",
+        )
+        self.assertIn("attachment;", response["Content-Disposition"])
+        payload = json.loads(response.content)
+        self.assertEqual(payload["format"], "anime-journal")
+        self.assertEqual(len(payload["records"]), 1)
+        exported_record = payload["records"][0]
+        self.assertNotIn("id", exported_record)
+        self.assertNotIn("user", exported_record)
+        self.assertNotIn("anime_id", exported_record)
+        self.assertNotIn("id", exported_record["anime"])
+        self.assertEqual(exported_record["anime"]["chinese_title"], "原有番剧")
+        self.assertEqual(exported_record["personal_score"], "8.5")
+
+    def test_json_import_replaces_only_current_users_records(self):
+        response = self.client.post(
+            reverse("anime_api:journal-import"),
+            self._replacement_payload(),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["imported_count"], 1)
+        records = UserAnimeRecord.objects.filter(user=self.user).select_related("anime")
+        self.assertEqual(records.count(), 1)
+        imported = records.get()
+        self.assertEqual(imported.anime.chinese_title, "导入番剧")
+        self.assertEqual(imported.personal_score, Decimal("9.7"))
+        self.assertEqual(imported.custom_tags, ["年度推荐"])
+        self.assertTrue(
+            UserAnimeRecord.objects.filter(
+                user=self.other_user,
+                anime=self.old_anime,
+            ).exists()
+        )
+
+    def test_multipart_json_file_import_is_supported(self):
+        upload = SimpleUploadedFile(
+            "journal.json",
+            json.dumps(self._replacement_payload(), ensure_ascii=False).encode("utf-8"),
+            content_type="application/json",
+        )
+
+        response = self.client.post(
+            reverse("anime_api:journal-import"),
+            {"file": upload},
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            UserAnimeRecord.objects.get(user=self.user).anime.chinese_title,
+            "导入番剧",
+        )
+
+    def test_invalid_import_keeps_existing_records(self):
+        response = self.client.post(
+            reverse("anime_api:journal-import"),
+            {
+                "records": [
+                    {
+                        "anime": {
+                            "chinese_title": "无效番剧",
+                            "airing_period": "2026-10",
+                        },
+                        "personal_score": "99.0",
+                    }
+                ]
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertTrue(
+            UserAnimeRecord.objects.filter(pk=self.old_record.pk).exists()
+        )
+
+    def test_unexpected_bulk_create_failure_rolls_back_deletion(self):
+        with patch(
+            "anime.views.UserAnimeRecord.objects.bulk_create",
+            side_effect=RuntimeError("simulated database failure"),
+        ):
+            response = self.client.post(
+                reverse("anime_api:journal-import"),
+                self._replacement_payload(),
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data["detail"],
+            "导入失败，原有手账数据已完整保留。",
+        )
+        self.assertTrue(
+            UserAnimeRecord.objects.filter(pk=self.old_record.pk).exists()
+        )
+        self.assertFalse(Anime.objects.filter(chinese_title="导入番剧").exists())
+
+    def test_import_and_export_require_authentication(self):
+        self.client.force_authenticate(user=None)
+
+        export_response = self.client.get(reverse("anime_api:journal-export"))
+        import_response = self.client.post(
+            reverse("anime_api:journal-import"),
+            {"records": []},
+            format="json",
+        )
+
+        self.assertEqual(export_response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(import_response.status_code, status.HTTP_401_UNAUTHORIZED)

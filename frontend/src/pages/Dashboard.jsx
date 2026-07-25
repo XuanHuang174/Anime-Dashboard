@@ -341,6 +341,12 @@ function Dashboard() {
     setRecordsRefreshKey((key) => key + 1)
   }
 
+  const handleRecordsImported = () => {
+    setSelectedItem(null)
+    setCurrentPage(1)
+    setRecordsRefreshKey((key) => key + 1)
+  }
+
   const handleQuickFilterSaved = (savedFilter) => {
     setCustomQuickFilters((current) => {
       const exists = current.some((filter) => filter.id === savedFilter.id)
@@ -373,6 +379,7 @@ function Dashboard() {
         isPreviewMode={isPreviewMode}
         onTogglePreview={togglePreviewMode}
         onAddAnime={() => setIsAddModalOpen(true)}
+        onRecordsImported={handleRecordsImported}
         onLogout={handleLogout}
         onAccountDeleted={handleAccountDeleted}
         onUnauthorized={forceLogout}

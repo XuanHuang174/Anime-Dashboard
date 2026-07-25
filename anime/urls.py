@@ -12,6 +12,8 @@ from .views import (
     PublicShowcaseQuickFilterViewSet,
     PublicShowcaseViewSet,
     UserAnimeRecordViewSet,
+    UserJournalExportView,
+    UserJournalImportView,
     UserQuickFilterViewSet,
     UserRegistrationView,
     VerifyEmailView,
@@ -52,6 +54,8 @@ urlpatterns = [
         name="change-password",
     ),
     path("user/account/", CurrentUserAccountView.as_view(), name="user-account"),
+    path("export/", UserJournalExportView.as_view(), name="journal-export"),
+    path("import/", UserJournalImportView.as_view(), name="journal-import"),
     path("showcase-profile/", PublicShowcaseProfileView.as_view(), name="showcase-profile"),
     *router.urls,
 ]
