@@ -1,9 +1,11 @@
 import { useEffect, useRef } from 'react'
 
-function useScrollReveal(dependency) {
+function useScrollReveal(dependency, disabled = false) {
   const containerRef = useRef(null)
 
   useEffect(() => {
+    if (disabled) return undefined
+
     const elements = containerRef.current?.querySelectorAll('.animate-item') ?? []
     if (!('IntersectionObserver' in window)) {
       elements.forEach((element) => element.classList.add('is-revealed'))
@@ -49,7 +51,7 @@ function useScrollReveal(dependency) {
       window.clearTimeout(timeoutId)
       cleanupTimers.forEach((timer) => window.clearTimeout(timer))
     }
-  }, [dependency])
+  }, [dependency, disabled])
 
   return containerRef
 }

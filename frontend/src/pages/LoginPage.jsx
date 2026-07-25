@@ -498,7 +498,7 @@ function LoginPage() {
 
               <div className="login-piece mt-5 flex items-center justify-between border-t-4 border-black pt-3 text-[10px] font-black uppercase tracking-[0.12em]">
                 <span><i className="fa-solid fa-lock mr-1.5" />安全连接</span>
-                <span className="bg-[var(--memphis-yellow)] px-2 py-1">NO BORING UI</span>
+                <span className="bg-[var(--memphis-yellow)] px-2 py-1">MEMPHIS DESIGN</span>
               </div>
             </div>
           </div>

@@ -19,36 +19,52 @@ function Header({ onGetStarted }) {
     || 'XuanHuang'
 
   return (
-    <div className="bg-gradient-to-r from-pink-400 via-purple-400 to-indigo-500 text-white shadow-lg relative overflow-hidden">
-      <div className="absolute top-0 right-0 -mt-10 -mr-10 text-white/10 text-[15rem] rotate-12 pointer-events-none">
-        <i className="fa-solid fa-star"></i>
+    <header className="relative overflow-hidden border-b-4 border-black bg-[#ff6b6b] text-black">
+      <div
+        className="pointer-events-none absolute inset-0 opacity-20"
+        style={{
+          backgroundImage: 'linear-gradient(#111 2px, transparent 2px), linear-gradient(90deg, #111 2px, transparent 2px)',
+          backgroundSize: '38px 38px',
+        }}
+      />
+      <div className="memphis-header-piece pointer-events-none absolute -right-10 -top-14 h-52 w-52 rounded-full border-[18px] border-black bg-[#4ecdc4] shadow-[8px_8px_0_0_#ffe66d]">
+        <i className="fa-solid fa-star absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rotate-12 text-7xl text-[#ffe66d]"></i>
       </div>
-      <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8 relative z-10">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <span className="bg-white/20 text-white text-xs font-semibold px-2.5 py-1 rounded-full uppercase tracking-wider inline-flex items-center backdrop-blur-sm shadow-sm">
-              <i className="fa-solid fa-heart mr-1.5 animate-pulse"></i> 个人手账 / 追番记录
+
+      <div className="relative z-10 mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8 lg:py-12">
+        <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+          <div className="max-w-3xl">
+            <span className="memphis-header-piece inline-flex -rotate-1 items-center border-[3px] border-black bg-[#ffe66d] px-3 py-1.5 text-xs font-black uppercase tracking-[0.16em] shadow-[4px_4px_0_0_#111]">
+              <i className="fa-solid fa-heart mr-2"></i>
+              个人手账 / 追番记录
             </span>
-            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight mt-3 flex items-center gap-3">
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-2 border-white/70 bg-white/20 text-xl shadow-lg shadow-indigo-700/20 ring-2 ring-white/20 backdrop-blur-sm sm:h-14 sm:w-14">
+
+            <h1
+              className="memphis-header-piece mt-5 flex items-center gap-4 text-3xl font-black tracking-[-0.04em] sm:text-5xl"
+              style={{ fontFamily: '"Arial Black", Impact, sans-serif' }}
+            >
+              <span className="flex h-14 w-14 shrink-0 -rotate-3 items-center justify-center overflow-hidden border-4 border-black bg-white text-xl shadow-[6px_6px_0_0_#4ecdc4] sm:h-16 sm:w-16">
                 {showcaseProfile?.avatar ? (
                   <img src={showcaseProfile.avatar} alt={`${displayName}的头像`} className="h-full w-full object-cover" />
                 ) : (
-                  <i className="fa-solid fa-star text-yellow-300"></i>
+                  <i className="fa-solid fa-star text-[#ff6b6b]"></i>
                 )}
               </span>
-              <span>{displayName} 的番剧汇总</span>
+              <span className="inline-block bg-black px-3 py-2 text-white">{displayName} 的番剧汇总</span>
             </h1>
-            <p className="mt-2 text-pink-50 max-w-xl text-sm sm:text-base opacity-90">
-              {showcaseProfile?.showcase_subtitle?.trim() || '精心收录 2007 年至今的优质动漫作品，包含详细的题材分类、季度划分与主观评价等。'}
+
+            <p className="memphis-header-piece mt-5 max-w-2xl border-l-[8px] border-black bg-white px-4 py-3 text-sm font-bold leading-6 shadow-[6px_6px_0_0_#111] sm:text-base">
+              {showcaseProfile?.showcase_subtitle?.trim()
+                || '精心收录 2007 年至今的优质动画作品，包含详细的题材分类、季度划分与主观评价。'}
             </p>
           </div>
-          <div className="flex flex-wrap gap-3">
+
+          <div className="memphis-header-piece mr-4 flex flex-wrap gap-3">
             <button
               id="exportCsvBtn"
               type="button"
               onClick={onGetStarted}
-              className="bg-white text-indigo-600 hover:bg-indigo-50 hover:shadow-lg active:scale-95 font-semibold px-5 py-3 rounded-xl shadow-md transition-all duration-200 flex items-center gap-2 border border-transparent"
+              className="memphis-pressable flex items-center gap-2 border-4 border-black bg-[#ffe66d] px-5 py-3 font-black text-black shadow-[7px_7px_0_0_#111]"
             >
               <i className="fa-solid fa-wand-magic-sparkles text-lg"></i>
               设计自己的个人手账！
@@ -56,7 +72,7 @@ function Header({ onGetStarted }) {
           </div>
         </div>
       </div>
-    </div>
+    </header>
   )
 }
 

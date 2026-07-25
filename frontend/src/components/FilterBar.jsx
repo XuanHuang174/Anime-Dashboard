@@ -38,6 +38,7 @@ function FilterBar({
   onResetPagination = null,
   availableTags = null,
   availableYears = null,
+  theme = 'default',
 }) {
   const [isMobileOpen, setIsMobileOpen] = useState(false)
   const [showViewHint, setShowViewHint] = useState(() => (
@@ -99,7 +100,7 @@ function FilterBar({
   }
 
   return (
-    <div className="bg-gradient-to-br from-white to-indigo-50/50 rounded-2xl shadow-md border border-indigo-100 p-4 sm:p-6 mb-6 ring-1 ring-white/60">
+    <div className={`${theme === 'memphis' ? 'memphis-filter' : ''} bg-gradient-to-br from-white to-indigo-50/50 rounded-2xl shadow-md border border-indigo-100 p-4 sm:p-6 mb-6 ring-1 ring-white/60`}>
       <div
         className="flex justify-between items-center cursor-pointer md:cursor-none"
         onClick={toggleMobileFilter}

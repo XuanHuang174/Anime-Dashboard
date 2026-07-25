@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useGSAP } from '@gsap/react'
+import gsap from 'gsap'
 import { useNavigate } from 'react-router-dom'
 import api from './api/api.js'
 import AnimeGrid from './components/AnimeGrid.jsx'
@@ -18,6 +20,8 @@ import animeData from './data/animeData.js'
 import { comparePeriod } from './utils/animeDisplay.js'
 import { mapRecordToAnimeItem } from './utils/recordMapping.js'
 
+gsap.registerPlugin(useGSAP)
+
 function matchesShowcaseQuickFilter(item, filter) {
   if (!filter) return true
   const titleKeywords = filter.title_keywords ?? []
@@ -30,6 +34,7 @@ function matchesShowcaseQuickFilter(item, filter) {
 }
 
 function App() {
+  const publicPageRef = useRef(null)
   const navigate = useNavigate()
   const [db, setDb] = useState(() => animeData.map((item) => ({ ...item })))
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -236,13 +241,89 @@ function App() {
 
   const handleGetStarted = () => navigate('/login')
 
+  useGSAP(() => {
+    gsap.from('.memphis-header-piece', {
+      y: -70,
+      rotate: () => gsap.utils.random(-5, 5),
+      opacity: 0,
+      duration: 0.7,
+      stagger: 0.09,
+      ease: 'back.out(1.7)',
+    })
+    gsap.from('.memphis-stat-card', {
+      y: 90,
+      scale: 0.72,
+      rotate: () => gsap.utils.random(-7, 7),
+      opacity: 0,
+      duration: 0.68,
+      stagger: 0.1,
+      ease: 'back.out(1.7)',
+      delay: 0.15,
+    })
+    gsap.to('.memphis-float-ring', {
+      y: 24,
+      rotate: 18,
+      duration: 4.8,
+      repeat: -1,
+      yoyo: true,
+      ease: 'power1.inOut',
+    })
+    gsap.to('.memphis-float-triangle', {
+      x: 18,
+      y: -12,
+      rotate: 360,
+      duration: 10,
+      repeat: -1,
+      yoyo: true,
+      ease: 'steps(6)',
+    })
+    gsap.to('.memphis-float-zigzag', {
+      x: -18,
+      rotate: -4,
+      duration: 3.8,
+      repeat: -1,
+      yoyo: true,
+      ease: 'power1.inOut',
+    })
+  }, { scope: publicPageRef })
+
+  useGSAP(() => {
+    const entries = gsap.utils.toArray('.memphis-entry')
+    if (entries.length === 0) return
+    gsap.fromTo(entries, {
+      y: 58,
+      scale: 0.88,
+      rotate: (index) => (index % 2 === 0 ? -2 : 2),
+      opacity: 0,
+    }, {
+      y: 0,
+      scale: 1,
+      rotate: 0,
+      opacity: 1,
+      duration: 0.55,
+      stagger: 0.055,
+      ease: 'back.out(1.7)',
+      clearProps: 'transform,opacity',
+    })
+  }, {
+    scope: publicPageRef,
+    dependencies: [currentPage, filteredAnime, view],
+  })
+
   return (
-    <>
+    <main
+      ref={publicPageRef}
+      className="memphis-public relative min-h-screen overflow-hidden bg-[#fff5ee] pb-12 text-black"
+    >
+      <div className="memphis-grid-texture pointer-events-none absolute inset-0" aria-hidden="true" />
+      <div className="memphis-float-ring pointer-events-none absolute right-[-54px] top-[34rem] z-0 h-32 w-32 rounded-full border-[18px] border-black bg-[#4ecdc4]" aria-hidden="true" />
+      <div className="memphis-float-triangle pointer-events-none absolute left-[-32px] top-[52rem] z-0 h-0 w-0" aria-hidden="true" />
+      <div className="memphis-float-zigzag pointer-events-none absolute bottom-24 right-0 z-0 h-16 w-44" aria-hidden="true" />
       <CustomCursor />
       <Header onGetStarted={handleGetStarted} />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-6 relative z-20">
-        <StatsSummary db={db} statsData={statsData} />
+      <div className="relative z-20 mx-auto -mt-6 max-w-7xl px-4 sm:px-6 lg:px-8">
+        <StatsSummary db={db} statsData={statsData} theme="memphis" />
         <FilterBar
           db={db}
           searchQuery={searchQuery}
@@ -266,6 +347,7 @@ function App() {
           onResetPagination={() => handlePageSizeChange('all')}
           availableTags={filterOptions.tags}
           availableYears={filterOptions.years}
+          theme="memphis"
         />
 
         <div
@@ -281,7 +363,7 @@ function App() {
           <PriorityNotice unratedCount={visibleUnratedCount} />
         </div>
 
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-indigo-500/30 to-transparent opacity-0 group-hover/container:opacity-100 transition-opacity duration-700"></div>
+        <div className="mb-5 h-2 w-full border-2 border-black bg-[repeating-linear-gradient(135deg,#111_0,#111_8px,#ffe66d_8px,#ffe66d_16px)]"></div>
 
         {filteredAnime.length > 0 && view === 'list' && (
           <AnimeList
@@ -290,10 +372,11 @@ function App() {
             setSortOrder={setSortOrder}
             onOpenDetail={handleOpenDetail}
             startIndex={listStartIndex}
+            theme="memphis"
           />
         )}
         {filteredAnime.length > 0 && view === 'grid' && (
-          <AnimeGrid items={filteredAnime} onOpenDetail={handleOpenDetail} />
+          <AnimeGrid items={filteredAnime} onOpenDetail={handleOpenDetail} theme="memphis" />
         )}
 
         {filteredAnime.length === 0 && (
@@ -321,7 +404,7 @@ function App() {
         closeModal={closeModal}
       />
       <BackToTop isModalOpen={isModalOpen} />
-    </>
+    </main>
   )
 }
 

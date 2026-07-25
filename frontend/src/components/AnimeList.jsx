@@ -1,7 +1,8 @@
 import useScrollReveal from '../hooks/useScrollReveal.js'
 import { getCoverSrc, getSeasonDetails, getTagClass } from '../utils/animeDisplay.js'
 
-function getScoreColorClass(score) {
+function getScoreColorClass(score, isMemphis = false) {
+  if (isMemphis) return 'text-black'
   if (score >= 9.9) {
     return 'text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 animate-pulse'
   }
@@ -29,8 +30,9 @@ function getStarColorClass(score, isLit) {
   return 'text-slate-200'
 }
 
-function AnimeList({ items, sortOrder, setSortOrder, onOpenDetail, startIndex = 0 }) {
-  const containerRef = useScrollReveal(items)
+function AnimeList({ items, sortOrder, setSortOrder, onOpenDetail, startIndex = 0, theme = 'default' }) {
+  const isMemphis = theme === 'memphis'
+  const containerRef = useScrollReveal(items, isMemphis)
 
   const toggleSort = (type) => {
     if (type === 'date') {
@@ -59,8 +61,8 @@ function AnimeList({ items, sortOrder, setSortOrder, onOpenDetail, startIndex = 
       : 'fa-solid fa-sort text-slate-300 group-hover:text-pink-500 transition-colors'
 
   return (
-    <div id="viewListContainer" className="transition-opacity duration-300 pb-4" ref={containerRef}>
-      <div className="bg-white rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-200/80 overflow-hidden ring-1 ring-slate-900/5 relative group/tablebox">
+    <div id="viewListContainer" className={`${isMemphis ? 'memphis-anime-list' : ''} pb-4`} ref={containerRef}>
+      <div className="group/tablebox relative overflow-hidden rounded-[24px] border border-slate-200/80 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] ring-1 ring-slate-900/5">
         <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white to-transparent opacity-80 z-10"></div>
 
         <div className="overflow-x-auto overflow-y-hidden custom-scrollbar">
@@ -95,7 +97,7 @@ function AnimeList({ items, sortOrder, setSortOrder, onOpenDetail, startIndex = 
             <tbody id="animeTableBody" className="divide-y divide-slate-100/80 text-sm">
               {items.map((item, index) => {
                 const scoreDisplay = item.score !== null ? item.score.toFixed(1) : '待定'
-                const scoreColorClass = getScoreColorClass(item.score)
+                const scoreColorClass = getScoreColorClass(item.score, isMemphis)
                 const stars = getStarCount(item.score)
                 const season = getSeasonDetails(item.period)
                 const listTopTags = item.tags.slice(0, 3)
@@ -104,28 +106,32 @@ function AnimeList({ items, sortOrder, setSortOrder, onOpenDetail, startIndex = 
                   <tr
                     key={item.id}
                     onClick={() => onOpenDetail(item)}
-                    className="animate-item cursor-pointer relative border-b border-slate-100 last:border-0 transition-all duration-300 group flex flex-wrap p-4 gap-x-4 md:table-row md:p-0 md:flex-none bg-white md:odd:bg-white md:even:bg-slate-50 hover:!bg-indigo-50/80"
+                    className={`${isMemphis ? 'memphis-entry' : 'animate-item'} group relative flex cursor-pointer flex-wrap gap-x-4 border-b border-slate-100 bg-white p-4 transition-all duration-300 last:border-0 hover:!bg-indigo-50/80 md:table-row md:flex-none md:p-0 md:odd:bg-white md:even:bg-slate-50`}
                   >
                     <td className="hidden md:table-cell py-5 px-6 relative w-24">
                       <div className="absolute left-0 top-1/4 bottom-1/4 w-1 bg-indigo-500 rounded-r-full scale-y-0 group-hover:scale-y-100 opacity-0 group-hover:opacity-100 transition-all duration-300 origin-center"></div>
                       <div className="w-full flex items-center justify-center relative min-h-[40px]">
-                        <span className="absolute text-2xl font-black text-slate-300 group-hover:scale-75 group-hover:opacity-0 transition-all duration-500 ease-out select-none pointer-events-none">
+                        <span className={`${isMemphis ? 'text-black' : 'absolute text-slate-300 transition-all duration-500 ease-out group-hover:scale-75 group-hover:opacity-0'} pointer-events-none select-none text-2xl font-black`}>
                           {startIndex + index + 1}
                         </span>
-                        <span className="absolute text-3xl font-black text-transparent bg-clip-text bg-gradient-to-br from-indigo-500 to-purple-600 opacity-0 scale-75 group-hover:scale-100 group-hover:opacity-100 transition-all duration-500 ease-out select-none pointer-events-none">
-                          {startIndex + index + 1}
-                        </span>
+                        {!isMemphis && (
+                          <span className="pointer-events-none absolute scale-75 select-none bg-gradient-to-br from-indigo-500 to-purple-600 bg-clip-text text-3xl font-black text-transparent opacity-0 transition-all duration-500 ease-out group-hover:scale-100 group-hover:opacity-100">
+                            {startIndex + index + 1}
+                          </span>
+                        )}
                       </div>
                     </td>
 
                     <td className="w-20 shrink-0 md:w-auto md:py-5 md:px-6">
-                      <div className="relative w-full aspect-[3/4] md:w-16 md:h-20 bg-slate-100 rounded-lg overflow-hidden shadow-sm hover:shadow-md cursor-pointer transition-all duration-300 group/poster hover:scale-105 hover:ring-2 ring-indigo-300 ring-offset-1">
+                      <div className={`${isMemphis ? 'memphis-list-poster' : ''} group/poster relative aspect-[3/4] w-full cursor-pointer overflow-hidden rounded-lg bg-slate-100 shadow-sm transition-all duration-300 ring-indigo-300 ring-offset-1 hover:scale-105 hover:shadow-md hover:ring-2 md:h-20 md:w-16`}>
                         <img
                           src={getCoverSrc(item)}
                           className="w-full h-full object-cover group-hover/poster:scale-110 transition duration-500"
                           alt="Promo"
                         />
-                        <div className="absolute top-0 -left-[150%] w-[150%] h-full bg-gradient-to-r from-transparent via-white/60 to-transparent skew-x-[-25deg] group-hover/poster:translate-x-[180%] transition-transform duration-700 ease-in-out z-10 pointer-events-none"></div>
+                        {!isMemphis && (
+                          <div className="pointer-events-none absolute -left-[150%] top-0 z-10 h-full w-[150%] skew-x-[-25deg] bg-gradient-to-r from-transparent via-white/60 to-transparent transition-transform duration-700 ease-in-out group-hover/poster:translate-x-[180%]"></div>
+                        )}
                       </div>
                     </td>
 
@@ -148,10 +154,10 @@ function AnimeList({ items, sortOrder, setSortOrder, onOpenDetail, startIndex = 
                             {season.icon && <i className={`${season.icon} ${season.mobileIconClass}`}></i>}
                             {item.period}
                           </span>
-                          {listTopTags.map((tag) => (
+                          {listTopTags.map((tag, tagIndex) => (
                             <span
                               key={tag}
-                              className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${getTagClass(tag, item.tagColors?.[tag]).replace('shadow-sm', '')}`}
+                              className={`${isMemphis ? `memphis-sticker ${tagIndex % 2 ? 'rotate-2' : '-rotate-2'}` : ''} px-1.5 py-0.5 rounded text-[10px] font-medium ${getTagClass(tag, item.tagColors?.[tag]).replace('shadow-sm', '')}`}
                             >
                               {tag}
                             </span>
@@ -177,8 +183,8 @@ function AnimeList({ items, sortOrder, setSortOrder, onOpenDetail, startIndex = 
                             {item.statusLabel}
                           </span>
                         )}
-                        {item.tags.map((tag) => (
-                          <span key={tag} className={`px-2.5 py-1 rounded-md text-xs font-medium ${getTagClass(tag, item.tagColors?.[tag])}`}>
+                        {item.tags.map((tag, tagIndex) => (
+                          <span key={tag} className={`${isMemphis ? `memphis-sticker ${tagIndex % 2 ? 'rotate-2' : '-rotate-2'}` : ''} px-2.5 py-1 rounded-md text-xs font-medium ${getTagClass(tag, item.tagColors?.[tag])}`}>
                             {tag}
                           </span>
                         ))}

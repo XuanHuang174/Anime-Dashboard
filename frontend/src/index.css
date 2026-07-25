@@ -140,3 +140,341 @@ label {
     display: none !important;
   }
 }
+
+/* Public showcase: Memphis / Neo-Brutalism theme */
+.memphis-public {
+  --memphis-cream: #fff5ee;
+  --memphis-coral: #ff6b6b;
+  --memphis-teal: #4ecdc4;
+  --memphis-yellow: #ffe66d;
+  --memphis-ink: #111111;
+  isolation: isolate;
+}
+
+.memphis-grid-texture {
+  z-index: 0;
+  opacity: 0.2;
+  background-image:
+    radial-gradient(var(--memphis-ink) 1.5px, transparent 1.5px),
+    linear-gradient(rgba(17, 17, 17, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(17, 17, 17, 0.1) 1px, transparent 1px);
+  background-position: 0 0, 10px 10px, 10px 10px;
+  background-size: 20px 20px, 80px 80px, 80px 80px;
+}
+
+.memphis-float-ring {
+  box-shadow: 8px 8px 0 var(--memphis-coral);
+}
+
+.memphis-float-triangle {
+  border-bottom: 96px solid var(--memphis-coral);
+  border-left: 55px solid transparent;
+  border-right: 55px solid transparent;
+  filter: drop-shadow(6px 7px 0 var(--memphis-ink));
+}
+
+.memphis-float-zigzag {
+  background:
+    linear-gradient(135deg, transparent 0 38%, var(--memphis-ink) 39% 49%, transparent 50%) 0 0 / 44px 44px,
+    linear-gradient(45deg, transparent 0 38%, var(--memphis-coral) 39% 49%, transparent 50%) 22px 0 / 44px 44px;
+}
+
+.memphis-public button,
+.memphis-public a,
+.memphis-public input,
+.memphis-public select {
+  transition: none !important;
+}
+
+.memphis-pressable:hover,
+.memphis-pressable:active,
+.memphis-public .memphis-anime-grid > .memphis-entry:hover,
+.memphis-public .memphis-anime-grid > .memphis-entry:active {
+  transform: translate(6px, 6px) !important;
+  box-shadow: none !important;
+}
+
+.memphis-stat-card:hover {
+  transform: translate(4px, 4px) rotate(0deg) !important;
+  box-shadow: 2px 2px 0 var(--memphis-ink) !important;
+}
+
+.memphis-filter {
+  position: relative;
+  border: 4px solid var(--memphis-ink) !important;
+  border-radius: 0 !important;
+  background: #fff !important;
+  box-shadow: 8px 8px 0 var(--memphis-teal) !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+}
+
+.memphis-filter::before {
+  content: "FILTER LAB";
+  position: absolute;
+  right: 18px;
+  top: -14px;
+  z-index: 2;
+  transform: rotate(2deg);
+  border: 3px solid var(--memphis-ink);
+  background: var(--memphis-yellow);
+  padding: 3px 10px;
+  color: var(--memphis-ink);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.15em;
+  box-shadow: 3px 3px 0 var(--memphis-ink);
+}
+
+.memphis-filter h2 {
+  width: fit-content;
+  border: 3px solid var(--memphis-ink);
+  background: var(--memphis-coral);
+  padding: 7px 11px;
+  color: var(--memphis-ink) !important;
+  box-shadow: 4px 4px 0 var(--memphis-ink);
+}
+
+.memphis-filter h2 i,
+.memphis-filter label,
+.memphis-filter .text-indigo-500,
+.memphis-filter .text-indigo-600 {
+  color: var(--memphis-ink) !important;
+}
+
+.memphis-filter input,
+.memphis-filter select {
+  border: 3px solid var(--memphis-ink) !important;
+  border-radius: 0 !important;
+  background: #fff !important;
+  color: var(--memphis-ink) !important;
+  font-weight: 800;
+  box-shadow: 4px 4px 0 var(--memphis-teal) !important;
+  outline: 0 !important;
+}
+
+.memphis-filter input:focus,
+.memphis-filter select:focus {
+  transform: translate(3px, 3px) !important;
+  background: var(--memphis-yellow) !important;
+  box-shadow: 1px 1px 0 var(--memphis-ink) !important;
+}
+
+.memphis-filter #quickCategoryFilter {
+  border-top: 3px solid var(--memphis-ink);
+  padding-top: 16px;
+}
+
+.memphis-filter #quickCategoryFilter button {
+  border: 3px solid var(--memphis-ink) !important;
+  border-radius: 9999px !important;
+  background: #fff !important;
+  color: var(--memphis-ink) !important;
+  box-shadow: 3px 3px 0 var(--memphis-ink) !important;
+}
+
+.memphis-filter #quickCategoryFilter button.active,
+.memphis-filter #quickCategoryFilter button:hover {
+  transform: translate(3px, 3px) !important;
+  background: var(--memphis-yellow) !important;
+  box-shadow: none !important;
+}
+
+.memphis-filter #viewToggleGroup {
+  border: 3px solid var(--memphis-ink) !important;
+  border-radius: 0 !important;
+  background: var(--memphis-teal) !important;
+  box-shadow: 4px 4px 0 var(--memphis-ink) !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+}
+
+.memphis-filter #viewToggleGroup button {
+  border-radius: 0 !important;
+  color: var(--memphis-ink) !important;
+  box-shadow: none !important;
+}
+
+.memphis-filter #viewToggleGroup button.bg-white {
+  border: 2px solid var(--memphis-ink);
+  background: #fff !important;
+}
+
+.memphis-filter #filteredCount {
+  border: 2px solid var(--memphis-ink) !important;
+  border-radius: 0 !important;
+  color: var(--memphis-ink) !important;
+  box-shadow: none !important;
+}
+
+.memphis-public #showcasePaginationTop > div {
+  border: 3px solid var(--memphis-ink) !important;
+  border-radius: 0 !important;
+  background: #fff !important;
+  box-shadow: 5px 5px 0 var(--memphis-ink) !important;
+  backdrop-filter: none !important;
+}
+
+.memphis-public #showcasePaginationTop > div:first-child {
+  background: var(--memphis-yellow) !important;
+}
+
+.memphis-public #showcasePaginationTop > div:last-child {
+  background: var(--memphis-teal) !important;
+}
+
+.memphis-public #showcasePaginationTop select {
+  border: 3px solid var(--memphis-ink) !important;
+  border-radius: 9999px !important;
+  color: var(--memphis-ink) !important;
+  box-shadow: 3px 3px 0 var(--memphis-ink) !important;
+}
+
+.memphis-anime-grid > .memphis-entry {
+  border: 4px solid var(--memphis-ink) !important;
+  border-radius: 0 !important;
+  box-shadow: 7px 7px 0 var(--memphis-ink) !important;
+  transition: none !important;
+}
+
+.memphis-anime-grid > .memphis-entry:nth-child(4n + 1) {
+  box-shadow: 7px 7px 0 var(--memphis-coral) !important;
+}
+
+.memphis-anime-grid > .memphis-entry:nth-child(4n + 2) {
+  box-shadow: 7px 7px 0 var(--memphis-teal) !important;
+}
+
+.memphis-anime-grid > .memphis-entry:nth-child(4n + 3) {
+  box-shadow: 7px 7px 0 var(--memphis-yellow) !important;
+}
+
+.memphis-anime-grid .memphis-season-bar {
+  border-top: 3px solid var(--memphis-ink);
+  background: var(--memphis-ink);
+  opacity: 1;
+}
+
+.memphis-anime-grid h3 {
+  color: var(--memphis-ink) !important;
+  font-weight: 900;
+}
+
+.memphis-anime-grid img,
+.memphis-anime-list img {
+  filter: saturate(1.08) contrast(1.04);
+}
+
+.memphis-sticker {
+  border: 2px solid var(--memphis-ink) !important;
+  border-radius: 9999px !important;
+  box-shadow: 2px 2px 0 var(--memphis-ink) !important;
+  font-weight: 900 !important;
+}
+
+.memphis-anime-list > div {
+  border: 4px solid var(--memphis-ink) !important;
+  border-radius: 0 !important;
+  box-shadow: 8px 8px 0 var(--memphis-ink) !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+}
+
+.memphis-anime-list thead tr {
+  border-bottom: 4px solid var(--memphis-ink) !important;
+  background: var(--memphis-yellow) !important;
+  color: var(--memphis-ink) !important;
+}
+
+.memphis-anime-list tbody {
+  color: var(--memphis-ink) !important;
+}
+
+.memphis-anime-list .memphis-entry {
+  border-bottom: 3px solid var(--memphis-ink) !important;
+  background: #fff !important;
+}
+
+.memphis-anime-list .memphis-entry:nth-child(even) {
+  background: #fff5ee !important;
+}
+
+.memphis-anime-list .memphis-entry:hover {
+  background: var(--memphis-teal) !important;
+}
+
+.memphis-anime-list .memphis-entry img {
+  border: 2px solid var(--memphis-ink);
+}
+
+.memphis-anime-list .memphis-list-poster {
+  border: 3px solid var(--memphis-ink);
+  border-radius: 0 !important;
+  box-shadow: 4px 4px 0 var(--memphis-coral) !important;
+}
+
+.memphis-anime-list .memphis-list-poster:hover {
+  transform: translate(3px, 3px) !important;
+  box-shadow: none !important;
+}
+
+.memphis-anime-list button {
+  border: 3px solid var(--memphis-ink) !important;
+  border-radius: 9999px !important;
+  background: var(--memphis-coral) !important;
+  color: var(--memphis-ink) !important;
+  box-shadow: 3px 3px 0 var(--memphis-ink) !important;
+}
+
+.memphis-anime-list button:hover,
+.memphis-anime-list button:active {
+  transform: translate(3px, 3px) !important;
+  box-shadow: none !important;
+}
+
+.memphis-public nav[aria-label] {
+  border: 4px solid var(--memphis-ink) !important;
+  border-radius: 0 !important;
+  background: var(--memphis-coral) !important;
+  box-shadow: 7px 7px 0 var(--memphis-ink) !important;
+  backdrop-filter: none !important;
+}
+
+.memphis-public nav[aria-label] button,
+.memphis-public nav[aria-label] input {
+  border: 3px solid var(--memphis-ink) !important;
+  border-radius: 9999px !important;
+  background: #fff !important;
+  color: var(--memphis-ink) !important;
+  box-shadow: 3px 3px 0 var(--memphis-ink) !important;
+}
+
+.memphis-public nav[aria-label] button:hover:not(:disabled),
+.memphis-public nav[aria-label] button:active:not(:disabled) {
+  transform: translate(3px, 3px) !important;
+  background: var(--memphis-yellow) !important;
+  box-shadow: none !important;
+}
+
+.memphis-public nav[aria-label] > span {
+  border: 3px solid var(--memphis-ink);
+  border-radius: 0 !important;
+  background: var(--memphis-yellow) !important;
+  color: var(--memphis-ink) !important;
+  box-shadow: 3px 3px 0 var(--memphis-ink);
+}
+
+.memphis-public #noResults {
+  border: 4px solid var(--memphis-ink);
+  background: #fff;
+  box-shadow: 8px 8px 0 var(--memphis-coral);
+}
+
+@media (max-width: 767px) {
+  .memphis-filter::before {
+    right: 12px;
+  }
+
+  .memphis-anime-list .memphis-entry {
+    margin-bottom: 12px;
+    border: 3px solid var(--memphis-ink) !important;
+    box-shadow: 5px 5px 0 var(--memphis-ink);
+  }
+}
