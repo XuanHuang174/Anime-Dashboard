@@ -1,0 +1,142 @@
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background-color: #f8fafc;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.animate-item {
+  opacity: 0;
+  transform: translateY(20px);
+  will-change: opacity, transform;
+  backface-visibility: hidden;
+}
+
+.animate-item.is-revealed {
+  animation: parallaxReveal 0.4s ease-out forwards;
+}
+
+@keyframes parallaxReveal {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes sway {
+  0%,
+  100% {
+    transform: rotate(-10deg);
+  }
+  50% {
+    transform: rotate(10deg);
+  }
+}
+
+.animate-sway {
+  animation: sway 3s ease-in-out infinite;
+  display: inline-block;
+}
+
+::view-transition-old(root) {
+  animation: viewFadeOut 0.35s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+::view-transition-new(root) {
+  animation: viewFadeIn 0.35s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+@keyframes viewFadeOut {
+  to {
+    opacity: 0;
+    transform: scale(0.98) translateY(10px);
+  }
+}
+
+@keyframes viewFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(1.02) translateY(-10px);
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  body {
+    cursor: none;
+  }
+}
+
+#customCrosshair {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 12px;
+  height: 12px;
+  background-color: #6366f1;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 6px rgba(99, 102, 241, 0.6);
+  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.2s,
+    opacity 0.2s ease;
+  will-change: transform, opacity;
+  display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  #customCrosshair {
+    display: block;
+  }
+}
+
+input,
+select,
+textarea {
+  cursor: auto !important;
+}
+
+label {
+  cursor: none !important;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .hover\:-translate-y-1\.5:hover {
+    transform: none !important;
+  }
+
+  .group-hover\/spotlight\:scale-110:hover,
+  .group-hover\/poster\:scale-110:hover {
+    transform: none !important;
+  }
+
+  .group-hover\/spotlight\:translate-x-\[200\%\] {
+    display: none !important;
+  }
+}
