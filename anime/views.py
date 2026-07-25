@@ -25,6 +25,7 @@ from .serializers import (
     AccountDeletionSerializer,
     AnimeSerializer,
     ChangePasswordSerializer,
+    CustomTokenObtainPairSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
     PublicUserProfileSerializer,
@@ -258,9 +259,10 @@ def _build_record_stats(queryset):
     }
 
 
-class ThrottledTokenObtainPairView(TokenObtainPairView):
-    """JWT login endpoint protected by the shared per-IP auth throttle."""
+class CustomTokenObtainPairView(TokenObtainPairView):
+    """JWT login endpoint with Chinese errors and strict per-IP throttling."""
 
+    serializer_class = CustomTokenObtainPairSerializer
     throttle_classes = (AnonRateThrottle, SensitiveAuthRateThrottle)
 
 

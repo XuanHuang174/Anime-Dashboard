@@ -21,13 +21,13 @@ from django.urls import include, path
 from django.views.generic import TemplateView
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from anime.views import ThrottledTokenObtainPairView
+from anime.views import CustomTokenObtainPairView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path(
         'api/token/',
-        ThrottledTokenObtainPairView.as_view(),
+        CustomTokenObtainPairView.as_view(),
         name='token_obtain_pair',
     ),
     path(

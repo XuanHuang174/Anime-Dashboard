@@ -1,18 +1,69 @@
 import json
+import re
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from .models import Anime, TAG_COLOR_KEYS, UserAnimeRecord, UserProfile, UserQuickFilter
+
+
+STRICT_EMAIL_PATTERN = re.compile(
+    r"^[A-Z0-9!#$%&'*+/=?^_`{|}~-]+"
+    r"(?:\.[A-Z0-9!#$%&'*+/=?^_`{|}~-]+)*"
+    r"@(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+"
+    r"[A-Z]{2,6}$",
+    re.IGNORECASE | re.ASCII,
+)
+
+KNOWN_PROVIDER_DOMAINS = {
+    "qq": {"qq.com", "vip.qq.com"},
+    "163": {"163.com", "vip.163.com"},
+    "126": {"126.com"},
+    "yeah": {"yeah.net"},
+    "gmail": {"gmail.com"},
+    "outlook": {"outlook.com"},
+    "hotmail": {"hotmail.com"},
+    "live": {"live.com"},
+}
+
+
+def validate_strict_email(value):
+    """Normalize an address and reject malformed or mistyped provider domains."""
+
+    email = get_user_model().objects.normalize_email(value).strip().lower()
+    if not STRICT_EMAIL_PATTERN.fullmatch(email):
+        raise serializers.ValidationError("请输入正确格式的邮箱地址。")
+
+    domain = email.rsplit("@", 1)[1]
+    labels = domain.split(".")
+    provider_name = labels[-2] if len(labels) >= 2 else ""
+    allowed_domains = KNOWN_PROVIDER_DOMAINS.get(provider_name)
+    if allowed_domains is not None and domain not in allowed_domains:
+        raise serializers.ValidationError("请输入正确格式的邮箱地址。")
+
+    return email
+
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    """Return a Chinese authentication error without changing JWT behavior."""
+
+    default_error_messages = {
+        **TokenObtainPairSerializer.default_error_messages,
+        "no_active_account": "邮箱或密码不正确，请检查后重试。",
+    }
 
 
 class UserRegistrationSerializer(serializers.Serializer):
     """Register an inactive account whose login name is its email address."""
 
-    email = serializers.EmailField(max_length=150)
+    email = serializers.EmailField(
+        max_length=150,
+        error_messages={"invalid": "请输入正确格式的邮箱地址。"},
+    )
     password = serializers.CharField(
         write_only=True,
         trim_whitespace=False,
@@ -27,7 +78,7 @@ class UserRegistrationSerializer(serializers.Serializer):
 
     def validate_email(self, value):
         user_model = get_user_model()
-        email = user_model.objects.normalize_email(value).strip().lower()
+        email = validate_strict_email(value)
         if user_model.objects.filter(email__iexact=email).exists():
             raise serializers.ValidationError("该邮箱已被注册。")
         if user_model.objects.filter(username__iexact=email).exists():
@@ -65,10 +116,13 @@ class UserRegistrationSerializer(serializers.Serializer):
 class PasswordResetRequestSerializer(serializers.Serializer):
     """Validate the email submitted to the password-reset endpoint."""
 
-    email = serializers.EmailField(max_length=254)
+    email = serializers.EmailField(
+        max_length=254,
+        error_messages={"invalid": "请输入正确格式的邮箱地址。"},
+    )
 
     def validate_email(self, value):
-        return get_user_model().objects.normalize_email(value).strip().lower()
+        return validate_strict_email(value)
 
 
 class PasswordResetConfirmSerializer(serializers.Serializer):

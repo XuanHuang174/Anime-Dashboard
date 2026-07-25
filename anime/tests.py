@@ -68,6 +68,26 @@ class RegistrationApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("email", response.data)
 
+    def test_registration_rejects_malformed_and_mistyped_email_domains(self):
+        for email in ("invalid@qq.co", "invalid@qq.com123"):
+            with self.subTest(email=email):
+                response = self.client.post(
+                    reverse("anime_api:register"),
+                    {
+                        "email": email,
+                        "password": "Strict-Email-2026!",
+                        "password_confirm": "Strict-Email-2026!",
+                    },
+                    format="json",
+                )
+
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertEqual(
+                    str(response.data["email"][0]),
+                    "请输入正确格式的邮箱地址。",
+                )
+        self.assertEqual(len(mail.outbox), 0)
+
     def test_activation_enables_inactive_user(self):
         user = get_user_model().objects.create_user(
             username="pending@example.com",
@@ -145,6 +165,22 @@ class PasswordResetApiTests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_request_rejects_invalid_email_before_sending(self):
+        for email in ("invalid@qq.co", "invalid@qq.com123"):
+            with self.subTest(email=email):
+                response = self.client.post(
+                    reverse("anime_api:password-reset-request"),
+                    {"email": email},
+                    format="json",
+                )
+
+                self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                self.assertEqual(
+                    str(response.data["email"][0]),
+                    "请输入正确格式的邮箱地址。",
+                )
         self.assertEqual(len(mail.outbox), 0)
 
     def test_confirm_updates_password_and_invalidates_token(self):
@@ -270,6 +306,22 @@ class JwtRotationApiTests(APITestCase):
             format="json",
         )
         self.assertEqual(reused_response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_login_returns_chinese_error_for_invalid_credentials(self):
+        response = self.client.post(
+            reverse("token_obtain_pair"),
+            {
+                "username": "missing@example.com",
+                "password": "Wrong-Password-2026!",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(
+            str(response.data["detail"]),
+            "邮箱或密码不正确，请检查后重试。",
+        )
 
 
 class SensitiveAuthThrottleTests(APITestCase):
