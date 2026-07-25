@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
@@ -42,6 +42,18 @@ function LoginPage() {
   const [notice, setNotice] = useState(location.state?.message || '')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  useEffect(() => {
+    const previousPaddingBottom = document.body.style.paddingBottom
+    const previousOverflow = document.body.style.overflow
+    document.body.style.paddingBottom = '0px'
+    document.body.style.overflow = 'hidden'
+
+    return () => {
+      document.body.style.paddingBottom = previousPaddingBottom
+      document.body.style.overflow = previousOverflow
+    }
+  }, [])
+
   useGSAP(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
 
@@ -59,7 +71,7 @@ function LoginPage() {
         {
           autoAlpha: 1,
           scale: 1,
-          rotation: -1.25,
+          rotation: -0.45,
           duration: 1.15,
           ease: 'elastic.out(1, 0.3)',
         },
@@ -193,7 +205,7 @@ function LoginPage() {
     <main
       ref={pageRef}
       style={MEMPHIS_COLORS}
-      className="relative min-h-screen overflow-x-hidden bg-[var(--memphis-cream)] px-4 py-5 text-[var(--memphis-ink)] sm:px-7 sm:py-7 lg:px-10"
+      className="relative h-[100dvh] overflow-hidden bg-[var(--memphis-cream)] px-3 py-3 text-[var(--memphis-ink)] sm:px-5 sm:py-4 lg:px-8 lg:py-5"
     >
       <CustomCursor />
 
@@ -228,8 +240,8 @@ function LoginPage() {
         <path d="m5 47 30-34 30 34 30-34 30 34 30-34 30 34 30-34" fill="none" stroke="var(--memphis-coral)" strokeWidth="10" strokeLinejoin="bevel" />
       </svg>
 
-      <div className="relative z-10 mx-auto max-w-6xl">
-        <div className="mb-5 flex items-center justify-between gap-4">
+      <div className="relative z-10 mx-auto flex h-full max-w-6xl flex-col">
+        <div className="mb-3 flex shrink-0 items-center justify-between gap-4">
           <Link
             to="/"
             className={`login-piece inline-flex items-center gap-2 bg-[var(--memphis-white)] px-4 py-2.5 text-sm font-black uppercase tracking-wide ${pressableClass}`}
@@ -243,8 +255,8 @@ function LoginPage() {
           </div>
         </div>
 
-        <section className="memphis-login-card grid border-[5px] border-black bg-white shadow-[12px_12px_0_0_var(--memphis-ink)] lg:grid-cols-[0.86fr_1.14fr]">
-          <aside className="relative overflow-hidden border-b-[5px] border-black bg-[var(--memphis-coral)] p-6 sm:p-9 lg:min-h-[690px] lg:border-b-0 lg:border-r-[5px] lg:p-11">
+        <section className="memphis-login-card mb-3 mr-3 grid min-h-0 flex-1 border-[5px] border-black bg-white shadow-[10px_10px_0_0_var(--memphis-ink)] lg:grid-cols-[0.86fr_1.14fr]">
+          <aside className="relative hidden min-h-0 overflow-hidden border-r-[5px] border-black bg-[var(--memphis-coral)] p-7 lg:flex xl:p-9">
             <div className="pointer-events-none absolute -right-9 top-8 h-28 w-28 rounded-full border-[15px] border-black/90 bg-[var(--memphis-yellow)]" />
             <div className="pointer-events-none absolute -bottom-10 -left-8 h-40 w-40 rotate-12 border-[6px] border-black bg-[var(--memphis-teal)]" />
 
@@ -254,24 +266,24 @@ function LoginPage() {
                 Anime Journal / 追番记录
               </div>
 
-              <div className="login-piece mt-8">
+              <div className="login-piece mt-5">
                 <div className="inline-flex -rotate-3 border-4 border-black bg-[var(--memphis-yellow)] px-3 py-1.5 text-sm font-black shadow-[5px_5px_0_0_var(--memphis-ink)]">
                   嘿！欢迎回来
                 </div>
                 <h2
-                  className="mt-6 max-w-md text-4xl font-black uppercase leading-[0.95] tracking-[-0.05em] text-black sm:text-5xl lg:text-6xl"
+                  className="mt-5 max-w-md text-4xl font-black uppercase leading-[0.95] tracking-[-0.05em] text-black lg:text-5xl xl:text-6xl"
                   style={{ fontFamily: '"Arial Black", Impact, sans-serif' }}
                 >
                   把喜欢的
                   <span className="my-2 block w-fit -rotate-2 bg-black px-3 py-2 text-[var(--memphis-yellow)]">动画</span>
                   全部记下来!
                 </h2>
-                <p className="mt-6 max-w-sm border-l-[7px] border-black pl-4 text-sm font-black leading-7 sm:text-base">
+                <p className="mt-4 max-w-sm border-l-[7px] border-black pl-4 text-sm font-black leading-6 xl:text-base xl:leading-7">
                   评分、标签、长评、海报墙——这里没有无聊的工作台，只有属于你的动画收藏宇宙。
                 </p>
               </div>
 
-              <div className="login-piece mt-8 grid grid-cols-3 gap-2 lg:mt-auto">
+              <div className="login-piece mt-auto grid grid-cols-3 gap-2 pt-5">
                 {[
                   ['01', '多视图', 'fa-layer-group', 'bg-[var(--memphis-yellow)]'],
                   ['02', '自由筛选', 'fa-tags', 'bg-[var(--memphis-teal)]'],
@@ -290,7 +302,7 @@ function LoginPage() {
             </div>
           </aside>
 
-          <div className="relative flex items-center bg-white p-5 sm:p-9 lg:p-12">
+          <div className="relative flex min-h-0 items-center overflow-hidden bg-white p-4 sm:p-6 lg:p-8 xl:p-10">
             <div className="pointer-events-none absolute right-4 top-4 grid grid-cols-4 gap-2 opacity-30">
               {Array.from({ length: 12 }, (_, index) => (
                 <span key={index} className="h-2.5 w-2.5 rounded-full bg-black" />
@@ -298,7 +310,7 @@ function LoginPage() {
             </div>
 
             <div className="relative mx-auto w-full max-w-md">
-              <header className="login-piece mb-6">
+              <header className="login-piece mb-4">
                 <span className="inline-flex rotate-1 items-center border-[3px] border-black bg-[var(--memphis-teal)] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em]">
                   {isReset ? 'PASSWORD RESCUE' : isRegister ? 'NEW PLAYER' : 'PLAYER ONE'}
                 </span>
@@ -318,7 +330,7 @@ function LoginPage() {
               </header>
 
               {!isReset ? (
-                <div className="login-piece mb-6 grid grid-cols-2 gap-3" role="tablist" aria-label="账号操作">
+                <div className="login-piece mb-4 grid grid-cols-2 gap-3" role="tablist" aria-label="账号操作">
                   {[
                     ['login', 'fa-right-to-bracket', '登录'],
                     ['register', 'fa-user-plus', '注册'],
@@ -344,14 +356,14 @@ function LoginPage() {
                 <button
                   type="button"
                   onClick={() => switchMode('login')}
-                  className={`login-piece mb-6 bg-[var(--memphis-yellow)] px-4 py-2 text-sm font-black ${pressableClass}`}
+                  className={`login-piece mb-4 bg-[var(--memphis-yellow)] px-4 py-2 text-sm font-black ${pressableClass}`}
                 >
                   <i className="fa-solid fa-arrow-left mr-2" />
                   返回登录
                 </button>
               )}
 
-              <form className="space-y-5" onSubmit={handleSubmit}>
+              <form className="space-y-4" onSubmit={handleSubmit}>
                 {isRegister || isReset ? (
                   <label className="mode-piece block">
                     <span className="mb-2 inline-block -rotate-1 bg-black px-2 py-1 text-xs font-black text-white">邮箱 EMAIL</span>
@@ -477,7 +489,7 @@ function LoginPage() {
                 </button>
               </form>
 
-              <div className="login-piece mt-7 flex items-center justify-between border-t-4 border-black pt-4 text-[10px] font-black uppercase tracking-[0.12em]">
+              <div className="login-piece mt-5 flex items-center justify-between border-t-4 border-black pt-3 text-[10px] font-black uppercase tracking-[0.12em]">
                 <span><i className="fa-solid fa-lock mr-1.5" />安全连接</span>
                 <span className="bg-[var(--memphis-yellow)] px-2 py-1">NO BORING UI</span>
               </div>
