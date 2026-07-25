@@ -59,15 +59,21 @@ function Header({ onGetStarted }) {
             </p>
           </div>
 
-          <div className="memphis-header-piece mr-4 flex flex-wrap gap-3">
+          <div className="memphis-header-piece mr-5 flex flex-wrap gap-3">
             <button
               id="exportCsvBtn"
               type="button"
               onClick={onGetStarted}
-              className="memphis-pressable flex items-center gap-2 border-4 border-black bg-[#ffe66d] px-5 py-3 font-black text-black shadow-[7px_7px_0_0_#111]"
+              className="memphis-primary-cta memphis-pressable flex items-center gap-3 border-4 border-black bg-[#ffe66d] px-7 py-4 text-left font-black text-black shadow-[8px_8px_0_0_#111]"
             >
-              <i className="fa-solid fa-wand-magic-sparkles text-lg"></i>
-              设计自己的个人手账！
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center border-[3px] border-black bg-[#ff6b6b] text-xl">
+                <i className="fa-solid fa-wand-magic-sparkles"></i>
+              </span>
+              <span className="flex flex-col leading-none">
+                <span className="text-[10px] tracking-[0.18em]">START YOUR JOURNAL</span>
+                <span className="mt-2 text-base sm:text-lg">设计自己的个人手账！</span>
+              </span>
+              <i className="fa-solid fa-arrow-right ml-1 text-lg"></i>
             </button>
           </div>
         </div>

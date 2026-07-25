@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import api from '../api/api.js'
 import { clearTokens } from '../auth/tokenStorage.js'
-import CustomCursor from '../components/CustomCursor.jsx'
 
 function DashboardPage() {
   const navigate = useNavigate()
@@ -47,7 +46,6 @@ function DashboardPage() {
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-800">
-      <CustomCursor />
       <header className="border-b border-white/30 bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-600 text-white shadow-lg">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-5 sm:px-6 lg:px-8">
           <Link to="/" className="flex items-center gap-3 font-black tracking-tight">

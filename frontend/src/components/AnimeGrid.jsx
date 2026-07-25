@@ -2,18 +2,17 @@ import useScrollReveal from '../hooks/useScrollReveal.js'
 import { getCoverSrc, getSeasonDetails, getTagClass } from '../utils/animeDisplay.js'
 
 function getGridScoreColorClass(score, isMemphis = false) {
-  if (isMemphis) return 'text-black'
-  if (score >= 9.9) {
-    return 'text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-indigo-300 animate-pulse'
+  if (score >= 9.8) {
+    return 'bg-gradient-to-r from-indigo-600 via-purple-600 to-fuchsia-500 bg-clip-text text-transparent'
   }
-  if (score >= 9.5) return 'text-rose-400'
-  if (score >= 9.0) return 'text-amber-400'
-  return 'text-white'
+  if (score >= 9.5) return 'text-orange-700'
+  if (score >= 9.0) return 'text-orange-500'
+  return isMemphis ? 'text-slate-800' : 'text-white'
 }
 
 function AnimeGrid({ items, onOpenDetail, theme = 'default' }) {
   const isMemphis = theme === 'memphis'
-  const containerRef = useScrollReveal(items, isMemphis)
+  const containerRef = useScrollReveal(items)
 
   const handleMouseMove = (event) => {
     if (window.matchMedia('(hover: none) and (pointer: coarse)').matches) return
@@ -41,7 +40,7 @@ function AnimeGrid({ items, onOpenDetail, theme = 'default' }) {
             key={item.id}
             onClick={() => onOpenDetail(item)}
             onMouseMove={handleMouseMove}
-            className={`${isMemphis ? 'memphis-entry' : 'animate-item'} group group/spotlight relative flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-slate-200/70 border-b-[4px] border-b-slate-300/80 bg-white shadow-[0_4px_15px_rgb(0,0,0,0.03)] transition-all duration-300 hover:-translate-y-1.5 hover:shadow-2xl hover:shadow-indigo-500/15`}
+            className={`${isMemphis ? 'memphis-entry' : ''} animate-item group group/spotlight relative flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-slate-200/70 border-b-[4px] border-b-slate-300/80 bg-white shadow-[0_4px_15px_rgb(0,0,0,0.03)] transition-all duration-300 hover:-translate-y-1.5 hover:shadow-2xl hover:shadow-indigo-500/15`}
           >
             {!isMemphis && (
               <div
@@ -64,25 +63,41 @@ function AnimeGrid({ items, onOpenDetail, theme = 'default' }) {
                 <div className="pointer-events-none absolute -left-[150%] top-0 z-10 h-full w-[150%] skew-x-[-25deg] bg-gradient-to-r from-transparent via-white/50 to-transparent transition-transform duration-1000 ease-in-out group-hover/spotlight:translate-x-[200%]"></div>
               )}
 
-              <div className="absolute top-2 right-2 px-2 py-1 rounded-lg backdrop-blur-md bg-black/40 text-white shadow-sm flex items-center gap-1 border border-white/10">
+              <div className={`${isMemphis ? 'memphis-grid-score' : 'border-white/10 bg-black/40 text-white shadow-sm backdrop-blur-md'} absolute right-2 top-2 flex items-center gap-1 rounded-lg border px-2 py-1`}>
                 <i className="fa-solid fa-star text-amber-400 text-[10px]"></i>
                 <span className={`text-[11px] font-bold tracking-wider ${scoreColorClass}`}>
                   {scoreDisplay}
                 </span>
               </div>
 
-              <div className={`${isMemphis ? 'memphis-season-bar' : 'bg-gradient-to-t from-slate-900 via-slate-900/60 to-transparent'} absolute bottom-0 left-0 flex w-full items-end justify-between px-3 pb-2 pt-10 opacity-90`}>
-                <span className="text-white text-[11px] font-medium tracking-wider flex items-center gap-1.5">
+              {!isMemphis && (
+                <div className="absolute bottom-0 left-0 flex w-full items-end justify-between bg-gradient-to-t from-slate-900 via-slate-900/60 to-transparent px-3 pb-2 pt-10 opacity-90">
+                  <span className="flex items-center gap-1.5 text-[11px] font-medium tracking-wider text-white">
+                    {season.icon && <i className={`${season.icon} ${season.gridIconClass}`}></i>}
+                    {item.period}
+                  </span>
+                  {item.statusLabel && (
+                    <span className="rounded-md border border-white/20 bg-indigo-500/80 px-1.5 py-0.5 text-[10px] font-bold text-white backdrop-blur-sm">
+                      {item.statusLabel}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {isMemphis && (
+              <div className="memphis-grid-meta flex items-center justify-between gap-2 border-b-[3px] border-black bg-[#fff5ee] px-3 py-2">
+                <span className="flex items-center gap-1.5 text-[10px] font-black">
                   {season.icon && <i className={`${season.icon} ${season.gridIconClass}`}></i>}
                   {item.period}
                 </span>
                 {item.statusLabel && (
-                  <span className="rounded-md border border-white/20 bg-indigo-500/80 px-1.5 py-0.5 text-[10px] font-bold text-white backdrop-blur-sm">
+                  <span className={`memphis-status memphis-status-${item.status} px-2 py-0.5 text-[10px] font-black`}>
                     {item.statusLabel}
                   </span>
                 )}
               </div>
-            </div>
+            )}
 
             <div className="p-3.5 flex flex-col flex-1 justify-between gap-3 relative z-10">
               <div>

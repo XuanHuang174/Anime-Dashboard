@@ -6,7 +6,6 @@ import AnimeGrid from '../components/AnimeGrid.jsx'
 import AnimeList from '../components/AnimeList.jsx'
 import AddAnimeModal from '../components/AddAnimeModal.jsx'
 import BackToTop from '../components/BackToTop.jsx'
-import CustomCursor from '../components/CustomCursor.jsx'
 import DashboardHeader from '../components/DashboardHeader.jsx'
 import DetailModal from '../components/DetailModal.jsx'
 import EditableDetailModal from '../components/EditableDetailModal.jsx'
@@ -373,7 +372,6 @@ function Dashboard() {
 
   return (
     <main className="min-h-screen bg-slate-100 pb-12 text-slate-800">
-      <CustomCursor />
 
       <DashboardHeader
         isPreviewMode={isPreviewMode}

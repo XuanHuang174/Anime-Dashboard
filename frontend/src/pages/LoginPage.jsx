@@ -4,7 +4,6 @@ import gsap from 'gsap'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import api from '../api/api.js'
 import { saveTokens } from '../auth/tokenStorage.js'
-import CustomCursor from '../components/CustomCursor.jsx'
 
 gsap.registerPlugin(useGSAP)
 
@@ -208,7 +207,6 @@ function LoginPage() {
       style={MEMPHIS_COLORS}
       className="relative h-[100dvh] overflow-hidden bg-[var(--memphis-cream)] px-3 py-3 text-[var(--memphis-ink)] sm:px-5 sm:py-4 lg:px-8 lg:py-5"
     >
-      <CustomCursor />
 
       <div
         className="pointer-events-none absolute inset-0 opacity-35"

@@ -106,18 +106,18 @@ function StatsSummary({ db = [], statsData = null, theme = 'default' }) {
         {cards.map((card, index) => (
           <article
             key={card.id}
-            className={`memphis-stat-card relative flex min-h-32 flex-col justify-between border-[3px] border-black p-3.5 shadow-[6px_6px_0_0_#111] ${card.color} ${index % 2 ? 'rotate-[1deg]' : '-rotate-[1deg]'}`}
+            className={`memphis-stat-card relative flex min-h-36 flex-col justify-between border-[3px] border-black p-4 shadow-[6px_6px_0_0_#111] ${card.color} ${index % 2 ? 'rotate-[1deg]' : '-rotate-[1deg]'}`}
           >
             <div className="flex items-start justify-between gap-2">
-              <span className="text-[11px] font-black uppercase leading-4 tracking-wide">{card.label}</span>
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center border-2 border-black bg-white">
-                <i className={`fa-solid ${card.icon} text-xs`}></i>
+              <span className="text-xs font-black uppercase leading-4 tracking-wide">{card.label}</span>
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center border-2 border-black bg-white">
+                <i className={`fa-solid ${card.icon} text-sm`}></i>
               </span>
             </div>
-            <span id={card.id} className={`mt-2 text-3xl font-black leading-none ${card.valueClass}`}>
+            <span id={card.id} className={`mt-2 text-4xl font-black leading-none ${card.valueClass}`}>
               {card.value}
             </span>
-            <span className="mt-2 border-t-2 border-black pt-1.5 text-[10px] font-bold leading-3">
+            <span className="mt-2 border-t-2 border-black pt-2 text-[11px] font-bold leading-4">
               {card.note}
             </span>
           </article>

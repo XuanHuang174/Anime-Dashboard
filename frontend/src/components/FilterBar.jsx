@@ -102,7 +102,7 @@ function FilterBar({
   return (
     <div className={`${theme === 'memphis' ? 'memphis-filter' : ''} bg-gradient-to-br from-white to-indigo-50/50 rounded-2xl shadow-md border border-indigo-100 p-4 sm:p-6 mb-6 ring-1 ring-white/60`}>
       <div
-        className="flex justify-between items-center cursor-pointer md:cursor-none"
+        className="flex cursor-pointer items-center justify-between"
         onClick={toggleMobileFilter}
       >
         <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-0 md:mb-4">
@@ -118,7 +118,7 @@ function FilterBar({
         id="filterContent"
         className={`${isMobileOpen ? '' : 'hidden '}md:block mt-4 md:mt-0 transition-all duration-300`}
       >
-        <div className={`grid grid-cols-1 ${setStatusFilter ? 'md:grid-cols-5' : 'md:grid-cols-4'} gap-4`}>
+        <div className={`memphis-filter-grid grid grid-cols-1 ${setStatusFilter ? 'md:grid-cols-5' : 'md:grid-cols-4'} gap-4`}>
           <div className="relative group">
             <label
               htmlFor="searchInput"
@@ -217,7 +217,7 @@ function FilterBar({
               <button
                 type="button"
                 onClick={resetFilters}
-                className="text-sm font-bold text-indigo-500 hover:text-indigo-700 active:scale-95 flex items-center gap-1 transition-all group/btn"
+                className="memphis-reset-btn group/btn flex items-center gap-1 text-sm font-bold text-indigo-500 transition-all hover:text-indigo-700 active:scale-95"
                 title="一键恢复所有默认过滤"
               >
                 <i className="fa-solid fa-rotate-left transform group-hover/btn:-rotate-180 transition-transform duration-500 ease-out"></i>
@@ -316,7 +316,7 @@ function FilterBar({
               </button>
             </div>
 
-            <div className="text-xs text-slate-500 bg-slate-100/80 px-3.5 py-1.5 rounded-xl border-t-2 border-t-slate-200/50 border-b border-b-white shadow-[inset_0_2px_5px_rgba(0,0,0,0.06)] font-medium flex items-center gap-1.5 transition-all">
+            <div className="memphis-filter-result flex items-center gap-1.5 rounded-xl border-b border-b-white border-t-2 border-t-slate-200/50 bg-slate-100/80 px-3.5 py-1.5 text-xs font-medium text-slate-500 shadow-[inset_0_2px_5px_rgba(0,0,0,0.06)] transition-all">
               <i className="fa-solid fa-chart-pie text-slate-400"></i> 已筛选出
               <span
                 id="filteredCount"

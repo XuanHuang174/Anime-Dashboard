@@ -1,12 +1,11 @@
 import useScrollReveal from '../hooks/useScrollReveal.js'
 import { getCoverSrc, getSeasonDetails, getTagClass } from '../utils/animeDisplay.js'
 
-function getScoreColorClass(score, isMemphis = false) {
-  if (isMemphis) return 'text-black'
-  if (score >= 9.9) {
-    return 'text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 animate-pulse'
+function getScoreColorClass(score) {
+  if (score >= 9.8) {
+    return 'bg-gradient-to-r from-indigo-600 via-purple-600 to-fuchsia-500 bg-clip-text text-transparent'
   }
-  if (score >= 9.5) return 'text-red-600'
+  if (score >= 9.5) return 'text-orange-700'
   if (score >= 9.0) return 'text-orange-500'
   return 'text-slate-800'
 }
@@ -32,7 +31,7 @@ function getStarColorClass(score, isLit) {
 
 function AnimeList({ items, sortOrder, setSortOrder, onOpenDetail, startIndex = 0, theme = 'default' }) {
   const isMemphis = theme === 'memphis'
-  const containerRef = useScrollReveal(items, isMemphis)
+  const containerRef = useScrollReveal(items)
 
   const toggleSort = (type) => {
     if (type === 'date') {
@@ -49,15 +48,16 @@ function AnimeList({ items, sortOrder, setSortOrder, onOpenDetail, startIndex = 
     }
   }
 
+  const activeSortColor = isMemphis ? 'text-[#ff6b6b]' : 'text-indigo-600'
   const dateSortIcon = sortOrder === 'date-desc'
-    ? 'fa-solid fa-sort-down text-indigo-600'
+    ? `fa-solid fa-sort-down ${activeSortColor}`
     : sortOrder === 'date-asc'
-      ? 'fa-solid fa-sort-up text-indigo-600'
+      ? `fa-solid fa-sort-up ${activeSortColor}`
       : 'fa-solid fa-sort text-slate-300 group-hover:text-pink-500 transition-colors'
   const scoreSortIcon = sortOrder === 'score-desc'
-    ? 'fa-solid fa-sort-down text-indigo-600'
+    ? `fa-solid fa-sort-down ${activeSortColor}`
     : sortOrder === 'score-asc'
-      ? 'fa-solid fa-sort-up text-indigo-600'
+      ? `fa-solid fa-sort-up ${activeSortColor}`
       : 'fa-solid fa-sort text-slate-300 group-hover:text-pink-500 transition-colors'
 
   return (
@@ -97,7 +97,7 @@ function AnimeList({ items, sortOrder, setSortOrder, onOpenDetail, startIndex = 
             <tbody id="animeTableBody" className="divide-y divide-slate-100/80 text-sm">
               {items.map((item, index) => {
                 const scoreDisplay = item.score !== null ? item.score.toFixed(1) : '待定'
-                const scoreColorClass = getScoreColorClass(item.score, isMemphis)
+                const scoreColorClass = getScoreColorClass(item.score)
                 const stars = getStarCount(item.score)
                 const season = getSeasonDetails(item.period)
                 const listTopTags = item.tags.slice(0, 3)
@@ -106,7 +106,7 @@ function AnimeList({ items, sortOrder, setSortOrder, onOpenDetail, startIndex = 
                   <tr
                     key={item.id}
                     onClick={() => onOpenDetail(item)}
-                    className={`${isMemphis ? 'memphis-entry' : 'animate-item'} group relative flex cursor-pointer flex-wrap gap-x-4 border-b border-slate-100 bg-white p-4 transition-all duration-300 last:border-0 hover:!bg-indigo-50/80 md:table-row md:flex-none md:p-0 md:odd:bg-white md:even:bg-slate-50`}
+                    className={`${isMemphis ? 'memphis-entry' : ''} animate-item group relative flex cursor-pointer flex-wrap gap-x-4 border-b border-slate-100 bg-white p-4 transition-all duration-300 last:border-0 hover:!bg-indigo-50/80 md:table-row md:flex-none md:p-0 md:odd:bg-white md:even:bg-slate-50`}
                   >
                     <td className="hidden md:table-cell py-5 px-6 relative w-24">
                       <div className="absolute left-0 top-1/4 bottom-1/4 w-1 bg-indigo-500 rounded-r-full scale-y-0 group-hover:scale-y-100 opacity-0 group-hover:opacity-100 transition-all duration-300 origin-center"></div>
@@ -146,7 +146,7 @@ function AnimeList({ items, sortOrder, setSortOrder, onOpenDetail, startIndex = 
 
                         <div className="flex md:hidden flex-wrap gap-1.5 mt-2.5">
                           {item.statusLabel && (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold border border-indigo-200 bg-indigo-50 text-indigo-600">
+                            <span className={`${isMemphis ? `memphis-status memphis-status-${item.status}` : 'border border-indigo-200 bg-indigo-50 text-indigo-600'} inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold`}>
                               {item.statusLabel}
                             </span>
                           )}
@@ -179,7 +179,7 @@ function AnimeList({ items, sortOrder, setSortOrder, onOpenDetail, startIndex = 
                     <td className="hidden md:table-cell py-5 px-6">
                       <div className="flex flex-wrap gap-1.5 max-w-[220px]">
                         {item.statusLabel && (
-                          <span className="px-2.5 py-1 rounded-md text-xs font-bold border border-indigo-200 bg-indigo-50 text-indigo-600">
+                          <span className={`${isMemphis ? `memphis-status memphis-status-${item.status}` : 'border border-indigo-200 bg-indigo-50 text-indigo-600'} rounded-md px-2.5 py-1 text-xs font-bold`}>
                             {item.statusLabel}
                           </span>
                         )}

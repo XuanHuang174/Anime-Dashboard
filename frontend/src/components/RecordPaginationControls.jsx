@@ -8,9 +8,9 @@ const PAGE_SIZE_OPTIONS = [
   { value: '100', label: '100 条/页' },
 ]
 
-export function PageSizeSelector({ pageSize, onChange, totalCount, isLoading }) {
+export function PageSizeSelector({ pageSize, onChange, totalCount, isLoading, theme = 'default' }) {
   return (
-    <div className="flex h-full flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/80 bg-white/80 px-4 py-3 shadow-[0_8px_24px_rgba(15,23,42,0.05)] backdrop-blur-xl">
+    <div className={`${theme === 'memphis' ? 'memphis-page-size' : ''} flex h-full flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/80 bg-white/80 px-4 py-3 shadow-[0_8px_24px_rgba(15,23,42,0.05)] backdrop-blur-xl`}>
       <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
         <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-50 text-indigo-500 shadow-inner">
           <i className="fa-solid fa-table-list"></i>
@@ -43,9 +43,9 @@ export function PageSizeSelector({ pageSize, onChange, totalCount, isLoading }) 
   )
 }
 
-export function PriorityNotice({ unratedCount = 0 }) {
+export function PriorityNotice({ unratedCount = 0, theme = 'default' }) {
   return (
-    <div className="flex h-full flex-wrap items-center justify-between gap-3 rounded-2xl border border-indigo-100 bg-white/80 px-4 py-3 text-xs font-bold text-slate-500 shadow-sm backdrop-blur-xl">
+    <div className={`${theme === 'memphis' ? 'memphis-priority-notice' : ''} flex h-full flex-wrap items-center justify-between gap-3 rounded-2xl border border-indigo-100 bg-white/80 px-4 py-3 text-xs font-bold text-slate-500 shadow-sm backdrop-blur-xl`}>
       <span className="flex items-center gap-2 text-indigo-600">
         <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-50 shadow-inner">
           <i className="fa-solid fa-layer-group"></i>

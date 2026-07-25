@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import api from '../api/api.js'
-import CustomCursor from '../components/CustomCursor.jsx'
 
 function getApiError(error, fallback) {
   const data = error.response?.data
@@ -72,7 +71,6 @@ function ResetPasswordPage() {
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-slate-950 px-4 py-12 text-slate-800">
-      <CustomCursor />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(236,72,153,0.3),_transparent_35%),radial-gradient(circle_at_bottom_right,_rgba(99,102,241,0.35),_transparent_40%)]" />
       <div className="absolute left-1/2 top-16 h-72 w-72 -translate-x-1/2 rounded-full bg-purple-500/20 blur-3xl" />
 
