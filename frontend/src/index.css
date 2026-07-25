@@ -257,11 +257,19 @@ select {
 
 .memphis-filter .memphis-filter-grid > div > .relative:last-child,
 .memphis-filter .memphis-filter-grid > div > select {
-  margin-top: auto;
+  margin-top: 0;
 }
 
 .memphis-filter .memphis-filter-grid > div > .flex:first-child {
   min-height: 24px;
+  margin-bottom: 4px !important;
+}
+
+.memphis-filter .memphis-filter-grid > div > label {
+  display: flex;
+  min-height: 24px;
+  align-items: flex-end;
+  margin-bottom: 4px !important;
 }
 
 .memphis-filter .memphis-reset-btn {
@@ -418,7 +426,7 @@ select {
 }
 
 .memphis-anime-grid .memphis-grid-meta {
-  min-height: 40px;
+  min-height: 32px;
 }
 
 .memphis-anime-grid h3 {
@@ -475,6 +483,10 @@ select {
 
 .memphis-anime-list .memphis-entry:hover {
   background: #fff0f3 !important;
+}
+
+.memphis-anime-list .memphis-entry:hover .memphis-anime-title {
+  color: #ff5c8a !important;
 }
 
 .memphis-anime-list .memphis-entry img {

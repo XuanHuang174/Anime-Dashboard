@@ -109,7 +109,7 @@ function AnimeList({ items, sortOrder, setSortOrder, onOpenDetail, startIndex = 
                     className={`${isMemphis ? 'memphis-entry' : ''} animate-item group relative flex cursor-pointer flex-wrap gap-x-4 border-b border-slate-100 bg-white p-4 transition-all duration-300 last:border-0 hover:!bg-indigo-50/80 md:table-row md:flex-none md:p-0 md:odd:bg-white md:even:bg-slate-50`}
                   >
                     <td className="hidden md:table-cell py-5 px-6 relative w-24">
-                      <div className="absolute left-0 top-1/4 bottom-1/4 w-1 bg-indigo-500 rounded-r-full scale-y-0 group-hover:scale-y-100 opacity-0 group-hover:opacity-100 transition-all duration-300 origin-center"></div>
+                      <div className={`${isMemphis ? 'bg-[#ff6b6b]' : 'bg-indigo-500'} absolute bottom-1/4 left-0 top-1/4 w-1 origin-center scale-y-0 rounded-r-full opacity-0 transition-all duration-300 group-hover:scale-y-100 group-hover:opacity-100`}></div>
                       <div className="w-full flex items-center justify-center relative min-h-[40px]">
                         <span className={`${isMemphis ? 'text-black' : 'absolute text-slate-300 transition-all duration-500 ease-out group-hover:scale-75 group-hover:opacity-0'} pointer-events-none select-none text-2xl font-black`}>
                           {startIndex + index + 1}
@@ -126,6 +126,8 @@ function AnimeList({ items, sortOrder, setSortOrder, onOpenDetail, startIndex = 
                       <div className={`${isMemphis ? 'memphis-list-poster' : ''} group/poster relative aspect-[3/4] w-full cursor-pointer overflow-hidden rounded-lg bg-slate-100 shadow-sm transition-all duration-300 ring-indigo-300 ring-offset-1 hover:scale-105 hover:shadow-md hover:ring-2 md:h-20 md:w-16`}>
                         <img
                           src={getCoverSrc(item)}
+                          loading="lazy"
+                          decoding="async"
                           className="w-full h-full object-cover group-hover/poster:scale-110 transition duration-500"
                           alt="Promo"
                         />
@@ -137,7 +139,7 @@ function AnimeList({ items, sortOrder, setSortOrder, onOpenDetail, startIndex = 
 
                     <td className="flex-1 min-w-[50%] md:w-auto md:py-5 md:px-6 cursor-pointer">
                       <div className="flex flex-col justify-center h-full md:block pr-16 md:pr-0">
-                        <span className="font-extrabold text-slate-700 text-base md:text-lg group-hover:text-indigo-600 transition-all duration-300 ease-out group-hover:translate-x-1 line-clamp-2 md:line-clamp-1">
+                        <span className={`${isMemphis ? 'memphis-anime-title' : 'group-hover:text-indigo-600'} line-clamp-2 text-base font-extrabold text-slate-700 transition-all duration-300 ease-out group-hover:translate-x-1 md:line-clamp-1 md:text-lg`}>
                           {item.title}
                         </span>
                         <span className="text-[10px] md:text-xs text-slate-400 mt-1 font-medium tracking-normal transition-all duration-500 ease-out group-hover:translate-x-3.5 group-hover:tracking-[0.05em] opacity-90 group-hover:opacity-100 line-clamp-1">

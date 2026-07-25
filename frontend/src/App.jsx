@@ -36,6 +36,10 @@ function matchesShowcaseQuickFilter(item, filter) {
 
 function App() {
   const publicPageRef = useRef(null)
+  const [isContentReady, setIsContentReady] = useState(() => (
+    hasPlayedPublicEntrance
+    || (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
+  ))
   const navigate = useNavigate()
   const [db, setDb] = useState(() => animeData.map((item) => ({ ...item })))
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -241,53 +245,41 @@ function App() {
   const handleGetStarted = () => navigate('/login')
 
   useGSAP(() => {
-    if (hasPlayedPublicEntrance) return undefined
+    if (isContentReady || hasPlayedPublicEntrance) {
+      setIsContentReady(true)
+      return undefined
+    }
 
+    const animatedTargets = gsap.utils.toArray('.memphis-header-piece, .memphis-stat-card')
+    gsap.set(animatedTargets, { willChange: 'transform, opacity' })
     const entranceTimeline = gsap.timeline({
       onComplete: () => {
         hasPlayedPublicEntrance = true
+        gsap.set(animatedTargets, { clearProps: 'transform,opacity,willChange' })
+        setIsContentReady(true)
       },
     })
 
     entranceTimeline.from('.memphis-header-piece', {
-      y: -70,
-      rotate: () => gsap.utils.random(-5, 5),
+      y: -36,
       opacity: 0,
-      duration: 0.7,
-      stagger: 0.09,
-      ease: 'back.out(1.7)',
-    })
+      duration: 0.48,
+      stagger: 0.06,
+      ease: 'back.out(1.45)',
+    }, 0)
     entranceTimeline.from('.memphis-stat-card', {
-      y: 90,
-      scale: 0.72,
-      rotate: () => gsap.utils.random(-7, 7),
+      y: 38,
+      scale: 0.94,
       opacity: 0,
-      duration: 0.68,
-      stagger: 0.1,
-      ease: 'back.out(1.7)',
-      delay: 0.15,
-    }, '<0.05')
-    entranceTimeline.to('.memphis-float-ring', {
-      y: 14,
-      rotate: 10,
-      duration: 1.2,
+      duration: 0.44,
+      stagger: 0.05,
       ease: 'back.out(1.4)',
-    }, 0)
-    entranceTimeline.to('.memphis-float-triangle', {
-      x: 10,
-      y: -8,
-      rotate: 24,
-      duration: 1.1,
-      ease: 'back.out(1.4)',
-    }, 0)
-    entranceTimeline.to('.memphis-float-zigzag', {
-      x: -10,
-      rotate: -2,
-      duration: 1,
-      ease: 'back.out(1.4)',
-    }, 0)
+    }, 0.12)
 
-    return () => entranceTimeline.kill()
+    return () => {
+      entranceTimeline.kill()
+      gsap.set(animatedTargets, { clearProps: 'transform,opacity,willChange' })
+    }
   }, { scope: publicPageRef })
 
   return (
@@ -303,7 +295,14 @@ function App() {
 
       <div className="relative z-20 mx-auto -mt-6 max-w-7xl px-4 sm:px-6 lg:px-8">
         <StatsSummary db={db} statsData={statsData} theme="memphis" />
-        <FilterBar
+        {!isContentReady && (
+          <div className="memphis-content-gate mb-7 border-4 border-black bg-white px-5 py-4 text-center text-sm font-black shadow-[7px_7px_0_0_#4ecdc4]">
+            <i className="fa-solid fa-bolt mr-2 text-[#ff6b6b]"></i>
+            正在展开番剧档案…
+          </div>
+        )}
+        {isContentReady && (
+          <FilterBar
           db={db}
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
@@ -327,12 +326,14 @@ function App() {
           availableTags={filterOptions.tags}
           availableYears={filterOptions.years}
           theme="memphis"
-        />
+          />
+        )}
 
-        <div
+        {isContentReady && (
+          <div
           id="showcasePaginationTop"
           className="mb-5 grid grid-cols-2 scroll-mt-5 items-stretch gap-3"
-        >
+          >
           <PageSizeSelector
             pageSize={pageSize}
             onChange={handlePageSizeChange}
@@ -341,11 +342,14 @@ function App() {
             theme="memphis"
           />
           <PriorityNotice unratedCount={visibleUnratedCount} theme="memphis" />
-        </div>
+          </div>
+        )}
 
-        <div className="mb-5 h-2 w-full border-2 border-black bg-[repeating-linear-gradient(135deg,#111_0,#111_8px,#ffe66d_8px,#ffe66d_16px)]"></div>
+        {isContentReady && (
+          <div className="mb-5 h-2 w-full border-2 border-black bg-[repeating-linear-gradient(135deg,#111_0,#111_8px,#ffe66d_8px,#ffe66d_16px)]"></div>
+        )}
 
-        {filteredAnime.length > 0 && view === 'list' && (
+        {isContentReady && filteredAnime.length > 0 && view === 'list' && (
           <AnimeList
             items={filteredAnime}
             sortOrder={sortOrder}
@@ -355,11 +359,11 @@ function App() {
             theme="memphis"
           />
         )}
-        {filteredAnime.length > 0 && view === 'grid' && (
+        {isContentReady && filteredAnime.length > 0 && view === 'grid' && (
           <AnimeGrid items={filteredAnime} onOpenDetail={handleOpenDetail} theme="memphis" />
         )}
 
-        {filteredAnime.length === 0 && (
+        {isContentReady && filteredAnime.length === 0 && (
           <div id="noResults" className="py-16 px-4 text-center">
             <i className="fa-solid fa-mug-hot text-slate-300 text-5xl mb-4 animate-bounce"></i>
             <h3 className="text-slate-600 font-bold text-lg">没有找到匹配的番剧</h3>
@@ -367,7 +371,7 @@ function App() {
           </div>
         )}
 
-        {pageSize !== 'all' && showcaseTotal > 0 && (
+        {isContentReady && pageSize !== 'all' && showcaseTotal > 0 && (
           <PageNavigation
             currentPage={currentPage}
             totalPages={totalPages}

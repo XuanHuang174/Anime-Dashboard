@@ -45,6 +45,7 @@ function StatsSummary({ db = [], statsData = null, theme = 'default' }) {
       icon: 'fa-circle-check',
       color: 'bg-[#ffe66d]',
       valueClass: 'text-black',
+      valueBackdrop: true,
       defaultValueClass: 'text-slate-800',
       id: 'statTotal',
     },
@@ -54,7 +55,8 @@ function StatsSummary({ db = [], statsData = null, theme = 'default' }) {
       note: '仅统计已评分作品',
       icon: 'fa-chart-line',
       color: 'bg-[#ff6b6b]',
-      valueClass: 'text-black',
+      valueClass: 'text-[#ff4f87]',
+      valueBackdrop: true,
       defaultValueClass: 'text-pink-500',
       id: 'statAvgScore',
     },
@@ -94,7 +96,8 @@ function StatsSummary({ db = [], statsData = null, theme = 'default' }) {
       note: '殿堂级佳作',
       icon: 'fa-crown',
       color: 'bg-[#ff6b6b]',
-      valueClass: 'text-black',
+      valueClass: 'text-red-600',
+      valueBackdrop: true,
       defaultValueClass: 'text-red-600',
       id: 'statMasterpiece',
     },
@@ -109,15 +112,18 @@ function StatsSummary({ db = [], statsData = null, theme = 'default' }) {
             className={`memphis-stat-card relative flex min-h-36 flex-col justify-between border-[3px] border-black p-4 shadow-[6px_6px_0_0_#111] ${card.color} ${index % 2 ? 'rotate-[1deg]' : '-rotate-[1deg]'}`}
           >
             <div className="flex items-start justify-between gap-2">
-              <span className="text-xs font-black uppercase leading-4 tracking-wide">{card.label}</span>
+              <span className="text-[13px] font-black uppercase leading-5 tracking-wide">{card.label}</span>
               <span className="flex h-8 w-8 shrink-0 items-center justify-center border-2 border-black bg-white">
                 <i className={`fa-solid ${card.icon} text-sm`}></i>
               </span>
             </div>
-            <span id={card.id} className={`mt-2 text-4xl font-black leading-none ${card.valueClass}`}>
+            <span
+              id={card.id}
+              className={`mt-2 w-fit text-[2.75rem] font-black leading-none ${card.valueClass} ${card.valueBackdrop ? 'border-2 border-black bg-white px-2 py-1 shadow-[3px_3px_0_0_#111]' : ''}`}
+            >
               {card.value}
             </span>
-            <span className="mt-2 border-t-2 border-black pt-2 text-[11px] font-bold leading-4">
+            <span className="mt-2 border-t-2 border-black pt-2 text-xs font-bold leading-4">
               {card.note}
             </span>
           </article>

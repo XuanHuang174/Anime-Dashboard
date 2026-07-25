@@ -55,6 +55,8 @@ function AnimeGrid({ items, onOpenDetail, theme = 'default' }) {
             <div className="relative aspect-[3/4] overflow-hidden bg-slate-100 z-10 group/poster border-b border-slate-200/80">
               <img
                 src={getCoverSrc(item)}
+                loading="lazy"
+                decoding="async"
                 className={`${isMemphis ? '' : 'transition-transform duration-700 ease-out group-hover/spotlight:scale-110'} h-full w-full object-cover`}
                 alt="Cover"
               />
@@ -86,13 +88,13 @@ function AnimeGrid({ items, onOpenDetail, theme = 'default' }) {
             </div>
 
             {isMemphis && (
-              <div className="memphis-grid-meta flex items-center justify-between gap-2 border-b-[3px] border-black bg-[#fff5ee] px-3 py-2">
-                <span className="flex items-center gap-1.5 text-[10px] font-black">
+              <div className="memphis-grid-meta flex items-center justify-between gap-1.5 border-b-[3px] border-black bg-[#fff5ee] px-2.5 py-1">
+                <span className="flex items-center gap-1 text-[9px] font-black">
                   {season.icon && <i className={`${season.icon} ${season.gridIconClass}`}></i>}
                   {item.period}
                 </span>
                 {item.statusLabel && (
-                  <span className={`memphis-status memphis-status-${item.status} px-2 py-0.5 text-[10px] font-black`}>
+                  <span className={`memphis-status memphis-status-${item.status} px-1.5 py-0.5 text-[9px] font-black`}>
                     {item.statusLabel}
                   </span>
                 )}
