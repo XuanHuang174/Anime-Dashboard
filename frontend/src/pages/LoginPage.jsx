@@ -198,8 +198,9 @@ function LoginPage() {
 
   const isRegister = mode === 'register'
   const isReset = mode === 'reset'
-  const inputClass = 'w-full border-4 border-black bg-[var(--memphis-yellow)] px-12 py-3.5 text-base font-black text-black outline-none shadow-[5px_5px_0_0_var(--memphis-ink)] placeholder:font-bold placeholder:text-black/45 focus:translate-x-[3px] focus:translate-y-[3px] focus:bg-white focus:shadow-[2px_2px_0_0_var(--memphis-ink)]'
+  const inputClass = 'w-full border-4 border-black bg-white px-12 py-3.5 text-base font-black text-black outline-none shadow-[5px_5px_0_0_var(--memphis-teal)] placeholder:font-bold placeholder:text-black/45 focus:translate-x-[3px] focus:translate-y-[3px] focus:bg-[var(--memphis-yellow)] focus:shadow-[2px_2px_0_0_var(--memphis-coral)]'
   const pressableClass = 'border-4 border-black shadow-[6px_6px_0_0_var(--memphis-ink)] transition-none hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[4px_4px_0_0_var(--memphis-ink)] active:translate-x-[6px] active:translate-y-[6px] active:shadow-none'
+  const primaryActionClass = 'border-4 border-black bg-[var(--memphis-yellow)] text-black shadow-[7px_7px_0_0_var(--memphis-coral)] transition-none hover:translate-x-[2px] hover:translate-y-[2px] hover:bg-black hover:text-[var(--memphis-yellow)] hover:shadow-[5px_5px_0_0_var(--memphis-teal)] active:translate-x-[7px] active:translate-y-[7px] active:shadow-none'
 
   return (
     <main
@@ -283,19 +284,25 @@ function LoginPage() {
                 </p>
               </div>
 
-              <div className="login-piece mt-auto grid grid-cols-3 gap-2 pt-5">
+              <div className="login-piece mt-auto grid grid-cols-3 items-stretch gap-2.5 pt-4">
                 {[
-                  ['01', '多视图', 'fa-layer-group', 'bg-[var(--memphis-yellow)]'],
-                  ['02', '自由筛选', 'fa-tags', 'bg-[var(--memphis-teal)]'],
-                  ['03', '私人长评', 'fa-pen-nib', 'bg-white'],
-                ].map(([number, label, icon, color], index) => (
+                  ['01', '多视图', '列表 / 海报墙', 'LIST + GRID', 'fa-layer-group', 'border-[var(--memphis-teal)] shadow-[5px_5px_0_0_var(--memphis-coral)] -rotate-1'],
+                  ['02', '自由筛选', '状态 / 标签 / 年份', 'FILTER IT!', 'fa-tags', 'border-black shadow-[5px_5px_0_0_var(--memphis-teal)] translate-y-2 -rotate-2'],
+                  ['03', '私人长评', '记录只属于你的感受', 'YOUR STORY', 'fa-pen-nib', 'border-[var(--memphis-teal)] shadow-[5px_5px_0_0_var(--memphis-coral)] rotate-1'],
+                ].map(([number, label, description, caption, icon, frame]) => (
                   <div
                     key={number}
-                    className={`${color} border-4 border-black p-3 shadow-[4px_4px_0_0_var(--memphis-ink)] ${index === 1 ? 'translate-y-3 -rotate-2' : index === 2 ? 'rotate-2' : '-rotate-1'}`}
+                    className={`flex min-h-[116px] flex-col border-[3px] bg-white p-2.5 ${frame}`}
                   >
-                    <span className="block text-[10px] font-black tracking-widest">{number}</span>
-                    <i className={`fa-solid ${icon} my-2 text-xl`} />
-                    <span className="block text-xs font-black sm:text-sm">{label}</span>
+                    <div className="flex items-start justify-between gap-1">
+                      <span className="bg-black px-1.5 py-0.5 text-[9px] font-black tracking-[0.18em] text-white">{number}</span>
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center border-[3px] border-black bg-[var(--memphis-yellow)]">
+                        <i className={`fa-solid ${icon} text-sm`} />
+                      </span>
+                    </div>
+                    <span className="mt-1 block text-sm font-black leading-none">{label}</span>
+                    <span className="mt-1 block text-[9px] font-bold leading-3 text-black/70">{description}</span>
+                    <span className="mt-auto pt-1 text-[8px] font-black tracking-[0.13em]">{caption}</span>
                   </div>
                 ))}
               </div>
@@ -341,10 +348,10 @@ function LoginPage() {
                       role="tab"
                       aria-selected={mode === value}
                       onClick={() => switchMode(value)}
-                      className={`border-4 border-black px-4 py-2.5 text-sm font-black uppercase transition-none ${
+                      className={`border-4 px-4 py-2.5 text-sm font-black uppercase transition-none ${
                         mode === value
-                          ? 'translate-x-[4px] translate-y-[4px] bg-[var(--memphis-coral)] shadow-none'
-                          : 'bg-white shadow-[4px_4px_0_0_var(--memphis-ink)] hover:bg-[var(--memphis-yellow)]'
+                          ? 'border-black bg-[var(--memphis-teal)] shadow-[5px_5px_0_0_var(--memphis-coral)]'
+                          : 'border-[var(--memphis-teal)] bg-[var(--memphis-coral)] shadow-[5px_5px_0_0_var(--memphis-ink)] hover:translate-x-[2px] hover:translate-y-[2px] hover:border-black hover:bg-[var(--memphis-teal)] hover:shadow-[3px_3px_0_0_var(--memphis-coral)]'
                       }`}
                     >
                       <i className={`fa-solid ${icon} mr-2`} />
@@ -473,7 +480,7 @@ function LoginPage() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className={`mode-piece flex w-full items-center justify-center gap-2 bg-[var(--memphis-coral)] px-5 py-4 text-base font-black uppercase disabled:cursor-not-allowed disabled:opacity-60 ${pressableClass}`}
+                  className={`mode-piece flex w-full items-center justify-center gap-2 px-5 py-4 text-base font-black uppercase disabled:cursor-not-allowed disabled:opacity-60 ${primaryActionClass}`}
                 >
                   {isSubmitting ? (
                     <>
