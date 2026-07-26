@@ -28,10 +28,10 @@ const tagColorClasses = {
   fuchsia: 'bg-fuchsia-50 text-fuchsia-700 border border-fuchsia-300',
   yellow: 'bg-yellow-100 text-yellow-800 border border-yellow-300',
   purple: 'bg-purple-100 text-purple-700 font-semibold border border-purple-300',
-  cyan: 'bg-cyan-50 text-cyan-700 font-medium border border-cyan-300 shadow-sm',
-  lime: 'bg-lime-50 text-lime-700 font-medium border border-lime-400 shadow-sm',
-  sky: 'bg-sky-50 text-sky-700 border border-sky-300 shadow-sm',
-  slate: 'bg-slate-50 text-slate-600 border border-slate-300 shadow-sm',
+  cyan: 'bg-cyan-50 text-cyan-700 font-medium border border-cyan-300',
+  lime: 'bg-lime-50 text-lime-700 font-medium border border-lime-400',
+  sky: 'bg-sky-50 text-sky-700 border border-sky-300',
+  slate: 'bg-slate-50 text-slate-600 border border-slate-300',
 }
 
 const defaultTagColors = {

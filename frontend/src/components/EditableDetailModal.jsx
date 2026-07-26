@@ -514,10 +514,10 @@ function EditableDetailModal({
             <i className={`fa-solid ${isDeleting ? 'fa-spinner animate-spin' : 'fa-trash-can'} mr-2`}></i>{isDeleting ? '删除中...' : '删除私人记录'}
           </button>
           <div className="flex gap-3">
-            <button type="button" onClick={handleClose} disabled={busy} className={`${arcadeButton} bg-white`}>关闭</button>
             <button type="button" onClick={handleSave} disabled={busy} className={`${arcadeButton} bg-[#ff4f9a]`}>
               <i className={`fa-solid ${isSaving ? 'fa-spinner animate-spin' : 'fa-floppy-disk'} mr-2`}></i>{isSaving ? '保存中...' : '保存全部修改'}
             </button>
+            <button type="button" onClick={handleClose} disabled={busy} className={`${arcadeButton} bg-white`}>关闭</button>
           </div>
         </footer>
       </section>

@@ -693,7 +693,7 @@ function Dashboard() {
         <div
           key={toast.id}
           role="status"
-          className={`fixed bottom-6 right-6 z-[70] flex max-w-sm items-center gap-3 border-[3px] border-black px-5 py-4 font-black text-black shadow-[6px_6px_0_#111] animate-[parallaxReveal_0.25s_ease-out_forwards] ${toast.type === 'error' ? 'bg-[#ff6b6b]' : 'bg-[#4ecdc4]'}`}
+          className={`fixed bottom-6 right-6 z-[200] flex max-w-sm items-center gap-3 border-[3px] border-black px-5 py-4 font-black text-black shadow-[6px_6px_0_#111] animate-[parallaxReveal_0.25s_ease-out_forwards] ${toast.type === 'error' ? 'bg-[#ff6b6b]' : 'bg-[#4ecdc4]'}`}
         >
           <i className={`fa-solid ${toast.type === 'error' ? 'fa-circle-exclamation' : 'fa-circle-check'} text-lg`}></i>
           {toast.message}
