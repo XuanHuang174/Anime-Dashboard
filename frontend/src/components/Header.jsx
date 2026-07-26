@@ -64,16 +64,24 @@ function Header({ onGetStarted }) {
               id="exportCsvBtn"
               type="button"
               onClick={onGetStarted}
-              className="memphis-primary-cta memphis-pressable flex items-center gap-3 border-4 border-black bg-[#ffe66d] px-7 py-4 text-left font-black text-black shadow-[8px_8px_0_0_#111]"
+              className="memphis-primary-cta memphis-pressable flex items-center gap-3 border-4 border-black bg-[#ffe66d] px-6 py-4 text-left font-black text-black shadow-[6px_6px_0_0_#111]"
             >
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center border-[3px] border-black bg-[#ff6b6b] text-xl">
-                <i className="fa-solid fa-wand-magic-sparkles"></i>
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center border-[3px] border-black bg-[#ff6b6b] text-xl shadow-[3px_3px_0_#111]">
+                <i className="cta-spark-icon fa-solid fa-wand-magic-sparkles"></i>
               </span>
-              <span className="flex flex-col leading-none">
-                <span className="text-[10px] tracking-[0.18em]">START YOUR JOURNAL</span>
+              <span className="flex min-w-0 flex-1 flex-col leading-none">
+                <span className="flex items-center gap-2 text-[10px] tracking-[0.18em]">
+                  START YOUR JOURNAL
+                  <span className="border-2 border-black bg-white px-1.5 py-0.5 text-[8px] tracking-normal">FREE</span>
+                </span>
                 <span className="mt-2 text-base sm:text-lg">设计自己的个人手账！</span>
+                <span className="mt-2 text-[10px] font-black tracking-[0.08em] text-zinc-700">
+                  注册 · 登录 · 跨设备同步
+                </span>
               </span>
-              <i className="fa-solid fa-arrow-right ml-1 text-lg"></i>
+              <span className="cta-arrow-box ml-1 flex h-9 w-9 shrink-0 items-center justify-center border-[3px] border-black bg-white shadow-[3px_3px_0_#111]">
+                <i className="fa-solid fa-arrow-right"></i>
+              </span>
             </button>
           </div>
         </div>

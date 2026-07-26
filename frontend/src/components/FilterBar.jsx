@@ -12,6 +12,7 @@ const activeViewClass =
   'px-3 py-1.5 rounded-lg bg-white shadow-sm text-indigo-600 transition-all text-xs font-bold flex items-center gap-1.5'
 const inactiveViewClass =
   'px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 transition-all text-xs font-bold flex items-center gap-1.5'
+const VIEW_HINT_STORAGE_KEY = 'animeJournalPosterViewHintDismissedV2'
 
 function FilterBar({
   db,
@@ -42,7 +43,7 @@ function FilterBar({
 }) {
   const [isMobileOpen, setIsMobileOpen] = useState(false)
   const [showViewHint, setShowViewHint] = useState(() => (
-    window.localStorage.getItem('animeJournalViewHintDismissed') !== 'true'
+    window.localStorage.getItem(VIEW_HINT_STORAGE_KEY) !== 'true'
   ))
 
   const tags = useMemo(
@@ -58,7 +59,7 @@ function FilterBar({
 
   const dismissViewHint = () => {
     setShowViewHint(false)
-    window.localStorage.setItem('animeJournalViewHintDismissed', 'true')
+    window.localStorage.setItem(VIEW_HINT_STORAGE_KEY, 'true')
   }
 
   const resetFilters = () => {
@@ -310,9 +311,14 @@ function FilterBar({
                 id="btnViewGrid"
                 type="button"
                 onClick={() => switchView('grid')}
-                className={view === 'grid' ? activeViewClass : inactiveViewClass}
+                className={`relative ${view === 'grid' ? activeViewClass : inactiveViewClass}`}
               >
                 <i className="fa-solid fa-border-all"></i> 海报墙
+                {showViewHint && (
+                  <span className="memphis-view-hint pointer-events-none absolute -right-2 -top-4 border-2 border-black bg-[#ffe66d] px-1.5 py-0.5 text-[8px] font-black leading-none text-black shadow-[2px_2px_0_#111]">
+                    试试
+                  </span>
+                )}
               </button>
             </div>
 

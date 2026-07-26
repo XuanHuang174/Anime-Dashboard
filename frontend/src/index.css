@@ -315,21 +315,55 @@ select {
 .memphis-primary-cta {
   isolation: isolate;
   position: relative;
-  min-width: 290px;
+  min-width: 330px;
+  overflow: visible;
 }
 
 .memphis-primary-cta::before {
   content: "";
   position: absolute;
-  inset: -9px 9px 9px -9px;
-  z-index: -1;
-  border: 3px solid var(--memphis-ink);
+  inset: 7px;
+  z-index: 0;
+  border: 2px dashed rgba(17, 17, 17, 0.55);
+  pointer-events: none;
+}
+
+.memphis-primary-cta > * {
+  position: relative;
+  z-index: 1;
+}
+
+.memphis-primary-cta:hover .cta-arrow-box {
+  transform: translateX(3px);
   background: var(--memphis-teal);
 }
 
-.memphis-primary-cta:hover::before,
-.memphis-primary-cta:active::before {
-  transform: translate(-3px, -3px);
+.cta-spark-icon {
+  animation: ctaSparkPop 1.8s ease-in-out infinite;
+}
+
+.memphis-view-hint {
+  animation: memphisHintNudge 1.35s steps(2, end) infinite;
+}
+
+@keyframes ctaSparkPop {
+  0%,
+  100% {
+    transform: rotate(-8deg) scale(1);
+  }
+  50% {
+    transform: rotate(8deg) scale(1.14);
+  }
+}
+
+@keyframes memphisHintNudge {
+  0%,
+  100% {
+    transform: translateY(0) rotate(2deg);
+  }
+  50% {
+    transform: translateY(-3px) rotate(-2deg);
+  }
 }
 
 .memphis-stat-card:hover {
@@ -539,9 +573,9 @@ select {
 .memphis-public .memphis-priority-notice > span:last-child {
   border: 2px solid var(--memphis-ink);
   border-radius: 9999px !important;
-  background: var(--memphis-coral) !important;
-  color: var(--memphis-ink) !important;
-  box-shadow: 3px 3px 0 var(--memphis-ink);
+  background: #fff !important;
+  color: #52525b !important;
+  box-shadow: 3px 3px 0 #71717a;
 }
 
 .memphis-dashboard .memphis-priority-notice > span:last-child {
@@ -551,6 +585,11 @@ select {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .cta-spark-icon,
+  .memphis-view-hint {
+    animation: none;
+  }
+
   .dashboard-mode-transition {
     animation: none;
   }
