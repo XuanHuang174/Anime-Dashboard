@@ -34,6 +34,24 @@ const tagColorClasses = {
   slate: 'bg-slate-50 text-slate-600 border border-slate-300',
 }
 
+const tagTextColorClasses = {
+  pink: 'text-pink-700',
+  rose: 'text-rose-600',
+  blue: 'text-blue-600',
+  emerald: 'text-emerald-600',
+  amber: 'text-amber-600',
+  orange: 'text-orange-600',
+  indigo: 'text-indigo-600',
+  violet: 'text-violet-600',
+  fuchsia: 'text-fuchsia-700',
+  yellow: 'text-yellow-800',
+  purple: 'text-purple-700',
+  cyan: 'text-cyan-700',
+  lime: 'text-lime-700',
+  sky: 'text-sky-700',
+  slate: 'text-slate-600',
+}
+
 const defaultTagColors = {
   真百: 'pink', 轻百: 'rose', 日常: 'blue', 治愈: 'emerald', 萌系: 'amber',
   搞笑: 'orange', 奇幻: 'indigo', 异世界: 'violet', 恋爱: 'fuchsia',
@@ -47,6 +65,10 @@ export function getDefaultTagColor(tag) {
 
 export function getTagClass(tag, color) {
   return tagColorClasses[color || getDefaultTagColor(tag)] || tagColorClasses.slate
+}
+
+export function getTagTextClass(tag, color) {
+  return tagTextColorClasses[color || getDefaultTagColor(tag)] || tagTextColorClasses.slate
 }
 
 export function getCoverSrc(item) {

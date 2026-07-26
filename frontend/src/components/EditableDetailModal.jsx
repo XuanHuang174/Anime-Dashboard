@@ -6,6 +6,7 @@ import {
   getCoverSrc,
   getDefaultTagColor,
   getTagClass,
+  getTagTextClass,
   tagColorOptions,
 } from '../utils/animeDisplay.js'
 import { getImageFileError, IMAGE_FILE_ACCEPT } from '../utils/imageUpload.js'
@@ -419,12 +420,12 @@ function EditableDetailModal({
                 ].map(([name, label, type, placeholder]) => (
                   <label key={name} className="block text-xs font-black">
                     {label}
-                    <input name={name} type={type} min={type === 'number' ? '0' : undefined} max={type === 'number' ? '10' : undefined} step={type === 'number' ? '0.1' : undefined} value={formData[name]} onChange={updateField} className={`${fieldClass} mt-1`} placeholder={placeholder} />
+                    <input name={name} type={type} min={type === 'number' ? '0' : undefined} max={type === 'number' ? '10' : undefined} step={type === 'number' ? '0.1' : undefined} value={formData[name]} onChange={updateField} className={`${fieldClass} mt-1 ${name === 'score' ? '!text-red-600' : ''}`} placeholder={placeholder} />
                   </label>
                 ))}
                 <label className="block text-xs font-black">
                   观看状态
-                  <select name="status" value={formData.status} onChange={updateField} className={`${fieldClass} mt-1`}>
+                  <select name="status" value={formData.status} onChange={updateField} className={`${fieldClass} mt-1 !text-[#ff2f87]`}>
                     <option value="plan">想看</option>
                     <option value="watching">在看</option>
                     <option value="completed">看过</option>
@@ -446,7 +447,7 @@ function EditableDetailModal({
                       return (
                         <div key={`${tag}-${index}`} className={`rounded-[24px] border-[3px] border-black p-2 shadow-[3px_3px_0_#111] ${getTagClass(tag, color)}`}>
                           <div className="flex items-center gap-1.5">
-                            <input value={tag} onChange={(event) => updateTag(index, event.target.value)} className="min-w-0 flex-1 rounded-full border-2 border-black bg-white px-2.5 py-1.5 text-center text-xs font-black text-black outline-none focus:bg-[#fff2a8]" aria-label={`修改标签 ${tag}`} />
+                            <input value={tag} onChange={(event) => updateTag(index, event.target.value)} className={`min-w-0 flex-1 rounded-full border-2 border-black bg-white px-2.5 py-1.5 text-center text-xs font-black outline-none focus:bg-[#fff2a8] ${getTagTextClass(tag, color)}`} aria-label={`修改标签 ${tag}`} />
                             <button type="button" onClick={() => removeTag(index)} className="flex h-7 w-7 shrink-0 items-center justify-center border-2 border-black bg-[#ff6b6b] text-black shadow-[2px_2px_0_#111] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none" aria-label={`删除标签 ${tag}`}>
                               <i className="fa-solid fa-xmark"></i>
                             </button>

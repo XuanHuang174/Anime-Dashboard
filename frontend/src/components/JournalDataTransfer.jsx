@@ -170,23 +170,23 @@ function JournalDataTransfer({ onImported, showToast, theme = 'default' }) {
           >
             <div className={isMemphis ? 'h-3 border-b-4 border-black bg-[#ff6b6b]' : 'h-2 bg-gradient-to-r from-rose-400 via-pink-500 to-indigo-500'} />
             <div className="relative px-7 py-8 text-center">
-              <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-rose-100/70 blur-2xl" />
+              {!isMemphis && <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-rose-100/70 blur-2xl" />}
               <span className={`relative mx-auto flex h-16 w-16 items-center justify-center text-2xl ${isMemphis ? 'border-[3px] border-black bg-[#ffe66d] text-black shadow-[5px_5px_0_#111]' : 'rounded-2xl border border-rose-100 bg-gradient-to-br from-rose-50 to-pink-100 text-rose-500 shadow-inner'}`}>
                 <i className="fa-solid fa-triangle-exclamation" />
               </span>
-              <h2 id="importConfirmTitle" className="relative mt-5 text-2xl font-black text-slate-800">
+              <h2 id="importConfirmTitle" className={`relative mt-5 text-2xl font-black ${isMemphis ? 'text-black' : 'text-slate-800'}`}>
                 危险操作确认
               </h2>
-              <p className="relative mt-3 text-sm font-medium leading-7 text-slate-500">
+              <p className={`relative mt-3 text-sm leading-7 ${isMemphis ? 'font-bold text-zinc-700' : 'font-medium text-slate-500'}`}>
                 导入新的 JSON 模板将会彻底覆盖您当前所有的手账数据，此操作无法撤销。是否继续？
               </p>
               <div className={`relative mt-4 flex items-center gap-3 px-4 py-3 text-left ${isMemphis ? 'border-[3px] border-black bg-[#4ecdc4] shadow-[4px_4px_0_#111]' : 'rounded-2xl border border-indigo-100 bg-indigo-50/80 shadow-inner'}`}>
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-indigo-500 shadow-sm">
+                <span className={`flex h-10 w-10 shrink-0 items-center justify-center ${isMemphis ? 'border-2 border-black bg-[#ff8fab] text-black shadow-[3px_3px_0_#111]' : 'rounded-xl bg-white text-indigo-500 shadow-sm'}`}>
                   <i className="fa-solid fa-file-code" />
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-[10px] font-black uppercase tracking-wider text-indigo-400">即将导入</span>
-                  <span className="block truncate text-sm font-bold text-slate-700">{selectedFile?.name}</span>
+                  <span className={`inline-block text-[10px] font-black uppercase tracking-wider ${isMemphis ? 'border-2 border-black bg-[#ffe66d] px-2 py-0.5 text-black' : 'text-indigo-400'}`}>即将导入</span>
+                  <span className={`mt-1 block truncate text-sm font-black ${isMemphis ? 'text-black' : 'text-slate-700'}`}>{selectedFile?.name}</span>
                 </span>
               </div>
               <div className="relative mt-7 grid grid-cols-2 gap-3">

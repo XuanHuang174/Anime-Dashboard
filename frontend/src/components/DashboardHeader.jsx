@@ -17,10 +17,12 @@ function DashboardHeader({
   showToast,
 }) {
   const menuRef = useRef(null)
+  const previousPreviewModeRef = useRef(isPreviewMode)
   const [profile, setProfile] = useState(null)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
   const [isAccountDeletionOpen, setIsAccountDeletionOpen] = useState(false)
+  const [isModeTransitioning, setIsModeTransitioning] = useState(false)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -52,6 +54,14 @@ function DashboardHeader({
       window.removeEventListener('keydown', closeOnEscape)
     }
   }, [isMenuOpen])
+
+  useEffect(() => {
+    if (previousPreviewModeRef.current === isPreviewMode) return undefined
+    previousPreviewModeRef.current = isPreviewMode
+    setIsModeTransitioning(true)
+    const timer = window.setTimeout(() => setIsModeTransitioning(false), 260)
+    return () => window.clearTimeout(timer)
+  }, [isPreviewMode])
 
   const displayName = profile?.nickname?.trim() || profile?.username || '手账主理人'
   const subtitle = profile?.showcase_subtitle?.trim() || DEFAULT_SUBTITLE
@@ -131,37 +141,41 @@ function DashboardHeader({
 
   const actions = (
     <div className={`flex shrink-0 flex-wrap items-center gap-2 ${isPreviewMode ? 'md:max-w-[48%] md:justify-end' : 'lg:max-w-[54%] lg:justify-end'}`}>
-      <JournalDataTransfer
-        onImported={onRecordsImported}
-        showToast={showToast}
-        theme="memphis"
-      />
+      {!isPreviewMode && (
+        <JournalDataTransfer
+          onImported={onRecordsImported}
+          showToast={showToast}
+          theme="memphis"
+        />
+      )}
       <button
         type="button"
         onClick={onTogglePreview}
-        className={`dashboard-arcade-button inline-flex items-center gap-2 ${isPreviewMode ? 'bg-[#ffe66d]' : 'bg-white'}`}
+        className={`dashboard-arcade-button inline-flex items-center gap-2 ${isPreviewMode ? 'dashboard-edit-mode-cta bg-[#ffe66d]' : 'bg-white'}`}
       >
         <i className={`fa-solid ${isPreviewMode ? 'fa-pen-to-square' : 'fa-eye'}`} />
         {isPreviewMode ? '编辑模式' : '预览模式'}
       </button>
-      <button
-        type="button"
-        onClick={onAddAnime}
-        className="dashboard-arcade-button dashboard-add-anime-cta group inline-flex items-center gap-2 bg-[#4ecdc4]"
-      >
-        <span className="flex h-6 w-6 items-center justify-center border-2 border-black bg-white text-xs group-hover:rotate-6">
-          <i className="fa-solid fa-plus" />
-        </span>
-        添加番剧
-        <span className="border-2 border-black bg-[#ffe66d] px-1.5 py-0.5 text-[9px] font-black">ADD</span>
-      </button>
+      {!isPreviewMode && (
+        <button
+          type="button"
+          onClick={onAddAnime}
+          className="dashboard-arcade-button dashboard-add-anime-cta group inline-flex items-center gap-2 bg-[#4ecdc4]"
+        >
+          <span className="flex h-6 w-6 items-center justify-center border-2 border-black bg-white text-xs group-hover:rotate-6">
+            <i className="fa-solid fa-plus" />
+          </span>
+          添加番剧
+          <span className="border-2 border-black bg-[#ffe66d] px-1.5 py-0.5 text-[9px] font-black">ADD</span>
+        </button>
+      )}
     </div>
   )
 
   return (
     <>
       {isPreviewMode ? (
-        <header className={`dashboard-memphis-console dashboard-preview-header relative overflow-visible border-b-4 border-black bg-[#ff6b6b] text-black ${isMenuOpen ? 'z-[80]' : 'z-10'}`}>
+        <header className={`dashboard-memphis-console dashboard-preview-header relative overflow-visible border-b-4 border-black bg-[#ff6b6b] text-black ${isModeTransitioning ? 'dashboard-mode-transition' : ''} ${isMenuOpen ? 'z-[80]' : 'z-10'}`}>
           <div
             className="pointer-events-none absolute inset-0 opacity-20"
             style={{
@@ -213,7 +227,7 @@ function DashboardHeader({
           </div>
         </header>
       ) : (
-        <header className="dashboard-memphis-console relative z-40 mx-4 mt-4 overflow-visible border-4 border-black bg-[#ff8fab] text-black shadow-[8px_8px_0_#111] sm:mx-6 lg:mx-auto lg:max-w-7xl">
+        <header className={`dashboard-memphis-console relative z-40 mx-4 mt-4 overflow-visible border-4 border-black bg-[#ff8fab] text-black shadow-[8px_8px_0_#111] sm:mx-6 lg:mx-auto lg:max-w-7xl ${isModeTransitioning ? 'dashboard-mode-transition' : ''}`}>
           <div className="dashboard-console-pattern pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true" />
           <div className="pointer-events-none absolute -right-7 -top-7 h-20 w-20 rotate-12 border-4 border-black bg-[#ffe66d] shadow-[5px_5px_0_#4ecdc4]" aria-hidden="true" />
 
