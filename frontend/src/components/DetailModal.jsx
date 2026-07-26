@@ -252,7 +252,7 @@ function DetailModal({
     }
   }
 
-  const arcadeButtonClass = 'border-[3px] border-black bg-white px-5 py-2 text-sm font-black text-black shadow-[4px_4px_0_0_#111] transition-none hover:bg-[#ffe66d] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none disabled:cursor-not-allowed disabled:opacity-50'
+  const arcadeButtonClass = 'border-[3px] border-black bg-white px-4 py-1.5 text-xs font-black text-black shadow-[3px_3px_0_0_#111] transition-none hover:bg-[#ffe66d] active:translate-x-[3px] active:translate-y-[3px] active:shadow-none disabled:cursor-not-allowed disabled:opacity-50'
 
   return (
     <div
@@ -261,7 +261,7 @@ function DetailModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="modalTitle"
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5"
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) handleClose()
       }}
@@ -274,22 +274,22 @@ function DetailModal({
 
       <div
         ref={modalPanelRef}
-        className="relative flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden border-4 border-black bg-[#fff5ee] shadow-[12px_12px_0_0_rgba(0,0,0,1)]"
+        className="relative flex h-[calc(100dvh-1rem)] max-h-[860px] w-full max-w-4xl flex-col overflow-hidden border-4 border-black bg-[#fff5ee] shadow-[12px_12px_0_0_rgba(0,0,0,1)] sm:h-[calc(100dvh-2rem)]"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <div className="grid h-4 shrink-0 grid-cols-[1fr_0.7fr_1.2fr] border-b-4 border-black">
+        <div className="grid h-3 shrink-0 grid-cols-[1fr_0.7fr_1.2fr] border-b-4 border-black">
           <span className="bg-[#ff6b6b]" />
           <span className="border-x-4 border-black bg-[#ffe66d]" />
           <span className="bg-[#4ecdc4]" />
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar sm:p-6">
-          <div className="memphis-modal-piece mb-5 flex items-start justify-between gap-4 border-b-4 border-black pb-4">
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-3 custom-scrollbar sm:overflow-hidden sm:p-4">
+          <div className="memphis-modal-piece mb-3 flex shrink-0 items-start justify-between gap-4 border-b-[3px] border-black pb-3">
             <div>
-              <span className="mb-2 inline-flex -rotate-1 border-2 border-black bg-[#4ecdc4] px-2.5 py-1 text-[10px] font-black tracking-[0.18em] shadow-[3px_3px_0_#111]">
+              <span className="mb-1.5 inline-flex -rotate-1 border-2 border-black bg-[#4ecdc4] px-2.5 py-0.5 text-[10px] font-black tracking-[0.18em] shadow-[3px_3px_0_#111]">
                 ANIME FILE / 番剧档案
               </span>
-              <h3 id="modalTitle" className="text-2xl font-black leading-tight text-black sm:text-3xl">
+              <h3 id="modalTitle" className="text-xl font-black leading-tight text-black sm:text-2xl">
                 {selectedItem.title}
               </h3>
               <p id="modalJapaneseTitle" className="mt-1 text-xs font-bold text-zinc-500 sm:text-sm">
@@ -301,18 +301,18 @@ function DetailModal({
               onClick={handleClose}
               disabled={isClosing}
               aria-label="关闭详情"
-              className="group flex h-11 w-11 shrink-0 items-center justify-center border-[3px] border-black bg-[#ff6b6b] text-black shadow-[4px_4px_0_#111] transition-none hover:bg-[#ffe66d] active:translate-x-1 active:translate-y-1 active:shadow-none disabled:pointer-events-none"
+              className="group flex h-9 w-9 shrink-0 items-center justify-center border-[3px] border-black bg-[#ff6b6b] text-black shadow-[3px_3px_0_#111] transition-none hover:bg-[#ffe66d] active:translate-x-1 active:translate-y-1 active:shadow-none disabled:pointer-events-none"
             >
               <i className="fa-solid fa-xmark text-xl group-hover:rotate-6"></i>
             </button>
           </div>
 
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(210px,0.82fr)_minmax(0,2fr)]">
-            <div className="flex flex-col">
-              <div className="memphis-modal-piece group relative aspect-[3/4] w-full overflow-hidden border-4 border-black bg-white shadow-[8px_8px_0_#4ecdc4]">
+          <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 sm:grid-cols-[minmax(190px,0.78fr)_minmax(0,2fr)]">
+            <div className="flex min-h-0 flex-col">
+              <div className="memphis-modal-piece group relative aspect-[3/4] min-h-0 flex-1 overflow-hidden border-4 border-black bg-white shadow-[7px_7px_0_#4ecdc4] sm:aspect-auto">
                 <img
                   id="modalCoverImg"
-                  className="h-full w-full object-cover"
+                  className="h-full w-full object-cover transition-[transform,filter,opacity] duration-300 ease-out group-hover:scale-[1.025] group-hover:rotate-[0.4deg] group-hover:opacity-85 group-hover:saturate-[0.85]"
                   src={coverSrc}
                   alt={`${selectedItem.title} Cover`}
                 />
@@ -321,14 +321,14 @@ function DetailModal({
                   href={coverSrc}
                   target="_blank"
                   rel="noreferrer"
-                  className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/75 p-2 text-white opacity-0 transition-opacity duration-150 group-hover:opacity-100"
+                  className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-zinc-950/50 p-2 text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100"
                 >
                   <i className="fa-solid fa-arrow-up-right-from-square mb-2 text-2xl"></i>
                   <span className="border-2 border-white px-3 py-1 text-xs font-black">查看原图</span>
                 </a>
               </div>
 
-              <div className="memphis-modal-piece mt-4">
+              <div className="memphis-modal-piece mt-3 shrink-0">
                 <label htmlFor="coverUrlInput" className="mb-1 block text-[10px] font-black uppercase tracking-wider text-black">
                   网络图片 URL
                 </label>
@@ -338,12 +338,12 @@ function DetailModal({
                   readOnly
                   value={selectedItem.cover || ''}
                   placeholder="暂无链接..."
-                  className="w-full cursor-not-allowed border-[3px] border-black bg-white px-2.5 py-2 text-[10px] font-bold text-zinc-500 outline-none shadow-[inset_3px_3px_0_#d4d4d8]"
+                  className="w-full cursor-not-allowed border-2 border-black bg-white px-2.5 py-1.5 text-[10px] font-bold text-zinc-500 outline-none shadow-[inset_2px_2px_0_#d4d4d8]"
                 />
               </div>
 
-              <div className="memphis-modal-piece mt-5 border-[3px] border-black bg-[#ff8fab] p-3.5 shadow-[6px_6px_0_#111]">
-                <span className="mb-3 block text-xs font-black text-black">
+              <div className="memphis-modal-piece mt-3 shrink-0 border-[3px] border-black bg-[#ff8fab] p-2.5 shadow-[5px_5px_0_#111]">
+                <span className="mb-2 block text-[11px] font-black text-black">
                   <i className="fa-solid fa-book-open mr-2"></i>
                   前往萌娘百科查看完整信息
                 </span>
@@ -353,7 +353,7 @@ function DetailModal({
                   target={hasBaikeUrl ? '_blank' : undefined}
                   rel={hasBaikeUrl ? 'noreferrer' : undefined}
                   aria-disabled={!hasBaikeUrl}
-                  className={`flex w-full items-center justify-center gap-2 border-[3px] border-black bg-[#ffe66d] px-4 py-2.5 text-xs font-black text-black shadow-[4px_4px_0_#111] transition-none hover:bg-[#4ecdc4] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none${hasBaikeUrl ? '' : ' pointer-events-none cursor-not-allowed opacity-50 grayscale'}`}
+                  className={`flex w-full items-center justify-center gap-2 border-[3px] border-black bg-[#ffe66d] px-3 py-1.5 text-[11px] font-black text-black shadow-[3px_3px_0_#111] transition-none hover:bg-[#4ecdc4] active:translate-x-[3px] active:translate-y-[3px] active:shadow-none${hasBaikeUrl ? '' : ' pointer-events-none cursor-not-allowed opacity-50 grayscale'}`}
                 >
                   {hasBaikeUrl ? (
                     <><i className="fa-solid fa-arrow-up-right-from-square"></i> 点击跳转</>
@@ -364,8 +364,8 @@ function DetailModal({
               </div>
             </div>
 
-            <div className="flex min-w-0 flex-col gap-5">
-              <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="flex min-h-0 min-w-0 flex-col gap-3">
+              <div className="grid shrink-0 grid-cols-2 gap-2.5 text-sm">
                 {[
                   {
                     label: '放送季度',
@@ -401,9 +401,9 @@ function DetailModal({
                 ].map((field, index) => (
                   <div
                     key={field.id}
-                    className={`memphis-modal-piece min-w-0 border-2 border-black p-3 ${infoCardClasses[index]}`}
+                    className={`memphis-modal-piece min-w-0 border-2 border-black p-2.5 ${infoCardClasses[index]}`}
                   >
-                    <span className="mb-1 block text-[10px] font-black uppercase tracking-wider text-black/65">
+                    <span className="mb-0.5 block text-xs font-black uppercase tracking-wide text-black/70">
                       {field.label}
                     </span>
                     <input
@@ -416,7 +416,7 @@ function DetailModal({
                       readOnly={!field.name || !editable}
                       value={field.value}
                       onChange={field.name ? handleFieldChange : undefined}
-                      className={`w-full border-0 bg-transparent text-sm font-black outline-none sm:text-base ${field.inputClass}${field.name && editable ? ' cursor-text' : ' cursor-not-allowed'}`}
+                      className={`w-full border-0 text-base font-black outline-none sm:text-lg ${field.id === 'modalScore' ? 'bg-white px-2 py-0.5 shadow-[2px_2px_0_#111]' : 'bg-transparent'} ${field.inputClass}${field.name && editable ? ' cursor-text' : ' cursor-not-allowed'}`}
                       placeholder={field.placeholder || '--'}
                     />
                   </div>
@@ -424,14 +424,14 @@ function DetailModal({
               </div>
 
               <div className="memphis-modal-piece">
-                <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.18em] text-black">
+                <span className="mb-1.5 block text-[10px] font-black uppercase tracking-[0.18em] text-black">
                   标签分类 / TAGS
                 </span>
-                <div id="modalTags" className="flex flex-wrap gap-2.5">
+                <div id="modalTags" className="flex flex-wrap gap-2">
                   {selectedItem.tags.map((tag, index) => (
                     <span
                       key={tag}
-                      className={`memphis-modal-tag ${index % 2 ? 'rotate-1' : '-rotate-1'} rounded-full px-3 py-1 text-xs font-black ${getTagClass(tag, selectedItem.tagColors?.[tag])}`}
+                      className={`memphis-modal-tag ${index % 2 ? 'rotate-1' : '-rotate-1'} rounded-full px-2.5 py-0.5 text-[11px] font-black ${getTagClass(tag, selectedItem.tagColors?.[tag])}`}
                     >
                       {tag}
                     </span>
@@ -459,13 +459,13 @@ function DetailModal({
                 </div>
               )}
 
-              <div className="memphis-modal-piece flex flex-col">
-                <div className="mb-3 grid grid-cols-2 gap-2 border-[3px] border-black bg-black p-1.5">
+              <div className="memphis-modal-piece flex min-h-0 flex-1 flex-col">
+                <div className="mb-2 grid shrink-0 grid-cols-2 gap-1.5 border-2 border-black bg-black p-1">
                   <button
                     type="button"
                     aria-pressed={activeTextPanel === 'description'}
                     onClick={() => setActiveTextPanel('description')}
-                    className={`border-2 border-black px-3 py-2 text-xs font-black transition-none ${activeTextPanel === 'description' ? 'bg-[#ffe66d] text-black shadow-[3px_3px_0_#ff6b6b]' : 'bg-white text-black hover:bg-[#4ecdc4]'}`}
+                    className={`border-2 border-black px-3 py-1.5 text-xs font-black transition-none ${activeTextPanel === 'description' ? 'bg-[#ffe66d] text-black shadow-[2px_2px_0_#ff6b6b]' : 'bg-white text-black hover:bg-[#4ecdc4]'}`}
                   >
                     <i className="fa-solid fa-align-left mr-2"></i>剧情简介
                   </button>
@@ -473,7 +473,7 @@ function DetailModal({
                     type="button"
                     aria-pressed={activeTextPanel === 'review'}
                     onClick={() => setActiveTextPanel('review')}
-                    className={`border-2 border-black px-3 py-2 text-xs font-black transition-none ${activeTextPanel === 'review' ? 'bg-[#ff8fab] text-black shadow-[3px_3px_0_#4ecdc4]' : 'bg-white text-black hover:bg-[#4ecdc4]'}`}
+                    className={`border-2 border-black px-3 py-1.5 text-xs font-black transition-none ${activeTextPanel === 'review' ? 'bg-[#ff8fab] text-black shadow-[2px_2px_0_#4ecdc4]' : 'bg-white text-black hover:bg-[#4ecdc4]'}`}
                   >
                     <i className="fa-solid fa-pen-nib mr-2"></i>个人评价
                   </button>
@@ -490,7 +490,7 @@ function DetailModal({
                       : selectedItem.review || ''
                   }
                   onChange={activeTextPanel === 'review' ? handleFieldChange : undefined}
-                  className={`h-[180px] w-full resize-none border-[3px] border-black bg-white p-4 text-xs font-bold leading-relaxed text-zinc-700 outline-none shadow-[inset_4px_4px_0_#e4e4e7] custom-scrollbar${editable && activeTextPanel === 'review' ? ' cursor-text focus:bg-[#fffbea]' : ' cursor-not-allowed'}`}
+                  className={`min-h-[96px] w-full flex-1 resize-none overflow-y-auto border-2 border-black bg-white p-3 text-xs font-bold leading-relaxed text-zinc-700 outline-none shadow-[inset_3px_3px_0_#e4e4e7] custom-scrollbar${editable && activeTextPanel === 'review' ? ' cursor-text focus:bg-[#fffbea]' : ' cursor-not-allowed'}`}
                   placeholder={activeTextPanel === 'description' ? '暂无剧情简介...' : editable ? '写下你的观看感受...' : '暂无个人评价...'}
                   aria-label={activeTextPanel === 'description' ? '剧情简介' : '个人评价'}
                 />
@@ -506,7 +506,7 @@ function DetailModal({
           </div>
         </div>
 
-        <div className="flex shrink-0 flex-wrap justify-between gap-3 border-t-4 border-black bg-[#4ecdc4] px-4 py-3 sm:px-6">
+        <div className="mx-3 mb-3 flex shrink-0 flex-wrap justify-between gap-2 border-[3px] border-black bg-[#4ecdc4] px-3 py-2 shadow-[4px_4px_0_#111] sm:mx-4">
           {editable ? (
             <button
               type="button"
@@ -519,7 +519,7 @@ function DetailModal({
             </button>
           ) : <span />}
 
-          <div className="ml-auto flex gap-3">
+          <div className="ml-auto flex gap-2">
             <button
               type="button"
               onClick={handleClose}
