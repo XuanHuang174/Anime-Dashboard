@@ -12,7 +12,6 @@ const activeViewClass =
   'px-3 py-1.5 rounded-lg bg-white shadow-sm text-indigo-600 transition-all text-xs font-bold flex items-center gap-1.5'
 const inactiveViewClass =
   'px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 transition-all text-xs font-bold flex items-center gap-1.5'
-const VIEW_HINT_STORAGE_KEY = 'animeJournalPosterViewHintDismissedV2'
 
 function FilterBar({
   db,
@@ -42,9 +41,7 @@ function FilterBar({
   theme = 'default',
 }) {
   const [isMobileOpen, setIsMobileOpen] = useState(false)
-  const [showViewHint, setShowViewHint] = useState(() => (
-    window.localStorage.getItem(VIEW_HINT_STORAGE_KEY) !== 'true'
-  ))
+  const [showViewHint, setShowViewHint] = useState(true)
 
   const tags = useMemo(
     () => availableTags ?? [...new Set(db.flatMap((item) => item.tags))].sort(),
@@ -59,7 +56,6 @@ function FilterBar({
 
   const dismissViewHint = () => {
     setShowViewHint(false)
-    window.localStorage.setItem(VIEW_HINT_STORAGE_KEY, 'true')
   }
 
   const resetFilters = () => {
@@ -293,12 +289,6 @@ function FilterBar({
               className={`relative bg-slate-100/80 p-1 rounded-xl flex gap-1 shadow-inner border ${showViewHint ? 'border-indigo-200/80 ring-2 ring-indigo-500/20' : 'border-slate-200/50'} transition-all duration-500`}
               onClick={dismissViewHint}
             >
-              {showViewHint && (
-                <span id="pingDot" className="absolute -top-1 -right-1 flex h-3 w-3 z-10">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500 border border-white"></span>
-                </span>
-              )}
               <button
                 id="btnViewList"
                 type="button"

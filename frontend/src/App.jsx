@@ -36,10 +36,14 @@ function matchesShowcaseQuickFilter(item, filter) {
 
 function App() {
   const publicPageRef = useRef(null)
-  const [isContentReady, setIsContentReady] = useState(() => (
+  const skipInitialEntrance = useRef(
     hasPlayedPublicEntrance
     || (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
-  ))
+  ).current
+  const shouldAnimateInitialEntrance = useRef(!skipInitialEntrance)
+  const [isContentReady, setIsContentReady] = useState(skipInitialEntrance)
+  const [isControlsEntranceComplete, setIsControlsEntranceComplete] = useState(skipInitialEntrance)
+  const [isRecordsReady, setIsRecordsReady] = useState(skipInitialEntrance)
   const navigate = useNavigate()
   const [db, setDb] = useState(() => animeData.map((item) => ({ ...item })))
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -161,6 +165,12 @@ function App() {
     return () => window.cancelAnimationFrame(frame)
   }, [currentPage, lastLoadedPage])
 
+  useEffect(() => {
+    if (!isControlsEntranceComplete || isShowcaseLoading || isRecordsReady) return undefined
+    const frame = window.requestAnimationFrame(() => setIsRecordsReady(true))
+    return () => window.cancelAnimationFrame(frame)
+  }, [isControlsEntranceComplete, isRecordsReady, isShowcaseLoading])
+
   const activeShowcaseFilter = useMemo(
     () => showcaseQuickFilters.find((filter) => filter.id === activeCustomFilterId) ?? null,
     [activeCustomFilterId, showcaseQuickFilters],
@@ -245,17 +255,21 @@ function App() {
   const handleGetStarted = () => navigate('/login')
 
   useGSAP(() => {
-    if (isContentReady || hasPlayedPublicEntrance) {
+    if (!shouldAnimateInitialEntrance.current) {
       setIsContentReady(true)
       return undefined
     }
 
     const animatedTargets = gsap.utils.toArray('.memphis-header-piece, .memphis-stat-card')
+    const contentGate = publicPageRef.current?.querySelector('.memphis-content-gate')
     gsap.set(animatedTargets, { willChange: 'transform, opacity' })
+    if (contentGate) gsap.set(contentGate, { willChange: 'transform, opacity' })
     const entranceTimeline = gsap.timeline({
       onComplete: () => {
-        hasPlayedPublicEntrance = true
         gsap.set(animatedTargets, { clearProps: 'transform,opacity,willChange' })
+        if (contentGate) {
+          gsap.set(contentGate, { clearProps: 'transform,opacity,willChange' })
+        }
         setIsContentReady(true)
       },
     })
@@ -275,12 +289,81 @@ function App() {
       stagger: 0.05,
       ease: 'back.out(1.4)',
     }, 0.12)
+    if (contentGate) {
+      entranceTimeline
+        .fromTo(
+          contentGate,
+          { scaleX: 0.18, autoAlpha: 0, transformOrigin: 'left center' },
+          {
+            scaleX: 1,
+            autoAlpha: 1,
+            duration: 0.32,
+            ease: 'back.out(1.6)',
+          },
+          0.5,
+        )
+        .to(contentGate, {
+          y: -5,
+          autoAlpha: 0,
+          duration: 0.16,
+          ease: 'power2.in',
+        }, '+=0.12')
+    }
 
     return () => {
       entranceTimeline.kill()
       gsap.set(animatedTargets, { clearProps: 'transform,opacity,willChange' })
+      if (contentGate) {
+        gsap.set(contentGate, { clearProps: 'transform,opacity,willChange' })
+      }
     }
   }, { scope: publicPageRef })
+
+  useGSAP(() => {
+    if (!isContentReady) return undefined
+    if (!shouldAnimateInitialEntrance.current) {
+      setIsControlsEntranceComplete(true)
+      return undefined
+    }
+
+    const controlTargets = gsap.utils.toArray('.public-control-piece')
+    if (!controlTargets.length) {
+      hasPlayedPublicEntrance = true
+      setIsControlsEntranceComplete(true)
+      return undefined
+    }
+
+    gsap.set(controlTargets, { willChange: 'transform, opacity' })
+    const controlsEntrance = gsap.fromTo(
+      controlTargets,
+      { y: 24, scale: 0.985, autoAlpha: 0 },
+      {
+        y: 0,
+        scale: 1,
+        autoAlpha: 1,
+        duration: 0.36,
+        stagger: 0.09,
+        ease: 'back.out(1.35)',
+        onComplete: () => {
+          hasPlayedPublicEntrance = true
+          gsap.set(controlTargets, {
+            clearProps: 'transform,opacity,visibility,willChange',
+          })
+          setIsControlsEntranceComplete(true)
+        },
+      },
+    )
+
+    return () => {
+      controlsEntrance.kill()
+      gsap.set(controlTargets, {
+        clearProps: 'transform,opacity,visibility,willChange',
+      })
+    }
+  }, {
+    scope: publicPageRef,
+    dependencies: [isContentReady],
+  })
 
   return (
     <main
@@ -302,54 +385,56 @@ function App() {
           </div>
         )}
         {isContentReady && (
-          <FilterBar
-          db={db}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          tagFilter={tagFilter}
-          setTagFilter={setTagFilter}
-          yearFilter={yearFilter}
-          setYearFilter={setYearFilter}
-          statusFilter={statusFilter}
-          setStatusFilter={setStatusFilter}
-          sortOrder={sortOrder}
-          setSortOrder={setSortOrder}
-          typeFilter={typeFilter}
-          setTypeFilter={setTypeFilter}
-          view={view}
-          setView={setView}
-          filteredCount={pageSize === 'all' ? filteredAnime.length : (showcaseTotal ?? 0)}
-          customQuickFilters={showcaseQuickFilters}
-          activeCustomFilterId={activeCustomFilterId}
-          setActiveCustomFilterId={setActiveCustomFilterId}
-          onResetPagination={() => handlePageSizeChange('all')}
-          availableTags={filterOptions.tags}
-          availableYears={filterOptions.years}
-          theme="memphis"
-          />
-        )}
-
-        {isContentReady && (
-          <div
-          id="showcasePaginationTop"
-          className="mb-5 grid grid-cols-2 scroll-mt-5 items-stretch gap-3"
-          >
-          <PageSizeSelector
-            pageSize={pageSize}
-            onChange={handlePageSizeChange}
-            totalCount={showcaseTotal}
-            isLoading={isShowcaseLoading}
-            theme="memphis"
-          />
-          <PriorityNotice unratedCount={visibleUnratedCount} theme="memphis" />
+          <div className="public-control-piece">
+            <FilterBar
+              db={db}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              tagFilter={tagFilter}
+              setTagFilter={setTagFilter}
+              yearFilter={yearFilter}
+              setYearFilter={setYearFilter}
+              statusFilter={statusFilter}
+              setStatusFilter={setStatusFilter}
+              sortOrder={sortOrder}
+              setSortOrder={setSortOrder}
+              typeFilter={typeFilter}
+              setTypeFilter={setTypeFilter}
+              view={view}
+              setView={setView}
+              filteredCount={pageSize === 'all' ? filteredAnime.length : (showcaseTotal ?? 0)}
+              customQuickFilters={showcaseQuickFilters}
+              activeCustomFilterId={activeCustomFilterId}
+              setActiveCustomFilterId={setActiveCustomFilterId}
+              onResetPagination={() => handlePageSizeChange('all')}
+              availableTags={filterOptions.tags}
+              availableYears={filterOptions.years}
+              theme="memphis"
+            />
           </div>
         )}
 
         {isContentReady && (
-          <div className="mb-5 h-2 w-full border-2 border-black bg-[repeating-linear-gradient(135deg,#111_0,#111_8px,#ffe66d_8px,#ffe66d_16px)]"></div>
+          <div
+            id="showcasePaginationTop"
+            className="public-control-piece mb-5 grid grid-cols-2 scroll-mt-5 items-stretch gap-3"
+          >
+            <PageSizeSelector
+              pageSize={pageSize}
+              onChange={handlePageSizeChange}
+              totalCount={showcaseTotal}
+              isLoading={isShowcaseLoading}
+              theme="memphis"
+            />
+            <PriorityNotice unratedCount={visibleUnratedCount} theme="memphis" />
+          </div>
         )}
 
-        {isContentReady && filteredAnime.length > 0 && view === 'list' && (
+        {isContentReady && (
+          <div className="public-control-piece mb-5 h-2 w-full border-2 border-black bg-[repeating-linear-gradient(135deg,#111_0,#111_8px,#ffe66d_8px,#ffe66d_16px)]"></div>
+        )}
+
+        {isRecordsReady && filteredAnime.length > 0 && view === 'list' && (
           <AnimeList
             items={filteredAnime}
             sortOrder={sortOrder}
@@ -359,11 +444,11 @@ function App() {
             theme="memphis"
           />
         )}
-        {isContentReady && filteredAnime.length > 0 && view === 'grid' && (
+        {isRecordsReady && filteredAnime.length > 0 && view === 'grid' && (
           <AnimeGrid items={filteredAnime} onOpenDetail={handleOpenDetail} theme="memphis" />
         )}
 
-        {isContentReady && filteredAnime.length === 0 && (
+        {isRecordsReady && filteredAnime.length === 0 && (
           <div id="noResults" className="py-16 px-4 text-center">
             <i className="fa-solid fa-mug-hot text-slate-300 text-5xl mb-4 animate-bounce"></i>
             <h3 className="text-slate-600 font-bold text-lg">没有找到匹配的番剧</h3>
@@ -371,7 +456,7 @@ function App() {
           </div>
         )}
 
-        {isContentReady && pageSize !== 'all' && showcaseTotal > 0 && (
+        {isRecordsReady && pageSize !== 'all' && showcaseTotal > 0 && (
           <PageNavigation
             currentPage={currentPage}
             totalPages={totalPages}
