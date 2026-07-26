@@ -69,11 +69,11 @@ function DashboardHeader({
   const dropdownMenu = isMenuOpen && (
     <div
       role="menu"
-      className="absolute left-0 top-[calc(100%+0.75rem)] z-[70] w-72 border-[3px] border-black bg-[#fff5ee] p-2 text-black shadow-[7px_7px_0_#111] animate-[viewFadeIn_0.16s_ease-out_both]"
+      className="absolute left-0 top-[calc(100%+0.75rem)] z-[100] w-72 border-[3px] border-black bg-[#fff5ee] p-2 text-black shadow-[7px_7px_0_#111] animate-[viewFadeIn_0.16s_ease-out_both]"
     >
       <div className="mb-2 border-2 border-black bg-[#ffe66d] px-3 py-3 shadow-[3px_3px_0_#ff6b6b]">
-        <p className="truncate text-sm font-black">{displayName}</p>
-        <p className="mt-0.5 truncate text-[10px] font-bold text-zinc-600">
+        <p className="truncate text-base font-black">{displayName}</p>
+        <p className="mt-1 truncate text-xs font-bold text-zinc-700">
           {profile?.email || '正在读取个人资料...'}
         </p>
       </div>
@@ -161,7 +161,7 @@ function DashboardHeader({
   return (
     <>
       {isPreviewMode ? (
-        <header className="dashboard-memphis-console dashboard-preview-header relative z-10 overflow-hidden border-b-4 border-black bg-[#ff6b6b] text-black">
+        <header className={`dashboard-memphis-console dashboard-preview-header relative overflow-visible border-b-4 border-black bg-[#ff6b6b] text-black ${isMenuOpen ? 'z-[80]' : 'z-10'}`}>
           <div
             className="pointer-events-none absolute inset-0 opacity-20"
             style={{
