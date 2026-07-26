@@ -285,7 +285,7 @@ function App() {
   return (
     <main
       ref={publicPageRef}
-      className="memphis-public relative min-h-screen overflow-hidden bg-[#fff5ee] pb-12 text-black"
+      className="memphis-public relative min-h-screen overflow-hidden bg-[#fff5ee] pb-3 text-black"
     >
       <div className="memphis-grid-texture pointer-events-none absolute inset-0" aria-hidden="true" />
       <div className="memphis-float-ring pointer-events-none absolute right-[-54px] top-[34rem] z-0 h-32 w-32 rounded-full border-[18px] border-black bg-[#4ecdc4]" aria-hidden="true" />

@@ -489,6 +489,19 @@ select {
   color: #ff5c8a !important;
 }
 
+.memphis-anime-list .memphis-row-number {
+  display: inline-block;
+  transform-origin: center;
+  transition:
+    color 140ms steps(2, end),
+    transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.memphis-anime-list .memphis-entry:hover .memphis-row-number {
+  color: var(--memphis-teal) !important;
+  transform: scale(1.35) rotate(-3deg);
+}
+
 .memphis-anime-list .memphis-entry img {
   border: 2px solid var(--memphis-ink);
 }
@@ -507,7 +520,7 @@ select {
 .memphis-anime-list button {
   border: 3px solid var(--memphis-ink) !important;
   border-radius: 9999px !important;
-  background: var(--memphis-coral) !important;
+  background: #fff !important;
   color: var(--memphis-ink) !important;
   box-shadow: 3px 3px 0 var(--memphis-ink) !important;
 }
@@ -595,6 +608,11 @@ select {
   transform: translate(6px, 6px) !important;
   background: var(--memphis-teal);
   box-shadow: none;
+}
+
+.memphis-public .memphis-anime-list,
+.memphis-public .memphis-anime-grid {
+  padding-bottom: 0 !important;
 }
 
 @media (max-width: 767px) {

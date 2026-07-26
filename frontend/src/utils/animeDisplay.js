@@ -57,7 +57,7 @@ export function getCoverSrc(item) {
 
 export function getSeasonDetails(period) {
   const details = {
-    periodStyle: 'bg-white text-slate-600 border-slate-200',
+    periodStyle: 'bg-white text-slate-600 border-2 border-slate-400 shadow-[2px_2px_0_0_#94a3b8]',
     icon: '',
     listIconClass: '',
     mobileIconClass: '',
@@ -69,7 +69,7 @@ export function getSeasonDetails(period) {
   const month = period.split('-')[1]
   if (month === '1') {
     return {
-      periodStyle: 'bg-sky-50 text-sky-700 border-sky-200',
+      periodStyle: 'bg-sky-50 text-sky-700 border-2 border-sky-500 shadow-[2px_2px_0_0_#38bdf8]',
       icon: 'fa-solid fa-snowflake',
       listIconClass: 'text-sky-400 mr-1.5 animate-[spin_6s_linear_infinite]',
       mobileIconClass: 'text-sky-400 mr-1 text-[10px] animate-[spin_6s_linear_infinite]',
@@ -78,7 +78,7 @@ export function getSeasonDetails(period) {
   }
   if (month === '4') {
     return {
-      periodStyle: 'bg-green-50 text-green-700 border-green-200',
+      periodStyle: 'bg-green-50 text-green-700 border-2 border-green-500 shadow-[2px_2px_0_0_#22c55e]',
       icon: 'fa-solid fa-seedling',
       listIconClass: 'text-green-500 mr-1.5 animate-pulse',
       mobileIconClass: 'text-green-500 mr-1 text-[10px] animate-pulse',
@@ -87,7 +87,7 @@ export function getSeasonDetails(period) {
   }
   if (month === '7') {
     return {
-      periodStyle: 'bg-amber-50 text-amber-700 border-amber-200',
+      periodStyle: 'bg-amber-50 text-amber-700 border-2 border-amber-500 shadow-[2px_2px_0_0_#f59e0b]',
       icon: 'fa-solid fa-sun',
       listIconClass: 'text-amber-500 mr-1.5 animate-[spin_4s_linear_infinite]',
       mobileIconClass: 'text-amber-500 mr-1 text-[10px] animate-[spin_4s_linear_infinite]',
@@ -96,7 +96,7 @@ export function getSeasonDetails(period) {
   }
   if (month === '10') {
     return {
-      periodStyle: 'bg-orange-50 text-orange-700 border-orange-200',
+      periodStyle: 'bg-orange-50 text-orange-700 border-2 border-orange-500 shadow-[2px_2px_0_0_#f97316]',
       icon: 'fa-solid fa-leaf',
       listIconClass: 'text-orange-500 mr-1.5 animate-sway',
       mobileIconClass: 'text-orange-500 mr-1 text-[10px] animate-sway',

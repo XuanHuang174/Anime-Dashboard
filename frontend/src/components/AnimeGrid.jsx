@@ -2,10 +2,10 @@ import useScrollReveal from '../hooks/useScrollReveal.js'
 import { getCoverSrc, getSeasonDetails, getTagClass } from '../utils/animeDisplay.js'
 
 function getGridScoreColorClass(score, isMemphis = false) {
-  if (score >= 9.8) {
+  if (score >= 9.9) {
     return 'bg-gradient-to-r from-indigo-600 via-purple-600 to-fuchsia-500 bg-clip-text text-transparent'
   }
-  if (score >= 9.5) return 'text-orange-700'
+  if (score >= 9.5) return 'text-red-600'
   if (score >= 9.0) return 'text-orange-500'
   return isMemphis ? 'text-slate-800' : 'text-white'
 }

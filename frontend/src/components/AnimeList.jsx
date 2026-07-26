@@ -2,10 +2,10 @@ import useScrollReveal from '../hooks/useScrollReveal.js'
 import { getCoverSrc, getSeasonDetails, getTagClass } from '../utils/animeDisplay.js'
 
 function getScoreColorClass(score) {
-  if (score >= 9.8) {
+  if (score >= 9.9) {
     return 'bg-gradient-to-r from-indigo-600 via-purple-600 to-fuchsia-500 bg-clip-text text-transparent'
   }
-  if (score >= 9.5) return 'text-orange-700'
+  if (score >= 9.5) return 'text-red-600'
   if (score >= 9.0) return 'text-orange-500'
   return 'text-slate-800'
 }
@@ -111,7 +111,7 @@ function AnimeList({ items, sortOrder, setSortOrder, onOpenDetail, startIndex = 
                     <td className="hidden md:table-cell py-5 px-6 relative w-24">
                       <div className={`${isMemphis ? 'bg-[#ff6b6b]' : 'bg-indigo-500'} absolute bottom-1/4 left-0 top-1/4 w-1 origin-center scale-y-0 rounded-r-full opacity-0 transition-all duration-300 group-hover:scale-y-100 group-hover:opacity-100`}></div>
                       <div className="w-full flex items-center justify-center relative min-h-[40px]">
-                        <span className={`${isMemphis ? 'text-black' : 'absolute text-slate-300 transition-all duration-500 ease-out group-hover:scale-75 group-hover:opacity-0'} pointer-events-none select-none text-2xl font-black`}>
+                        <span className={`${isMemphis ? 'memphis-row-number text-black' : 'absolute text-slate-300 transition-all duration-500 ease-out group-hover:scale-75 group-hover:opacity-0'} pointer-events-none select-none text-2xl font-black`}>
                           {startIndex + index + 1}
                         </span>
                         {!isMemphis && (
@@ -224,7 +224,7 @@ function AnimeList({ items, sortOrder, setSortOrder, onOpenDetail, startIndex = 
                     <td className="hidden md:table-cell py-5 px-6 text-center">
                       <button
                         type="button"
-                        className="inline-flex items-center gap-1.5 bg-white hover:bg-indigo-500 text-indigo-500 hover:text-white font-bold px-4 py-2 rounded-xl text-xs border border-indigo-100 shadow-sm hover:shadow-md hover:shadow-indigo-200/50 hover:-translate-y-0.5 active:translate-y-0 active:shadow-sm transition-all duration-300"
+                        className="memphis-detail-button inline-flex items-center gap-1.5 bg-white hover:bg-indigo-500 text-indigo-500 hover:text-white font-bold px-4 py-2 rounded-xl text-xs border border-indigo-100 shadow-sm hover:shadow-md hover:shadow-indigo-200/50 hover:-translate-y-0.5 active:translate-y-0 active:shadow-sm transition-all duration-300"
                       >
                         <i className="fa-solid fa-layer-group"></i> 详情
                       </button>
