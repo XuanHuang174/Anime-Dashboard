@@ -416,7 +416,7 @@ function DetailModal({
                       readOnly={!field.name || !editable}
                       value={field.value}
                       onChange={field.name ? handleFieldChange : undefined}
-                      className={`w-full border-0 text-base font-black outline-none sm:text-lg ${field.id === 'modalScore' ? 'bg-white px-2 py-0.5 shadow-[2px_2px_0_#111]' : 'bg-transparent'} ${field.inputClass}${field.name && editable ? ' cursor-text' : ' cursor-not-allowed'}`}
+                      className={`border-0 text-base font-black outline-none sm:text-lg ${field.id === 'modalScore' ? 'w-[7rem] max-w-full bg-white px-2 py-0.5 shadow-[2px_2px_0_#111]' : 'w-full bg-transparent'} ${field.inputClass}${field.name && editable ? ' cursor-text' : ' cursor-not-allowed'}`}
                       placeholder={field.placeholder || '--'}
                     />
                   </div>
@@ -431,7 +431,7 @@ function DetailModal({
                   {selectedItem.tags.map((tag, index) => (
                     <span
                       key={tag}
-                      className={`memphis-modal-tag ${index % 2 ? 'rotate-1' : '-rotate-1'} rounded-full px-2.5 py-0.5 text-[11px] font-black ${getTagClass(tag, selectedItem.tagColors?.[tag])}`}
+                      className={`memphis-modal-tag ${index % 2 ? 'rotate-1' : '-rotate-1'} rounded-full px-3 py-1 text-xs font-black ${getTagClass(tag, selectedItem.tagColors?.[tag])}`}
                     >
                       {tag}
                     </span>
@@ -460,7 +460,7 @@ function DetailModal({
               )}
 
               <div className="memphis-modal-piece flex min-h-0 flex-1 flex-col">
-                <div className="mb-2 grid shrink-0 grid-cols-2 gap-1.5 border-2 border-black bg-black p-1">
+                <div className="mb-2 grid shrink-0 grid-cols-2 gap-1.5 border border-black bg-[#fff5ee] p-1">
                   <button
                     type="button"
                     aria-pressed={activeTextPanel === 'description'}
