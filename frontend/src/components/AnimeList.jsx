@@ -29,7 +29,15 @@ function getStarColorClass(score, isLit) {
   return 'text-slate-200'
 }
 
-function AnimeList({ items, sortOrder, setSortOrder, onOpenDetail, startIndex = 0, theme = 'default' }) {
+function AnimeList({
+  items,
+  sortOrder,
+  setSortOrder,
+  onOpenDetail,
+  startIndex = 0,
+  theme = 'default',
+  editable = false,
+}) {
   const isMemphis = theme === 'memphis'
   const containerRef = useScrollReveal(items)
 
@@ -224,9 +232,10 @@ function AnimeList({ items, sortOrder, setSortOrder, onOpenDetail, startIndex = 
                     <td className="hidden md:table-cell py-5 px-6 text-center">
                       <button
                         type="button"
-                        className="memphis-detail-button inline-flex items-center gap-1.5 bg-white hover:bg-indigo-500 text-indigo-500 hover:text-white font-bold px-4 py-2 rounded-xl text-xs border border-indigo-100 shadow-sm hover:shadow-md hover:shadow-indigo-200/50 hover:-translate-y-0.5 active:translate-y-0 active:shadow-sm transition-all duration-300"
+                        className={`memphis-detail-button inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold transition-all duration-300 ${editable ? 'memphis-edit-action' : 'border border-indigo-100 bg-white text-indigo-500 shadow-sm hover:-translate-y-0.5 hover:bg-indigo-500 hover:text-white hover:shadow-md hover:shadow-indigo-200/50 active:translate-y-0 active:shadow-sm'}`}
                       >
-                        <i className="fa-solid fa-layer-group"></i> 详情
+                        <i className={`fa-solid ${editable ? 'fa-pen-to-square' : 'fa-layer-group'}`}></i>
+                        {editable ? '修改' : '详情'}
                       </button>
                     </td>
                   </tr>

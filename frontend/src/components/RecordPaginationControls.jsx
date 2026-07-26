@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react'
 
 const PAGE_SIZE_OPTIONS = [
   { value: 'all', label: '全部' },
-  { value: '10', label: '10 条/页' },
-  { value: '25', label: '25 条/页' },
-  { value: '50', label: '50 条/页' },
-  { value: '100', label: '100 条/页' },
+  { value: '12', label: '12 条/页' },
+  { value: '24', label: '24 条/页' },
+  { value: '48', label: '48 条/页' },
+  { value: '96', label: '96 条/页' },
 ]
 
 export function PageSizeSelector({ pageSize, onChange, totalCount, isLoading, theme = 'default' }) {

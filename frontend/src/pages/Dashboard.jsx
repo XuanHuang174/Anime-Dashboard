@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useGSAP } from '@gsap/react'
+import gsap from 'gsap'
 import { useLocation, useNavigate } from 'react-router-dom'
 import api from '../api/api.js'
 import { clearTokens } from '../auth/tokenStorage.js'
@@ -19,6 +21,11 @@ import {
 import StatsSummary from '../components/StatsSummary.jsx'
 import { comparePeriod } from '../utils/animeDisplay.js'
 import { mapRecordToAnimeItem } from '../utils/recordMapping.js'
+
+gsap.registerPlugin(useGSAP)
+
+let hasPlayedDashboardHeaderEntrance = false
+let hasPlayedDashboardContentEntrance = false
 
 const quickFilterTags = {
   yuri: ['真百', '轻百', '真百合', '轻百合'],
@@ -70,6 +77,7 @@ function compareJournalPriority(a, b) {
 }
 
 function Dashboard() {
+  const dashboardRef = useRef(null)
   const navigate = useNavigate()
   const location = useLocation()
   const [records, setRecords] = useState([])
@@ -370,8 +378,88 @@ function Dashboard() {
     setIsPreviewMode((current) => !current)
   }
 
+  useGSAP(() => {
+    const consoleElement = dashboardRef.current?.querySelector('.dashboard-memphis-console')
+    if (!consoleElement || hasPlayedDashboardHeaderEntrance) return undefined
+
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (reduceMotion) {
+      hasPlayedDashboardHeaderEntrance = true
+      gsap.set(consoleElement, { clearProps: 'transform,opacity,visibility' })
+      return undefined
+    }
+
+    gsap.set(consoleElement, { willChange: 'transform,opacity' })
+    const entrance = gsap.fromTo(
+      consoleElement,
+      { y: -110, rotation: -1.5, autoAlpha: 0 },
+      {
+        y: 0,
+        rotation: 0,
+        autoAlpha: 1,
+        duration: 0.78,
+        ease: 'bounce.out',
+        onComplete: () => {
+          hasPlayedDashboardHeaderEntrance = true
+          gsap.set(consoleElement, { clearProps: 'transform,opacity,visibility,willChange' })
+        },
+      },
+    )
+
+    return () => {
+      entrance.kill()
+      gsap.set(consoleElement, { clearProps: 'transform,opacity,visibility,willChange' })
+    }
+  }, { scope: dashboardRef })
+
+  useGSAP(() => {
+    if (isLoading || error || hasPlayedDashboardContentEntrance) return undefined
+
+    const targets = gsap.utils.toArray('.dashboard-content-piece')
+    if (!targets.length) return undefined
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (reduceMotion) {
+      hasPlayedDashboardContentEntrance = true
+      gsap.set(targets, { clearProps: 'transform,opacity,visibility' })
+      return undefined
+    }
+
+    gsap.set(targets, { willChange: 'transform,opacity' })
+    const entrance = gsap.fromTo(
+      targets,
+      { y: 42, scale: 0.96, autoAlpha: 0 },
+      {
+        y: 0,
+        scale: 1,
+        autoAlpha: 1,
+        duration: 0.48,
+        stagger: 0.1,
+        ease: 'back.out(1.5)',
+        onComplete: () => {
+          hasPlayedDashboardContentEntrance = true
+          gsap.set(targets, { clearProps: 'transform,opacity,visibility,willChange' })
+        },
+      },
+    )
+
+    return () => {
+      entrance.kill()
+      gsap.set(targets, { clearProps: 'transform,opacity,visibility,willChange' })
+    }
+  }, {
+    scope: dashboardRef,
+    dependencies: [isLoading, error],
+  })
+
   return (
-    <main className="min-h-screen bg-slate-100 pb-12 text-slate-800">
+    <main
+      ref={dashboardRef}
+      className="memphis-public memphis-dashboard relative min-h-screen overflow-x-hidden bg-[#fff5ee] pb-8 text-black"
+    >
+      <div className="memphis-grid-texture pointer-events-none absolute inset-0" aria-hidden="true" />
+      <div className="memphis-float-ring pointer-events-none absolute right-[-64px] top-[30rem] z-0 h-32 w-32 rounded-full border-[18px] border-black bg-[#4ecdc4]" aria-hidden="true" />
+      <div className="memphis-float-triangle pointer-events-none absolute left-[-32px] top-[54rem] z-0 h-0 w-0" aria-hidden="true" />
+      <div className="memphis-float-zigzag pointer-events-none absolute bottom-24 right-0 z-0 h-16 w-44" aria-hidden="true" />
 
       <DashboardHeader
         isPreviewMode={isPreviewMode}
@@ -385,21 +473,21 @@ function Dashboard() {
       />
 
       {isPreviewMode && (
-        <div className="relative z-20 mx-auto -mt-6 max-w-7xl px-4 sm:px-6 lg:px-8">
-          <StatsSummary db={db} statsData={statsData} />
+        <div className="dashboard-content-piece relative z-20 mx-auto -mt-5 max-w-7xl px-4 sm:px-6 lg:px-8">
+          <StatsSummary db={db} statsData={statsData} theme="memphis" />
         </div>
       )}
 
-      <section className={`mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 ${isPreviewMode ? 'pb-8 pt-1' : 'py-8'}`}>
+      <section className={`relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 ${isPreviewMode ? 'pb-8 pt-2' : 'py-7'}`}>
         {isLoading && (
-          <div className="flex items-center justify-center gap-3 rounded-2xl bg-indigo-50 py-16 font-bold text-indigo-500 shadow-sm">
+          <div className="dashboard-content-piece flex items-center justify-center gap-3 border-4 border-black bg-[#ffe66d] py-14 font-black text-black shadow-[8px_8px_0_#4ecdc4]">
             <i className="fa-solid fa-spinner animate-spin text-xl"></i>
             正在读取你的追番手账...
           </div>
         )}
 
         {!isLoading && error && (
-          <div role="alert" className="rounded-2xl bg-rose-50 px-5 py-5 font-medium text-rose-600 shadow-sm">
+          <div role="alert" className="dashboard-content-piece border-4 border-black bg-[#ff6b6b] px-5 py-5 font-black text-black shadow-[8px_8px_0_#111]">
             <i className="fa-solid fa-circle-exclamation mr-2"></i>
             {error}
           </div>
@@ -407,6 +495,7 @@ function Dashboard() {
 
         {!isLoading && !error && (
           <>
+            <div className="dashboard-content-piece">
             <FilterBar
               db={db}
               searchQuery={searchQuery}
@@ -432,44 +521,60 @@ function Dashboard() {
               onResetPagination={() => handlePageSizeChange('all')}
               availableTags={filterOptions.tags}
               availableYears={filterOptions.years}
+              theme="memphis"
             />
+            </div>
 
             <div
               id="dashboardPaginationTop"
-              className="mb-5 grid grid-cols-2 scroll-mt-5 items-stretch gap-3"
+              className="dashboard-content-piece mb-5 grid grid-cols-2 scroll-mt-5 items-stretch gap-3"
             >
               <PageSizeSelector
                 pageSize={pageSize}
                 onChange={handlePageSizeChange}
                 totalCount={recordsTotal}
                 isLoading={isLoading}
+                theme="memphis"
               />
-              <PriorityNotice unratedCount={visibleUnratedCount} />
+              <PriorityNotice unratedCount={visibleUnratedCount} theme="memphis" />
             </div>
 
+            <div className="dashboard-content-piece mb-5 h-2 w-full border-2 border-black bg-[repeating-linear-gradient(135deg,#111_0,#111_8px,#ffe66d_8px,#ffe66d_16px)]" />
+
             {filteredAnime.length > 0 && view === 'list' && (
+              <div className="dashboard-content-piece">
               <AnimeList
                 items={filteredAnime}
                 sortOrder={sortOrder}
                 setSortOrder={setSortOrder}
                 onOpenDetail={setSelectedItem}
                 startIndex={listStartIndex}
+                theme="memphis"
+                editable={!isPreviewMode}
               />
+              </div>
             )}
 
             {filteredAnime.length > 0 && view === 'grid' && (
-              <AnimeGrid items={filteredAnime} onOpenDetail={setSelectedItem} />
+              <div className="dashboard-content-piece">
+                <AnimeGrid
+                  items={filteredAnime}
+                  onOpenDetail={setSelectedItem}
+                  theme="memphis"
+                  editable={!isPreviewMode}
+                />
+              </div>
             )}
 
             {filteredAnime.length === 0 && db.length === 0 && (
               <button
                 type="button"
                 onClick={() => setIsAddModalOpen(true)}
-                className="group relative w-full overflow-hidden rounded-3xl border-2 border-dashed border-indigo-200 bg-gradient-to-br from-white via-pink-50/40 to-indigo-50/70 py-16 text-center shadow-sm transition-all hover:-translate-y-1 hover:border-indigo-400 hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-indigo-100"
+                className="dashboard-content-piece memphis-pressable group relative w-full overflow-hidden border-4 border-black bg-[#ffe66d] py-14 text-center shadow-[8px_8px_0_#ff6b6b] transition-none active:translate-x-[6px] active:translate-y-[6px] active:shadow-none"
               >
-                <span className="absolute -right-16 -top-16 h-44 w-44 rounded-full bg-pink-200/30 blur-2xl transition group-hover:bg-pink-300/40"></span>
-                <span className="absolute -bottom-16 -left-16 h-44 w-44 rounded-full bg-indigo-200/30 blur-2xl transition group-hover:bg-indigo-300/40"></span>
-                <span className="relative mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-500 to-indigo-500 text-2xl text-white shadow-lg transition-transform group-hover:scale-110 group-hover:rotate-6">
+                <span className="absolute -right-10 -top-10 h-28 w-28 rotate-12 border-4 border-black bg-[#ff8fab]"></span>
+                <span className="absolute -bottom-10 -left-10 h-24 w-24 -rotate-12 border-4 border-black bg-[#4ecdc4]"></span>
+                <span className="relative mx-auto flex h-16 w-16 items-center justify-center border-4 border-black bg-white text-2xl text-black shadow-[5px_5px_0_#111]">
                   <i className="fa-solid fa-plus"></i>
                 </span>
                 <h2 className="relative mt-5 text-xl font-black text-slate-700">手账还是空的</h2>
@@ -481,7 +586,7 @@ function Dashboard() {
             )}
 
             {filteredAnime.length === 0 && db.length > 0 && (
-              <div className="rounded-3xl border border-dashed border-slate-300 bg-white py-16 text-center shadow-sm">
+              <div className="dashboard-content-piece border-4 border-black bg-white py-14 text-center shadow-[8px_8px_0_#ff6b6b]">
                 <i className="fa-solid fa-filter-circle-xmark text-5xl text-slate-300"></i>
                 <h2 className="mt-4 text-lg font-black text-slate-700">没有符合条件的追番记录</h2>
                 <p className="mt-1 text-sm text-slate-500">尝试调整搜索或过滤条件。</p>
@@ -560,13 +665,13 @@ function Dashboard() {
           </section>
         </div>
       )}
-      <BackToTop isModalOpen={Boolean(selectedItem) || isLogoutConfirmOpen} />
+      <BackToTop isModalOpen={Boolean(selectedItem) || isLogoutConfirmOpen} theme="memphis" />
 
       {toast && (
         <div
           key={toast.id}
           role="status"
-          className={`fixed bottom-6 right-6 z-[70] flex max-w-sm items-center gap-3 rounded-2xl border px-5 py-4 font-bold text-white shadow-2xl animate-[parallaxReveal_0.25s_ease-out_forwards] ${toast.type === 'error' ? 'border-rose-400 bg-rose-500' : 'border-emerald-400 bg-emerald-500'}`}
+          className={`fixed bottom-6 right-6 z-[70] flex max-w-sm items-center gap-3 border-[3px] border-black px-5 py-4 font-black text-black shadow-[6px_6px_0_#111] animate-[parallaxReveal_0.25s_ease-out_forwards] ${toast.type === 'error' ? 'bg-[#ff6b6b]' : 'bg-[#4ecdc4]'}`}
         >
           <i className={`fa-solid ${toast.type === 'error' ? 'fa-circle-exclamation' : 'fa-circle-check'} text-lg`}></i>
           {toast.message}

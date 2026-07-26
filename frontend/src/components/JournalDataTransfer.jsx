@@ -8,7 +8,8 @@ function getDownloadFilename(contentDisposition) {
   return match?.[1] || `anime-journal-${new Date().toISOString().slice(0, 10)}.json`
 }
 
-function JournalDataTransfer({ onImported, showToast }) {
+function JournalDataTransfer({ onImported, showToast, theme = 'default' }) {
+  const isMemphis = theme === 'memphis'
   const fileInputRef = useRef(null)
   const [selectedFile, setSelectedFile] = useState(null)
   const [isConfirmOpen, setIsConfirmOpen] = useState(false)
@@ -123,20 +124,24 @@ function JournalDataTransfer({ onImported, showToast }) {
           onClick={handleExport}
           disabled={isExporting || isImporting}
           title="导出 JSON 数据"
-          className="inline-flex items-center gap-2 rounded-xl border border-white/35 bg-white/15 px-3 py-2.5 text-sm font-black text-white shadow-md backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:bg-white/25 hover:shadow-lg active:translate-y-0 active:scale-95 disabled:cursor-wait disabled:opacity-60"
+          className={isMemphis
+            ? 'dashboard-arcade-button inline-flex items-center gap-2 bg-[#ffe66d]'
+            : 'inline-flex items-center gap-2 rounded-xl border border-white/35 bg-white/15 px-3 py-2.5 text-sm font-black text-white shadow-md backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:bg-white/25 hover:shadow-lg active:translate-y-0 active:scale-95 disabled:cursor-wait disabled:opacity-60'}
         >
           <i className={`fa-solid ${isExporting ? 'fa-spinner animate-spin' : 'fa-file-export'}`} />
-          <span className="hidden xl:inline">{isExporting ? '导出中' : '导出数据'}</span>
+          <span className={isMemphis ? '' : 'hidden xl:inline'}>{isExporting ? '导出中' : '导出数据'}</span>
         </button>
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={isExporting || isImporting}
           title="导入 JSON 模板"
-          className="inline-flex items-center gap-2 rounded-xl border border-white/35 bg-white/15 px-3 py-2.5 text-sm font-black text-white shadow-md backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:bg-white/25 hover:shadow-lg active:translate-y-0 active:scale-95 disabled:cursor-wait disabled:opacity-60"
+          className={isMemphis
+            ? 'dashboard-arcade-button inline-flex items-center gap-2 bg-[#ff6b6b]'
+            : 'inline-flex items-center gap-2 rounded-xl border border-white/35 bg-white/15 px-3 py-2.5 text-sm font-black text-white shadow-md backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:bg-white/25 hover:shadow-lg active:translate-y-0 active:scale-95 disabled:cursor-wait disabled:opacity-60'}
         >
           <i className="fa-solid fa-file-import" />
-          <span className="hidden xl:inline">导入模板</span>
+          <span className={isMemphis ? '' : 'hidden xl:inline'}>导入模板</span>
         </button>
         <input
           ref={fileInputRef}
@@ -149,7 +154,7 @@ function JournalDataTransfer({ onImported, showToast }) {
 
       {isConfirmOpen && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-md animate-[viewFadeIn_0.2s_ease-out_both]"
+          className={`fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-[viewFadeIn_0.2s_ease-out_both] ${isMemphis ? 'memphis-modal-backdrop bg-zinc-900/80' : 'bg-slate-950/65'}`}
           role="dialog"
           aria-modal="true"
           aria-labelledby="importConfirmTitle"
@@ -158,13 +163,15 @@ function JournalDataTransfer({ onImported, showToast }) {
           }}
         >
           <section
-            className="w-full max-w-md overflow-hidden rounded-[2rem] border border-white/70 bg-white/95 text-slate-700 shadow-2xl shadow-slate-950/30 ring-1 ring-slate-900/5"
+            className={isMemphis
+              ? 'w-full max-w-md overflow-hidden border-4 border-black bg-[#fff5ee] text-black shadow-[10px_10px_0_#111]'
+              : 'w-full max-w-md overflow-hidden rounded-[2rem] border border-white/70 bg-white/95 text-slate-700 shadow-2xl shadow-slate-950/30 ring-1 ring-slate-900/5'}
             onMouseDown={(event) => event.stopPropagation()}
           >
-            <div className="h-2 bg-gradient-to-r from-rose-400 via-pink-500 to-indigo-500" />
+            <div className={isMemphis ? 'h-3 border-b-4 border-black bg-[#ff6b6b]' : 'h-2 bg-gradient-to-r from-rose-400 via-pink-500 to-indigo-500'} />
             <div className="relative px-7 py-8 text-center">
               <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-rose-100/70 blur-2xl" />
-              <span className="relative mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-rose-100 bg-gradient-to-br from-rose-50 to-pink-100 text-2xl text-rose-500 shadow-inner">
+              <span className={`relative mx-auto flex h-16 w-16 items-center justify-center text-2xl ${isMemphis ? 'border-[3px] border-black bg-[#ffe66d] text-black shadow-[5px_5px_0_#111]' : 'rounded-2xl border border-rose-100 bg-gradient-to-br from-rose-50 to-pink-100 text-rose-500 shadow-inner'}`}>
                 <i className="fa-solid fa-triangle-exclamation" />
               </span>
               <h2 id="importConfirmTitle" className="relative mt-5 text-2xl font-black text-slate-800">
@@ -173,7 +180,7 @@ function JournalDataTransfer({ onImported, showToast }) {
               <p className="relative mt-3 text-sm font-medium leading-7 text-slate-500">
                 导入新的 JSON 模板将会彻底覆盖您当前所有的手账数据，此操作无法撤销。是否继续？
               </p>
-              <div className="relative mt-4 flex items-center gap-3 rounded-2xl border border-indigo-100 bg-indigo-50/80 px-4 py-3 text-left shadow-inner">
+              <div className={`relative mt-4 flex items-center gap-3 px-4 py-3 text-left ${isMemphis ? 'border-[3px] border-black bg-[#4ecdc4] shadow-[4px_4px_0_#111]' : 'rounded-2xl border border-indigo-100 bg-indigo-50/80 shadow-inner'}`}>
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-indigo-500 shadow-sm">
                   <i className="fa-solid fa-file-code" />
                 </span>
@@ -187,7 +194,9 @@ function JournalDataTransfer({ onImported, showToast }) {
                   type="button"
                   onClick={cancelImport}
                   disabled={isImporting}
-                  className="rounded-xl bg-slate-100 px-4 py-3 text-sm font-black text-slate-600 shadow-inner transition hover:bg-slate-200 active:scale-95 disabled:opacity-50"
+                  className={isMemphis
+                    ? 'dashboard-arcade-button bg-white disabled:opacity-50'
+                    : 'rounded-xl bg-slate-100 px-4 py-3 text-sm font-black text-slate-600 shadow-inner transition hover:bg-slate-200 active:scale-95 disabled:opacity-50'}
                 >
                   取消
                 </button>
@@ -195,7 +204,9 @@ function JournalDataTransfer({ onImported, showToast }) {
                   type="button"
                   onClick={confirmImport}
                   disabled={isImporting}
-                  className="rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 px-4 py-3 text-sm font-black text-white shadow-lg shadow-rose-200 transition hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0 active:scale-95 disabled:cursor-wait disabled:opacity-70"
+                  className={isMemphis
+                    ? 'dashboard-arcade-button bg-[#ff6b6b] disabled:cursor-wait disabled:opacity-70'
+                    : 'rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 px-4 py-3 text-sm font-black text-white shadow-lg shadow-rose-200 transition hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0 active:scale-95 disabled:cursor-wait disabled:opacity-70'}
                 >
                   <i className={`fa-solid mr-2 ${isImporting ? 'fa-spinner animate-spin' : 'fa-file-import'}`} />
                   {isImporting ? '正在覆盖' : '确认覆盖'}

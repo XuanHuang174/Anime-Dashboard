@@ -171,6 +171,115 @@ select {
   transition: none !important;
 }
 
+.dashboard-memphis-console {
+  isolation: isolate;
+}
+
+.dashboard-console-pattern {
+  opacity: 0.2;
+  background-image:
+    radial-gradient(#111 1.5px, transparent 1.5px),
+    linear-gradient(rgba(17, 17, 17, 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(17, 17, 17, 0.12) 1px, transparent 1px);
+  background-position: 0 0, 9px 9px, 9px 9px;
+  background-size: 18px 18px, 72px 72px, 72px 72px;
+}
+
+.dashboard-arcade-button {
+  min-height: 42px;
+  border: 3px solid var(--memphis-ink) !important;
+  border-radius: 0 !important;
+  padding: 8px 12px;
+  color: var(--memphis-ink) !important;
+  font-size: 12px;
+  font-weight: 900;
+  box-shadow: 4px 4px 0 var(--memphis-ink) !important;
+}
+
+.dashboard-arcade-button:hover {
+  filter: saturate(1.08);
+}
+
+.dashboard-arcade-button:active {
+  transform: translate(4px, 4px) !important;
+  box-shadow: none !important;
+}
+
+.dashboard-add-anime-cta {
+  box-shadow: 5px 5px 0 var(--memphis-yellow) !important;
+}
+
+.dashboard-add-anime-cta:active {
+  box-shadow: none !important;
+}
+
+.memphis-profile-menu-item:hover {
+  border-color: var(--memphis-ink);
+  background: var(--memphis-teal);
+  transform: translate(2px, 2px);
+}
+
+.memphis-dashboard button.dashboard-content-piece > h2 {
+  color: var(--memphis-ink) !important;
+}
+
+.memphis-dashboard button.dashboard-content-piece > p {
+  color: #3f3f46 !important;
+  font-weight: 800;
+}
+
+.memphis-dashboard button.dashboard-content-piece > span:last-child {
+  border: 3px solid var(--memphis-ink);
+  border-radius: 0 !important;
+  background: var(--memphis-teal) !important;
+  color: var(--memphis-ink) !important;
+  box-shadow: 4px 4px 0 var(--memphis-ink) !important;
+}
+
+.memphis-dashboard [aria-labelledby="logoutConfirmTitle"] {
+  background-color: rgba(24, 24, 27, 0.8) !important;
+  backdrop-filter: blur(4px);
+}
+
+.memphis-dashboard [aria-labelledby="logoutConfirmTitle"] > section {
+  border: 4px solid var(--memphis-ink) !important;
+  border-radius: 0 !important;
+  background: var(--memphis-cream) !important;
+  box-shadow: 10px 10px 0 var(--memphis-ink) !important;
+}
+
+.memphis-dashboard [aria-labelledby="logoutConfirmTitle"] > section > div:first-child {
+  height: 12px !important;
+  border-bottom: 4px solid var(--memphis-ink);
+  background: var(--memphis-coral) !important;
+}
+
+.memphis-dashboard [aria-labelledby="logoutConfirmTitle"] h2 {
+  color: var(--memphis-ink) !important;
+}
+
+.memphis-dashboard [aria-labelledby="logoutConfirmTitle"] p {
+  color: #52525b !important;
+  font-weight: 800;
+}
+
+.memphis-dashboard [aria-labelledby="logoutConfirmTitle"] button {
+  border: 3px solid var(--memphis-ink) !important;
+  border-radius: 0 !important;
+  color: var(--memphis-ink) !important;
+  font-weight: 900;
+  box-shadow: 4px 4px 0 var(--memphis-ink) !important;
+}
+
+.memphis-dashboard [aria-labelledby="logoutConfirmTitle"] button:last-child {
+  background: var(--memphis-coral) !important;
+}
+
+.memphis-dashboard [aria-labelledby="logoutConfirmTitle"] button:active {
+  transform: translate(4px, 4px) !important;
+  box-shadow: none !important;
+}
+
 .memphis-pressable:hover,
 .memphis-pressable:active,
 .memphis-public .memphis-anime-grid > .memphis-entry:hover,
@@ -356,7 +465,8 @@ select {
   box-shadow: none !important;
 }
 
-.memphis-public #showcasePaginationTop > div {
+.memphis-public #showcasePaginationTop > div,
+.memphis-public #dashboardPaginationTop > div {
   border: 3px solid var(--memphis-ink) !important;
   border-radius: 0 !important;
   background: #fff !important;
@@ -364,15 +474,18 @@ select {
   backdrop-filter: none !important;
 }
 
-.memphis-public #showcasePaginationTop > div:first-child {
+.memphis-public #showcasePaginationTop > div:first-child,
+.memphis-public #dashboardPaginationTop > div:first-child {
   background: var(--memphis-yellow) !important;
 }
 
-.memphis-public #showcasePaginationTop > div:last-child {
+.memphis-public #showcasePaginationTop > div:last-child,
+.memphis-public #dashboardPaginationTop > div:last-child {
   background: var(--memphis-teal) !important;
 }
 
-.memphis-public #showcasePaginationTop select {
+.memphis-public #showcasePaginationTop select,
+.memphis-public #dashboardPaginationTop select {
   border: 3px solid var(--memphis-ink) !important;
   border-radius: 9999px !important;
   color: var(--memphis-ink) !important;
@@ -544,6 +657,22 @@ select {
 .memphis-anime-list button:hover,
 .memphis-anime-list button:active {
   transform: translate(3px, 3px) !important;
+  box-shadow: none !important;
+}
+
+.memphis-anime-list .memphis-edit-action,
+.memphis-anime-grid .memphis-edit-action {
+  border: 3px solid var(--memphis-ink) !important;
+  border-radius: 0 !important;
+  background: var(--memphis-yellow) !important;
+  color: var(--memphis-ink) !important;
+  box-shadow: 3px 3px 0 var(--memphis-ink) !important;
+}
+
+.memphis-anime-list .memphis-edit-action:hover,
+.memphis-anime-list .memphis-edit-action:active {
+  transform: translate(3px, 3px) !important;
+  background: var(--memphis-teal) !important;
   box-shadow: none !important;
 }
 

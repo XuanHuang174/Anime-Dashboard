@@ -10,7 +10,7 @@ function getGridScoreColorClass(score, isMemphis = false) {
   return isMemphis ? 'text-slate-800' : 'text-white'
 }
 
-function AnimeGrid({ items, onOpenDetail, theme = 'default' }) {
+function AnimeGrid({ items, onOpenDetail, theme = 'default', editable = false }) {
   const isMemphis = theme === 'memphis'
   const containerRef = useScrollReveal(items)
 
@@ -42,6 +42,15 @@ function AnimeGrid({ items, onOpenDetail, theme = 'default' }) {
             onMouseMove={handleMouseMove}
             className={`${isMemphis ? 'memphis-entry' : ''} animate-item group group/spotlight relative flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-slate-200/70 border-b-[4px] border-b-slate-300/80 bg-white shadow-[0_4px_15px_rgb(0,0,0,0.03)] transition-all duration-300 hover:-translate-y-1.5 hover:shadow-2xl hover:shadow-indigo-500/15`}
           >
+            {isMemphis && editable && (
+              <span
+                className="memphis-edit-action pointer-events-none absolute left-2 top-2 z-30 flex h-8 w-8 items-center justify-center"
+                aria-hidden="true"
+              >
+                <i className="fa-solid fa-pen-to-square text-xs"></i>
+              </span>
+            )}
+
             {!isMemphis && (
               <div
                 className="pointer-events-none absolute -inset-px z-20 opacity-0 transition duration-300 group-hover/spotlight:opacity-100"
