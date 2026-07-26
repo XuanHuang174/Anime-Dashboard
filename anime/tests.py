@@ -2,6 +2,7 @@ import json
 import tempfile
 from decimal import Decimal
 from io import BytesIO
+from pathlib import Path
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
@@ -468,6 +469,11 @@ class UserProfileApiTests(APITestCase):
             self.assertEqual(response.status_code, status.HTTP_200_OK)
             self.assertEqual(response.data["nickname"], "紫色头像")
             self.assertIn("/media/users/avatars/", response.data["avatar"])
+            self.assertFalse(response.data["avatar"].startswith(("blob:", "data:")))
+            self.user.profile.refresh_from_db()
+            self.assertTrue(
+                (Path(media_root) / self.user.profile.avatar.name).is_file()
+            )
 
 
 @override_settings(
@@ -770,6 +776,35 @@ class AnimeApiTests(APITestCase):
             created_anime = Anime.objects.get(chinese_title="直接上传创建")
             self.assertEqual(created_anime.base_tags, ["上传", "原创"])
             self.assertTrue(created_anime.poster_image.name)
+            self.assertTrue(
+                (Path(media_root) / created_anime.poster_image.name).is_file()
+            )
+            self.assertFalse(
+                response.data["poster_image"].startswith(("blob:", "data:"))
+            )
+
+    def test_direct_anime_create_rejects_unsupported_image_format(self):
+        image_buffer = BytesIO()
+        Image.new("RGB", (2, 2), color="blue").save(image_buffer, format="BMP")
+        poster = SimpleUploadedFile(
+            "unsupported.bmp",
+            image_buffer.getvalue(),
+            content_type="image/bmp",
+        )
+
+        self.client.force_authenticate(self.user)
+        response = self.client.post(
+            reverse("anime_api:animes-list"),
+            {
+                "chinese_title": "不支持格式的海报",
+                "airing_period": "2028-10",
+                "poster_image": poster,
+            },
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("poster_image", response.data)
 
     def test_add_endpoint_can_link_existing_anime(self):
         self.client.force_authenticate(self.user)
@@ -1377,6 +1412,14 @@ class AnimeApiTests(APITestCase):
             self.assertEqual(self.anime.chinese_title, "本地海报更新")
             self.assertTrue(
                 self.anime.poster_image.name.endswith("updated-poster.png")
+            )
+            self.assertTrue(
+                (Path(media_root) / self.anime.poster_image.name).is_file()
+            )
+            self.assertFalse(
+                response.data["anime"]["poster_image"].startswith(
+                    ("blob:", "data:")
+                )
             )
             self.assertEqual(str(self.record.personal_score), "9.4")
             self.assertEqual(

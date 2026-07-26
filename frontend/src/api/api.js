@@ -60,6 +60,12 @@ api.interceptors.request.use(
   (config) => {
     const accessToken = getAccessToken()
 
+    if (config.data instanceof FormData) {
+      // Let Axios/the browser generate `multipart/form-data; boundary=...`.
+      // A manually fixed Content-Type can omit the boundary and corrupt uploads.
+      config.headers.delete?.('Content-Type')
+    }
+
     if (accessToken) {
       config.headers.Authorization = `Bearer ${accessToken}`
     }

@@ -4,6 +4,7 @@ import gsap from 'gsap'
 import { useNavigate } from 'react-router-dom'
 import api from '../api/api.js'
 import { clearTokens } from '../auth/tokenStorage.js'
+import { getImageFileError, IMAGE_FILE_ACCEPT } from '../utils/imageUpload.js'
 
 gsap.registerPlugin(useGSAP)
 
@@ -175,13 +176,9 @@ function ProfileModal({ isOpen, profile, onClose, onSaved, showToast }) {
     const file = event.target.files?.[0]
     setError('')
     if (!file) return
-    if (!file.type.startsWith('image/')) {
-      setError('请选择有效的图片文件。')
-      event.target.value = ''
-      return
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setError('头像图片不能超过 5MB。')
+    const fileError = getImageFileError(file, '头像')
+    if (fileError) {
+      setError(fileError)
       event.target.value = ''
       return
     }
@@ -312,7 +309,7 @@ function ProfileModal({ isOpen, profile, onClose, onSaved, showToast }) {
                 <label className="mt-2 inline-flex cursor-pointer items-center gap-2 border-[3px] border-black bg-white px-4 py-1.5 text-xs font-black shadow-[4px_4px_0_#111] transition-none hover:bg-[#ffe66d] active:translate-x-1 active:translate-y-1 active:shadow-none">
                   <i className="fa-solid fa-camera" />
                   选择本地头像
-                  <input ref={fileInputRef} type="file" accept="image/*" className="sr-only" onChange={handleAvatarChange} />
+                  <input ref={fileInputRef} type="file" accept={IMAGE_FILE_ACCEPT} className="sr-only" onChange={handleAvatarChange} />
                 </label>
                 <p className="mt-1.5 text-[10px] font-bold">支持 JPG、PNG、WebP，最大 5MB</p>
               </div>

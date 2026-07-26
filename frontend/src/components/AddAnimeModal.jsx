@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 import api from '../api/api.js'
+import { getImageFileError, IMAGE_FILE_ACCEPT } from '../utils/imageUpload.js'
 
 gsap.registerPlugin(useGSAP)
 
@@ -230,16 +231,11 @@ function AddAnimeModal({
   const handlePosterChange = (event) => {
     const file = event.target.files?.[0] ?? null
     setManualError('')
-    if (file && !file.type.startsWith('image/')) {
+    const fileError = getImageFileError(file, '海报')
+    if (fileError) {
       setPosterFile(null)
       event.target.value = ''
-      setManualError('请选择有效的图片文件。')
-      return
-    }
-    if (file && file.size > 5 * 1024 * 1024) {
-      setPosterFile(null)
-      event.target.value = ''
-      setManualError('海报图片不能超过 5MB。')
+      setManualError(fileError)
       return
     }
     setPosterFile(file)
@@ -387,7 +383,7 @@ function AddAnimeModal({
                     {posterPreview
                       ? <img src={posterPreview} alt="海报预览" className="h-full w-full object-cover" />
                       : <><i className="fa-solid fa-file-arrow-up text-5xl"></i><span className="mt-3 border-2 border-black bg-[#ffe66d] px-3 py-1 text-xs font-black">选择本地海报</span><span className="mt-2 text-[10px] font-black">JPG / PNG / WebP · 最大 5MB</span></>}
-                    <input ref={posterInputRef} id="newPosterFile" type="file" accept="image/*" onChange={handlePosterChange} className="sr-only" />
+                    <input ref={posterInputRef} id="newPosterFile" type="file" accept={IMAGE_FILE_ACCEPT} onChange={handlePosterChange} className="sr-only" />
                   </label>
                   {posterFile && <p className="mt-3 break-all border-2 border-black bg-[#ffe66d] p-2 text-[10px] font-black">{posterFile.name}</p>}
                   <label htmlFor="newPosterUrl" className={`${labelClass} mt-4`}>或填写网络图片 URL</label>

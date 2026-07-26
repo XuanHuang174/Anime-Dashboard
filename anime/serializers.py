@@ -7,6 +7,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from PIL import Image, UnidentifiedImageError
 
 from .models import Anime, TAG_COLOR_KEYS, UserAnimeRecord, UserProfile, UserQuickFilter
 from .tag_services import get_record_tag_colors, initialize_record_tag_colors
@@ -30,6 +31,37 @@ KNOWN_PROVIDER_DOMAINS = {
     "hotmail": {"hotmail.com"},
     "live": {"live.com"},
 }
+
+MAX_IMAGE_UPLOAD_SIZE = 5 * 1024 * 1024
+ALLOWED_IMAGE_FORMATS = {"JPEG", "PNG", "WEBP", "GIF"}
+
+
+def validate_uploaded_image(image, *, label):
+    """Validate the actual image stream instead of trusting its file suffix."""
+
+    if image is None:
+        return None
+
+    if image.size > MAX_IMAGE_UPLOAD_SIZE:
+        raise serializers.ValidationError(f"{label}图片不能超过 5MB。")
+
+    original_position = image.tell()
+    try:
+        uploaded_image = Image.open(image)
+        image_format = (uploaded_image.format or "").upper()
+        uploaded_image.verify()
+    except (OSError, UnidentifiedImageError, ValueError) as error:
+        raise serializers.ValidationError(
+            f"{label}必须是有效的图片文件。",
+        ) from error
+    finally:
+        image.seek(original_position)
+
+    if image_format not in ALLOWED_IMAGE_FORMATS:
+        raise serializers.ValidationError(
+            f"{label}仅支持 JPG、PNG、WebP 或 GIF 格式。",
+        )
+    return image
 
 
 def validate_strict_email(value):
@@ -157,9 +189,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
         read_only_fields = ("username", "email")
 
     def validate_avatar(self, avatar):
-        if avatar and avatar.size > 5 * 1024 * 1024:
-            raise serializers.ValidationError("头像图片不能超过 5MB。")
-        return avatar
+        return validate_uploaded_image(avatar, label="头像")
 
 
 class PublicUserProfileSerializer(serializers.ModelSerializer):
@@ -314,6 +344,9 @@ class AnimeSerializer(serializers.ModelSerializer):
             "updated_at",
         )
         read_only_fields = ("id", "created_at", "updated_at")
+
+    def validate_poster_image(self, poster_image):
+        return validate_uploaded_image(poster_image, label="海报")
 
     def update(self, instance, validated_data):
         if "tag_colors" in validated_data:
@@ -559,9 +592,7 @@ class UserAnimeRecordAddSerializer(serializers.Serializer):
     )
 
     def validate_poster_image(self, image):
-        if image and image.size > 5 * 1024 * 1024:
-            raise serializers.ValidationError("海报图片不能超过 5MB。")
-        return image
+        return validate_uploaded_image(image, label="海报")
 
     def validate(self, attrs):
         existing_anime = attrs.get("existing_anime")

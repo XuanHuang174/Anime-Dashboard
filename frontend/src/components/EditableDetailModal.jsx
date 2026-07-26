@@ -8,6 +8,7 @@ import {
   getTagClass,
   tagColorOptions,
 } from '../utils/animeDisplay.js'
+import { getImageFileError, IMAGE_FILE_ACCEPT } from '../utils/imageUpload.js'
 
 gsap.registerPlugin(useGSAP)
 
@@ -252,16 +253,11 @@ function EditableDetailModal({
   const handlePosterChange = (event) => {
     const file = event.target.files?.[0] ?? null
     setError('')
-    if (file && !file.type.startsWith('image/')) {
+    const fileError = getImageFileError(file, '海报')
+    if (fileError) {
       setPosterFile(null)
       event.target.value = ''
-      setError('请选择有效的图片文件。')
-      return
-    }
-    if (file && file.size > 5 * 1024 * 1024) {
-      setPosterFile(null)
-      event.target.value = ''
-      setError('海报图片不能超过 5MB。')
+      setError(fileError)
       return
     }
     setPosterFile(file)
@@ -392,7 +388,7 @@ function EditableDetailModal({
               <label className="mt-4 block cursor-pointer border-[3px] border-black bg-[#ffe66d] px-4 py-2.5 text-center text-xs font-black shadow-[5px_5px_0_#111] transition-none hover:bg-[#4ecdc4] active:translate-x-[5px] active:translate-y-[5px] active:shadow-none">
                 <i className="fa-solid fa-upload mr-2"></i>
                 {posterFile ? '已选择：更换文件' : '从本地上传海报'}
-                <input ref={posterInputRef} type="file" accept="image/*" onChange={handlePosterChange} className="sr-only" />
+                <input ref={posterInputRef} type="file" accept={IMAGE_FILE_ACCEPT} onChange={handlePosterChange} className="sr-only" />
               </label>
               {posterFile && <p className="mt-2 break-all text-[10px] font-black">{posterFile.name}</p>}
 
