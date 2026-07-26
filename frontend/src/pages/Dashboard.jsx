@@ -543,6 +543,7 @@ function Dashboard() {
               onResetPagination={() => handlePageSizeChange('all')}
               availableTags={filterOptions.tags}
               availableYears={filterOptions.years}
+              enablePosterViewHint={false}
               theme="memphis"
             />
             </div>

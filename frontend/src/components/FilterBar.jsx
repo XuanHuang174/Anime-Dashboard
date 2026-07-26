@@ -38,10 +38,12 @@ function FilterBar({
   onResetPagination = null,
   availableTags = null,
   availableYears = null,
+  enablePosterViewHint = true,
   theme = 'default',
 }) {
   const [isMobileOpen, setIsMobileOpen] = useState(false)
   const [showViewHint, setShowViewHint] = useState(true)
+  const shouldShowViewHint = enablePosterViewHint && showViewHint
 
   const tags = useMemo(
     () => availableTags ?? [...new Set(db.flatMap((item) => item.tags))].sort(),
@@ -286,7 +288,7 @@ function FilterBar({
           <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end mt-2 md:mt-0">
             <div
               id="viewToggleGroup"
-              className={`relative bg-slate-100/80 p-1 rounded-xl flex gap-1 shadow-inner border ${showViewHint ? 'border-indigo-200/80 ring-2 ring-indigo-500/20' : 'border-slate-200/50'} transition-all duration-500`}
+              className={`relative bg-slate-100/80 p-1 rounded-xl flex gap-1 shadow-inner border ${shouldShowViewHint ? 'border-indigo-200/80 ring-2 ring-indigo-500/20' : 'border-slate-200/50'} transition-all duration-500`}
               onClick={dismissViewHint}
             >
               <button
@@ -304,7 +306,7 @@ function FilterBar({
                 className={`relative ${view === 'grid' ? activeViewClass : inactiveViewClass}`}
               >
                 <i className="fa-solid fa-border-all"></i> 海报墙
-                {showViewHint && (
+                {shouldShowViewHint && (
                   <span className="memphis-view-hint pointer-events-none absolute -right-2 -top-4 border-2 border-black bg-[#ffe66d] px-1.5 py-0.5 text-[8px] font-black leading-none text-black shadow-[2px_2px_0_#111]">
                     试试
                   </span>
