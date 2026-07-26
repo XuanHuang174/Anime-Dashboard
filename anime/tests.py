@@ -1333,6 +1333,57 @@ class AnimeApiTests(APITestCase):
             "更新后的剧情简介",
         )
 
+    def test_user_can_update_details_with_multipart_poster(self):
+        image_buffer = BytesIO()
+        Image.new("RGB", (2, 2), color="orange").save(image_buffer, format="PNG")
+        image_buffer.seek(0)
+        poster = SimpleUploadedFile(
+            "updated-poster.png",
+            image_buffer.read(),
+            content_type="image/png",
+        )
+        anime_data = {
+            "chinese_title": "本地海报更新",
+            "airing_period": "2029-1",
+            "base_tags": ["本地上传"],
+            "tag_colors": {"本地上传": "rose"},
+        }
+        record_data = {
+            "personal_score": "9.4",
+            "watch_status": UserAnimeRecord.WatchStatus.COMPLETED,
+            "review": "通过 multipart 同步更新。",
+        }
+
+        self.client.force_authenticate(self.user)
+        with tempfile.TemporaryDirectory() as media_root, self.settings(
+            MEDIA_ROOT=media_root
+        ):
+            response = self.client.patch(
+                reverse(
+                    "anime_api:user-anime-record-update-details",
+                    kwargs={"pk": self.record.pk},
+                ),
+                {
+                    "anime": json.dumps(anime_data, ensure_ascii=False),
+                    "record": json.dumps(record_data, ensure_ascii=False),
+                    "poster_image": poster,
+                },
+                format="multipart",
+            )
+
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            self.anime.refresh_from_db()
+            self.record.refresh_from_db()
+            self.assertEqual(self.anime.chinese_title, "本地海报更新")
+            self.assertTrue(
+                self.anime.poster_image.name.endswith("updated-poster.png")
+            )
+            self.assertEqual(str(self.record.personal_score), "9.4")
+            self.assertEqual(
+                response.data["anime"]["tag_colors"],
+                {"本地上传": "rose"},
+            )
+
     def test_tag_color_update_is_isolated_between_users(self):
         other_record = UserAnimeRecord.objects.create(
             user=self.other_user,

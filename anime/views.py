@@ -898,13 +898,23 @@ class UserAnimeRecordViewSet(viewsets.ModelViewSet):
         )
         return Response(output_serializer.data, status=status.HTTP_201_CREATED)
 
-    @action(detail=True, methods=("patch",), url_path="details")
+    @action(
+        detail=True,
+        methods=("patch",),
+        url_path="details",
+        parser_classes=(parsers.JSONParser, parsers.FormParser, parsers.MultiPartParser),
+    )
     @transaction.atomic
     def update_details(self, request, pk=None):
         """Atomically update shared anime metadata and this user's record."""
 
         record = self.get_object()
         anime_payload = request.data.get("anime", {})
+        if isinstance(anime_payload, str):
+            try:
+                anime_payload = json.loads(anime_payload)
+            except json.JSONDecodeError:
+                anime_payload = None
         if not isinstance(anime_payload, dict):
             return Response(
                 {"anime": "必须是对象。"},
@@ -912,16 +922,32 @@ class UserAnimeRecordViewSet(viewsets.ModelViewSet):
             )
 
         anime_payload = dict(anime_payload)
+        poster_image = request.FILES.get("poster_image")
+        if poster_image is not None:
+            anime_payload["poster_image"] = poster_image
         raw_tag_colors = anime_payload.pop("tag_colors", None)
         private_tag_colors = None
         if raw_tag_colors is not None:
             private_tag_colors = JsonStringMapField().run_validation(raw_tag_colors)
 
-        record_payload = {
-            key: value
-            for key, value in request.data.items()
-            if key != "anime"
-        }
+        record_payload = request.data.get("record")
+        if record_payload is not None:
+            if isinstance(record_payload, str):
+                try:
+                    record_payload = json.loads(record_payload)
+                except json.JSONDecodeError:
+                    record_payload = None
+            if not isinstance(record_payload, dict):
+                return Response(
+                    {"record": "必须是对象。"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        else:
+            record_payload = {
+                key: value
+                for key, value in request.data.items()
+                if key not in {"anime", "poster_image"}
+            }
         anime_serializer = AnimeSerializer(
             record.anime,
             data=anime_payload,
