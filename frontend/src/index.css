@@ -1,3 +1,19 @@
+/* Memphis detail modal: dark stage texture and hard-edged sticker tags. */
+.memphis-modal-backdrop {
+  background-image:
+    radial-gradient(circle, rgba(255, 255, 255, 0.2) 1.5px, transparent 1.5px),
+    linear-gradient(rgba(255, 255, 255, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.055) 1px, transparent 1px);
+  background-position: 0 0, 0 0, 0 0;
+  background-size: 18px 18px, 64px 64px, 64px 64px;
+}
+
+.memphis-modal-tag {
+  border: 2px solid #111 !important;
+  box-shadow: 3px 3px 0 0 #111 !important;
+  font-weight: 900 !important;
+}
+
 body {
   font-family: 'Noto Sans SC', sans-serif;
   background-color: #f8fafc;
