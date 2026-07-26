@@ -242,7 +242,7 @@ function ProfileModal({ isOpen, profile, onClose, onSaved, showToast }) {
   return (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-[120] flex items-center justify-center overflow-y-auto bg-zinc-950/80 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[120] flex items-center justify-center overflow-y-auto bg-zinc-950/80 p-2 backdrop-blur-sm sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="profileModalTitle"
@@ -252,18 +252,18 @@ function ProfileModal({ isOpen, profile, onClose, onSaved, showToast }) {
     >
       <section
         ref={modalRef}
-        className="relative my-auto max-h-[calc(100vh-2rem)] w-full max-w-xl overflow-y-auto border-4 border-black bg-[#fff5ee] text-black shadow-[12px_12px_0_#111]"
+        className="relative my-auto max-h-[calc(100vh-1rem)] w-full max-w-xl overflow-y-auto border-4 border-black bg-[#fff5ee] text-black shadow-[12px_12px_0_#111] sm:max-h-[calc(100vh-2rem)]"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="pointer-events-none absolute inset-0 opacity-[0.08]" style={{ backgroundImage: 'radial-gradient(#111 1.5px, transparent 1.5px)', backgroundSize: '16px 16px' }} aria-hidden="true" />
 
-        <header className="profile-modal-piece relative flex items-start justify-between gap-4 border-b-4 border-black bg-[#4ecdc4] px-5 py-4 sm:px-6">
+        <header className="profile-modal-piece relative flex items-start justify-between gap-4 border-b-4 border-black bg-[#4ecdc4] px-5 py-3 sm:px-6">
           <div>
             <p className="inline-block border-2 border-black bg-[#ffe66d] px-2 py-1 text-[10px] font-black uppercase tracking-[0.18em] shadow-[3px_3px_0_#111]">
               Personal Profile
             </p>
-            <h2 id="profileModalTitle" className="mt-3 text-2xl font-black">设置个人资料</h2>
-            <p className="mt-1 text-xs font-bold">打造专属于你的手账名片</p>
+            <h2 id="profileModalTitle" className="mt-2 text-xl font-black sm:text-2xl">设置个人资料</h2>
+            <p className="text-xs font-bold">打造专属于你的手账名片</p>
           </div>
           <button
             type="button"
@@ -276,7 +276,7 @@ function ProfileModal({ isOpen, profile, onClose, onSaved, showToast }) {
           </button>
         </header>
 
-        <div className="profile-modal-piece relative mx-5 mt-5 grid grid-cols-2 border-[3px] border-black bg-white shadow-[5px_5px_0_#111] sm:mx-6" role="tablist" aria-label="个人设置">
+        <div className="profile-modal-piece relative mx-5 mt-3 grid grid-cols-2 border-[3px] border-black bg-white shadow-[5px_5px_0_#111] sm:mx-6" role="tablist" aria-label="个人设置">
           {[
             ['profile', 'fa-user-pen', '基础资料'],
             ['security', 'fa-shield-halved', '安全设置'],
@@ -292,7 +292,7 @@ function ProfileModal({ isOpen, profile, onClose, onSaved, showToast }) {
                 setPasswordError('')
               }}
               disabled={isBusy}
-              className={`flex items-center justify-center gap-2 px-4 py-3 text-sm font-black transition-none disabled:opacity-50 ${index === 1 ? 'border-l-[3px] border-black' : ''} ${activeTab === value ? (value === 'profile' ? 'bg-[#ffe66d]' : 'bg-[#ff8fab]') : 'bg-[#f4f1ea] text-zinc-500 hover:bg-white hover:text-black'}`}
+              className={`flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-black transition-none disabled:opacity-50 ${index === 1 ? 'border-l-[3px] border-black' : ''} ${activeTab === value ? (value === 'profile' ? 'bg-[#ffe66d]' : 'bg-[#ff8fab]') : 'bg-[#f4f1ea] text-zinc-500 hover:bg-white hover:text-black'}`}
             >
               <i className={`fa-solid ${icon}`} />
               {label}
@@ -301,25 +301,25 @@ function ProfileModal({ isOpen, profile, onClose, onSaved, showToast }) {
         </div>
 
         {activeTab === 'profile' ? (
-          <form onSubmit={handleSubmit} className="relative space-y-5 px-5 py-5 sm:px-6">
-            <div className="profile-modal-piece flex flex-col items-center gap-4 border-[3px] border-black bg-[#ff8fab] p-4 shadow-[6px_6px_0_#4ecdc4] sm:flex-row">
-              <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden border-4 border-black bg-white text-4xl shadow-[5px_5px_0_#ffe66d]">
+          <form onSubmit={handleSubmit} className="relative space-y-3 px-5 py-4 sm:px-6">
+            <div className="profile-modal-piece flex flex-col items-center gap-3 border-[3px] border-black bg-[#ff8fab] p-3 shadow-[6px_6px_0_#4ecdc4] sm:flex-row">
+              <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden border-4 border-black bg-white text-3xl shadow-[5px_5px_0_#ffe66d]">
                 <ProfileAvatar src={previewUrl} label={nickname || fallbackName} />
               </div>
               <div className="min-w-0 flex-1 text-center sm:text-left">
                 <p className="truncate text-xl font-black">{nickname.trim() || fallbackName}</p>
                 <p className="mt-1 truncate text-sm font-bold text-zinc-800">{profile?.email || profile?.username}</p>
-                <label className="mt-3 inline-flex cursor-pointer items-center gap-2 border-[3px] border-black bg-white px-4 py-2 text-xs font-black shadow-[4px_4px_0_#111] transition-none hover:bg-[#ffe66d] active:translate-x-1 active:translate-y-1 active:shadow-none">
+                <label className="mt-2 inline-flex cursor-pointer items-center gap-2 border-[3px] border-black bg-white px-4 py-1.5 text-xs font-black shadow-[4px_4px_0_#111] transition-none hover:bg-[#ffe66d] active:translate-x-1 active:translate-y-1 active:shadow-none">
                   <i className="fa-solid fa-camera" />
                   选择本地头像
                   <input ref={fileInputRef} type="file" accept="image/*" className="sr-only" onChange={handleAvatarChange} />
                 </label>
-                <p className="mt-2 text-[10px] font-bold">支持 JPG、PNG、WebP，最大 5MB</p>
+                <p className="mt-1.5 text-[10px] font-bold">支持 JPG、PNG、WebP，最大 5MB</p>
               </div>
             </div>
 
             <label className="profile-modal-piece block">
-              <span className="mb-2 block text-sm font-black"><i className="fa-solid fa-signature mr-2 text-[#ff4f87]" />昵称</span>
+              <span className="mb-1 block text-sm font-black"><i className="fa-solid fa-signature mr-2 text-[#ff4f87]" />昵称</span>
               <input
                 value={nickname}
                 onChange={(event) => setNickname(event.target.value)}
@@ -327,20 +327,20 @@ function ProfileModal({ isOpen, profile, onClose, onSaved, showToast }) {
                 className={inputClass}
                 placeholder={fallbackName}
               />
-              <span className="mt-2 block text-right text-[11px] font-black">{nickname.length}/50</span>
+              <span className="mt-1 block text-right text-[11px] font-black">{nickname.length}/50</span>
             </label>
 
             <label className="profile-modal-piece block">
-              <span className="mb-2 block text-sm font-black"><i className="fa-solid fa-quote-left mr-2 text-[#087f78]" />预览页副标题</span>
+              <span className="mb-1 block text-sm font-black"><i className="fa-solid fa-quote-left mr-2 text-[#087f78]" />预览页副标题</span>
               <textarea
                 value={showcaseSubtitle}
                 onChange={(event) => setShowcaseSubtitle(event.target.value)}
                 maxLength={200}
-                rows={3}
+                rows={2}
                 className={`${inputClass} resize-none leading-6`}
                 placeholder="写一句属于你的追番宣言吧"
               />
-              <span className="mt-2 block text-right text-[11px] font-black">{showcaseSubtitle.length}/200</span>
+              <span className="mt-1 block text-right text-[11px] font-black">{showcaseSubtitle.length}/200</span>
             </label>
 
             {error && (
@@ -358,8 +358,8 @@ function ProfileModal({ isOpen, profile, onClose, onSaved, showToast }) {
             </div>
           </form>
         ) : (
-          <form onSubmit={handlePasswordSubmit} className="relative space-y-5 px-5 py-5 sm:px-6">
-            <div className="profile-modal-piece border-[3px] border-black bg-[#ffe66d] p-4 shadow-[6px_6px_0_#ff8fab]">
+          <form onSubmit={handlePasswordSubmit} className="relative space-y-3 px-5 py-4 sm:px-6">
+            <div className="profile-modal-piece border-[3px] border-black bg-[#ffe66d] p-3 shadow-[6px_6px_0_#ff8fab]">
               <div className="flex items-center gap-4">
                 <span className="flex h-14 w-14 shrink-0 items-center justify-center border-[3px] border-black bg-[#4ecdc4] text-xl shadow-[4px_4px_0_#111]">
                   <i className="fa-solid fa-key" />
@@ -377,7 +377,7 @@ function ProfileModal({ isOpen, profile, onClose, onSaved, showToast }) {
               ['confirm-password', '确认新密码', 'fa-shield-halved', newPasswordConfirm, setNewPasswordConfirm, 'new-password', '请再次输入新密码'],
             ].map(([id, label, icon, value, setter, autoComplete, placeholder]) => (
               <label key={id} htmlFor={id} className="profile-modal-piece block">
-                <span className="mb-2 block text-sm font-black"><i className={`fa-solid ${icon} mr-2 text-[#087f78]`} />{label}</span>
+                <span className="mb-1 block text-sm font-black"><i className={`fa-solid ${icon} mr-2 text-[#087f78]`} />{label}</span>
                 <input
                   id={id}
                   required

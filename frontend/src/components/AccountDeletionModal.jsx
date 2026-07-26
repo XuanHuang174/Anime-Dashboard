@@ -175,8 +175,8 @@ function AccountDeletionModal({ isOpen, profile, onClose, onDeleted }) {
             </p>
           </div>
 
-          <div className="account-delete-piece mt-5 border-[3px] border-black bg-[#ffe66d] p-4 text-xs font-black leading-6 shadow-[5px_5px_0_#ff6b6b]">
-            <i className="fa-solid fa-triangle-exclamation mr-2" />
+          <div className="account-delete-piece mt-5 border-[3px] border-black bg-[#ffe66d] p-4 text-sm font-black leading-7 shadow-[5px_5px_0_#ff6b6b]">
+            <i className="fa-solid fa-triangle-exclamation mr-2 text-lg" />
             注销后该邮箱可以重新注册，但新账号将从空白手账重新开始。
           </div>
 
