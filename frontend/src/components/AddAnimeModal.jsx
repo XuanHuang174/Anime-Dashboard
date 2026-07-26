@@ -220,6 +220,10 @@ function AddAnimeModal({
 
   const updateManualField = (event) => {
     const { name, value } = event.target
+    if (name === 'posterUrl' && value.trim()) {
+      setPosterFile(null)
+      if (posterInputRef.current) posterInputRef.current.value = ''
+    }
     setManualForm((current) => ({ ...current, [name]: value }))
   }
 
@@ -239,6 +243,9 @@ function AddAnimeModal({
       return
     }
     setPosterFile(file)
+    if (file) {
+      setManualForm((current) => ({ ...current, posterUrl: '' }))
+    }
   }
 
   const handleCreateNew = async (event) => {

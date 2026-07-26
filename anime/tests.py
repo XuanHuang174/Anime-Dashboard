@@ -1384,6 +1384,43 @@ class AnimeApiTests(APITestCase):
                 {"本地上传": "rose"},
             )
 
+    def test_saving_poster_url_clears_previous_uploaded_poster(self):
+        image_buffer = BytesIO()
+        Image.new("RGB", (2, 2), color="teal").save(image_buffer, format="PNG")
+        image_buffer.seek(0)
+        self.anime.poster_image = SimpleUploadedFile(
+            "old-local-poster.png",
+            image_buffer.read(),
+            content_type="image/png",
+        )
+
+        self.client.force_authenticate(self.user)
+        with tempfile.TemporaryDirectory() as media_root, self.settings(
+            MEDIA_ROOT=media_root
+        ):
+            self.anime.save(update_fields=("poster_image",))
+            response = self.client.patch(
+                reverse(
+                    "anime_api:user-anime-record-update-details",
+                    kwargs={"pk": self.record.pk},
+                ),
+                {
+                    "anime": {
+                        "poster_url": "https://example.com/replacement-poster.jpg",
+                    },
+                },
+                format="json",
+            )
+
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            self.anime.refresh_from_db()
+            self.assertFalse(self.anime.poster_image)
+            self.assertEqual(
+                self.anime.poster_url,
+                "https://example.com/replacement-poster.jpg",
+            )
+            self.assertIsNone(response.data["anime"]["poster_image"])
+
     def test_tag_color_update_is_isolated_between_users(self):
         other_record = UserAnimeRecord.objects.create(
             user=self.other_user,

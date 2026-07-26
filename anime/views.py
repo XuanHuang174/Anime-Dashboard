@@ -925,6 +925,10 @@ class UserAnimeRecordViewSet(viewsets.ModelViewSet):
         poster_image = request.FILES.get("poster_image")
         if poster_image is not None:
             anime_payload["poster_image"] = poster_image
+        elif anime_payload.get("poster_url"):
+            # URL and uploaded files are mutually exclusive display sources.
+            # Explicitly saving a URL switches away from any previous upload.
+            anime_payload["poster_image"] = None
         raw_tag_colors = anime_payload.pop("tag_colors", None)
         private_tag_colors = None
         if raw_tag_colors is not None:

@@ -38,7 +38,7 @@ function createForm(item) {
     episodes: item.episodes ?? '',
     tags: [...(item.baseTags ?? item.tags ?? [])],
     tagColors: { ...(item.tagColors ?? {}) },
-    cover: item.cover ?? '',
+    cover: item.posterUrl ?? '',
     description: item.description ?? '',
     baikeUrl: item.baikeUrl ?? '',
     score: item.score ?? '',
@@ -190,6 +190,10 @@ function EditableDetailModal({
 
   const updateField = (event) => {
     const { name, value } = event.target
+    if (name === 'cover' && value.trim()) {
+      setPosterFile(null)
+      if (posterInputRef.current) posterInputRef.current.value = ''
+    }
     setFormData((current) => ({ ...current, [name]: value }))
   }
 
@@ -261,6 +265,9 @@ function EditableDetailModal({
       return
     }
     setPosterFile(file)
+    if (file) {
+      setFormData((current) => ({ ...current, cover: '' }))
+    }
   }
 
   const handleSave = async () => {
@@ -336,6 +343,7 @@ function EditableDetailModal({
 
   const coverPreview = localPosterPreview
     || formData.cover.trim()
+    || renderedItem.posterImage
     || getCoverSrc({ title: formData.title || '番剧', cover: '' })
   const validBaikeUrl = isHttpUrl(formData.baikeUrl.trim())
 

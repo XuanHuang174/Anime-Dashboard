@@ -16,6 +16,8 @@ export function mapRecordToAnimeItem(record) {
     japaneseTitle: anime.japanese_title ?? '',
     period: anime.airing_period ?? '未定档',
     cover: anime.poster_image || anime.poster_url || '',
+    posterImage: anime.poster_image || '',
+    posterUrl: anime.poster_url || '',
     score: Number.isFinite(score) ? score : null,
     tags: [...new Set([...baseTags, ...customTags])],
     baseTags,
