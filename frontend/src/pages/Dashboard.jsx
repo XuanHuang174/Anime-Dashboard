@@ -108,6 +108,12 @@ function Dashboard() {
   const [filterOptions, setFilterOptions] = useState({ tags: [], years: [] })
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('')
   const [lastLoadedPage, setLastLoadedPage] = useState(0)
+  const [isHeaderEntranceComplete, setIsHeaderEntranceComplete] = useState(
+    hasPlayedDashboardHeaderEntrance,
+  )
+  const [isContentEntranceComplete, setIsContentEntranceComplete] = useState(
+    hasPlayedDashboardContentEntrance,
+  )
   const shouldScrollAfterPageChange = useRef(false)
   const paginatedFilterKey = pageSize === 'all'
     ? 'all'
@@ -380,12 +386,17 @@ function Dashboard() {
 
   useGSAP(() => {
     const consoleElement = dashboardRef.current?.querySelector('.dashboard-memphis-console')
-    if (!consoleElement || hasPlayedDashboardHeaderEntrance) return undefined
+    if (!consoleElement) return undefined
+    if (hasPlayedDashboardHeaderEntrance) {
+      setIsHeaderEntranceComplete(true)
+      return undefined
+    }
 
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     if (reduceMotion) {
       hasPlayedDashboardHeaderEntrance = true
       gsap.set(consoleElement, { clearProps: 'transform,opacity,visibility' })
+      setIsHeaderEntranceComplete(true)
       return undefined
     }
 
@@ -402,6 +413,7 @@ function Dashboard() {
         onComplete: () => {
           hasPlayedDashboardHeaderEntrance = true
           gsap.set(consoleElement, { clearProps: 'transform,opacity,visibility,willChange' })
+          setIsHeaderEntranceComplete(true)
         },
       },
     )
@@ -413,14 +425,23 @@ function Dashboard() {
   }, { scope: dashboardRef })
 
   useGSAP(() => {
-    if (isLoading || error || hasPlayedDashboardContentEntrance) return undefined
+    if (!isHeaderEntranceComplete || isLoading || error) return undefined
+    if (hasPlayedDashboardContentEntrance) {
+      setIsContentEntranceComplete(true)
+      return undefined
+    }
 
-    const targets = gsap.utils.toArray('.dashboard-content-piece')
-    if (!targets.length) return undefined
+    const targets = gsap.utils.toArray('.dashboard-entrance-piece')
+    if (!targets.length) {
+      hasPlayedDashboardContentEntrance = true
+      setIsContentEntranceComplete(true)
+      return undefined
+    }
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     if (reduceMotion) {
       hasPlayedDashboardContentEntrance = true
       gsap.set(targets, { clearProps: 'transform,opacity,visibility' })
+      setIsContentEntranceComplete(true)
       return undefined
     }
 
@@ -438,6 +459,7 @@ function Dashboard() {
         onComplete: () => {
           hasPlayedDashboardContentEntrance = true
           gsap.set(targets, { clearProps: 'transform,opacity,visibility,willChange' })
+          setIsContentEntranceComplete(true)
         },
       },
     )
@@ -448,7 +470,7 @@ function Dashboard() {
     }
   }, {
     scope: dashboardRef,
-    dependencies: [isLoading, error],
+    dependencies: [isHeaderEntranceComplete, isLoading, error],
   })
 
   return (
@@ -472,30 +494,30 @@ function Dashboard() {
         showToast={showToast}
       />
 
-      {isPreviewMode && (
-        <div className="dashboard-content-piece relative z-20 mx-auto -mt-5 max-w-7xl px-4 sm:px-6 lg:px-8">
+      {isPreviewMode && isHeaderEntranceComplete && !isLoading && !error && (
+        <div className="dashboard-content-piece dashboard-entrance-piece relative z-20 mx-auto -mt-6 max-w-7xl px-4 sm:px-6 lg:px-8">
           <StatsSummary db={db} statsData={statsData} theme="memphis" />
         </div>
       )}
 
       <section className={`relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 ${isPreviewMode ? 'pb-8 pt-2' : 'py-7'}`}>
-        {isLoading && (
-          <div className="dashboard-content-piece flex items-center justify-center gap-3 border-4 border-black bg-[#ffe66d] py-14 font-black text-black shadow-[8px_8px_0_#4ecdc4]">
+        {isHeaderEntranceComplete && isLoading && (
+          <div className="flex items-center justify-center gap-3 border-4 border-black bg-[#ffe66d] py-12 font-black text-black shadow-[8px_8px_0_#4ecdc4]">
             <i className="fa-solid fa-spinner animate-spin text-xl"></i>
             正在读取你的追番手账...
           </div>
         )}
 
-        {!isLoading && error && (
-          <div role="alert" className="dashboard-content-piece border-4 border-black bg-[#ff6b6b] px-5 py-5 font-black text-black shadow-[8px_8px_0_#111]">
+        {isHeaderEntranceComplete && !isLoading && error && (
+          <div role="alert" className="border-4 border-black bg-[#ff6b6b] px-5 py-5 font-black text-black shadow-[8px_8px_0_#111]">
             <i className="fa-solid fa-circle-exclamation mr-2"></i>
             {error}
           </div>
         )}
 
-        {!isLoading && !error && (
+        {isHeaderEntranceComplete && !isLoading && !error && (
           <>
-            <div className="dashboard-content-piece">
+            <div className="dashboard-content-piece dashboard-entrance-piece">
             <FilterBar
               db={db}
               searchQuery={searchQuery}
@@ -527,7 +549,7 @@ function Dashboard() {
 
             <div
               id="dashboardPaginationTop"
-              className="dashboard-content-piece mb-5 grid grid-cols-2 scroll-mt-5 items-stretch gap-3"
+              className="dashboard-content-piece dashboard-entrance-piece mb-5 grid grid-cols-2 scroll-mt-5 items-stretch gap-3"
             >
               <PageSizeSelector
                 pageSize={pageSize}
@@ -539,9 +561,9 @@ function Dashboard() {
               <PriorityNotice unratedCount={visibleUnratedCount} theme="memphis" />
             </div>
 
-            <div className="dashboard-content-piece mb-5 h-2 w-full border-2 border-black bg-[repeating-linear-gradient(135deg,#111_0,#111_8px,#ffe66d_8px,#ffe66d_16px)]" />
+            <div className="dashboard-content-piece dashboard-entrance-piece mb-5 h-2 w-full border-2 border-black bg-[repeating-linear-gradient(135deg,#111_0,#111_8px,#ffe66d_8px,#ffe66d_16px)]" />
 
-            {filteredAnime.length > 0 && view === 'list' && (
+            {isContentEntranceComplete && filteredAnime.length > 0 && view === 'list' && (
               <div className="dashboard-content-piece">
               <AnimeList
                 items={filteredAnime}
@@ -555,7 +577,7 @@ function Dashboard() {
               </div>
             )}
 
-            {filteredAnime.length > 0 && view === 'grid' && (
+            {isContentEntranceComplete && filteredAnime.length > 0 && view === 'grid' && (
               <div className="dashboard-content-piece">
                 <AnimeGrid
                   items={filteredAnime}
@@ -566,7 +588,7 @@ function Dashboard() {
               </div>
             )}
 
-            {filteredAnime.length === 0 && db.length === 0 && (
+            {isContentEntranceComplete && filteredAnime.length === 0 && db.length === 0 && (
               <button
                 type="button"
                 onClick={() => setIsAddModalOpen(true)}
@@ -585,7 +607,7 @@ function Dashboard() {
               </button>
             )}
 
-            {filteredAnime.length === 0 && db.length > 0 && (
+            {isContentEntranceComplete && filteredAnime.length === 0 && db.length > 0 && (
               <div className="dashboard-content-piece border-4 border-black bg-white py-14 text-center shadow-[8px_8px_0_#ff6b6b]">
                 <i className="fa-solid fa-filter-circle-xmark text-5xl text-slate-300"></i>
                 <h2 className="mt-4 text-lg font-black text-slate-700">没有符合条件的追番记录</h2>
@@ -593,7 +615,7 @@ function Dashboard() {
               </div>
             )}
 
-            {pageSize !== 'all' && recordsTotal > 0 && (
+            {isContentEntranceComplete && pageSize !== 'all' && recordsTotal > 0 && (
               <PageNavigation
                 currentPage={currentPage}
                 totalPages={totalPages}
