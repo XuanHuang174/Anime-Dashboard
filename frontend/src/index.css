@@ -888,6 +888,22 @@ select {
   padding-bottom: 0 !important;
 }
 
+.admin-control-grid {
+  background-color: #27272a;
+  background-image:
+    linear-gradient(rgba(199, 255, 74, 0.09) 2px, transparent 2px),
+    linear-gradient(90deg, rgba(199, 255, 74, 0.09) 2px, transparent 2px),
+    radial-gradient(#ffdf3e 1.2px, transparent 1.2px);
+  background-position: 0 0, 0 0, 12px 12px;
+  background-size: 42px 42px, 42px 42px, 24px 24px;
+}
+
+.admin-control-grid button,
+.admin-control-grid a,
+.admin-control-grid input {
+  transition: none;
+}
+
 @media (max-width: 767px) {
   .memphis-filter::before {
     right: 12px;

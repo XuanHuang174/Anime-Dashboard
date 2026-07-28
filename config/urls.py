@@ -38,7 +38,11 @@ urlpatterns = [
     path('api/', include('anime.urls')),
     path('login/', TemplateView.as_view(template_name='index.html')),
     path('activate/', TemplateView.as_view(template_name='index.html')),
+    path('reset-password/', TemplateView.as_view(template_name='index.html')),
+    path('featured/', TemplateView.as_view(template_name='index.html')),
     path('dashboard/', TemplateView.as_view(template_name='index.html')),
+    path('admin-login/', TemplateView.as_view(template_name='index.html')),
+    path('admin-dashboard/', TemplateView.as_view(template_name='index.html')),
     path('', TemplateView.as_view(template_name='index.html'), name='frontend'),
 ]
 

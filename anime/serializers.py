@@ -614,6 +614,25 @@ class FeaturedSubmissionSerializer(serializers.ModelSerializer):
         return normalized
 
 
+class AdminFeaturedSubmissionSerializer(FeaturedSubmissionSerializer):
+    """Audit queue payload with submitter information for superusers."""
+
+    submitter = serializers.SerializerMethodField()
+
+    class Meta(FeaturedSubmissionSerializer.Meta):
+        fields = FeaturedSubmissionSerializer.Meta.fields + ("submitter",)
+        read_only_fields = fields
+
+    def get_submitter(self, submission):
+        profile = getattr(submission.user, "profile", None)
+        return {
+            "id": submission.user_id,
+            "username": submission.user.username,
+            "email": submission.user.email,
+            "nickname": profile.nickname if profile else "",
+        }
+
+
 class FeaturedSubmissionCreateSerializer(serializers.Serializer):
     anime_id = serializers.IntegerField(min_value=1)
 

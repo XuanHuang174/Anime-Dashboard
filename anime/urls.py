@@ -2,6 +2,8 @@ from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from .views import (
+    AdminFeaturedSubmissionViewSet,
+    AdminSessionView,
     AnimeViewSet,
     ChangePasswordView,
     CurrentUserAccountView,
@@ -41,9 +43,15 @@ router.register(
 )
 router.register("notifications", UserNotificationViewSet, basename="notification")
 router.register("featured", PublicFeaturedSubmissionViewSet, basename="featured")
+router.register(
+    "admin/featured-submissions",
+    AdminFeaturedSubmissionViewSet,
+    basename="admin-featured-submission",
+)
 
 app_name = "anime_api"
 urlpatterns = [
+    path("admin/session/", AdminSessionView.as_view(), name="admin-session"),
     path("auth/register/", UserRegistrationView.as_view(), name="register"),
     path("auth/verify-email/", VerifyEmailView.as_view(), name="verify-email"),
     path("auth/activate/", VerifyEmailView.as_view(), name="activate"),

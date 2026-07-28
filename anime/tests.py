@@ -2053,3 +2053,125 @@ class FeaturedColumnApiTests(APITestCase):
         self.assertEqual(records[0]["id"], approved.pk)
         self.assertNotIn("user", records[0])
         self.assertEqual(records[0]["author_name"], "手账主理人")
+
+
+class AdminFeaturedSubmissionApiTests(APITestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="column-owner@example.com",
+            email="column-owner@example.com",
+            password="OwnerPass123!",
+        )
+        self.superuser = get_user_model().objects.create_superuser(
+            username="root-admin",
+            email="root@example.com",
+            password="AdminPass123!",
+        )
+
+    def create_submission(self, audit_status):
+        return FeaturedSubmission.objects.create(
+            user=self.user,
+            chinese_title="审核测试番剧",
+            japanese_title="審査テスト",
+            year=2026,
+            review="这是一段等待超级管理员处理的长评。",
+            audit_status=audit_status,
+        )
+
+    def test_regular_user_cannot_access_admin_queue(self):
+        self.client.force_authenticate(user=self.user)
+
+        session_response = self.client.get(reverse("anime_api:admin-session"))
+        queue_response = self.client.get(
+            reverse("anime_api:admin-featured-submission-list")
+        )
+
+        self.assertEqual(session_response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(queue_response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_admin_queue_only_contains_actionable_submissions(self):
+        pending = self.create_submission(FeaturedSubmission.AuditStatus.PENDING)
+        removal = self.create_submission(
+            FeaturedSubmission.AuditStatus.REMOVAL_REQUESTED
+        )
+        self.create_submission(FeaturedSubmission.AuditStatus.APPROVED)
+        self.client.force_authenticate(user=self.superuser)
+
+        response = self.client.get(
+            reverse("anime_api:admin-featured-submission-list")
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        records = response.data.get("results", response.data)
+        self.assertEqual({item["id"] for item in records}, {pending.pk, removal.pk})
+        self.assertEqual(records[0]["submitter"]["email"], self.user.email)
+
+    def test_admin_can_approve_pending_submission_and_notify_owner(self):
+        submission = self.create_submission(FeaturedSubmission.AuditStatus.PENDING)
+        self.client.force_authenticate(user=self.superuser)
+
+        response = self.client.post(
+            reverse(
+                "anime_api:admin-featured-submission-approve",
+                kwargs={"pk": submission.pk},
+            )
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        submission.refresh_from_db()
+        self.assertEqual(
+            submission.audit_status,
+            FeaturedSubmission.AuditStatus.APPROVED,
+        )
+        self.assertTrue(UserNotification.objects.filter(user=self.user).exists())
+
+    def test_admin_can_approve_removal_and_delete_snapshot(self):
+        submission = self.create_submission(
+            FeaturedSubmission.AuditStatus.REMOVAL_REQUESTED
+        )
+        submission_id = submission.pk
+        self.client.force_authenticate(user=self.superuser)
+
+        response = self.client.post(
+            reverse(
+                "anime_api:admin-featured-submission-approve",
+                kwargs={"pk": submission.pk},
+            )
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(
+            FeaturedSubmission.objects.filter(pk=submission_id).exists()
+        )
+        self.assertTrue(
+            UserNotification.objects.filter(
+                user=self.user,
+                message__contains="已按你的申请撤下",
+            ).exists()
+        )
+
+    def test_admin_can_reject_removal_and_restore_approved_status(self):
+        submission = self.create_submission(
+            FeaturedSubmission.AuditStatus.REMOVAL_REQUESTED
+        )
+        self.client.force_authenticate(user=self.superuser)
+
+        response = self.client.post(
+            reverse(
+                "anime_api:admin-featured-submission-reject",
+                kwargs={"pk": submission.pk},
+            )
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        submission.refresh_from_db()
+        self.assertEqual(
+            submission.audit_status,
+            FeaturedSubmission.AuditStatus.APPROVED,
+        )
+        self.assertTrue(
+            UserNotification.objects.filter(
+                user=self.user,
+                message__contains="撤下申请未获批准",
+            ).exists()
+        )

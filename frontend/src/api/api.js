@@ -30,8 +30,10 @@ function isPublicAuthRequest(url = '') {
 }
 
 function redirectToLogin() {
-  if (window.location.pathname !== '/login') {
-    window.location.replace('/login?session=expired')
+  const isAdminArea = window.location.pathname.startsWith('/admin-')
+  const loginPath = isAdminArea ? '/admin-login' : '/login'
+  if (window.location.pathname !== loginPath) {
+    window.location.replace(`${loginPath}?session=expired`)
   }
 }
 

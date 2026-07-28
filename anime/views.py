@@ -39,6 +39,7 @@ from .models import (
 from .pagination import UserAnimeRecordPagination
 from .serializers import (
     AccountDeletionSerializer,
+    AdminFeaturedSubmissionSerializer,
     AnimeSerializer,
     ChangePasswordSerializer,
     CustomTokenObtainPairSerializer,
@@ -66,6 +67,20 @@ from .throttles import SensitiveAuthRateThrottle
 
 
 logger = logging.getLogger(__name__)
+
+
+class IsSuperUser(permissions.BasePermission):
+    """Allow access only to authenticated Django superusers."""
+
+    message = "仅超级管理员可以访问该接口。"
+
+    def has_permission(self, request, view):
+        return bool(
+            request.user
+            and request.user.is_authenticated
+            and request.user.is_superuser
+        )
+
 
 PRESET_QUICK_FILTER_TAGS = {
     "yuri": ("真百", "轻百", "真百合", "轻百合"),
@@ -1206,3 +1221,102 @@ class PublicFeaturedSubmissionViewSet(viewsets.ReadOnlyModelViewSet):
             serializer = self.get_serializer(page, many=True)
             return self.get_paginated_response(serializer.data)
         return Response(self.get_serializer(queryset, many=True).data)
+
+
+class AdminSessionView(APIView):
+    """Verify that the current JWT belongs to a superuser."""
+
+    permission_classes = (IsSuperUser,)
+
+    def get(self, request):
+        return Response(
+            {
+                "id": request.user.pk,
+                "username": request.user.username,
+                "email": request.user.email,
+                "is_superuser": True,
+            }
+        )
+
+
+class AdminFeaturedSubmissionViewSet(viewsets.ReadOnlyModelViewSet):
+    """Superuser-only queue and audit actions for featured submissions."""
+
+    serializer_class = AdminFeaturedSubmissionSerializer
+    permission_classes = (IsSuperUser,)
+    http_method_names = ("get", "post", "head", "options")
+
+    def get_queryset(self):
+        return FeaturedSubmission.objects.filter(
+            audit_status__in=(
+                FeaturedSubmission.AuditStatus.PENDING,
+                FeaturedSubmission.AuditStatus.REMOVAL_REQUESTED,
+            )
+        ).select_related("user", "user__profile", "source_anime")
+
+    def _get_locked_submission(self, pk):
+        return generics.get_object_or_404(
+            self.get_queryset().select_for_update(),
+            pk=pk,
+        )
+
+    @action(detail=True, methods=("post",))
+    @transaction.atomic
+    def approve(self, request, pk=None):
+        submission = self._get_locked_submission(pk)
+
+        if submission.audit_status == FeaturedSubmission.AuditStatus.PENDING:
+            submission.audit_status = FeaturedSubmission.AuditStatus.APPROVED
+            submission.save(update_fields=("audit_status", "updated_at"))
+            return Response(
+                {
+                    "detail": "已通过该精选专栏投稿。",
+                    "submission": self.get_serializer(submission).data,
+                }
+            )
+
+        submission_id = submission.pk
+        title = submission.chinese_title
+        user = submission.user
+        UserNotification.objects.create(
+            user=user,
+            message=f"《{title}》的精选专栏已按你的申请撤下。",
+        )
+        submission.delete()
+        return Response(
+            {
+                "detail": "已批准撤下该精选专栏。",
+                "submission_id": submission_id,
+            }
+        )
+
+    @action(detail=True, methods=("post",))
+    @transaction.atomic
+    def reject(self, request, pk=None):
+        submission = self._get_locked_submission(pk)
+
+        if submission.audit_status == FeaturedSubmission.AuditStatus.PENDING:
+            submission.audit_status = FeaturedSubmission.AuditStatus.REJECTED
+            submission.save(update_fields=("audit_status", "updated_at"))
+            return Response(
+                {
+                    "detail": "已打回该精选专栏投稿。",
+                    "submission": self.get_serializer(submission).data,
+                }
+            )
+
+        FeaturedSubmission.objects.filter(pk=submission.pk).update(
+            audit_status=FeaturedSubmission.AuditStatus.APPROVED,
+            updated_at=timezone.now(),
+        )
+        UserNotification.objects.create(
+            user=submission.user,
+            message=f"《{submission.chinese_title}》的撤下申请未获批准，专栏将继续展示。",
+        )
+        submission.refresh_from_db()
+        return Response(
+            {
+                "detail": "已驳回撤下申请，该专栏将继续展示。",
+                "submission": self.get_serializer(submission).data,
+            }
+        )
