@@ -25,6 +25,11 @@ TAG_COLOR_KEYS = {
 class UserProfile(models.Model):
     """Display information owned by exactly one authentication user."""
 
+    class PublicStatus(models.TextChoices):
+        PRIVATE = "private", "私密"
+        PENDING = "pending", "审核中"
+        APPROVED = "approved", "已公开"
+
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         verbose_name="用户",
@@ -50,13 +55,44 @@ class UserProfile(models.Model):
         validators=[MinValueValidator(0)],
         help_text="该用户最多可同时拥有的已收录精选专栏数量。",
     )
+    public_status = models.CharField(
+        "共创公开状态",
+        max_length=16,
+        choices=PublicStatus.choices,
+        default=PublicStatus.PRIVATE,
+        db_index=True,
+    )
+    is_public = models.BooleanField(
+        "公开手账",
+        default=False,
+        db_index=True,
+        help_text="仅管理员审核通过的手账可以进入番剧共创大厅。",
+    )
 
     class Meta:
         verbose_name = "用户资料"
         verbose_name_plural = "用户资料"
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(is_public=False)
+                    | models.Q(public_status="approved")
+                ),
+                name="public_profile_requires_approval",
+            ),
+        ]
 
     def __str__(self):
         return self.nickname or self.user.get_username()
+
+    def save(self, *args, **kwargs):
+        """Keep the public flag derived from the administrator-owned status."""
+
+        self.is_public = self.public_status == self.PublicStatus.APPROVED
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None:
+            kwargs["update_fields"] = tuple(set(update_fields) | {"is_public"})
+        return super().save(*args, **kwargs)
 
 
 def validate_tag_color_map(value):

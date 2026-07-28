@@ -2366,3 +2366,126 @@ class AdminFeaturedSubmissionApiTests(APITestCase):
                 message__contains="撤下申请未获批准",
             ).exists()
         )
+
+
+class PublicJournalApiTests(APITestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="journal-owner",
+            email="journal-owner@example.com",
+            password="Public-Journal-2026!",
+        )
+        self.profile = UserProfile.objects.get(user=self.user)
+        self.anime = Anime.objects.create(
+            chinese_title="共创剧场版",
+            japanese_title="パブリック",
+            airing_period="2026-07",
+            poster_url="https://example.com/public-journal.jpg",
+            base_tags=["剧场版"],
+        )
+        self.record = UserAnimeRecord.objects.create(
+            user=self.user,
+            anime=self.anime,
+            personal_score=Decimal("9.8"),
+            watch_status=UserAnimeRecord.WatchStatus.COMPLETED,
+            review="公开长评",
+        )
+
+    def test_authenticated_user_can_apply_and_cancel_public_journal(self):
+        self.client.force_authenticate(user=self.user)
+
+        apply_response = self.client.post(
+            reverse("anime_api:public-journal-status"),
+            {},
+            format="json",
+        )
+
+        self.assertEqual(apply_response.status_code, status.HTTP_200_OK)
+        self.profile.refresh_from_db()
+        self.assertEqual(
+            self.profile.public_status,
+            UserProfile.PublicStatus.PENDING,
+        )
+        self.assertFalse(self.profile.is_public)
+
+        cancel_response = self.client.patch(
+            reverse("anime_api:public-journal-status"),
+            {},
+            format="json",
+        )
+
+        self.assertEqual(cancel_response.status_code, status.HTTP_200_OK)
+        self.profile.refresh_from_db()
+        self.assertEqual(
+            self.profile.public_status,
+            UserProfile.PublicStatus.PRIVATE,
+        )
+        self.assertFalse(self.profile.is_public)
+
+    def test_approved_status_is_the_only_state_that_enables_public_access(self):
+        self.profile.public_status = UserProfile.PublicStatus.APPROVED
+        self.profile.save(update_fields=("public_status",))
+        self.profile.refresh_from_db()
+        self.assertTrue(self.profile.is_public)
+
+        self.profile.public_status = UserProfile.PublicStatus.PENDING
+        self.profile.save(update_fields=("public_status",))
+        self.profile.refresh_from_db()
+        self.assertFalse(self.profile.is_public)
+
+    def test_lobby_returns_only_approved_profiles_with_compact_statistics(self):
+        UserProfile.objects.filter(pk=self.profile.pk).update(
+            public_status=UserProfile.PublicStatus.APPROVED,
+            is_public=True,
+        )
+        private_user = get_user_model().objects.create_user(
+            username="private-owner",
+            password="Private-Journal-2026!",
+        )
+        private_anime = Anime.objects.create(
+            chinese_title="私密番剧",
+            airing_period="2025-10",
+        )
+        UserAnimeRecord.objects.create(
+            user=private_user,
+            anime=private_anime,
+            personal_score=Decimal("10.0"),
+        )
+
+        response = self.client.get(reverse("anime_api:public-journal-lobby"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        profiles = response.data.get("results", response.data)
+        self.assertEqual(len(profiles), 1)
+        self.assertEqual(profiles[0]["username"], self.user.username)
+        self.assertEqual(profiles[0]["completed_count"], 1)
+        self.assertEqual(profiles[0]["average_score"], "9.80")
+        self.assertEqual(profiles[0]["movie_count"], 1)
+        self.assertEqual(profiles[0]["masterpiece_count"], 1)
+        self.assertEqual(
+            profiles[0]["top_anime_poster_urls"],
+            ["https://example.com/public-journal.jpg"],
+        )
+        self.assertNotIn("email", profiles[0])
+        self.assertNotIn("records", profiles[0])
+
+    def test_public_detail_requires_approved_public_profile(self):
+        detail_url = reverse(
+            "anime_api:public-journal-detail",
+            kwargs={"username": self.user.username},
+        )
+
+        private_response = self.client.get(detail_url)
+        self.assertEqual(private_response.status_code, status.HTTP_404_NOT_FOUND)
+
+        UserProfile.objects.filter(pk=self.profile.pk).update(
+            public_status=UserProfile.PublicStatus.APPROVED,
+            is_public=True,
+        )
+        public_response = self.client.get(detail_url)
+
+        self.assertEqual(public_response.status_code, status.HTTP_200_OK)
+        records = public_response.data.get("results", public_response.data)
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]["id"], self.record.pk)
+        self.assertEqual(records[0]["anime"]["chinese_title"], "共创剧场版")

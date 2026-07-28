@@ -5,6 +5,7 @@ from decimal import Decimal
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.core.files.storage import default_storage
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from PIL import Image, UnidentifiedImageError
@@ -201,8 +202,16 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "showcase_subtitle",
             "avatar",
             "max_featured_limit",
+            "public_status",
+            "is_public",
         )
-        read_only_fields = ("username", "email", "max_featured_limit")
+        read_only_fields = (
+            "username",
+            "email",
+            "max_featured_limit",
+            "public_status",
+            "is_public",
+        )
 
     def validate_avatar(self, avatar):
         return validate_uploaded_image(avatar, label="头像")
@@ -218,6 +227,66 @@ class PublicUserProfileSerializer(serializers.ModelSerializer):
         model = UserProfile
         fields = ("username", "nickname", "showcase_subtitle", "avatar")
         read_only_fields = fields
+
+
+class PublicJournalStatusSerializer(serializers.ModelSerializer):
+    """Current user's public-journal pass status."""
+
+    class Meta:
+        model = UserProfile
+        fields = ("public_status", "is_public")
+        read_only_fields = fields
+
+
+class PublicJournalLobbySerializer(serializers.ModelSerializer):
+    """Small public-hall card without exposing a user's complete journal."""
+
+    username = serializers.CharField(source="user.username", read_only=True)
+    avatar = serializers.ImageField(read_only=True)
+    completed_count = serializers.IntegerField(read_only=True)
+    average_score = serializers.DecimalField(
+        max_digits=4,
+        decimal_places=2,
+        read_only=True,
+        allow_null=True,
+    )
+    movie_count = serializers.IntegerField(read_only=True)
+    ova_count = serializers.IntegerField(read_only=True)
+    short_count = serializers.IntegerField(read_only=True)
+    masterpiece_count = serializers.IntegerField(read_only=True)
+    top_anime_poster_urls = serializers.SerializerMethodField()
+
+    class Meta:
+        model = UserProfile
+        fields = (
+            "username",
+            "nickname",
+            "showcase_subtitle",
+            "avatar",
+            "completed_count",
+            "average_score",
+            "movie_count",
+            "ova_count",
+            "short_count",
+            "masterpiece_count",
+            "top_anime_poster_urls",
+        )
+        read_only_fields = fields
+
+    def get_top_anime_poster_urls(self, profile):
+        request = self.context.get("request")
+        posters = []
+        for rank in range(1, 4):
+            image_name = getattr(profile, f"top_poster_image_{rank}", "") or ""
+            remote_url = getattr(profile, f"top_poster_url_{rank}", "") or ""
+            if image_name:
+                media_url = default_storage.url(image_name)
+                posters.append(
+                    request.build_absolute_uri(media_url) if request else media_url
+                )
+            elif remote_url:
+                posters.append(remote_url)
+        return posters
 
 
 class ChangePasswordSerializer(serializers.Serializer):

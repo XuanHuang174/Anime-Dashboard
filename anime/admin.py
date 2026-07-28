@@ -17,10 +17,13 @@ class UserProfileAdmin(admin.ModelAdmin):
     list_display = (
         "user",
         "nickname",
+        "public_status",
+        "is_public",
         "max_featured_limit",
         "showcase_subtitle",
         "avatar",
     )
+    list_filter = ("public_status", "is_public")
     search_fields = ("user__username", "user__email", "nickname", "showcase_subtitle")
     autocomplete_fields = ("user",)
 

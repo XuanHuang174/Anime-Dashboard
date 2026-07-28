@@ -11,7 +11,20 @@ from django.contrib.auth.tokens import default_token_generator
 from django.core.files.base import ContentFile
 from django.core.mail import send_mail
 from django.db import transaction
-from django.db.models import Case, CharField, F, IntegerField, Q, Value, When
+from django.db.models import (
+    Avg,
+    Case,
+    CharField,
+    Count,
+    DecimalField,
+    F,
+    IntegerField,
+    OuterRef,
+    Q,
+    Subquery,
+    Value,
+    When,
+)
 from django.db.models.functions import Cast, Substr
 from django.http import HttpResponse
 from django.utils import timezone
@@ -52,6 +65,8 @@ from .serializers import (
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
     PublicFeaturedSubmissionSerializer,
+    PublicJournalLobbySerializer,
+    PublicJournalStatusSerializer,
     PublicUserProfileSerializer,
     UserRegistrationSerializer,
     UserAnimeRecordAddSerializer,
@@ -559,6 +574,198 @@ class CurrentUserProfileView(generics.RetrieveUpdateAPIView):
     def get_object(self):
         profile, _ = UserProfile.objects.get_or_create(user=self.request.user)
         return profile
+
+
+class PublicJournalAccessView(APIView):
+    """Apply for or immediately cancel a public-journal pass."""
+
+    permission_classes = (permissions.IsAuthenticated,)
+
+    @transaction.atomic
+    def post(self, request):
+        profile, _created = UserProfile.objects.select_for_update().get_or_create(
+            user=request.user,
+        )
+        if profile.public_status == UserProfile.PublicStatus.APPROVED:
+            return Response(
+                {
+                    "detail": "你的手账已经公开，无需重复申请。",
+                    **PublicJournalStatusSerializer(profile).data,
+                },
+            )
+        if profile.public_status != UserProfile.PublicStatus.PENDING:
+            profile.public_status = UserProfile.PublicStatus.PENDING
+            profile.is_public = False
+            profile.save(update_fields=("public_status", "is_public"))
+        return Response(
+            {
+                "detail": "分享申请已提交，请等待管理员审核。",
+                **PublicJournalStatusSerializer(profile).data,
+            },
+        )
+
+    @transaction.atomic
+    def patch(self, request):
+        profile, _created = UserProfile.objects.select_for_update().get_or_create(
+            user=request.user,
+        )
+        profile.public_status = UserProfile.PublicStatus.PRIVATE
+        profile.is_public = False
+        profile.save(update_fields=("public_status", "is_public"))
+        return Response(
+            {
+                "detail": "已取消分享，你的手账已立即恢复私密。",
+                **PublicJournalStatusSerializer(profile).data,
+            },
+        )
+
+
+def _public_journal_profiles():
+    """Build public lobby cards with database aggregates and three poster rows."""
+
+    records = (
+        UserAnimeRecord.objects.filter(user_id=OuterRef("user_id"))
+        .annotate(
+            effective_poster_url=Case(
+                When(
+                    metadata_initialized=True,
+                    then=F("private_poster_url"),
+                ),
+                default=F("anime__poster_url"),
+                output_field=CharField(max_length=1000),
+            ),
+            effective_poster_image=Case(
+                When(
+                    metadata_initialized=True,
+                    then=F("private_poster_image"),
+                ),
+                default=F("anime__poster_image"),
+                output_field=CharField(max_length=255),
+            ),
+        )
+        .order_by(F("personal_score").desc(nulls_last=True), "-updated_at", "pk")
+    )
+
+    private_movie = Q(
+        user__anime_records__metadata_initialized=True,
+    ) & (
+        Q(user__anime_records__private_chinese_title__icontains="剧场版")
+        | Q(user__anime_records__private_base_tags__icontains="剧场版")
+    )
+    shared_movie = Q(
+        user__anime_records__metadata_initialized=False,
+    ) & (
+        Q(user__anime_records__anime__chinese_title__icontains="剧场版")
+        | Q(user__anime_records__anime__base_tags__icontains="剧场版")
+    )
+    private_ova = Q(
+        user__anime_records__metadata_initialized=True,
+    ) & (
+        Q(user__anime_records__private_chinese_title__icontains="OVA")
+        | Q(user__anime_records__private_base_tags__icontains="OVA")
+    )
+    shared_ova = Q(
+        user__anime_records__metadata_initialized=False,
+    ) & (
+        Q(user__anime_records__anime__chinese_title__icontains="OVA")
+        | Q(user__anime_records__anime__base_tags__icontains="OVA")
+    )
+    private_short = Q(
+        user__anime_records__metadata_initialized=True,
+        user__anime_records__private_base_tags__icontains="泡面番",
+    )
+    shared_short = Q(
+        user__anime_records__metadata_initialized=False,
+        user__anime_records__anime__base_tags__icontains="泡面番",
+    )
+
+    annotations = {
+        "completed_count": Count(
+            "user__anime_records",
+            filter=Q(
+                user__anime_records__watch_status=(
+                    UserAnimeRecord.WatchStatus.COMPLETED
+                )
+            ),
+        ),
+        "average_score": Avg(
+            "user__anime_records__personal_score",
+            output_field=DecimalField(max_digits=4, decimal_places=2),
+        ),
+        "movie_count": Count(
+            "user__anime_records",
+            filter=private_movie | shared_movie,
+        ),
+        "ova_count": Count(
+            "user__anime_records",
+            filter=private_ova | shared_ova,
+        ),
+        "short_count": Count(
+            "user__anime_records",
+            filter=private_short | shared_short,
+        ),
+        "masterpiece_count": Count(
+            "user__anime_records",
+            filter=Q(user__anime_records__personal_score__gte=9.5),
+        ),
+    }
+    for rank in range(1, 4):
+        offset = rank - 1
+        annotations[f"top_poster_url_{rank}"] = Subquery(
+            records.values("effective_poster_url")[offset:rank],
+            output_field=CharField(max_length=1000),
+        )
+        annotations[f"top_poster_image_{rank}"] = Subquery(
+            records.values("effective_poster_image")[offset:rank],
+            output_field=CharField(max_length=255),
+        )
+
+    return (
+        UserProfile.objects.filter(
+            is_public=True,
+            public_status=UserProfile.PublicStatus.APPROVED,
+        )
+        .select_related("user")
+        .annotate(**annotations)
+        .order_by("-masterpiece_count", "-average_score", "user__username")
+    )
+
+
+class PublicJournalLobbyView(generics.ListAPIView):
+    """Anonymous lobby containing compact cards for approved public journals."""
+
+    serializer_class = PublicJournalLobbySerializer
+    permission_classes = (permissions.AllowAny,)
+    authentication_classes = ()
+
+    def get_queryset(self):
+        return _public_journal_profiles()
+
+
+class PublicJournalDetailView(generics.ListAPIView):
+    """Anonymous paginated records for one explicitly public journal."""
+
+    serializer_class = UserAnimeRecordSerializer
+    permission_classes = (permissions.AllowAny,)
+    authentication_classes = ()
+    pagination_class = UserAnimeRecordPagination
+
+    def get_queryset(self):
+        profile = generics.get_object_or_404(
+            UserProfile.objects.select_related("user"),
+            user__username=self.kwargs["username"],
+            is_public=True,
+            public_status=UserProfile.PublicStatus.APPROVED,
+        )
+        queryset = (
+            UserAnimeRecord.objects.filter(user=profile.user)
+            .select_related("user", "anime")
+            .prefetch_related("tag_preferences")
+        )
+        return _order_record_queryset(
+            queryset,
+            self.request.query_params.get("sort", "date-desc"),
+        )
 
 
 class ChangePasswordView(APIView):
