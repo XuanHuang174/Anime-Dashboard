@@ -246,7 +246,7 @@ function LoginPage() {
             className={`login-piece inline-flex items-center gap-2 bg-[var(--memphis-white)] px-4 py-2.5 text-sm font-black uppercase tracking-wide ${pressableClass}`}
           >
             <i className="fa-solid fa-arrow-left" />
-            返回公共番剧页
+            返回展示主界面
           </Link>
           <div className="login-piece hidden -rotate-2 border-4 border-black bg-[var(--memphis-teal)] px-4 py-2 text-xs font-black uppercase tracking-[0.16em] shadow-[5px_5px_0_0_var(--memphis-ink)] sm:block">
             <i className="fa-solid fa-bolt mr-2" />

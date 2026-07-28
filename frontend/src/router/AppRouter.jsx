@@ -28,6 +28,14 @@ function AppRouter() {
         )}
       />
       <Route
+        path="/admin-dashboard/:moduleKey"
+        element={(
+          <AdminProtectedRoute>
+            <AdminDashboard />
+          </AdminProtectedRoute>
+        )}
+      />
+      <Route
         path="/dashboard"
         element={(
           <ProtectedRoute>

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import api from '../api/api.js'
 import { clearTokens } from '../auth/tokenStorage.js'
 import AdminAuditConfirmModal from '../components/AdminAuditConfirmModal.jsx'
@@ -27,6 +27,45 @@ const STATUS_META = {
   },
 }
 
+const ADMIN_MODULES = [
+  {
+    key: 'featured',
+    number: '01',
+    eyebrow: 'Featured Column',
+    title: '精选专栏',
+    description: '审核用户投稿、处理撤下申请，并发送结果通知。',
+    icon: 'fa-star',
+    color: 'bg-[#ffdf3e]',
+    shadow: 'shadow-[9px_9px_0_#ff5b68]',
+    status: '已启用',
+    enabled: true,
+  },
+  {
+    key: 'module-2',
+    number: '02',
+    eyebrow: 'Future Module',
+    title: '模块 2',
+    description: '为下一项后台功能预留的独立管理空间。',
+    icon: 'fa-cubes',
+    color: 'bg-[#4ecdc4]',
+    shadow: 'shadow-[9px_9px_0_#ffdf3e]',
+    status: '待接入',
+    enabled: false,
+  },
+  {
+    key: 'module-3',
+    number: '03',
+    eyebrow: 'Future Module',
+    title: '模块 3',
+    description: '可继续扩展用户、内容或系统配置功能。',
+    icon: 'fa-diagram-project',
+    color: 'bg-[#ff5b68]',
+    shadow: 'shadow-[9px_9px_0_#4ecdc4]',
+    status: '待接入',
+    enabled: false,
+  },
+]
+
 function normalizeNextUrl(nextUrl) {
   if (!nextUrl) return null
   const parsed = new URL(nextUrl, window.location.origin)
@@ -45,6 +84,10 @@ function getErrorMessage(error, fallback = '操作失败，请稍后重试。') 
 function AdminDashboard() {
   const pageRef = useRef(null)
   const navigate = useNavigate()
+  const { moduleKey } = useParams()
+  const currentModule = ADMIN_MODULES.find((module) => module.key === moduleKey)
+  const isMainMenu = !moduleKey
+  const isFeaturedModule = moduleKey === 'featured'
   const [admin, setAdmin] = useState(null)
   const [submissions, setSubmissions] = useState([])
   const [isLoading, setIsLoading] = useState(true)
@@ -70,7 +113,11 @@ function AdminDashboard() {
         duration: 0.5,
         ease: 'back.out(1.5)',
       }, '-=0.2')
-  }, { scope: pageRef })
+  }, {
+    scope: pageRef,
+    dependencies: [moduleKey],
+    revertOnUpdate: true,
+  })
 
   function pushToast(message, type = 'success') {
     setToasts((current) => [
@@ -79,11 +126,19 @@ function AdminDashboard() {
     ])
   }
 
+  async function loadAdminSession() {
+    try {
+      const response = await api.get('admin/session/')
+      setAdmin(response.data)
+    } catch (requestError) {
+      setError(getErrorMessage(requestError, '无法读取管理员身份信息。'))
+    }
+  }
+
   async function loadQueue() {
     setIsLoading(true)
     setError('')
     try {
-      const sessionPromise = api.get('admin/session/')
       const allItems = []
       let nextUrl = 'admin/featured-submissions/?page_size=100'
 
@@ -101,8 +156,6 @@ function AdminDashboard() {
         }
       }
 
-      const sessionResponse = await sessionPromise
-      setAdmin(sessionResponse.data)
       setSubmissions(allItems)
     } catch (requestError) {
       setError(getErrorMessage(requestError, '无法读取审核队列，请检查后端服务。'))
@@ -112,8 +165,17 @@ function AdminDashboard() {
   }
 
   useEffect(() => {
-    loadQueue()
+    loadAdminSession()
   }, [])
+
+  useEffect(() => {
+    if (isFeaturedModule) {
+      loadQueue()
+    } else {
+      setIsLoading(false)
+      setError('')
+    }
+  }, [isFeaturedModule])
 
   async function handleAudit() {
     if (!confirmAction) return
@@ -142,6 +204,12 @@ function AdminDashboard() {
     (item) => item.audit_status === 'pending',
   ).length
   const removalCount = submissions.length - pendingCount
+  const headerTitle = isMainMenu
+    ? '管理员控制台'
+    : currentModule?.title || '未知管理模块'
+  const headerDescription = isMainMenu
+    ? '先选择需要管理的功能模块，再进入对应的独立控制面板。'
+    : currentModule?.description || '该管理模块不存在，请返回控制台主菜单。'
 
   return (
     <main
@@ -157,10 +225,10 @@ function AdminDashboard() {
             </span>
             <div>
               <span className="mb-1 inline-block border-2 border-black bg-[#ff5b68] px-2 py-1 text-[10px] font-black uppercase tracking-[0.28em] text-black">
-                Control Room · Level 01
+                Control Room · {isMainMenu ? 'Main Menu' : `Module ${currentModule?.number || '--'}`}
               </span>
-              <h1 className="text-3xl font-black tracking-tight sm:text-5xl">精选专栏后台管理</h1>
-              <p className="mt-2 font-bold text-zinc-300">审核投稿、处理撤下申请，并同步向用户发送结果通知。</p>
+              <h1 className="text-3xl font-black tracking-tight sm:text-5xl">{headerTitle}</h1>
+              <p className="mt-2 font-bold text-zinc-300">{headerDescription}</p>
             </div>
           </div>
 
@@ -169,15 +237,27 @@ function AdminDashboard() {
               <span className="block text-[9px] font-black uppercase tracking-[0.2em]">Authenticated Staff</span>
               <strong className="text-sm">{admin?.username || '超级管理员'}</strong>
             </div>
-            <button
-              type="button"
-              onClick={loadQueue}
-              disabled={isLoading}
-              className="border-4 border-black bg-[#ffdf3e] px-4 py-3 font-black text-black shadow-[5px_5px_0_#c7ff4a] active:translate-x-[5px] active:translate-y-[5px] active:shadow-none disabled:opacity-60"
-            >
-              <i className={`fa-solid ${isLoading ? 'fa-spinner animate-spin' : 'fa-rotate'} mr-2`} />
-              刷新队列
-            </button>
+            {!isMainMenu && (
+              <button
+                type="button"
+                onClick={() => navigate('/admin-dashboard')}
+                className="border-4 border-black bg-white px-4 py-3 font-black text-black shadow-[5px_5px_0_#4ecdc4] active:translate-x-[5px] active:translate-y-[5px] active:shadow-none"
+              >
+                <i className="fa-solid fa-table-cells-large mr-2" />
+                返回主菜单
+              </button>
+            )}
+            {isFeaturedModule && (
+              <button
+                type="button"
+                onClick={loadQueue}
+                disabled={isLoading}
+                className="border-4 border-black bg-[#ffdf3e] px-4 py-3 font-black text-black shadow-[5px_5px_0_#c7ff4a] active:translate-x-[5px] active:translate-y-[5px] active:shadow-none disabled:opacity-60"
+              >
+                <i className={`fa-solid ${isLoading ? 'fa-spinner animate-spin' : 'fa-rotate'} mr-2`} />
+                刷新队列
+              </button>
+            )}
             <button
               type="button"
               onClick={handleLogout}
@@ -190,6 +270,46 @@ function AdminDashboard() {
         </div>
       </header>
 
+      {isMainMenu ? (
+        <section className="admin-console-panel mx-auto mt-8 max-w-[1500px] border-4 border-black bg-[#fff5ee] p-5 text-black shadow-[10px_10px_0_#ffdf3e] sm:p-8">
+          <div className="mb-7 border-b-4 border-black pb-5">
+            <span className="inline-flex items-center gap-2 border-2 border-black bg-[#c7ff4a] px-3 py-1 text-xs font-black uppercase tracking-[0.16em] shadow-[3px_3px_0_#111]">
+              <i className="fa-solid fa-table-cells-large" />
+              Module Directory
+            </span>
+            <h2 className="mt-3 text-3xl font-black sm:text-4xl">选择管理模块</h2>
+            <p className="mt-2 max-w-2xl font-bold leading-7 text-zinc-600">
+              每个模块拥有独立的管理界面。后续增加功能时，只需在这里新增入口，不会再直接挤入精选专栏页面。
+            </p>
+          </div>
+
+          <div className="grid gap-7 md:grid-cols-2 xl:grid-cols-3">
+            {ADMIN_MODULES.map((module) => (
+              <button
+                key={module.key}
+                type="button"
+                onClick={() => navigate(`/admin-dashboard/${module.key}`)}
+                className={`group relative min-h-72 border-4 border-black p-5 text-left text-black transition-none active:translate-x-[9px] active:translate-y-[9px] active:shadow-none ${module.color} ${module.shadow}`}
+              >
+                <span className="absolute right-4 top-4 border-2 border-black bg-white px-2 py-1 text-[10px] font-black uppercase tracking-[0.16em]">
+                  {module.status}
+                </span>
+                <span className="block text-6xl font-black leading-none opacity-20">{module.number}</span>
+                <span className="mt-5 flex h-16 w-16 items-center justify-center border-4 border-black bg-white text-2xl shadow-[5px_5px_0_#111] group-active:shadow-none">
+                  <i className={`fa-solid ${module.icon}`} />
+                </span>
+                <span className="mt-6 block text-[10px] font-black uppercase tracking-[0.24em]">{module.eyebrow}</span>
+                <strong className="mt-1 block text-3xl font-black">{module.title}</strong>
+                <span className="mt-3 block text-sm font-bold leading-6">{module.description}</span>
+                <span className="mt-5 inline-flex items-center gap-2 border-2 border-black bg-zinc-900 px-3 py-2 text-xs font-black text-white">
+                  {module.enabled ? '进入管理界面' : '查看预留模块'}
+                  <i className="fa-solid fa-arrow-right" />
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : isFeaturedModule ? (
       <section className="admin-console-panel mx-auto mt-8 max-w-[1500px] border-4 border-black bg-[#fff5ee] p-4 text-black shadow-[10px_10px_0_#ffdf3e] sm:p-6">
         <div className="mb-6 flex flex-col justify-between gap-4 border-b-4 border-black pb-5 md:flex-row md:items-end">
           <div>
@@ -353,6 +473,32 @@ function AdminDashboard() {
           </div>
         )}
       </section>
+      ) : (
+        <section className="admin-console-panel mx-auto mt-8 flex min-h-[420px] max-w-[1100px] flex-col items-center justify-center border-4 border-black bg-[#fff5ee] p-8 text-center text-black shadow-[10px_10px_0_#4ecdc4]">
+          <span className={`flex h-24 w-24 items-center justify-center border-4 border-black text-4xl shadow-[7px_7px_0_#111] ${currentModule?.color || 'bg-[#ff5b68]'}`}>
+            <i className={`fa-solid ${currentModule?.icon || 'fa-triangle-exclamation'}`} />
+          </span>
+          <span className="mt-7 border-2 border-black bg-[#ffdf3e] px-3 py-1 text-xs font-black uppercase tracking-[0.18em]">
+            {currentModule ? 'Reserved Module' : 'Unknown Module'}
+          </span>
+          <h2 className="mt-4 text-3xl font-black sm:text-5xl">
+            {currentModule?.title || '未找到该管理模块'}
+          </h2>
+          <p className="mt-4 max-w-xl font-bold leading-7 text-zinc-600">
+            {currentModule
+              ? '该入口和独立路由已经准备完成，后续接入功能时可直接替换此占位面板。'
+              : '你访问的后台模块不存在，请返回主菜单重新选择。'}
+          </p>
+          <button
+            type="button"
+            onClick={() => navigate('/admin-dashboard')}
+            className="mt-8 border-4 border-black bg-[#c7ff4a] px-6 py-3 font-black shadow-[6px_6px_0_#111] active:translate-x-[6px] active:translate-y-[6px] active:shadow-none"
+          >
+            <i className="fa-solid fa-arrow-left mr-2" />
+            返回控制台主菜单
+          </button>
+        </section>
+      )}
 
       {confirmAction && (
         <AdminAuditConfirmModal
