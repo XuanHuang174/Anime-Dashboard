@@ -752,22 +752,74 @@ class PublicJournalDetailView(generics.ListAPIView):
     authentication_classes = ()
     pagination_class = UserAnimeRecordPagination
 
+    def get_profile(self):
+        if not hasattr(self, "_public_profile"):
+            self._public_profile = generics.get_object_or_404(
+                UserProfile.objects.select_related("user"),
+                user__username=self.kwargs["username"],
+                is_public=True,
+                public_status=UserProfile.PublicStatus.APPROVED,
+            )
+        return self._public_profile
+
+    def get_base_queryset(self):
+        profile = self.get_profile()
+        return (
+            UserAnimeRecord.objects.filter(user=profile.user)
+            .select_related("user", "anime")
+            .prefetch_related("tag_preferences")
+        )
+
     def get_queryset(self):
+        profile = self.get_profile()
+        queryset = _apply_record_filters(
+            self.get_base_queryset(),
+            self.request,
+            filter_owner=profile.user,
+        )
+        return _order_record_queryset(
+            queryset,
+            self.request.query_params.get("sort", "date-desc"),
+        )
+
+
+class PublicJournalStatsView(APIView):
+    """Aggregate cards for one public journal without exposing private access."""
+
+    permission_classes = (permissions.AllowAny,)
+    authentication_classes = ()
+
+    def get(self, request, username):
         profile = generics.get_object_or_404(
             UserProfile.objects.select_related("user"),
-            user__username=self.kwargs["username"],
+            user__username=username,
             is_public=True,
             public_status=UserProfile.PublicStatus.APPROVED,
         )
         queryset = (
             UserAnimeRecord.objects.filter(user=profile.user)
             .select_related("user", "anime")
-            .prefetch_related("tag_preferences")
         )
-        return _order_record_queryset(
-            queryset,
-            self.request.query_params.get("sort", "date-desc"),
+        return Response(_build_record_stats(queryset))
+
+
+class PublicJournalFilterOptionsView(APIView):
+    """Tags and years required by the shared Dashboard filter controls."""
+
+    permission_classes = (permissions.AllowAny,)
+    authentication_classes = ()
+
+    def get(self, request, username):
+        profile = generics.get_object_or_404(
+            UserProfile.objects.select_related("user"),
+            user__username=username,
+            is_public=True,
+            public_status=UserProfile.PublicStatus.APPROVED,
         )
+        queryset = UserAnimeRecord.objects.filter(user=profile.user).select_related(
+            "anime",
+        )
+        return Response(_build_filter_options(queryset))
 
 
 class ChangePasswordView(APIView):

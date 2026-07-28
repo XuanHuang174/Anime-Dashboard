@@ -2507,3 +2507,33 @@ class PublicJournalApiTests(APITestCase):
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0]["id"], self.record.pk)
         self.assertEqual(records[0]["anime"]["chinese_title"], "共创剧场版")
+
+        filtered_response = self.client.get(
+            detail_url,
+            {"status": UserAnimeRecord.WatchStatus.COMPLETED},
+        )
+        filtered_records = filtered_response.data.get(
+            "results",
+            filtered_response.data,
+        )
+        self.assertEqual([item["id"] for item in filtered_records], [self.record.pk])
+
+        stats_response = self.client.get(
+            reverse(
+                "anime_api:public-journal-stats",
+                kwargs={"username": self.user.username},
+            )
+        )
+        self.assertEqual(stats_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(stats_response.data["completed_count"], 1)
+        self.assertEqual(stats_response.data["average_score"], "9.80")
+
+        options_response = self.client.get(
+            reverse(
+                "anime_api:public-journal-filter-options",
+                kwargs={"username": self.user.username},
+            )
+        )
+        self.assertEqual(options_response.status_code, status.HTTP_200_OK)
+        self.assertIn("剧场版", options_response.data["tags"])
+        self.assertIn("2026", options_response.data["years"])

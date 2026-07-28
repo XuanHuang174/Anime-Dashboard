@@ -3,6 +3,7 @@ import api from '../api/api.js'
 import AccountDeletionModal from './AccountDeletionModal.jsx'
 import JournalDataTransfer from './JournalDataTransfer.jsx'
 import ProfileModal from './ProfileModal.jsx'
+import PublicJournalShareButton from './PublicJournalShareButton.jsx'
 
 const DEFAULT_SUBTITLE = '记录每一次与动画相遇，也珍藏属于自己的追番时光。'
 
@@ -15,6 +16,9 @@ function DashboardHeader({
   onAccountDeleted,
   onUnauthorized,
   showToast,
+  isSharedJournal = false,
+  sharedProfile = null,
+  onReturnToUniverse,
 }) {
   const menuRef = useRef(null)
   const previousPreviewModeRef = useRef(isPreviewMode)
@@ -25,6 +29,7 @@ function DashboardHeader({
   const [isModeTransitioning, setIsModeTransitioning] = useState(false)
 
   useEffect(() => {
+    if (isSharedJournal) return undefined
     const controller = new AbortController()
     api.get('user/profile/', { signal: controller.signal })
       .then((response) => setProfile(response.data))
@@ -37,7 +42,7 @@ function DashboardHeader({
         showToast?.('个人资料加载失败，暂时使用默认头像。', 'error')
       })
     return () => controller.abort()
-  }, [])
+  }, [isSharedJournal])
 
   useEffect(() => {
     if (!isMenuOpen) return undefined
@@ -63,15 +68,18 @@ function DashboardHeader({
     return () => window.clearTimeout(timer)
   }, [isPreviewMode])
 
-  const displayName = profile?.nickname?.trim() || profile?.username || '手账主理人'
-  const subtitle = profile?.showcase_subtitle?.trim() || DEFAULT_SUBTITLE
+  const activeProfile = isSharedJournal ? sharedProfile : profile
+  const displayName = activeProfile?.nickname?.trim()
+    || activeProfile?.username
+    || '手账主理人'
+  const subtitle = activeProfile?.showcase_subtitle?.trim() || DEFAULT_SUBTITLE
 
   const avatar = (sizeClass, preview = false) => (
     <span
       className={`flex shrink-0 items-center justify-center overflow-hidden border-4 border-black bg-white text-black ${preview ? 'shadow-[6px_6px_0_#4ecdc4]' : 'shadow-[4px_4px_0_#111]'} ${sizeClass}`}
     >
-      {profile?.avatar
-        ? <img src={profile.avatar} alt={`${displayName}的头像`} className="h-full w-full object-cover" />
+      {activeProfile?.avatar
+        ? <img src={activeProfile.avatar} alt={`${displayName}的头像`} className="h-full w-full object-cover" />
         : <i className="fa-solid fa-star text-[#ff6b6b]" />}
     </span>
   )
@@ -141,6 +149,17 @@ function DashboardHeader({
 
   const actions = (
     <div className={`flex shrink-0 flex-wrap items-center gap-2 ${isPreviewMode ? 'md:max-w-[48%] md:justify-end' : 'lg:max-w-[54%] lg:justify-end'}`}>
+      {isSharedJournal ? (
+        <button
+          type="button"
+          onClick={onReturnToUniverse}
+          className="dashboard-arcade-button inline-flex items-center gap-2 rounded-full bg-[#ffe66d] shadow-[5px_5px_0_#111]"
+        >
+          <i className="fa-solid fa-arrow-left" />
+          返回共创大厅
+        </button>
+      ) : (
+        <>
       {!isPreviewMode && (
         <JournalDataTransfer
           onImported={onRecordsImported}
@@ -168,6 +187,15 @@ function DashboardHeader({
           添加番剧
           <span className="border-2 border-black bg-[#ffe66d] px-1.5 py-0.5 text-[9px] font-black">ADD</span>
         </button>
+      )}
+          <PublicJournalShareButton
+            publicStatus={profile?.public_status}
+            onStatusChange={(nextStatus) => {
+              setProfile((current) => ({ ...current, ...nextStatus }))
+            }}
+            showToast={showToast}
+          />
+        </>
       )}
     </div>
   )
@@ -201,16 +229,22 @@ function DashboardHeader({
                   style={{ fontFamily: '"Arial Black", Impact, sans-serif' }}
                 >
                   <span ref={menuRef} className="relative shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => setIsMenuOpen((current) => !current)}
-                      className="block -rotate-3 outline-none active:translate-x-1 active:translate-y-1"
-                      aria-haspopup="menu"
-                      aria-expanded={isMenuOpen}
-                    >
-                      {avatar('h-14 w-14 text-xl sm:h-16 sm:w-16', true)}
-                    </button>
-                    {dropdownMenu}
+                    {isSharedJournal ? (
+                      <span className="block -rotate-3">
+                        {avatar('h-14 w-14 text-xl sm:h-16 sm:w-16', true)}
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setIsMenuOpen((current) => !current)}
+                        className="block -rotate-3 outline-none active:translate-x-1 active:translate-y-1"
+                        aria-haspopup="menu"
+                        aria-expanded={isMenuOpen}
+                      >
+                        {avatar('h-14 w-14 text-xl sm:h-16 sm:w-16', true)}
+                      </button>
+                    )}
+                    {!isSharedJournal && dropdownMenu}
                   </span>
                   <span className="inline-block bg-black px-3 py-2 text-white">
                     {displayName} 的番剧汇总
@@ -277,19 +311,23 @@ function DashboardHeader({
         </header>
       )}
 
-      <ProfileModal
-        isOpen={isProfileModalOpen}
-        profile={profile}
-        onClose={() => setIsProfileModalOpen(false)}
-        onSaved={setProfile}
-        showToast={showToast}
-      />
-      <AccountDeletionModal
-        isOpen={isAccountDeletionOpen}
-        profile={profile}
-        onClose={() => setIsAccountDeletionOpen(false)}
-        onDeleted={onAccountDeleted}
-      />
+      {!isSharedJournal && (
+        <>
+          <ProfileModal
+            isOpen={isProfileModalOpen}
+            profile={profile}
+            onClose={() => setIsProfileModalOpen(false)}
+            onSaved={setProfile}
+            showToast={showToast}
+          />
+          <AccountDeletionModal
+            isOpen={isAccountDeletionOpen}
+            profile={profile}
+            onClose={() => setIsAccountDeletionOpen(false)}
+            onDeleted={onAccountDeleted}
+          />
+        </>
+      )}
     </>
   )
 }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import api from '../api/api.js'
 import { clearTokens } from '../auth/tokenStorage.js'
 import AnimeGrid from '../components/AnimeGrid.jsx'
@@ -72,6 +72,8 @@ function Dashboard() {
   const dashboardRef = useRef(null)
   const navigate = useNavigate()
   const location = useLocation()
+  const { username: sharedUsername = '' } = useParams()
+  const isSharedJournal = Boolean(sharedUsername)
   const [records, setRecords] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
@@ -89,7 +91,8 @@ function Dashboard() {
   const [activeCustomFilterId, setActiveCustomFilterId] = useState(null)
   const [isQuickFilterEditorOpen, setIsQuickFilterEditorOpen] = useState(false)
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false)
-  const [isPreviewMode, setIsPreviewMode] = useState(false)
+  const [isPreviewMode, setIsPreviewMode] = useState(isSharedJournal)
+  const [sharedProfile, setSharedProfile] = useState(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState('all')
   const [recordsTotal, setRecordsTotal] = useState(null)
@@ -139,6 +142,35 @@ function Dashboard() {
   }, [])
 
   useEffect(() => {
+    if (!isSharedJournal) return
+    setIsPreviewMode(true)
+    setIsAddModalOpen(false)
+    setIsQuickFilterEditorOpen(false)
+  }, [isSharedJournal])
+
+  useEffect(() => {
+    if (!isSharedJournal) {
+      setSharedProfile(null)
+      return undefined
+    }
+
+    const controller = new AbortController()
+    api.get('public-journal/users/', {
+      params: { search: sharedUsername, page_size: 1 },
+      signal: controller.signal,
+    })
+      .then((response) => {
+        const payload = response.data
+        const profiles = Array.isArray(payload) ? payload : payload.results ?? []
+        setSharedProfile(profiles[0] ?? null)
+      })
+      .catch((requestError) => {
+        if (requestError.code !== 'ERR_CANCELED') setSharedProfile(null)
+      })
+    return () => controller.abort()
+  }, [isSharedJournal, sharedUsername])
+
+  useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedSearchQuery(searchQuery.trim()), 300)
     return () => window.clearTimeout(timer)
   }, [searchQuery])
@@ -171,6 +203,10 @@ function Dashboard() {
   }, [isLogoutConfirmOpen])
 
   useEffect(() => {
+    if (isSharedJournal) {
+      setFeaturedSubmissions([])
+      return undefined
+    }
     const controller = new AbortController()
 
     async function loadRecords() {
@@ -193,14 +229,23 @@ function Dashboard() {
             quick_filter: activeCustomFilterId ?? undefined,
           })
         }
+        const sharedBase = `public-journal/users/${encodeURIComponent(sharedUsername)}`
+        const recordsEndpoint = isSharedJournal ? `${sharedBase}/records/` : 'records/'
+        const statsEndpoint = isSharedJournal ? `${sharedBase}/stats/` : 'records/stats/'
+        const optionsEndpoint = isSharedJournal
+          ? `${sharedBase}/filter-options/`
+          : 'records/filter-options/'
+        const filtersRequest = isSharedJournal
+          ? Promise.resolve({ data: [] })
+          : api.get('quick-filters/', { signal: controller.signal })
         const [recordsResponse, filtersResponse, statsResponse, optionsResponse] = await Promise.all([
-          api.get('records/', {
+          api.get(recordsEndpoint, {
             params: requestParams,
             signal: controller.signal,
           }),
-          api.get('quick-filters/', { signal: controller.signal }),
-          api.get('records/stats/', { signal: controller.signal }),
-          api.get('records/filter-options/', { signal: controller.signal }),
+          filtersRequest,
+          api.get(statsEndpoint, { signal: controller.signal }),
+          api.get(optionsEndpoint, { signal: controller.signal }),
         ])
         const recordData = recordsResponse.data
         const filterData = filtersResponse.data
@@ -215,13 +260,19 @@ function Dashboard() {
       } catch (requestError) {
         if (requestError.code === 'ERR_CANCELED') return
 
-        if (requestError.response?.status === 401) {
+        if (!isSharedJournal && requestError.response?.status === 401) {
           clearTokens()
           navigate('/login', { replace: true, state: { from: location } })
           return
         }
 
-        setError('追番记录加载失败，请稍后重试。')
+        setError(
+          isSharedJournal && requestError.response?.status === 404
+            ? '该手账尚未公开，或用户不存在。'
+            : isSharedJournal
+              ? '公开手账加载失败，请稍后重试。'
+              : '追番记录加载失败，请稍后重试。',
+        )
       } finally {
         if (!controller.signal.aborted) setIsLoading(false)
       }
@@ -229,7 +280,16 @@ function Dashboard() {
 
     loadRecords()
     return () => controller.abort()
-  }, [currentPage, location, navigate, pageSize, paginatedFilterKey, recordsRefreshKey])
+  }, [
+    currentPage,
+    isSharedJournal,
+    location,
+    navigate,
+    pageSize,
+    paginatedFilterKey,
+    recordsRefreshKey,
+    sharedUsername,
+  ])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -246,9 +306,10 @@ function Dashboard() {
       })
 
     return () => controller.abort()
-  }, [featuredRefreshKey, showToast])
+  }, [featuredRefreshKey, isSharedJournal, showToast])
 
   useEffect(() => {
+    if (isSharedJournal) return undefined
     const controller = new AbortController()
     api.get('notifications/poll/', { signal: controller.signal })
       .then((response) => {
@@ -267,7 +328,7 @@ function Dashboard() {
         }
       })
     return () => controller.abort()
-  }, [showToast])
+  }, [isSharedJournal, showToast])
 
   useEffect(() => {
     if (lastLoadedPage !== currentPage || !shouldScrollAfterPageChange.current) return undefined
@@ -337,7 +398,7 @@ function Dashboard() {
     [featuredSubmissions],
   )
   const featuredAction = useMemo(() => {
-    if (!selectedItem) return null
+    if (isSharedJournal || !selectedItem) return null
 
     const relatedSubmissions = featuredSubmissions.filter(
       (submission) => submission.source_anime_id === selectedItem.animeId,
@@ -375,6 +436,7 @@ function Dashboard() {
     approvedFeaturedCount,
     featuredLimit,
     featuredSubmissions,
+    isSharedJournal,
     selectedItem,
   ])
 
@@ -534,6 +596,7 @@ function Dashboard() {
   }
 
   const togglePreviewMode = () => {
+    if (isSharedJournal) return
     setSelectedItem(null)
     setIsQuickFilterEditorOpen(false)
     setIsPreviewMode((current) => !current)
@@ -647,6 +710,9 @@ function Dashboard() {
         onAccountDeleted={handleAccountDeleted}
         onUnauthorized={forceLogout}
         showToast={showToast}
+        isSharedJournal={isSharedJournal}
+        sharedProfile={sharedProfile ?? { username: sharedUsername }}
+        onReturnToUniverse={() => navigate('/universe')}
       />
 
       {isPreviewMode && isHeaderEntranceComplete && hasLoadedRecords && !error && (
@@ -659,7 +725,7 @@ function Dashboard() {
         {isHeaderEntranceComplete && isLoading && !hasLoadedRecords && (
           <div className="flex items-center justify-center gap-3 border-4 border-black bg-[#ffe66d] py-12 font-black text-black shadow-[8px_8px_0_#4ecdc4]">
             <i className="fa-solid fa-spinner animate-spin text-xl"></i>
-            正在读取你的追番手账...
+            {isSharedJournal ? '正在同步公开手账...' : '正在读取你的追番手账...'}
           </div>
         )}
 
@@ -744,7 +810,7 @@ function Dashboard() {
               </div>
             )}
 
-            {isContentEntranceComplete && filteredAnime.length === 0 && db.length === 0 && (
+            {isContentEntranceComplete && filteredAnime.length === 0 && db.length === 0 && !isSharedJournal && (
               <button
                 type="button"
                 onClick={() => setIsAddModalOpen(true)}
@@ -761,6 +827,16 @@ function Dashboard() {
                   开始添加 <i className="fa-solid fa-arrow-right ml-2 transition-transform group-hover:translate-x-1"></i>
                 </span>
               </button>
+            )}
+
+            {isContentEntranceComplete && filteredAnime.length === 0 && db.length === 0 && isSharedJournal && (
+              <div className="dashboard-content-piece border-4 border-black bg-white px-6 py-14 text-center shadow-[8px_8px_0_#4ecdc4]">
+                <span className="mx-auto flex h-16 w-16 items-center justify-center border-4 border-black bg-[#ffe66d] text-2xl shadow-[5px_5px_0_#111]">
+                  <i className="fa-solid fa-book-open" />
+                </span>
+                <h2 className="mt-5 text-2xl font-black">这本公开手账暂时没有记录</h2>
+                <p className="mt-2 text-sm font-bold text-zinc-600">主理人添加内容后，这里会实时同步显示。</p>
+              </div>
             )}
 
             {isContentEntranceComplete && filteredAnime.length === 0 && db.length > 0 && (
@@ -791,7 +867,7 @@ function Dashboard() {
         )}
       </section>
 
-      {isPreviewMode ? (
+      {isPreviewMode || isSharedJournal ? (
         <DetailModal
           selectedItem={selectedItem}
           closeModal={() => setSelectedItem(null)}
@@ -811,30 +887,34 @@ function Dashboard() {
           showToast={showToast}
         />
       )}
-      <FeaturedActionConfirmModal
-        action={featuredConfirmAction}
-        onClose={() => setFeaturedConfirmAction(null)}
-        onConfirm={performFeaturedAction}
-      />
-      <AddAnimeModal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        existingAnimeIds={new Set(db.map((item) => item.animeId))}
-        onRecordAdded={handleRecordAdded}
-        showToast={showToast}
-      />
-      {!isPreviewMode && (
-        <QuickFilterEditorModal
-          isOpen={isQuickFilterEditorOpen}
-          onClose={() => setIsQuickFilterEditorOpen(false)}
-          availableTags={filterOptions.tags}
-          filters={customQuickFilters}
-          onSaved={handleQuickFilterSaved}
-          onDeleted={handleQuickFilterDeleted}
-          showToast={showToast}
-        />
+      {!isSharedJournal && (
+        <>
+          <FeaturedActionConfirmModal
+            action={featuredConfirmAction}
+            onClose={() => setFeaturedConfirmAction(null)}
+            onConfirm={performFeaturedAction}
+          />
+          <AddAnimeModal
+            isOpen={isAddModalOpen}
+            onClose={() => setIsAddModalOpen(false)}
+            existingAnimeIds={new Set(db.map((item) => item.animeId))}
+            onRecordAdded={handleRecordAdded}
+            showToast={showToast}
+          />
+          {!isPreviewMode && (
+            <QuickFilterEditorModal
+              isOpen={isQuickFilterEditorOpen}
+              onClose={() => setIsQuickFilterEditorOpen(false)}
+              availableTags={filterOptions.tags}
+              filters={customQuickFilters}
+              onSaved={handleQuickFilterSaved}
+              onDeleted={handleQuickFilterDeleted}
+              showToast={showToast}
+            />
+          )}
+        </>
       )}
-      {isLogoutConfirmOpen && (
+      {!isSharedJournal && isLogoutConfirmOpen && (
         <div
           className="memphis-modal-backdrop fixed inset-0 z-[140] flex items-center justify-center bg-zinc-950/80 p-4 backdrop-blur-sm animate-[viewFadeIn_0.2s_ease-out_both]"
           role="dialog"
@@ -865,7 +945,9 @@ function Dashboard() {
         </div>
       )}
       <BackToTop
-        isModalOpen={Boolean(selectedItem) || isLogoutConfirmOpen || Boolean(featuredConfirmAction)}
+        isModalOpen={Boolean(selectedItem) || (!isSharedJournal && (
+          isLogoutConfirmOpen || Boolean(featuredConfirmAction)
+        ))}
         theme="memphis"
       />
       <MemphisToastStack toasts={toasts} onDismiss={dismissToast} />
