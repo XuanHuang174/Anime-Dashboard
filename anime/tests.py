@@ -20,8 +20,10 @@ from rest_framework.test import APITestCase
 
 from .models import (
     Anime,
+    FeaturedSubmission,
     UserAnimeRecord,
     UserAnimeTag,
+    UserNotification,
     UserProfile,
     UserQuickFilter,
 )
@@ -1757,3 +1759,93 @@ class JournalDataTransferApiTests(APITestCase):
 
         self.assertEqual(export_response.status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertEqual(import_response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class FeaturedColumnApiTests(APITestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="featured-owner@example.com",
+            email="featured-owner@example.com",
+            password="Featured-Owner-2026!",
+        )
+        self.other_user = get_user_model().objects.create_user(
+            username="other-owner@example.com",
+            email="other-owner@example.com",
+            password="Other-Owner-2026!",
+        )
+        self.client.force_authenticate(self.user)
+
+    def test_profile_has_default_featured_limit(self):
+        self.assertEqual(self.user.profile.max_featured_limit, 3)
+
+    def test_submission_is_bound_to_user_and_audit_status_is_protected(self):
+        response = self.client.post(
+            reverse("anime_api:featured-submission-list"),
+            {
+                "chinese_title": "精选测试番剧",
+                "japanese_title": "特集テスト",
+                "year": 2026,
+                "watch_status": UserAnimeRecord.WatchStatus.COMPLETED,
+                "score": "9.6",
+                "review": "一篇只属于当前用户的长评。",
+                "tags": ["剧场版", "力荐", "剧场版"],
+                "audit_status": FeaturedSubmission.AuditStatus.APPROVED,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        submission = FeaturedSubmission.objects.get()
+        self.assertEqual(submission.user, self.user)
+        self.assertEqual(
+            submission.audit_status,
+            FeaturedSubmission.AuditStatus.PENDING,
+        )
+        self.assertEqual(submission.tags, ["剧场版", "力荐"])
+
+    def test_submission_detail_is_strictly_user_isolated(self):
+        submission = FeaturedSubmission.objects.create(
+            user=self.other_user,
+            chinese_title="他人的投稿",
+            year=2025,
+        )
+
+        response = self.client.get(
+            reverse(
+                "anime_api:featured-submission-detail",
+                kwargs={"pk": submission.pk},
+            )
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_notification_can_only_mark_own_message_as_read(self):
+        notification = UserNotification.objects.create(
+            user=self.user,
+            message="你的精选专栏投稿已进入审核。",
+        )
+        other_notification = UserNotification.objects.create(
+            user=self.other_user,
+            message="他人的站内通知。",
+        )
+
+        response = self.client.patch(
+            reverse(
+                "anime_api:notification-detail",
+                kwargs={"pk": notification.pk},
+            ),
+            {"is_read": True, "message": "不允许篡改消息"},
+            format="json",
+        )
+        hidden_response = self.client.get(
+            reverse(
+                "anime_api:notification-detail",
+                kwargs={"pk": other_notification.pk},
+            )
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        notification.refresh_from_db()
+        self.assertTrue(notification.is_read)
+        self.assertEqual(notification.message, "你的精选专栏投稿已进入审核。")
+        self.assertEqual(hidden_response.status_code, status.HTTP_404_NOT_FOUND)

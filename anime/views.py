@@ -25,8 +25,10 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .models import (
     Anime,
+    FeaturedSubmission,
     UserAnimeRecord,
     UserAnimeTag,
+    UserNotification,
     UserProfile,
     UserQuickFilter,
 )
@@ -36,6 +38,7 @@ from .serializers import (
     AnimeSerializer,
     ChangePasswordSerializer,
     CustomTokenObtainPairSerializer,
+    FeaturedSubmissionSerializer,
     JsonStringMapField,
     JournalRecordImportSerializer,
     PasswordResetConfirmSerializer,
@@ -44,6 +47,7 @@ from .serializers import (
     UserRegistrationSerializer,
     UserAnimeRecordAddSerializer,
     UserAnimeRecordSerializer,
+    UserNotificationSerializer,
     UserProfileSerializer,
     UserQuickFilterSerializer,
 )
@@ -988,3 +992,33 @@ class UserQuickFilterViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+
+class FeaturedSubmissionViewSet(viewsets.ModelViewSet):
+    """User-isolated CRUD for featured-column submissions."""
+
+    serializer_class = FeaturedSubmissionSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+    parser_classes = (parsers.JSONParser, parsers.FormParser, parsers.MultiPartParser)
+
+    def get_queryset(self):
+        return FeaturedSubmission.objects.filter(
+            user=self.request.user,
+        ).select_related("user")
+
+    def perform_create(self, serializer):
+        serializer.save(
+            user=self.request.user,
+            audit_status=FeaturedSubmission.AuditStatus.PENDING,
+        )
+
+
+class UserNotificationViewSet(viewsets.ModelViewSet):
+    """List and mark the current user's notifications as read."""
+
+    serializer_class = UserNotificationSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+    http_method_names = ("get", "patch", "head", "options")
+
+    def get_queryset(self):
+        return UserNotification.objects.filter(user=self.request.user)

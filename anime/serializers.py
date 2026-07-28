@@ -9,7 +9,15 @@ from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from PIL import Image, UnidentifiedImageError
 
-from .models import Anime, TAG_COLOR_KEYS, UserAnimeRecord, UserProfile, UserQuickFilter
+from .models import (
+    Anime,
+    FeaturedSubmission,
+    TAG_COLOR_KEYS,
+    UserAnimeRecord,
+    UserNotification,
+    UserProfile,
+    UserQuickFilter,
+)
 from .tag_services import get_record_tag_colors, initialize_record_tag_colors
 
 
@@ -185,8 +193,15 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserProfile
-        fields = ("username", "email", "nickname", "showcase_subtitle", "avatar")
-        read_only_fields = ("username", "email")
+        fields = (
+            "username",
+            "email",
+            "nickname",
+            "showcase_subtitle",
+            "avatar",
+            "max_featured_limit",
+        )
+        read_only_fields = ("username", "email", "max_featured_limit")
 
     def validate_avatar(self, avatar):
         return validate_uploaded_image(avatar, label="头像")
@@ -540,6 +555,68 @@ class UserQuickFilterSerializer(serializers.ModelSerializer):
         if not normalized:
             raise serializers.ValidationError("请至少选择一个标签。")
         return normalized
+
+
+class FeaturedSubmissionSerializer(serializers.ModelSerializer):
+    """User-facing featured submission data; audit decisions are server-owned."""
+
+    user = serializers.CharField(source="user.username", read_only=True)
+    tags = JsonStringListField(required=False)
+    poster = serializers.ImageField(required=False, allow_null=True)
+    watch_status_display = serializers.CharField(
+        source="get_watch_status_display",
+        read_only=True,
+    )
+    audit_status_display = serializers.CharField(
+        source="get_audit_status_display",
+        read_only=True,
+    )
+
+    class Meta:
+        model = FeaturedSubmission
+        fields = (
+            "id",
+            "user",
+            "chinese_title",
+            "japanese_title",
+            "year",
+            "watch_status",
+            "watch_status_display",
+            "score",
+            "review",
+            "poster",
+            "tags",
+            "audit_status",
+            "audit_status_display",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = (
+            "id",
+            "user",
+            "audit_status",
+            "audit_status_display",
+            "created_at",
+            "updated_at",
+        )
+
+    def validate_poster(self, poster):
+        return validate_uploaded_image(poster, label="精选专栏海报")
+
+    def validate_tags(self, tags):
+        normalized = list(dict.fromkeys(tag.strip() for tag in tags if tag.strip()))
+        if len(normalized) > 20:
+            raise serializers.ValidationError("标签最多允许 20 个。")
+        return normalized
+
+
+class UserNotificationSerializer(serializers.ModelSerializer):
+    """Notifications are immutable except for the read flag."""
+
+    class Meta:
+        model = UserNotification
+        fields = ("id", "message", "is_read", "created_at")
+        read_only_fields = ("id", "message", "created_at")
 
 
 class JsonObjectField(serializers.JSONField):

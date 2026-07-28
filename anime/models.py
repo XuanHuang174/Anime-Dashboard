@@ -44,6 +44,12 @@ class UserProfile(models.Model):
         blank=True,
         null=True,
     )
+    max_featured_limit = models.PositiveSmallIntegerField(
+        "精选专栏收录上限",
+        default=3,
+        validators=[MinValueValidator(0)],
+        help_text="该用户最多可同时拥有的已收录精选专栏数量。",
+    )
 
     class Meta:
         verbose_name = "用户资料"
@@ -264,6 +270,114 @@ class UserAnimeTag(models.Model):
             f"{self.record.user.get_username()} - "
             f"{self.record.anime.chinese_title} - {self.name}"
         )
+
+
+class FeaturedSubmission(models.Model):
+    """A user-authored snapshot submitted to the curated featured column."""
+
+    class AuditStatus(models.TextChoices):
+        PENDING = "pending", "待审核"
+        APPROVED = "approved", "已收录"
+        REJECTED = "rejected", "未获收录"
+        REMOVAL_REQUESTED = "removal_requested", "请求撤下"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="投稿用户",
+        on_delete=models.CASCADE,
+        related_name="featured_submissions",
+        db_index=True,
+    )
+    chinese_title = models.CharField("中文名", max_length=200, db_index=True)
+    japanese_title = models.CharField("日文名", max_length=200, blank=True)
+    year = models.PositiveSmallIntegerField(
+        "年份",
+        validators=[MinValueValidator(1900), MaxValueValidator(2200)],
+        db_index=True,
+    )
+    watch_status = models.CharField(
+        "观看状态",
+        max_length=16,
+        choices=UserAnimeRecord.WatchStatus.choices,
+        default=UserAnimeRecord.WatchStatus.PLAN_TO_WATCH,
+        db_index=True,
+    )
+    score = models.DecimalField(
+        "评分",
+        max_digits=3,
+        decimal_places=1,
+        null=True,
+        blank=True,
+        validators=[
+            MinValueValidator(Decimal("0.0")),
+            MaxValueValidator(Decimal("10.0")),
+        ],
+    )
+    review = models.TextField("长评文本", blank=True)
+    poster = models.ImageField(
+        "海报图",
+        upload_to="featured/posters/%Y/%m/",
+        blank=True,
+        null=True,
+    )
+    tags = models.JSONField(
+        "标签列表",
+        default=list,
+        blank=True,
+        validators=[validate_tag_list],
+    )
+    audit_status = models.CharField(
+        "审核状态",
+        max_length=24,
+        choices=AuditStatus.choices,
+        default=AuditStatus.PENDING,
+        db_index=True,
+    )
+    created_at = models.DateTimeField("创建时间", auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField("更新时间", auto_now=True)
+
+    class Meta:
+        verbose_name = "精选专栏投稿"
+        verbose_name_plural = "精选专栏投稿"
+        ordering = ("-created_at",)
+        indexes = [
+            models.Index(
+                fields=("user", "audit_status"),
+                name="featured_user_audit_idx",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.user.get_username()} - {self.chinese_title}"
+
+
+class UserNotification(models.Model):
+    """An in-app notification visible only to its owning user."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="用户",
+        on_delete=models.CASCADE,
+        related_name="notifications",
+        db_index=True,
+    )
+    message = models.TextField("消息内容")
+    is_read = models.BooleanField("是否已读", default=False, db_index=True)
+    created_at = models.DateTimeField("创建时间", auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = "用户通知"
+        verbose_name_plural = "用户通知"
+        ordering = ("-created_at",)
+        indexes = [
+            models.Index(
+                fields=("user", "is_read", "-created_at"),
+                name="notice_user_read_idx",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.user.get_username()} - {self.message[:30]}"
 
 
 class UserQuickFilter(models.Model):

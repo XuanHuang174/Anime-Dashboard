@@ -6,6 +6,7 @@ from .views import (
     ChangePasswordView,
     CurrentUserAccountView,
     CurrentUserProfileView,
+    FeaturedSubmissionViewSet,
     PasswordResetConfirmView,
     PasswordResetRequestView,
     PublicShowcaseProfileView,
@@ -14,6 +15,7 @@ from .views import (
     UserAnimeRecordViewSet,
     UserJournalExportView,
     UserJournalImportView,
+    UserNotificationViewSet,
     UserQuickFilterViewSet,
     UserRegistrationView,
     VerifyEmailView,
@@ -31,6 +33,12 @@ router.register(
     basename="showcase-filter",
 )
 router.register("quick-filters", UserQuickFilterViewSet, basename="quick-filter")
+router.register(
+    "featured-submissions",
+    FeaturedSubmissionViewSet,
+    basename="featured-submission",
+)
+router.register("notifications", UserNotificationViewSet, basename="notification")
 
 app_name = "anime_api"
 urlpatterns = [

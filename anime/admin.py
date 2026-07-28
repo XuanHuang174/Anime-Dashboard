@@ -1,11 +1,25 @@
 from django.contrib import admin
 
-from .models import Anime, UserAnimeRecord, UserAnimeTag, UserProfile, UserQuickFilter
+from .models import (
+    Anime,
+    FeaturedSubmission,
+    UserAnimeRecord,
+    UserAnimeTag,
+    UserNotification,
+    UserProfile,
+    UserQuickFilter,
+)
 
 
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
-    list_display = ("user", "nickname", "showcase_subtitle", "avatar")
+    list_display = (
+        "user",
+        "nickname",
+        "max_featured_limit",
+        "showcase_subtitle",
+        "avatar",
+    )
     search_fields = ("user__username", "user__email", "nickname", "showcase_subtitle")
     autocomplete_fields = ("user",)
 
@@ -113,3 +127,41 @@ class UserQuickFilterAdmin(admin.ModelAdmin):
     search_fields = ("name", "user__username")
     autocomplete_fields = ("user",)
     readonly_fields = ("created_at", "updated_at")
+
+
+@admin.register(FeaturedSubmission)
+class FeaturedSubmissionAdmin(admin.ModelAdmin):
+    list_display = (
+        "chinese_title",
+        "user",
+        "year",
+        "watch_status",
+        "score",
+        "audit_status",
+        "created_at",
+    )
+    list_filter = ("audit_status", "watch_status", "year")
+    search_fields = (
+        "chinese_title",
+        "japanese_title",
+        "user__username",
+        "user__email",
+        "review",
+    )
+    autocomplete_fields = ("user",)
+    readonly_fields = ("created_at", "updated_at")
+    list_select_related = ("user",)
+
+
+@admin.register(UserNotification)
+class UserNotificationAdmin(admin.ModelAdmin):
+    list_display = ("user", "message_preview", "is_read", "created_at")
+    list_filter = ("is_read", "created_at")
+    search_fields = ("user__username", "user__email", "message")
+    autocomplete_fields = ("user",)
+    readonly_fields = ("created_at",)
+    list_select_related = ("user",)
+
+    @admin.display(description="消息内容")
+    def message_preview(self, obj):
+        return obj.message[:50]
