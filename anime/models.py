@@ -171,6 +171,70 @@ class UserAnimeRecord(models.Model):
         on_delete=models.PROTECT,
         related_name="user_records",
     )
+    metadata_initialized = models.BooleanField(
+        "已建立私人资料快照",
+        default=False,
+        db_index=True,
+    )
+    private_chinese_title = models.CharField(
+        "私人中文名",
+        max_length=200,
+        blank=True,
+        default="",
+    )
+    private_japanese_title = models.CharField(
+        "私人日文名",
+        max_length=200,
+        blank=True,
+        default="",
+    )
+    private_airing_period = models.CharField(
+        "私人放送季度",
+        max_length=32,
+        blank=True,
+        default="",
+    )
+    private_studio = models.CharField(
+        "私人制作公司",
+        max_length=200,
+        blank=True,
+        default="",
+    )
+    private_episodes = models.CharField(
+        "私人话数情况",
+        max_length=50,
+        blank=True,
+        default="",
+    )
+    private_description = models.TextField(
+        "私人剧情简介",
+        blank=True,
+        default="",
+    )
+    private_poster_url = models.URLField(
+        "私人海报 URL",
+        max_length=1000,
+        blank=True,
+        default="",
+    )
+    private_poster_image = models.ImageField(
+        "私人上传海报",
+        upload_to="records/posters/%Y/%m/",
+        blank=True,
+        null=True,
+    )
+    private_baike_url = models.URLField(
+        "私人萌百链接",
+        max_length=1000,
+        blank=True,
+        default="",
+    )
+    private_base_tags = models.JSONField(
+        "私人基础标签",
+        default=list,
+        blank=True,
+        validators=[validate_tag_list],
+    )
     personal_score = models.DecimalField(
         "个人评分",
         max_digits=3,
@@ -227,7 +291,66 @@ class UserAnimeRecord(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.user.get_username()} - {self.anime.chinese_title}"
+        title = (
+            self.private_chinese_title
+            if self.metadata_initialized
+            else self.anime.chinese_title
+        )
+        return f"{self.user.get_username()} - {title}"
+
+    def initialize_private_metadata(self, *, force=False):
+        """Copy shared library metadata into this user's isolated snapshot."""
+
+        if self.metadata_initialized and not force:
+            return
+        anime = self.anime
+        self.private_chinese_title = anime.chinese_title
+        self.private_japanese_title = anime.japanese_title
+        self.private_airing_period = anime.airing_period
+        self.private_studio = anime.studio
+        self.private_episodes = anime.episodes
+        self.private_description = anime.description
+        self.private_poster_url = anime.poster_url
+        self.private_poster_image.name = (
+            anime.poster_image.name if anime.poster_image else None
+        )
+        self.private_baike_url = anime.baike_url
+        self.private_base_tags = list(anime.base_tags or [])
+        self.metadata_initialized = True
+
+    def effective_anime_metadata(self):
+        """Return the metadata visible only inside this user's journal."""
+
+        if not self.metadata_initialized:
+            return {
+                "chinese_title": self.anime.chinese_title,
+                "japanese_title": self.anime.japanese_title,
+                "airing_period": self.anime.airing_period,
+                "studio": self.anime.studio,
+                "episodes": self.anime.episodes,
+                "description": self.anime.description,
+                "poster_url": self.anime.poster_url,
+                "poster_image": self.anime.poster_image,
+                "baike_url": self.anime.baike_url,
+                "base_tags": list(self.anime.base_tags or []),
+            }
+        return {
+            "chinese_title": self.private_chinese_title,
+            "japanese_title": self.private_japanese_title,
+            "airing_period": self.private_airing_period,
+            "studio": self.private_studio,
+            "episodes": self.private_episodes,
+            "description": self.private_description,
+            "poster_url": self.private_poster_url,
+            "poster_image": self.private_poster_image,
+            "baike_url": self.private_baike_url,
+            "base_tags": list(self.private_base_tags or []),
+        }
+
+    def save(self, *args, **kwargs):
+        if self._state.adding and not self.metadata_initialized and self.anime_id:
+            self.initialize_private_metadata()
+        return super().save(*args, **kwargs)
 
 
 class UserAnimeTag(models.Model):

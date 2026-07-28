@@ -730,8 +730,7 @@ class AnimeApiTests(APITestCase):
             format="json",
         )
 
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("tag_colors", response.data)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_public_anime_endpoint_cannot_change_private_tag_colors(self):
         self.anime.tag_colors = {"日常": "blue"}
@@ -744,7 +743,7 @@ class AnimeApiTests(APITestCase):
             format="json",
         )
 
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.anime.refresh_from_db()
         self.assertEqual(self.anime.tag_colors, {"日常": "blue"})
 
@@ -942,9 +941,8 @@ class AnimeApiTests(APITestCase):
         self.record.personal_score = Decimal("9.6")
         self.record.watch_status = UserAnimeRecord.WatchStatus.COMPLETED
         self.record.custom_tags = ["OVA", "泡面番"]
+        self.record.private_base_tags = ["日常", "剧场版"]
         self.record.save()
-        self.anime.base_tags = ["日常", "剧场版"]
-        self.anime.save(update_fields=("base_tags",))
         third_anime = Anime.objects.create(
             chinese_title="未评分番剧",
             airing_period="未定档",
@@ -1319,6 +1317,11 @@ class AnimeApiTests(APITestCase):
         self.assertEqual(response.data["anime"]["id"], self.anime.id)
 
     def test_user_can_atomically_update_anime_and_private_details(self):
+        other_record = UserAnimeRecord.objects.create(
+            user=self.other_user,
+            anime=self.anime,
+            watch_status=UserAnimeRecord.WatchStatus.PLAN_TO_WATCH,
+        )
         self.client.force_authenticate(self.user)
         response = self.client.patch(
             reverse(
@@ -1348,8 +1351,13 @@ class AnimeApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.anime.refresh_from_db()
         self.record.refresh_from_db()
-        self.assertEqual(self.anime.chinese_title, "修改后的番剧名")
-        self.assertEqual(self.anime.base_tags, ["新标签", "治愈"])
+        other_record.refresh_from_db()
+        self.assertEqual(self.anime.chinese_title, "测试番剧")
+        self.assertEqual(self.anime.base_tags, ["日常", "治愈"])
+        self.assertEqual(self.record.private_chinese_title, "修改后的番剧名")
+        self.assertEqual(self.record.private_base_tags, ["新标签", "治愈"])
+        self.assertEqual(other_record.private_chinese_title, "测试番剧")
+        self.assertEqual(other_record.private_base_tags, ["日常", "治愈"])
         self.assertEqual(self.anime.tag_colors, {})
         self.assertEqual(
             {
@@ -1362,12 +1370,39 @@ class AnimeApiTests(APITestCase):
             response.data["anime"]["tag_colors"],
             {"新标签": "violet", "治愈": "emerald"},
         )
-        self.assertEqual(self.anime.baike_url, "https://example.com/new-baike")
+        self.assertEqual(self.anime.baike_url, "https://example.com/baike")
+        self.assertEqual(
+            self.record.private_baike_url,
+            "https://example.com/new-baike",
+        )
         self.assertEqual(str(self.record.personal_score), "9.9")
         self.assertEqual(self.record.review, "更新后的个人评价")
         self.assertEqual(
             response.data["anime"]["description"],
             "更新后的剧情简介",
+        )
+
+        with self.settings(PUBLIC_SHOWCASE_USERNAME=self.user.username):
+            showcase_response = self.client.get(
+                reverse("anime_api:showcase-list")
+            )
+        showcased = next(
+            item
+            for item in showcase_response.data["results"]
+            if item["id"] == self.record.pk
+        )
+        self.assertEqual(showcased["anime"]["chinese_title"], "修改后的番剧名")
+
+        self.client.force_authenticate(self.other_user)
+        other_response = self.client.get(
+            reverse(
+                "anime_api:user-anime-record-detail",
+                kwargs={"pk": other_record.pk},
+            )
+        )
+        self.assertEqual(
+            other_response.data["anime"]["chinese_title"],
+            "测试番剧",
         )
 
     def test_user_can_update_details_with_multipart_poster(self):
@@ -1411,12 +1446,21 @@ class AnimeApiTests(APITestCase):
             self.assertEqual(response.status_code, status.HTTP_200_OK)
             self.anime.refresh_from_db()
             self.record.refresh_from_db()
-            self.assertEqual(self.anime.chinese_title, "本地海报更新")
-            self.assertTrue(
-                self.anime.poster_image.name.endswith("updated-poster.png")
+            self.assertEqual(self.anime.chinese_title, "测试番剧")
+            self.assertEqual(
+                self.record.private_chinese_title,
+                "本地海报更新",
             )
             self.assertTrue(
-                (Path(media_root) / self.anime.poster_image.name).is_file()
+                self.record.private_poster_image.name.endswith(
+                    "updated-poster.png"
+                )
+            )
+            self.assertTrue(
+                (
+                    Path(media_root)
+                    / self.record.private_poster_image.name
+                ).is_file()
             )
             self.assertFalse(
                 response.data["anime"]["poster_image"].startswith(
@@ -1433,7 +1477,7 @@ class AnimeApiTests(APITestCase):
         image_buffer = BytesIO()
         Image.new("RGB", (2, 2), color="teal").save(image_buffer, format="PNG")
         image_buffer.seek(0)
-        self.anime.poster_image = SimpleUploadedFile(
+        self.record.private_poster_image = SimpleUploadedFile(
             "old-local-poster.png",
             image_buffer.read(),
             content_type="image/png",
@@ -1443,7 +1487,7 @@ class AnimeApiTests(APITestCase):
         with tempfile.TemporaryDirectory() as media_root, self.settings(
             MEDIA_ROOT=media_root
         ):
-            self.anime.save(update_fields=("poster_image",))
+            self.record.save(update_fields=("private_poster_image",))
             response = self.client.patch(
                 reverse(
                     "anime_api:user-anime-record-update-details",
@@ -1458,10 +1502,10 @@ class AnimeApiTests(APITestCase):
             )
 
             self.assertEqual(response.status_code, status.HTTP_200_OK)
-            self.anime.refresh_from_db()
-            self.assertFalse(self.anime.poster_image)
+            self.record.refresh_from_db()
+            self.assertFalse(self.record.private_poster_image)
             self.assertEqual(
-                self.anime.poster_url,
+                self.record.private_poster_url,
                 "https://example.com/replacement-poster.jpg",
             )
             self.assertIsNone(response.data["anime"]["poster_image"])

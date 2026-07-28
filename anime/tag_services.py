@@ -17,10 +17,11 @@ def normalized_record_tag_colors(record, colors=None):
     """Build a complete private map for tags currently visible on the record."""
 
     source = colors if colors is not None else record.anime.tag_colors
+    metadata = record.effective_anime_metadata()
     visible_tags = list(
         dict.fromkeys(
             [
-                *(record.anime.base_tags or []),
+                *(metadata["base_tags"] or []),
                 *(record.custom_tags or []),
             ]
         )

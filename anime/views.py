@@ -11,7 +11,7 @@ from django.contrib.auth.tokens import default_token_generator
 from django.core.files.base import ContentFile
 from django.core.mail import send_mail
 from django.db import transaction
-from django.db.models import Case, IntegerField, Q, Value, When
+from django.db.models import Case, CharField, F, IntegerField, Q, Value, When
 from django.db.models.functions import Cast, Substr
 from django.http import HttpResponse
 from django.utils import timezone
@@ -91,9 +91,20 @@ PRESET_QUICK_FILTER_TAGS = {
 
 
 def _combined_record_tags(record):
-    tags = set(record.get("anime__base_tags") or [])
+    base_tags = (
+        record.get("private_base_tags")
+        if record.get("metadata_initialized")
+        else record.get("anime__base_tags")
+    )
+    tags = set(base_tags or [])
     tags.update(record.get("custom_tags") or [])
     return tags
+
+
+def _record_metadata_value(record, private_field, shared_field):
+    if record.get("metadata_initialized"):
+        return record.get(private_field)
+    return record.get(shared_field)
 
 
 def _apply_record_filters(queryset, request, filter_owner):
@@ -108,11 +119,32 @@ def _apply_record_filters(queryset, request, filter_owner):
 
     if search:
         queryset = queryset.filter(
-            Q(anime__chinese_title__icontains=search)
-            | Q(anime__japanese_title__icontains=search)
+            (
+                Q(metadata_initialized=True)
+                & (
+                    Q(private_chinese_title__icontains=search)
+                    | Q(private_japanese_title__icontains=search)
+                )
+            )
+            | (
+                Q(metadata_initialized=False)
+                & (
+                    Q(anime__chinese_title__icontains=search)
+                    | Q(anime__japanese_title__icontains=search)
+                )
+            )
         )
     if year and year != "all" and year.isdigit():
-        queryset = queryset.filter(anime__airing_period__startswith=f"{year}-")
+        queryset = queryset.filter(
+            Q(
+                metadata_initialized=True,
+                private_airing_period__startswith=f"{year}-",
+            )
+            | Q(
+                metadata_initialized=False,
+                anime__airing_period__startswith=f"{year}-",
+            )
+        )
     valid_statuses = {choice for choice, _label in UserAnimeRecord.WatchStatus.choices}
     if status_value in valid_statuses:
         queryset = queryset.filter(watch_status=status_value)
@@ -135,13 +167,23 @@ def _apply_record_filters(queryset, request, filter_owner):
     matched_ids = []
     records = queryset.values(
         "pk",
+        "metadata_initialized",
+        "private_base_tags",
+        "private_chinese_title",
         "custom_tags",
         "anime__base_tags",
         "anime__chinese_title",
     )
     for record in records.iterator(chunk_size=2000):
         tags = _combined_record_tags(record)
-        title_upper = (record["anime__chinese_title"] or "").upper()
+        title_upper = (
+            _record_metadata_value(
+                record,
+                "private_chinese_title",
+                "anime__chinese_title",
+            )
+            or ""
+        ).upper()
 
         if tag and tag != "all" and tag not in tags:
             continue
@@ -186,12 +228,22 @@ def _order_record_queryset(queryset, sort_order):
             default=Value(1),
             output_field=IntegerField(),
         ),
+        _effective_airing_period=Case(
+            When(metadata_initialized=True, then=F("private_airing_period")),
+            default=F("anime__airing_period"),
+            output_field=CharField(),
+        ),
+        _effective_title=Case(
+            When(metadata_initialized=True, then=F("private_chinese_title")),
+            default=F("anime__chinese_title"),
+            output_field=CharField(),
+        ),
         _airing_year=Cast(
-            Substr("anime__airing_period", 1, 4),
+            Substr("_effective_airing_period", 1, 4),
             output_field=IntegerField(),
         ),
         _airing_season=Cast(
-            Substr("anime__airing_period", 6),
+            Substr("_effective_airing_period", 6),
             output_field=IntegerField(),
         ),
     )
@@ -199,7 +251,7 @@ def _order_record_queryset(queryset, sort_order):
     orderings = {
         "date-asc": (
             "_unrated_order", "_airing_year", "_airing_season",
-            "_completed_order", "anime__chinese_title", "pk",
+            "_completed_order", "_effective_title", "pk",
         ),
         "score-desc": (
             "_unrated_order", "-personal_score", "_completed_order",
@@ -218,7 +270,7 @@ def _order_record_queryset(queryset, sort_order):
     }
     default_ordering = (
         "_unrated_order", "-_airing_year", "-_airing_season",
-        "_completed_order", "anime__chinese_title", "pk",
+        "_completed_order", "_effective_title", "pk",
     )
     return queryset.order_by(*orderings.get(sort_order, default_ordering))
 
@@ -229,12 +281,19 @@ def _build_filter_options(queryset):
     tags = set()
     years = set()
     for record in queryset.values(
+        "metadata_initialized",
+        "private_base_tags",
+        "private_airing_period",
         "custom_tags",
         "anime__base_tags",
         "anime__airing_period",
     ).iterator(chunk_size=2000):
         tags.update(_combined_record_tags(record))
-        period = record["anime__airing_period"] or ""
+        period = _record_metadata_value(
+            record,
+            "private_airing_period",
+            "anime__airing_period",
+        ) or ""
         year = period[:4]
         if year.isdigit():
             years.add(year)
@@ -259,6 +318,10 @@ def _build_record_stats(queryset):
     records = queryset.values(
         "personal_score",
         "watch_status",
+        "metadata_initialized",
+        "private_chinese_title",
+        "private_airing_period",
+        "private_base_tags",
         "custom_tags",
         "anime__chinese_title",
         "anime__airing_period",
@@ -266,10 +329,17 @@ def _build_record_stats(queryset):
     )
     for record in records.iterator(chunk_size=2000):
         score = record["personal_score"]
-        title = record["anime__chinese_title"] or ""
-        period = record["anime__airing_period"] or ""
-        tags = set(record["anime__base_tags"] or [])
-        tags.update(record["custom_tags"] or [])
+        title = _record_metadata_value(
+            record,
+            "private_chinese_title",
+            "anime__chinese_title",
+        ) or ""
+        period = _record_metadata_value(
+            record,
+            "private_airing_period",
+            "anime__airing_period",
+        ) or ""
+        tags = _combined_record_tags(record)
 
         if record["watch_status"] == UserAnimeRecord.WatchStatus.COMPLETED:
             completed_count += 1
@@ -552,25 +622,28 @@ class UserJournalExportView(APIView):
         )
         exported_records = []
         for record in records:
-            anime = record.anime
-            private_tag_colors = get_record_tag_colors(record)
-            poster_url = anime.poster_url
-            if not poster_url and anime.poster_image:
-                poster_url = request.build_absolute_uri(anime.poster_image.url)
+            serialized_record = UserAnimeRecordSerializer(
+                record,
+                context={"request": request},
+            ).data
+            anime_data = dict(serialized_record["anime"])
+            poster_url = anime_data["poster_url"]
+            if not poster_url and anime_data["poster_image"]:
+                poster_url = anime_data["poster_image"]
 
             exported_records.append(
                 {
                     "anime": {
-                        "chinese_title": anime.chinese_title,
-                        "japanese_title": anime.japanese_title,
-                        "airing_period": anime.airing_period,
-                        "studio": anime.studio,
-                        "episodes": anime.episodes,
-                        "description": anime.description,
+                        "chinese_title": anime_data["chinese_title"],
+                        "japanese_title": anime_data["japanese_title"],
+                        "airing_period": anime_data["airing_period"],
+                        "studio": anime_data["studio"],
+                        "episodes": anime_data["episodes"],
+                        "description": anime_data["description"],
                         "poster_url": poster_url,
-                        "baike_url": anime.baike_url,
-                        "base_tags": anime.base_tags,
-                        "tag_colors": private_tag_colors,
+                        "baike_url": anime_data["baike_url"],
+                        "base_tags": anime_data["base_tags"],
+                        "tag_colors": anime_data["tag_colors"],
                     },
                     "personal_score": (
                         str(record.personal_score)
@@ -686,6 +759,7 @@ class UserJournalImportView(APIView):
                         "japanese_title": anime_data.pop("japanese_title"),
                         "airing_period": anime_data.pop("airing_period"),
                     }
+                    private_metadata = {**lookup, **anime_data}
                     anime, _created = Anime.objects.get_or_create(
                         **lookup,
                         defaults=anime_data,
@@ -698,6 +772,16 @@ class UserJournalImportView(APIView):
                             watch_status=item["watch_status"],
                             review=item["review"],
                             custom_tags=item["custom_tags"],
+                            metadata_initialized=True,
+                            private_chinese_title=private_metadata["chinese_title"],
+                            private_japanese_title=private_metadata["japanese_title"],
+                            private_airing_period=private_metadata["airing_period"],
+                            private_studio=private_metadata.get("studio", ""),
+                            private_episodes=private_metadata.get("episodes", ""),
+                            private_description=private_metadata.get("description", ""),
+                            private_poster_url=private_metadata.get("poster_url", ""),
+                            private_baike_url=private_metadata.get("baike_url", ""),
+                            private_base_tags=private_metadata.get("base_tags", []),
                         )
                     )
                     private_colors_by_anime_id[anime.pk] = private_tag_colors
@@ -750,7 +834,7 @@ class UserJournalImportView(APIView):
 
 @method_decorator(never_cache, name="dispatch")
 class AnimeViewSet(viewsets.ModelViewSet):
-    """Public reads; authenticated users may maintain shared anime metadata."""
+    """Public reads/creates; only superusers may mutate shared library rows."""
 
     queryset = Anime.objects.filter(is_active=True)
     serializer_class = AnimeSerializer
@@ -767,7 +851,9 @@ class AnimeViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.request.method in permissions.SAFE_METHODS:
             return [permissions.AllowAny()]
-        return [permissions.IsAuthenticated()]
+        if self.request.method == "POST":
+            return [permissions.IsAuthenticated()]
+        return [IsSuperUser()]
 
 
 class PublicShowcaseViewSet(viewsets.ReadOnlyModelViewSet):
@@ -931,7 +1017,7 @@ class UserAnimeRecordViewSet(viewsets.ModelViewSet):
     )
     @transaction.atomic
     def update_details(self, request, pk=None):
-        """Atomically update shared anime metadata and this user's record."""
+        """Update only this user's isolated metadata snapshot and private record."""
 
         record = self.get_object()
         anime_payload = request.data.get("anime", {})
@@ -990,7 +1076,27 @@ class UserAnimeRecordViewSet(viewsets.ModelViewSet):
         )
         anime_serializer.is_valid(raise_exception=True)
         record_serializer.is_valid(raise_exception=True)
-        anime_serializer.save()
+
+        metadata_field_map = {
+            "chinese_title": "private_chinese_title",
+            "japanese_title": "private_japanese_title",
+            "airing_period": "private_airing_period",
+            "studio": "private_studio",
+            "episodes": "private_episodes",
+            "description": "private_description",
+            "poster_url": "private_poster_url",
+            "poster_image": "private_poster_image",
+            "baike_url": "private_baike_url",
+            "base_tags": "private_base_tags",
+        }
+        for source_field, target_field in metadata_field_map.items():
+            if source_field in anime_serializer.validated_data:
+                setattr(
+                    record,
+                    target_field,
+                    anime_serializer.validated_data[source_field],
+                )
+        record.metadata_initialized = True
         record_serializer.save()
         if private_tag_colors is not None:
             replace_record_tag_colors(
@@ -1097,41 +1203,49 @@ class FeaturedSubmissionViewSet(
             anime_id=input_serializer.validated_data["anime_id"],
         )
         anime = record.anime
-        year_match = re.search(r"(?:19|20|21)\d{2}", anime.airing_period or "")
+        metadata = record.effective_anime_metadata()
+        year_match = re.search(
+            r"(?:19|20|21)\d{2}",
+            metadata["airing_period"] or "",
+        )
         snapshot = FeaturedSubmission(
             user=request.user,
             source_anime=anime,
-            chinese_title=anime.chinese_title,
-            japanese_title=anime.japanese_title,
+            chinese_title=metadata["chinese_title"],
+            japanese_title=metadata["japanese_title"],
             year=int(year_match.group()) if year_match else None,
-            airing_period=anime.airing_period,
-            studio=anime.studio,
-            episodes=anime.episodes,
-            description=anime.description,
-            baike_url=anime.baike_url,
+            airing_period=metadata["airing_period"],
+            studio=metadata["studio"],
+            episodes=metadata["episodes"],
+            description=metadata["description"],
+            baike_url=metadata["baike_url"],
             watch_status=record.watch_status,
             score=record.personal_score,
             review=record.review,
-            poster_url=anime.poster_url,
+            poster_url=metadata["poster_url"],
             tags=list(
                 dict.fromkeys(
-                    [*(anime.base_tags or []), *(record.custom_tags or [])]
+                    [
+                        *(metadata["base_tags"] or []),
+                        *(record.custom_tags or []),
+                    ]
                 )
             ),
             tag_colors=get_record_tag_colors(record),
             audit_status=FeaturedSubmission.AuditStatus.PENDING,
         )
-        if anime.poster_image:
-            anime.poster_image.open("rb")
+        poster_image = metadata["poster_image"]
+        if poster_image:
+            poster_image.open("rb")
             try:
-                suffix = Path(anime.poster_image.name).suffix.lower()
+                suffix = Path(poster_image.name).suffix.lower()
                 snapshot.poster.save(
                     f"{uuid4().hex}{suffix}",
-                    ContentFile(anime.poster_image.read()),
+                    ContentFile(poster_image.read()),
                     save=False,
                 )
             finally:
-                anime.poster_image.close()
+                poster_image.close()
         snapshot.save()
 
         output_serializer = self.get_serializer(

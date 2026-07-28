@@ -524,6 +524,18 @@ class UserAnimeRecordSerializer(serializers.ModelSerializer):
             record.anime,
             context=self.context,
         ).data
+        metadata = record.effective_anime_metadata()
+        request = self.context.get("request")
+        private_image = metadata.pop("poster_image")
+        data.update(metadata)
+        if private_image:
+            data["poster_image"] = (
+                request.build_absolute_uri(private_image.url)
+                if request
+                else private_image.url
+            )
+        else:
+            data["poster_image"] = None
         # Keep the existing frontend contract while replacing the shared map
         # with colors owned exclusively by this user's private record.
         data["tag_colors"] = get_record_tag_colors(record)
