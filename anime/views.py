@@ -54,6 +54,7 @@ from .pagination import UserAnimeRecordPagination
 from .serializers import (
     AccountDeletionSerializer,
     AdminFeaturedSubmissionSerializer,
+    AdminPublicJournalProfileSerializer,
     AnimeSerializer,
     ChangePasswordSerializer,
     CustomTokenObtainPairSerializer,
@@ -1653,6 +1654,157 @@ class AdminSessionView(APIView):
                 "is_superuser": True,
             }
         )
+
+
+class AdminPublicJournalProfileViewSet(viewsets.ReadOnlyModelViewSet):
+    """Review, approve, reject, or revoke public-journal passes."""
+
+    serializer_class = AdminPublicJournalProfileSerializer
+    permission_classes = (IsSuperUser,)
+    http_method_names = ("get", "post", "head", "options")
+    filter_backends = (filters.SearchFilter,)
+    search_fields = ("=user__username", "nickname", "user__email")
+
+    def get_queryset(self):
+        queryset = UserProfile.objects.filter(
+            public_status__in=(
+                UserProfile.PublicStatus.PENDING,
+                UserProfile.PublicStatus.APPROVED,
+            )
+        ).select_related("user")
+        requested_status = self.request.query_params.get("status", "").strip()
+        if requested_status in {
+            UserProfile.PublicStatus.PENDING,
+            UserProfile.PublicStatus.APPROVED,
+        }:
+            queryset = queryset.filter(public_status=requested_status)
+        return queryset.order_by("public_status", "user__username")
+
+    def _get_locked_profile(self, pk):
+        return generics.get_object_or_404(
+            UserProfile.objects.select_for_update().select_related("user"),
+            pk=pk,
+        )
+
+    def _response(self, profile, detail):
+        return Response(
+            {
+                "detail": detail,
+                "profile": self.get_serializer(profile).data,
+            }
+        )
+
+    @action(detail=True, methods=("post",))
+    @transaction.atomic
+    def approve(self, request, pk=None):
+        profile = self._get_locked_profile(pk)
+        if profile.public_status != UserProfile.PublicStatus.PENDING:
+            return Response(
+                {"detail": "只有审核中的申请可以发放通行证。"},
+                status=status.HTTP_409_CONFLICT,
+            )
+        profile.public_status = UserProfile.PublicStatus.APPROVED
+        profile.save(update_fields=("public_status", "is_public"))
+        UserNotification.objects.create(
+            user=profile.user,
+            message="恭喜，你的个人手账已通过审核并进入番剧共创大厅。",
+        )
+        return self._response(profile, "通行证已发放，手账现已公开。")
+
+    @action(detail=True, methods=("post",))
+    @transaction.atomic
+    def reject(self, request, pk=None):
+        profile = self._get_locked_profile(pk)
+        if profile.public_status != UserProfile.PublicStatus.PENDING:
+            return Response(
+                {"detail": "只有审核中的申请可以打回。"},
+                status=status.HTTP_409_CONFLICT,
+            )
+        profile.public_status = UserProfile.PublicStatus.PRIVATE
+        profile.save(update_fields=("public_status", "is_public"))
+        UserNotification.objects.create(
+            user=profile.user,
+            message="抱歉，你的个人手账分享申请未通过审核。",
+        )
+        return self._response(profile, "申请已打回，手账保持私密。")
+
+    @action(detail=True, methods=("post",))
+    @transaction.atomic
+    def revoke(self, request, pk=None):
+        profile = self._get_locked_profile(pk)
+        if (
+            profile.public_status != UserProfile.PublicStatus.APPROVED
+            or not profile.is_public
+        ):
+            return Response(
+                {"detail": "该用户当前没有可吊销的公开通行证。"},
+                status=status.HTTP_409_CONFLICT,
+            )
+        profile.public_status = UserProfile.PublicStatus.PRIVATE
+        profile.save(update_fields=("public_status", "is_public"))
+        UserNotification.objects.create(
+            user=profile.user,
+            message="你的番剧共创通行证已被管理员吊销，手账现已恢复私密。",
+        )
+        return self._response(profile, "通行证已吊销，该手账已立即停止公开。")
+
+
+def _get_admin_review_profile(username):
+    return generics.get_object_or_404(
+        UserProfile.objects.select_related("user"),
+        user__username=username,
+        public_status__in=(
+            UserProfile.PublicStatus.PENDING,
+            UserProfile.PublicStatus.APPROVED,
+        ),
+    )
+
+
+class AdminPublicJournalDetailView(generics.ListAPIView):
+    """Superuser-only live record view for pending and approved journals."""
+
+    serializer_class = UserAnimeRecordSerializer
+    permission_classes = (IsSuperUser,)
+    pagination_class = UserAnimeRecordPagination
+
+    def get_queryset(self):
+        profile = _get_admin_review_profile(self.kwargs["username"])
+        queryset = (
+            UserAnimeRecord.objects.filter(user=profile.user)
+            .select_related("user", "anime")
+            .prefetch_related("tag_preferences")
+        )
+        queryset = _apply_record_filters(
+            queryset,
+            self.request,
+            filter_owner=profile.user,
+        )
+        return _order_record_queryset(
+            queryset,
+            self.request.query_params.get("sort", "date-desc"),
+        )
+
+
+class AdminPublicJournalStatsView(APIView):
+    permission_classes = (IsSuperUser,)
+
+    def get(self, request, username):
+        profile = _get_admin_review_profile(username)
+        queryset = UserAnimeRecord.objects.filter(user=profile.user).select_related(
+            "anime",
+        )
+        return Response(_build_record_stats(queryset))
+
+
+class AdminPublicJournalFilterOptionsView(APIView):
+    permission_classes = (IsSuperUser,)
+
+    def get(self, request, username):
+        profile = _get_admin_review_profile(username)
+        queryset = UserAnimeRecord.objects.filter(user=profile.user).select_related(
+            "anime",
+        )
+        return Response(_build_filter_options(queryset))
 
 
 class AdminFeaturedSubmissionViewSet(viewsets.ReadOnlyModelViewSet):

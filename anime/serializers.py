@@ -289,6 +289,28 @@ class PublicJournalLobbySerializer(serializers.ModelSerializer):
         return posters
 
 
+class AdminPublicJournalProfileSerializer(serializers.ModelSerializer):
+    """Administrator-only identity and pass state for public-journal reviews."""
+
+    username = serializers.CharField(source="user.username", read_only=True)
+    email = serializers.EmailField(source="user.email", read_only=True)
+    avatar = serializers.ImageField(read_only=True)
+
+    class Meta:
+        model = UserProfile
+        fields = (
+            "id",
+            "username",
+            "email",
+            "nickname",
+            "showcase_subtitle",
+            "avatar",
+            "public_status",
+            "is_public",
+        )
+        read_only_fields = fields
+
+
 class ChangePasswordSerializer(serializers.Serializer):
     """Validate the authenticated user's current and replacement passwords."""
 

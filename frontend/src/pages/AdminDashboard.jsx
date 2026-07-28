@@ -5,6 +5,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import api from '../api/api.js'
 import { clearTokens } from '../auth/tokenStorage.js'
 import AdminAuditConfirmModal from '../components/AdminAuditConfirmModal.jsx'
+import AdminPublicJournalPanel from '../components/AdminPublicJournalPanel.jsx'
 import DetailModal from '../components/DetailModal.jsx'
 import FilterBar from '../components/FilterBar.jsx'
 import MemphisToastStack from '../components/MemphisToastStack.jsx'
@@ -45,16 +46,16 @@ const ADMIN_MODULES = [
     enabled: true,
   },
   {
-    key: 'module-2',
+    key: 'public-journals',
     number: '02',
-    eyebrow: 'Future Module',
-    title: '模块 2',
-    description: '为下一项后台功能预留的独立管理空间。',
-    icon: 'fa-cubes',
+    eyebrow: 'Public Journal Pass',
+    title: '通行证审批',
+    description: '审阅用户完整手账，发放、打回并吊销番剧共创公开权限。',
+    icon: 'fa-ticket',
     color: 'bg-[#4ecdc4]',
     shadow: 'shadow-[9px_9px_0_#ffdf3e]',
-    status: '待接入',
-    enabled: false,
+    status: '已启用',
+    enabled: true,
   },
   {
     key: 'module-3',
@@ -92,6 +93,7 @@ function AdminDashboard() {
   const currentModule = ADMIN_MODULES.find((module) => module.key === moduleKey)
   const isMainMenu = !moduleKey
   const isFeaturedModule = moduleKey === 'featured'
+  const isPublicJournalModule = moduleKey === 'public-journals'
   const [admin, setAdmin] = useState(null)
   const [submissions, setSubmissions] = useState([])
   const [isLoading, setIsLoading] = useState(true)
@@ -612,6 +614,8 @@ function AdminDashboard() {
           </div>
         )}
       </section>
+      ) : isPublicJournalModule ? (
+        <AdminPublicJournalPanel />
       ) : (
         <section className="admin-console-panel mx-auto mt-8 flex min-h-[420px] max-w-[1100px] flex-col items-center justify-center border-4 border-black bg-[#fff5ee] p-8 text-center text-black shadow-[10px_10px_0_#4ecdc4]">
           <span className={`flex h-24 w-24 items-center justify-center border-4 border-black text-4xl shadow-[7px_7px_0_#111] ${currentModule?.color || 'bg-[#ff5b68]'}`}>

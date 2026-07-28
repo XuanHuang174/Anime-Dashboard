@@ -19,6 +19,7 @@ function DashboardHeader({
   isSharedJournal = false,
   sharedProfile = null,
   onReturnToUniverse,
+  returnLabel = '返回共创大厅',
 }) {
   const menuRef = useRef(null)
   const previousPreviewModeRef = useRef(isPreviewMode)
@@ -156,7 +157,7 @@ function DashboardHeader({
           className="dashboard-arcade-button inline-flex items-center gap-2 rounded-full bg-[#ffe66d] shadow-[5px_5px_0_#111]"
         >
           <i className="fa-solid fa-arrow-left" />
-          返回共创大厅
+          {returnLabel}
         </button>
       ) : (
         <>

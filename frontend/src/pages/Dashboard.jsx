@@ -74,6 +74,9 @@ function Dashboard() {
   const location = useLocation()
   const { username: sharedUsername = '' } = useParams()
   const isSharedJournal = Boolean(sharedUsername)
+  const isAdminJournalReview = location.pathname.startsWith(
+    '/admin-dashboard/public-journal-review/',
+  )
   const [records, setRecords] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
@@ -154,11 +157,17 @@ function Dashboard() {
       return undefined
     }
 
+    if (location.state?.sharedProfile) {
+      setSharedProfile(location.state.sharedProfile)
+    }
     const controller = new AbortController()
-    api.get('public-journal/users/', {
+    api.get(
+      isAdminJournalReview ? 'admin/public-journals/' : 'public-journal/users/',
+      {
       params: { search: sharedUsername, page_size: 1 },
       signal: controller.signal,
-    })
+      },
+    )
       .then((response) => {
         const payload = response.data
         const profiles = Array.isArray(payload) ? payload : payload.results ?? []
@@ -168,7 +177,12 @@ function Dashboard() {
         if (requestError.code !== 'ERR_CANCELED') setSharedProfile(null)
       })
     return () => controller.abort()
-  }, [isSharedJournal, sharedUsername])
+  }, [
+    isAdminJournalReview,
+    isSharedJournal,
+    location.state,
+    sharedUsername,
+  ])
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedSearchQuery(searchQuery.trim()), 300)
@@ -203,10 +217,6 @@ function Dashboard() {
   }, [isLogoutConfirmOpen])
 
   useEffect(() => {
-    if (isSharedJournal) {
-      setFeaturedSubmissions([])
-      return undefined
-    }
     const controller = new AbortController()
 
     async function loadRecords() {
@@ -229,7 +239,9 @@ function Dashboard() {
             quick_filter: activeCustomFilterId ?? undefined,
           })
         }
-        const sharedBase = `public-journal/users/${encodeURIComponent(sharedUsername)}`
+        const sharedBase = isAdminJournalReview
+          ? `admin/public-journals/${encodeURIComponent(sharedUsername)}`
+          : `public-journal/users/${encodeURIComponent(sharedUsername)}`
         const recordsEndpoint = isSharedJournal ? `${sharedBase}/records/` : 'records/'
         const statsEndpoint = isSharedJournal ? `${sharedBase}/stats/` : 'records/stats/'
         const optionsEndpoint = isSharedJournal
@@ -268,9 +280,17 @@ function Dashboard() {
 
         setError(
           isSharedJournal && requestError.response?.status === 404
-            ? '该手账尚未公开，或用户不存在。'
+            ? (
+                isAdminJournalReview
+                  ? '该待审手账不存在，或申请状态已经发生变化。'
+                  : '该手账尚未公开，或用户不存在。'
+              )
             : isSharedJournal
-              ? '公开手账加载失败，请稍后重试。'
+              ? (
+                  isAdminJournalReview
+                    ? '管理员审阅数据加载失败，请稍后重试。'
+                    : '公开手账加载失败，请稍后重试。'
+                )
               : '追番记录加载失败，请稍后重试。',
         )
       } finally {
@@ -282,6 +302,7 @@ function Dashboard() {
     return () => controller.abort()
   }, [
     currentPage,
+    isAdminJournalReview,
     isSharedJournal,
     location,
     navigate,
@@ -292,6 +313,10 @@ function Dashboard() {
   ])
 
   useEffect(() => {
+    if (isSharedJournal) {
+      setFeaturedSubmissions([])
+      return undefined
+    }
     const controller = new AbortController()
 
     api.get('featured-submissions/state/', { signal: controller.signal })
@@ -712,7 +737,10 @@ function Dashboard() {
         showToast={showToast}
         isSharedJournal={isSharedJournal}
         sharedProfile={sharedProfile ?? { username: sharedUsername }}
-        onReturnToUniverse={() => navigate('/universe')}
+        onReturnToUniverse={() => navigate(
+          isAdminJournalReview ? '/admin-dashboard/public-journals' : '/universe',
+        )}
+        returnLabel={isAdminJournalReview ? '返回通行证审批' : '返回共创大厅'}
       />
 
       {isPreviewMode && isHeaderEntranceComplete && hasLoadedRecords && !error && (
@@ -725,7 +753,9 @@ function Dashboard() {
         {isHeaderEntranceComplete && isLoading && !hasLoadedRecords && (
           <div className="flex items-center justify-center gap-3 border-4 border-black bg-[#ffe66d] py-12 font-black text-black shadow-[8px_8px_0_#4ecdc4]">
             <i className="fa-solid fa-spinner animate-spin text-xl"></i>
-            {isSharedJournal ? '正在同步公开手账...' : '正在读取你的追番手账...'}
+            {isSharedJournal
+              ? (isAdminJournalReview ? '正在读取待审手账...' : '正在同步公开手账...')
+              : '正在读取你的追番手账...'}
           </div>
         )}
 

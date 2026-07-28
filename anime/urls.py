@@ -3,6 +3,10 @@ from rest_framework.routers import DefaultRouter
 
 from .views import (
     AdminFeaturedSubmissionViewSet,
+    AdminPublicJournalDetailView,
+    AdminPublicJournalFilterOptionsView,
+    AdminPublicJournalProfileViewSet,
+    AdminPublicJournalStatsView,
     AdminSessionView,
     AnimeViewSet,
     ChangePasswordView,
@@ -59,10 +63,30 @@ router.register(
     AdminFeaturedSubmissionViewSet,
     basename="admin-featured-submission",
 )
+router.register(
+    "admin/public-journals",
+    AdminPublicJournalProfileViewSet,
+    basename="admin-public-journal",
+)
 
 app_name = "anime_api"
 urlpatterns = [
     path("admin/session/", AdminSessionView.as_view(), name="admin-session"),
+    path(
+        "admin/public-journals/<str:username>/records/",
+        AdminPublicJournalDetailView.as_view(),
+        name="admin-public-journal-detail",
+    ),
+    path(
+        "admin/public-journals/<str:username>/stats/",
+        AdminPublicJournalStatsView.as_view(),
+        name="admin-public-journal-stats",
+    ),
+    path(
+        "admin/public-journals/<str:username>/filter-options/",
+        AdminPublicJournalFilterOptionsView.as_view(),
+        name="admin-public-journal-filter-options",
+    ),
     path("auth/register/", UserRegistrationView.as_view(), name="register"),
     path("auth/verify-email/", VerifyEmailView.as_view(), name="verify-email"),
     path("auth/activate/", VerifyEmailView.as_view(), name="activate"),

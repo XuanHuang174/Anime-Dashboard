@@ -2537,3 +2537,138 @@ class PublicJournalApiTests(APITestCase):
         self.assertEqual(options_response.status_code, status.HTTP_200_OK)
         self.assertIn("剧场版", options_response.data["tags"])
         self.assertIn("2026", options_response.data["years"])
+
+
+class AdminPublicJournalApiTests(APITestCase):
+    def setUp(self):
+        self.admin = get_user_model().objects.create_superuser(
+            username="pass-admin",
+            email="pass-admin@example.com",
+            password="Admin-Pass-2026!",
+        )
+        self.owner = get_user_model().objects.create_user(
+            username="pending-journal",
+            email="pending-journal@example.com",
+            password="Pending-Journal-2026!",
+        )
+        self.profile = UserProfile.objects.get(user=self.owner)
+        self.profile.nickname = "待审主理人"
+        self.profile.showcase_subtitle = "这是等待审核的番剧手账。"
+        self.profile.public_status = UserProfile.PublicStatus.PENDING
+        self.profile.save()
+        anime = Anime.objects.create(
+            chinese_title="待审番剧",
+            airing_period="2026-10",
+            base_tags=["共创"],
+        )
+        self.record = UserAnimeRecord.objects.create(
+            user=self.owner,
+            anime=anime,
+            personal_score=Decimal("9.5"),
+            watch_status=UserAnimeRecord.WatchStatus.COMPLETED,
+        )
+
+    def test_non_superuser_cannot_read_pass_queue(self):
+        self.client.force_authenticate(user=self.owner)
+        response = self.client.get(
+            reverse("anime_api:admin-public-journal-list"),
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_admin_can_review_pending_journal_and_approve_it(self):
+        self.client.force_authenticate(user=self.admin)
+        list_response = self.client.get(
+            reverse("anime_api:admin-public-journal-list"),
+            {"status": UserProfile.PublicStatus.PENDING},
+        )
+        profiles = list_response.data.get("results", list_response.data)
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(profiles), 1)
+        self.assertEqual(profiles[0]["username"], self.owner.username)
+        self.assertEqual(profiles[0]["nickname"], "待审主理人")
+
+        records_response = self.client.get(
+            reverse(
+                "anime_api:admin-public-journal-detail",
+                kwargs={"username": self.owner.username},
+            )
+        )
+        records = records_response.data.get("results", records_response.data)
+        self.assertEqual(records_response.status_code, status.HTTP_200_OK)
+        self.assertEqual([item["id"] for item in records], [self.record.pk])
+
+        stats_response = self.client.get(
+            reverse(
+                "anime_api:admin-public-journal-stats",
+                kwargs={"username": self.owner.username},
+            )
+        )
+        self.assertEqual(stats_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(stats_response.data["completed_count"], 1)
+
+        options_response = self.client.get(
+            reverse(
+                "anime_api:admin-public-journal-filter-options",
+                kwargs={"username": self.owner.username},
+            )
+        )
+        self.assertEqual(options_response.status_code, status.HTTP_200_OK)
+        self.assertIn("共创", options_response.data["tags"])
+
+        approve_response = self.client.post(
+            reverse(
+                "anime_api:admin-public-journal-approve",
+                kwargs={"pk": self.profile.pk},
+            ),
+            {},
+            format="json",
+        )
+        self.assertEqual(approve_response.status_code, status.HTTP_200_OK)
+        self.profile.refresh_from_db()
+        self.assertEqual(
+            self.profile.public_status,
+            UserProfile.PublicStatus.APPROVED,
+        )
+        self.assertTrue(self.profile.is_public)
+        self.assertTrue(
+            UserNotification.objects.filter(
+                user=self.owner,
+                message__contains="进入番剧共创大厅",
+            ).exists()
+        )
+
+    def test_admin_can_reject_pending_and_revoke_approved_journal(self):
+        self.client.force_authenticate(user=self.admin)
+        reject_response = self.client.post(
+            reverse(
+                "anime_api:admin-public-journal-reject",
+                kwargs={"pk": self.profile.pk},
+            ),
+            {},
+            format="json",
+        )
+        self.assertEqual(reject_response.status_code, status.HTTP_200_OK)
+        self.profile.refresh_from_db()
+        self.assertEqual(
+            self.profile.public_status,
+            UserProfile.PublicStatus.PRIVATE,
+        )
+        self.assertFalse(self.profile.is_public)
+
+        self.profile.public_status = UserProfile.PublicStatus.APPROVED
+        self.profile.save()
+        revoke_response = self.client.post(
+            reverse(
+                "anime_api:admin-public-journal-revoke",
+                kwargs={"pk": self.profile.pk},
+            ),
+            {},
+            format="json",
+        )
+        self.assertEqual(revoke_response.status_code, status.HTTP_200_OK)
+        self.profile.refresh_from_db()
+        self.assertEqual(
+            self.profile.public_status,
+            UserProfile.PublicStatus.PRIVATE,
+        )
+        self.assertFalse(self.profile.is_public)

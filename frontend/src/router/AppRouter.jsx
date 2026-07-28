@@ -39,6 +39,14 @@ function AppRouter() {
         )}
       />
       <Route
+        path="/admin-dashboard/public-journal-review/:username"
+        element={(
+          <AdminProtectedRoute>
+            <Dashboard />
+          </AdminProtectedRoute>
+        )}
+      />
+      <Route
         path="/dashboard"
         element={(
           <ProtectedRoute>
