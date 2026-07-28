@@ -1,10 +1,14 @@
 import json
 import logging
+import re
+from pathlib import Path
 from urllib.parse import urlencode
+from uuid import uuid4
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
+from django.core.files.base import ContentFile
 from django.core.mail import send_mail
 from django.db import transaction
 from django.db.models import Case, IntegerField, Q, Value, When
@@ -15,7 +19,7 @@ from django.utils.encoding import force_bytes, force_str
 from django.utils.decorators import method_decorator
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.views.decorators.cache import never_cache
-from rest_framework import filters, generics, parsers, permissions, status, viewsets
+from rest_framework import filters, generics, mixins, parsers, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
@@ -38,11 +42,13 @@ from .serializers import (
     AnimeSerializer,
     ChangePasswordSerializer,
     CustomTokenObtainPairSerializer,
+    FeaturedSubmissionCreateSerializer,
     FeaturedSubmissionSerializer,
     JsonStringMapField,
     JournalRecordImportSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
+    PublicFeaturedSubmissionSerializer,
     PublicUserProfileSerializer,
     UserRegistrationSerializer,
     UserAnimeRecordAddSerializer,
@@ -994,8 +1000,12 @@ class UserQuickFilterViewSet(viewsets.ModelViewSet):
         serializer.save(user=self.request.user)
 
 
-class FeaturedSubmissionViewSet(viewsets.ModelViewSet):
-    """User-isolated CRUD for featured-column submissions."""
+class FeaturedSubmissionViewSet(
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    viewsets.GenericViewSet,
+):
+    """User-isolated reads plus the guarded snapshot submission workflow."""
 
     serializer_class = FeaturedSubmissionSerializer
     permission_classes = (permissions.IsAuthenticated,)
@@ -1006,11 +1016,84 @@ class FeaturedSubmissionViewSet(viewsets.ModelViewSet):
             user=self.request.user,
         ).select_related("user")
 
-    def perform_create(self, serializer):
-        serializer.save(
-            user=self.request.user,
+    @action(
+        detail=False,
+        methods=("post",),
+        url_path="submit",
+        parser_classes=(parsers.JSONParser,),
+    )
+    @transaction.atomic
+    def submit(self, request):
+        input_serializer = FeaturedSubmissionCreateSerializer(data=request.data)
+        input_serializer.is_valid(raise_exception=True)
+
+        profile, _created = UserProfile.objects.select_for_update().get_or_create(
+            user=request.user,
+        )
+        approved_count = FeaturedSubmission.objects.filter(
+            user=request.user,
+            audit_status=FeaturedSubmission.AuditStatus.APPROVED,
+        ).count()
+        if approved_count >= profile.max_featured_limit:
+            return Response(
+                {"detail": "您已达到精选专栏收录数量上限。"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        active_audit_statuses = (
+            FeaturedSubmission.AuditStatus.PENDING,
+            FeaturedSubmission.AuditStatus.REMOVAL_REQUESTED,
+        )
+        if FeaturedSubmission.objects.filter(
+            user=request.user,
+            audit_status__in=active_audit_statuses,
+        ).exists():
+            return Response(
+                {"detail": "您已有正在处理的精选专栏申请，请等待处理完成。"},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        record = generics.get_object_or_404(
+            UserAnimeRecord.objects.select_related("anime"),
+            user=request.user,
+            anime_id=input_serializer.validated_data["anime_id"],
+        )
+        anime = record.anime
+        year_match = re.search(r"(?:19|20|21)\d{2}", anime.airing_period or "")
+        snapshot = FeaturedSubmission(
+            user=request.user,
+            chinese_title=anime.chinese_title,
+            japanese_title=anime.japanese_title,
+            year=int(year_match.group()) if year_match else None,
+            watch_status=record.watch_status,
+            score=record.personal_score,
+            review=record.review,
+            poster_url=anime.poster_url,
+            tags=list(
+                dict.fromkeys(
+                    [*(anime.base_tags or []), *(record.custom_tags or [])]
+                )
+            ),
             audit_status=FeaturedSubmission.AuditStatus.PENDING,
         )
+        if anime.poster_image:
+            anime.poster_image.open("rb")
+            try:
+                suffix = Path(anime.poster_image.name).suffix.lower()
+                snapshot.poster.save(
+                    f"{uuid4().hex}{suffix}",
+                    ContentFile(anime.poster_image.read()),
+                    save=False,
+                )
+            finally:
+                anime.poster_image.close()
+        snapshot.save()
+
+        output_serializer = self.get_serializer(
+            snapshot,
+            context=self.get_serializer_context(),
+        )
+        return Response(output_serializer.data, status=status.HTTP_201_CREATED)
 
 
 class UserNotificationViewSet(viewsets.ModelViewSet):
@@ -1022,3 +1105,58 @@ class UserNotificationViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return UserNotification.objects.filter(user=self.request.user)
+
+    @action(detail=False, methods=("get",), url_path="poll")
+    @transaction.atomic
+    def poll(self, request):
+        notifications = list(
+            UserNotification.objects.select_for_update().filter(
+                user=request.user,
+                is_read=False,
+            )
+        )
+        payload = self.get_serializer(notifications, many=True).data
+        if notifications:
+            UserNotification.objects.filter(
+                pk__in=[notification.pk for notification in notifications],
+                user=request.user,
+                is_read=False,
+            ).update(is_read=True)
+        return Response(payload)
+
+
+class PublicFeaturedSubmissionViewSet(viewsets.ReadOnlyModelViewSet):
+    """Anonymous read-only access to approved featured columns."""
+
+    serializer_class = PublicFeaturedSubmissionSerializer
+    permission_classes = (permissions.AllowAny,)
+    authentication_classes = ()
+
+    def get_queryset(self):
+        queryset = FeaturedSubmission.objects.filter(
+            audit_status=FeaturedSubmission.AuditStatus.APPROVED,
+        ).select_related("user", "user__profile")
+        search = self.request.query_params.get("search", "").strip()
+        if search:
+            queryset = queryset.filter(
+                Q(chinese_title__icontains=search)
+                | Q(japanese_title__icontains=search)
+            )
+        return queryset
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        tag = request.query_params.get("tag", "").strip()
+        if tag:
+            matching_ids = [
+                submission_id
+                for submission_id, tags in queryset.values_list("pk", "tags")
+                if tag in (tags or [])
+            ]
+            queryset = queryset.filter(pk__in=matching_ids)
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        return Response(self.get_serializer(queryset, many=True).data)

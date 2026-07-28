@@ -9,6 +9,7 @@ from .views import (
     FeaturedSubmissionViewSet,
     PasswordResetConfirmView,
     PasswordResetRequestView,
+    PublicFeaturedSubmissionViewSet,
     PublicShowcaseProfileView,
     PublicShowcaseQuickFilterViewSet,
     PublicShowcaseViewSet,
@@ -39,6 +40,7 @@ router.register(
     basename="featured-submission",
 )
 router.register("notifications", UserNotificationViewSet, basename="notification")
+router.register("featured", PublicFeaturedSubmissionViewSet, basename="featured")
 
 app_name = "anime_api"
 urlpatterns = [

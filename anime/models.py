@@ -292,6 +292,8 @@ class FeaturedSubmission(models.Model):
     japanese_title = models.CharField("日文名", max_length=200, blank=True)
     year = models.PositiveSmallIntegerField(
         "年份",
+        null=True,
+        blank=True,
         validators=[MinValueValidator(1900), MaxValueValidator(2200)],
         db_index=True,
     )
@@ -320,6 +322,7 @@ class FeaturedSubmission(models.Model):
         blank=True,
         null=True,
     )
+    poster_url = models.URLField("海报图 URL", max_length=1000, blank=True)
     tags = models.JSONField(
         "标签列表",
         default=list,

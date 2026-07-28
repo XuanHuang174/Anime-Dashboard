@@ -585,6 +585,7 @@ class FeaturedSubmissionSerializer(serializers.ModelSerializer):
             "score",
             "review",
             "poster",
+            "poster_url",
             "tags",
             "audit_status",
             "audit_status_display",
@@ -608,6 +609,46 @@ class FeaturedSubmissionSerializer(serializers.ModelSerializer):
         if len(normalized) > 20:
             raise serializers.ValidationError("标签最多允许 20 个。")
         return normalized
+
+
+class FeaturedSubmissionCreateSerializer(serializers.Serializer):
+    anime_id = serializers.IntegerField(min_value=1)
+
+
+class PublicFeaturedSubmissionSerializer(serializers.ModelSerializer):
+    """Public-safe approved-column representation."""
+
+    author_name = serializers.SerializerMethodField()
+    watch_status_display = serializers.CharField(
+        source="get_watch_status_display",
+        read_only=True,
+    )
+
+    class Meta:
+        model = FeaturedSubmission
+        fields = (
+            "id",
+            "author_name",
+            "chinese_title",
+            "japanese_title",
+            "year",
+            "watch_status",
+            "watch_status_display",
+            "score",
+            "review",
+            "poster",
+            "poster_url",
+            "tags",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = fields
+
+    def get_author_name(self, submission):
+        profile = getattr(submission.user, "profile", None)
+        if profile and profile.nickname:
+            return profile.nickname
+        return "手账主理人"
 
 
 class UserNotificationSerializer(serializers.ModelSerializer):

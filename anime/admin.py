@@ -137,6 +137,7 @@ class FeaturedSubmissionAdmin(admin.ModelAdmin):
         "year",
         "watch_status",
         "score",
+        "poster_url",
         "audit_status",
         "created_at",
     )

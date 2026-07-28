@@ -1773,24 +1773,30 @@ class FeaturedColumnApiTests(APITestCase):
             email="other-owner@example.com",
             password="Other-Owner-2026!",
         )
+        self.anime = Anime.objects.create(
+            chinese_title="精选测试番剧",
+            japanese_title="特集テスト",
+            airing_period="2026-10",
+            poster_url="https://example.com/featured.jpg",
+            base_tags=["剧场版", "动画"],
+        )
+        self.record = UserAnimeRecord.objects.create(
+            user=self.user,
+            anime=self.anime,
+            personal_score=Decimal("9.6"),
+            watch_status=UserAnimeRecord.WatchStatus.COMPLETED,
+            review="一篇只属于当前用户的长评。",
+            custom_tags=["力荐", "剧场版"],
+        )
         self.client.force_authenticate(self.user)
 
     def test_profile_has_default_featured_limit(self):
         self.assertEqual(self.user.profile.max_featured_limit, 3)
 
-    def test_submission_is_bound_to_user_and_audit_status_is_protected(self):
+    def test_submit_creates_an_independent_pending_snapshot(self):
         response = self.client.post(
-            reverse("anime_api:featured-submission-list"),
-            {
-                "chinese_title": "精选测试番剧",
-                "japanese_title": "特集テスト",
-                "year": 2026,
-                "watch_status": UserAnimeRecord.WatchStatus.COMPLETED,
-                "score": "9.6",
-                "review": "一篇只属于当前用户的长评。",
-                "tags": ["剧场版", "力荐", "剧场版"],
-                "audit_status": FeaturedSubmission.AuditStatus.APPROVED,
-            },
+            reverse("anime_api:featured-submission-submit"),
+            {"anime_id": self.anime.pk},
             format="json",
         )
 
@@ -1801,7 +1807,63 @@ class FeaturedColumnApiTests(APITestCase):
             submission.audit_status,
             FeaturedSubmission.AuditStatus.PENDING,
         )
-        self.assertEqual(submission.tags, ["剧场版", "力荐"])
+        self.assertEqual(submission.chinese_title, "精选测试番剧")
+        self.assertEqual(submission.japanese_title, "特集テスト")
+        self.assertEqual(submission.year, 2026)
+        self.assertEqual(submission.score, Decimal("9.6"))
+        self.assertEqual(submission.review, "一篇只属于当前用户的长评。")
+        self.assertEqual(submission.poster_url, "https://example.com/featured.jpg")
+        self.assertEqual(submission.tags, ["剧场版", "动画", "力荐"])
+
+        self.anime.chinese_title = "修改后的公共资料"
+        self.anime.save(update_fields=("chinese_title",))
+        self.record.review = "修改后的私人长评"
+        self.record.save(update_fields=("review",))
+        submission.refresh_from_db()
+        self.assertEqual(submission.chinese_title, "精选测试番剧")
+        self.assertEqual(submission.review, "一篇只属于当前用户的长评。")
+
+    def test_submit_rejects_user_at_approved_limit(self):
+        self.user.profile.max_featured_limit = 1
+        self.user.profile.save(update_fields=("max_featured_limit",))
+        FeaturedSubmission.objects.create(
+            user=self.user,
+            chinese_title="已收录作品",
+            year=2025,
+            audit_status=FeaturedSubmission.AuditStatus.APPROVED,
+        )
+
+        response = self.client.post(
+            reverse("anime_api:featured-submission-submit"),
+            {"anime_id": self.anime.pk},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(FeaturedSubmission.objects.count(), 1)
+
+    def test_submit_rejects_parallel_pending_or_removal_request(self):
+        for audit_status in (
+            FeaturedSubmission.AuditStatus.PENDING,
+            FeaturedSubmission.AuditStatus.REMOVAL_REQUESTED,
+        ):
+            with self.subTest(audit_status=audit_status):
+                FeaturedSubmission.objects.all().delete()
+                FeaturedSubmission.objects.create(
+                    user=self.user,
+                    chinese_title="处理中作品",
+                    year=2025,
+                    audit_status=audit_status,
+                )
+
+                response = self.client.post(
+                    reverse("anime_api:featured-submission-submit"),
+                    {"anime_id": self.anime.pk},
+                    format="json",
+                )
+
+                self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+                self.assertEqual(FeaturedSubmission.objects.count(), 1)
 
     def test_submission_detail_is_strictly_user_isolated(self):
         submission = FeaturedSubmission.objects.create(
@@ -1849,3 +1911,58 @@ class FeaturedColumnApiTests(APITestCase):
         self.assertTrue(notification.is_read)
         self.assertEqual(notification.message, "你的精选专栏投稿已进入审核。")
         self.assertEqual(hidden_response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_notification_poll_returns_unread_and_marks_them_read(self):
+        unread = UserNotification.objects.create(
+            user=self.user,
+            message="新的审核结果。",
+        )
+        UserNotification.objects.create(
+            user=self.user,
+            message="旧消息。",
+            is_read=True,
+        )
+
+        first_response = self.client.get(
+            reverse("anime_api:notification-poll"),
+        )
+        second_response = self.client.get(
+            reverse("anime_api:notification-poll"),
+        )
+
+        self.assertEqual(first_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(first_response.data), 1)
+        self.assertEqual(first_response.data[0]["id"], unread.pk)
+        unread.refresh_from_db()
+        self.assertTrue(unread.is_read)
+        self.assertEqual(second_response.data, [])
+
+    def test_public_featured_endpoint_only_returns_approved_and_filters(self):
+        approved = FeaturedSubmission.objects.create(
+            user=self.user,
+            chinese_title="公开精选作品",
+            japanese_title="公開作品",
+            year=2026,
+            tags=["剧场版", "力荐"],
+            audit_status=FeaturedSubmission.AuditStatus.APPROVED,
+        )
+        FeaturedSubmission.objects.create(
+            user=self.other_user,
+            chinese_title="仍在审核作品",
+            year=2026,
+            tags=["剧场版"],
+            audit_status=FeaturedSubmission.AuditStatus.PENDING,
+        )
+        self.client.force_authenticate(user=None)
+
+        response = self.client.get(
+            reverse("anime_api:featured-list"),
+            {"search": "公开", "tag": "力荐"},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        records = response.data.get("results", response.data)
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]["id"], approved.pk)
+        self.assertNotIn("user", records[0])
+        self.assertEqual(records[0]["author_name"], "手账主理人")
