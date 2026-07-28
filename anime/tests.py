@@ -20,6 +20,7 @@ from rest_framework.test import APITestCase
 
 from .models import (
     Anime,
+    FeaturedQuickFilter,
     FeaturedSubmission,
     UserAnimeRecord,
     UserAnimeTag,
@@ -2153,6 +2154,96 @@ class FeaturedColumnApiTests(APITestCase):
         self.assertNotIn("user", records[0])
         self.assertEqual(records[0]["author_name"], "手账主理人")
         self.assertEqual(records[0]["author_avatar"], "")
+
+
+class FeaturedQuickFilterApiTests(APITestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="featured-filter-user@example.com",
+            email="featured-filter-user@example.com",
+            password="Featured-Filter-User-2026!",
+        )
+        self.admin = get_user_model().objects.create_superuser(
+            username="featured-filter-admin@example.com",
+            email="featured-filter-admin@example.com",
+            password="Featured-Filter-Admin-2026!",
+        )
+        self.filter = FeaturedQuickFilter.objects.create(
+            name="高分百合",
+            tags=["真百", "轻百"],
+            match_mode=FeaturedQuickFilter.MatchMode.ANY,
+        )
+
+    def test_public_can_read_featured_quick_filters(self):
+        response = self.client.get(reverse("anime_api:featured-filter-list"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        payload = response.data.get("results", response.data)
+        self.assertEqual(payload[0]["name"], "高分百合")
+
+    def test_public_can_read_available_featured_tags(self):
+        FeaturedSubmission.objects.create(
+            user=self.user,
+            chinese_title="标签来源番剧",
+            tags=["治愈", "日常"],
+            audit_status=FeaturedSubmission.AuditStatus.APPROVED,
+        )
+
+        response = self.client.get(
+            reverse("anime_api:featured-filter-available-tags")
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["tags"], ["日常", "治愈"])
+
+    def test_normal_user_cannot_modify_featured_quick_filters(self):
+        self.client.force_authenticate(self.user)
+
+        response = self.client.post(
+            reverse("anime_api:featured-filter-list"),
+            {
+                "name": "未授权筛选",
+                "tags": ["日常"],
+                "match_mode": "any",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertFalse(
+            FeaturedQuickFilter.objects.filter(name="未授权筛选").exists()
+        )
+
+    def test_superuser_can_create_update_and_delete_featured_quick_filter(self):
+        self.client.force_authenticate(self.admin)
+        create_response = self.client.post(
+            reverse("anime_api:featured-filter-list"),
+            {
+                "name": "治愈日常",
+                "tags": ["治愈", "日常"],
+                "match_mode": "all",
+            },
+            format="json",
+        )
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+
+        filter_id = create_response.data["id"]
+        detail_url = reverse(
+            "anime_api:featured-filter-detail",
+            kwargs={"pk": filter_id},
+        )
+        update_response = self.client.patch(
+            detail_url,
+            {"name": "治愈系日常"},
+            format="json",
+        )
+        self.assertEqual(update_response.status_code, status.HTTP_200_OK)
+
+        delete_response = self.client.delete(detail_url)
+        self.assertEqual(delete_response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(
+            FeaturedQuickFilter.objects.filter(pk=filter_id).exists()
+        )
 
 
 class AdminFeaturedSubmissionApiTests(APITestCase):

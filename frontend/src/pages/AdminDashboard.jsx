@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -6,11 +6,15 @@ import api from '../api/api.js'
 import { clearTokens } from '../auth/tokenStorage.js'
 import AdminAuditConfirmModal from '../components/AdminAuditConfirmModal.jsx'
 import DetailModal from '../components/DetailModal.jsx'
+import FilterBar from '../components/FilterBar.jsx'
 import MemphisToastStack from '../components/MemphisToastStack.jsx'
+import QuickFilterEditorModal from '../components/QuickFilterEditorModal.jsx'
+import { comparePeriod } from '../utils/animeDisplay.js'
 import {
   formatAiringPeriod,
   mapFeaturedSubmission,
 } from '../utils/featuredDisplay.js'
+import { matchesCustomQuickFilter } from '../utils/quickFilter.js'
 
 gsap.registerPlugin(useGSAP)
 
@@ -96,6 +100,16 @@ function AdminDashboard() {
   const [selectedSubmission, setSelectedSubmission] = useState(null)
   const [processingId, setProcessingId] = useState(null)
   const [toasts, setToasts] = useState([])
+  const [searchQuery, setSearchQuery] = useState('')
+  const [tagFilter, setTagFilter] = useState('all')
+  const [yearFilter, setYearFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [sortOrder, setSortOrder] = useState('date-desc')
+  const [typeFilter, setTypeFilter] = useState('all')
+  const [featuredQuickFilters, setFeaturedQuickFilters] = useState([])
+  const [featuredAvailableTags, setFeaturedAvailableTags] = useState([])
+  const [activeCustomFilterId, setActiveCustomFilterId] = useState(null)
+  const [isQuickFilterEditorOpen, setIsQuickFilterEditorOpen] = useState(false)
 
   useGSAP(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
@@ -139,6 +153,10 @@ function AdminDashboard() {
     setIsLoading(true)
     setError('')
     try {
+      const filtersPromise = api.get('featured-filters/', {
+        params: { page_size: 100 },
+      })
+      const availableTagsPromise = api.get('featured-filters/available-tags/')
       const allItems = []
       let nextUrl = 'admin/featured-submissions/?page_size=100'
 
@@ -156,7 +174,16 @@ function AdminDashboard() {
         }
       }
 
+      const filtersResponse = await filtersPromise
+      const availableTagsResponse = await availableTagsPromise
+      const filtersPayload = filtersResponse.data
       setSubmissions(allItems)
+      setFeaturedAvailableTags(availableTagsResponse.data.tags ?? [])
+      setFeaturedQuickFilters(
+        Array.isArray(filtersPayload)
+          ? filtersPayload
+          : filtersPayload.results ?? [],
+      )
     } catch (requestError) {
       setError(getErrorMessage(requestError, '无法读取审核队列，请检查后端服务。'))
     } finally {
@@ -204,12 +231,88 @@ function AdminDashboard() {
     (item) => item.audit_status === 'pending',
   ).length
   const removalCount = submissions.length - pendingCount
+  const availableTags = useMemo(
+    () => [...new Set([
+      ...featuredAvailableTags,
+      ...submissions.flatMap((submission) => submission.tags ?? []),
+    ])].sort(),
+    [featuredAvailableTags, submissions],
+  )
+  const availableYears = useMemo(
+    () => [...new Set(
+      submissions
+        .map((submission) => submission.year)
+        .filter(Boolean)
+        .map(String),
+    )].sort((left, right) => Number(right) - Number(left)),
+    [submissions],
+  )
+  const filteredSubmissions = useMemo(() => {
+    const search = searchQuery.trim().toLowerCase()
+    const activeQuickFilter = featuredQuickFilters.find(
+      (filter) => filter.id === activeCustomFilterId,
+    )
+
+    return submissions
+      .filter((submission) => {
+        const submitter = submission.submitter ?? {}
+        const searchableText = [
+          submission.chinese_title,
+          submission.japanese_title,
+          submitter.nickname,
+          submitter.username,
+          submitter.email,
+        ].filter(Boolean).join(' ').toLowerCase()
+        const filterItem = {
+          title: submission.chinese_title ?? '',
+          tags: submission.tags ?? [],
+        }
+        return (!search || searchableText.includes(search))
+          && (tagFilter === 'all' || filterItem.tags.includes(tagFilter))
+          && (yearFilter === 'all' || String(submission.year) === yearFilter)
+          && (statusFilter === 'all' || submission.watch_status === statusFilter)
+          && matchesCustomQuickFilter(filterItem, activeQuickFilter)
+      })
+      .sort((left, right) => {
+        if (sortOrder === 'score-desc') return (right.score ?? -1) - (left.score ?? -1)
+        if (sortOrder === 'score-asc') return (left.score ?? 11) - (right.score ?? 11)
+        const leftPeriod = left.airing_period || String(left.year || '')
+        const rightPeriod = right.airing_period || String(right.year || '')
+        if (sortOrder === 'date-asc') return comparePeriod(leftPeriod, rightPeriod)
+        return comparePeriod(rightPeriod, leftPeriod)
+      })
+  }, [
+    activeCustomFilterId,
+    featuredQuickFilters,
+    searchQuery,
+    sortOrder,
+    statusFilter,
+    submissions,
+    tagFilter,
+    yearFilter,
+  ])
   const headerTitle = isMainMenu
     ? '管理员控制台'
     : currentModule?.title || '未知管理模块'
   const headerDescription = isMainMenu
     ? '先选择需要管理的功能模块，再进入对应的独立控制面板。'
     : currentModule?.description || '该管理模块不存在，请返回控制台主菜单。'
+
+  function handleFeaturedQuickFilterSaved(savedFilter) {
+    setFeaturedQuickFilters((current) => {
+      const exists = current.some((filter) => filter.id === savedFilter.id)
+      return exists
+        ? current.map((filter) => filter.id === savedFilter.id ? savedFilter : filter)
+        : [...current, savedFilter]
+    })
+  }
+
+  function handleFeaturedQuickFilterDeleted(filterId) {
+    setFeaturedQuickFilters((current) => (
+      current.filter((filter) => filter.id !== filterId)
+    ))
+    setActiveCustomFilterId((current) => current === filterId ? null : current)
+  }
 
   return (
     <main
@@ -332,6 +435,34 @@ function AdminDashboard() {
           </div>
         </div>
 
+        <FilterBar
+          db={submissions.map(mapFeaturedSubmission)}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          tagFilter={tagFilter}
+          setTagFilter={setTagFilter}
+          yearFilter={yearFilter}
+          setYearFilter={setYearFilter}
+          statusFilter={statusFilter}
+          setStatusFilter={setStatusFilter}
+          sortOrder={sortOrder}
+          setSortOrder={setSortOrder}
+          typeFilter={typeFilter}
+          setTypeFilter={setTypeFilter}
+          view="list"
+          setView={() => {}}
+          filteredCount={filteredSubmissions.length}
+          customQuickFilters={featuredQuickFilters}
+          activeCustomFilterId={activeCustomFilterId}
+          setActiveCustomFilterId={setActiveCustomFilterId}
+          onOpenQuickFilterEditor={() => setIsQuickFilterEditorOpen(true)}
+          availableTags={availableTags}
+          availableYears={availableYears}
+          enablePosterViewHint={false}
+          showViewToggle={false}
+          theme="memphis"
+        />
+
         {error && (
           <div role="alert" className="mb-6 border-4 border-black bg-[#ff5b68] p-4 font-black shadow-[6px_6px_0_#111]">
             <i className="fa-solid fa-triangle-exclamation mr-2" />
@@ -352,9 +483,17 @@ function AdminDashboard() {
             <h3 className="text-2xl font-black">审核队列已清空</h3>
             <p className="mt-2 font-bold">目前没有待审核投稿或撤下申请。</p>
           </div>
+        ) : filteredSubmissions.length === 0 ? (
+          <div className="flex min-h-64 flex-col items-center justify-center border-4 border-black bg-white p-8 text-center shadow-[7px_7px_0_#ff5b68]">
+            <span className="flex h-16 w-16 rotate-3 items-center justify-center border-4 border-black bg-[#ffdf3e] text-2xl shadow-[5px_5px_0_#111]">
+              <i className="fa-solid fa-filter-circle-xmark" />
+            </span>
+            <h3 className="mt-5 text-2xl font-black">没有匹配的待审核信息</h3>
+            <p className="mt-2 font-bold text-zinc-600">请调整关键词、标签、状态或快速筛选组合。</p>
+          </div>
         ) : (
           <div className="space-y-5">
-            {submissions.map((submission, index) => {
+            {filteredSubmissions.map((submission, index) => {
               const meta = STATUS_META[submission.audit_status]
               const author = submission.submitter?.nickname
                 || submission.submitter?.username
@@ -518,6 +657,17 @@ function AdminDashboard() {
       <MemphisToastStack
         toasts={toasts}
         onDismiss={(id) => setToasts((current) => current.filter((toast) => toast.id !== id))}
+      />
+      <QuickFilterEditorModal
+        isOpen={isQuickFilterEditorOpen}
+        onClose={() => setIsQuickFilterEditorOpen(false)}
+        availableTags={availableTags}
+        filters={featuredQuickFilters}
+        onSaved={handleFeaturedQuickFilterSaved}
+        onDeleted={handleFeaturedQuickFilterDeleted}
+        showToast={pushToast}
+        endpoint="featured-filters"
+        description="由超级管理员维护，保存后会同步显示在所有用户的精选专栏页面。"
       />
     </main>
   )

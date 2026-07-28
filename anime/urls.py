@@ -9,6 +9,7 @@ from .views import (
     CurrentUserAccountView,
     CurrentUserProfileView,
     FeaturedSubmissionViewSet,
+    FeaturedQuickFilterViewSet,
     PasswordResetConfirmView,
     PasswordResetRequestView,
     PublicFeaturedSubmissionViewSet,
@@ -43,6 +44,11 @@ router.register(
 )
 router.register("notifications", UserNotificationViewSet, basename="notification")
 router.register("featured", PublicFeaturedSubmissionViewSet, basename="featured")
+router.register(
+    "featured-filters",
+    FeaturedQuickFilterViewSet,
+    basename="featured-filter",
+)
 router.register(
     "admin/featured-submissions",
     AdminFeaturedSubmissionViewSet,

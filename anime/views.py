@@ -29,6 +29,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .models import (
     Anime,
+    FeaturedQuickFilter,
     FeaturedSubmission,
     UserAnimeRecord,
     UserAnimeTag,
@@ -45,6 +46,7 @@ from .serializers import (
     CustomTokenObtainPairSerializer,
     FeaturedSubmissionCreateSerializer,
     FeaturedSubmissionSerializer,
+    FeaturedQuickFilterSerializer,
     JsonStringMapField,
     JournalRecordImportSerializer,
     PasswordResetConfirmSerializer,
@@ -1352,6 +1354,28 @@ class PublicFeaturedSubmissionViewSet(viewsets.ReadOnlyModelViewSet):
             serializer = self.get_serializer(page, many=True)
             return self.get_paginated_response(serializer.data)
         return Response(self.get_serializer(queryset, many=True).data)
+
+
+class FeaturedQuickFilterViewSet(viewsets.ModelViewSet):
+    """Public reads with superuser-only writes for featured quick filters."""
+
+    serializer_class = FeaturedQuickFilterSerializer
+    queryset = FeaturedQuickFilter.objects.all()
+
+    def get_permissions(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            return [permissions.AllowAny()]
+        return [IsSuperUser()]
+
+    @action(detail=False, methods=("get",), url_path="available-tags")
+    def available_tags(self, request):
+        tags = set()
+        submissions = FeaturedSubmission.objects.exclude(
+            audit_status=FeaturedSubmission.AuditStatus.REJECTED,
+        ).values_list("tags", flat=True)
+        for submission_tags in submissions.iterator():
+            tags.update(submission_tags or [])
+        return Response({"tags": sorted(tags)})
 
 
 class AdminSessionView(APIView):

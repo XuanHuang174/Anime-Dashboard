@@ -596,3 +596,41 @@ class UserQuickFilter(models.Model):
 
     def __str__(self):
         return f"{self.user.get_username()} - {self.name}"
+
+
+class FeaturedQuickFilter(models.Model):
+    """A global featured-column filter maintained by superusers."""
+
+    class MatchMode(models.TextChoices):
+        ANY = "any", "匹配任意标签"
+        ALL = "all", "匹配全部标签"
+
+    name = models.CharField("筛选名称", max_length=30, unique=True)
+    tags = models.JSONField(
+        "标签组合",
+        default=list,
+        validators=[validate_tag_list],
+    )
+    title_keywords = models.JSONField(
+        "标题关键字",
+        default=list,
+        blank=True,
+        validators=[validate_tag_list],
+        help_text="与标签组合共同参与匹配，例如 OVA。",
+    )
+    match_mode = models.CharField(
+        "匹配方式",
+        max_length=8,
+        choices=MatchMode.choices,
+        default=MatchMode.ANY,
+    )
+    created_at = models.DateTimeField("创建时间", auto_now_add=True)
+    updated_at = models.DateTimeField("更新时间", auto_now=True)
+
+    class Meta:
+        verbose_name = "精选专栏快捷筛选"
+        verbose_name_plural = "精选专栏快捷筛选"
+        ordering = ("created_at",)
+
+    def __str__(self):
+        return self.name

@@ -2,6 +2,7 @@ from django.contrib import admin
 
 from .models import (
     Anime,
+    FeaturedQuickFilter,
     FeaturedSubmission,
     UserAnimeRecord,
     UserAnimeTag,
@@ -126,6 +127,14 @@ class UserQuickFilterAdmin(admin.ModelAdmin):
     list_filter = ("match_mode",)
     search_fields = ("name", "user__username")
     autocomplete_fields = ("user",)
+    readonly_fields = ("created_at", "updated_at")
+
+
+@admin.register(FeaturedQuickFilter)
+class FeaturedQuickFilterAdmin(admin.ModelAdmin):
+    list_display = ("name", "match_mode", "updated_at")
+    list_filter = ("match_mode",)
+    search_fields = ("name",)
     readonly_fields = ("created_at", "updated_at")
 
 

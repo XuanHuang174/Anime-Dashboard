@@ -15,6 +15,7 @@ import {
   formatAiringPeriod,
   mapFeaturedSubmission,
 } from '../utils/featuredDisplay.js'
+import { matchesCustomQuickFilter } from '../utils/quickFilter.js'
 
 gsap.registerPlugin(useGSAP)
 
@@ -44,6 +45,8 @@ function FeaturedColumn() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [sortOrder, setSortOrder] = useState('date-desc')
   const [typeFilter, setTypeFilter] = useState('all')
+  const [featuredQuickFilters, setFeaturedQuickFilters] = useState([])
+  const [activeCustomFilterId, setActiveCustomFilterId] = useState(null)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -52,6 +55,10 @@ function FeaturedColumn() {
       setIsLoading(true)
       setLoadError('')
       try {
+        const filtersPromise = api.get('featured-filters/', {
+          params: { page_size: 100 },
+          signal: controller.signal,
+        })
         const submissions = []
         let page = 1
         let hasNext = true
@@ -72,7 +79,14 @@ function FeaturedColumn() {
           }
         }
 
+        const filtersResponse = await filtersPromise
+        const filtersPayload = filtersResponse.data
         setDb(submissions.map(mapFeaturedSubmission))
+        setFeaturedQuickFilters(
+          Array.isArray(filtersPayload)
+            ? filtersPayload
+            : filtersPayload.results ?? [],
+        )
       } catch (error) {
         if (error.code !== 'ERR_CANCELED') {
           setLoadError('精选专栏暂时未能加载，请稍后再试。')
@@ -102,6 +116,9 @@ function FeaturedColumn() {
 
   const filteredColumns = useMemo(() => {
     const search = searchQuery.trim().toLowerCase()
+    const activeQuickFilter = featuredQuickFilters.find(
+      (filter) => filter.id === activeCustomFilterId,
+    )
     return db
       .filter((item) => {
         const matchesName = !search
@@ -111,7 +128,11 @@ function FeaturedColumn() {
         const matchesYear = yearFilter === 'all'
           || String(item.rawSubmission.year) === yearFilter
         const matchesStatus = statusFilter === 'all' || item.status === statusFilter
-        return matchesName && matchesTag && matchesYear && matchesStatus
+        return matchesName
+          && matchesTag
+          && matchesYear
+          && matchesStatus
+          && matchesCustomQuickFilter(item, activeQuickFilter)
       })
       .sort((left, right) => {
         if (sortOrder === 'score-desc') return (right.score ?? -1) - (left.score ?? -1)
@@ -119,7 +140,16 @@ function FeaturedColumn() {
         if (sortOrder === 'date-asc') return comparePeriod(left.period, right.period)
         return comparePeriod(right.period, left.period)
       })
-  }, [db, searchQuery, sortOrder, statusFilter, tagFilter, yearFilter])
+  }, [
+    activeCustomFilterId,
+    db,
+    featuredQuickFilters,
+    searchQuery,
+    sortOrder,
+    statusFilter,
+    tagFilter,
+    yearFilter,
+  ])
 
   useGSAP(() => {
     if (isLoading || hasAnimatedCards.current || !filteredColumns.length) return undefined
@@ -210,6 +240,9 @@ function FeaturedColumn() {
             view="grid"
             setView={() => {}}
             filteredCount={filteredColumns.length}
+            customQuickFilters={featuredQuickFilters}
+            activeCustomFilterId={activeCustomFilterId}
+            setActiveCustomFilterId={setActiveCustomFilterId}
             availableTags={availableTags}
             availableYears={availableYears}
             enablePosterViewHint={false}

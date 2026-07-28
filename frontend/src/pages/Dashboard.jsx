@@ -15,6 +15,7 @@ import FeaturedActionConfirmModal from '../components/FeaturedActionConfirmModal
 import FilterBar from '../components/FilterBar.jsx'
 import MemphisToastStack from '../components/MemphisToastStack.jsx'
 import QuickFilterEditorModal from '../components/QuickFilterEditorModal.jsx'
+import { matchesCustomQuickFilter } from '../utils/quickFilter.js'
 import {
   PageNavigation,
   PageSizeSelector,
@@ -46,17 +47,6 @@ function matchesQuickFilter(item, typeFilter) {
   }
 
   return (quickFilterTags[typeFilter] ?? []).some((tag) => item.tags.includes(tag))
-}
-
-function matchesCustomQuickFilter(item, filter) {
-  if (!filter) return true
-  const titleKeywords = filter.title_keywords ?? []
-  if (filter.match_mode === 'all') {
-    return filter.tags.every((tag) => item.tags.includes(tag))
-      && titleKeywords.every((keyword) => item.title.toUpperCase().includes(keyword.toUpperCase()))
-  }
-  return filter.tags.some((tag) => item.tags.includes(tag))
-    || titleKeywords.some((keyword) => item.title.toUpperCase().includes(keyword.toUpperCase()))
 }
 
 function compareScores(a, b, direction) {
@@ -773,10 +763,16 @@ function Dashboard() {
             )}
 
             {isContentEntranceComplete && filteredAnime.length === 0 && db.length > 0 && (
-              <div className="dashboard-content-piece border-4 border-black bg-white py-14 text-center shadow-[8px_8px_0_#ff6b6b]">
-                <i className="fa-solid fa-filter-circle-xmark text-5xl text-slate-300"></i>
-                <h2 className="mt-4 text-lg font-black text-slate-700">没有符合条件的追番记录</h2>
-                <p className="mt-1 text-sm text-slate-500">尝试调整搜索或过滤条件。</p>
+              <div className="dashboard-content-piece relative overflow-hidden border-4 border-black bg-white px-5 py-14 text-center shadow-[9px_9px_0_#ff6b6b]">
+                <span className="absolute -left-7 -top-7 h-20 w-20 rotate-12 border-4 border-black bg-[#4ecdc4]" aria-hidden="true"></span>
+                <span className="absolute -bottom-8 -right-5 h-20 w-20 rounded-full border-4 border-black bg-[#ff8fab]" aria-hidden="true"></span>
+                <span className="relative mx-auto flex h-20 w-20 rotate-3 items-center justify-center border-4 border-black bg-[#ffe66d] text-3xl text-black shadow-[6px_6px_0_#111]">
+                  <i className="fa-solid fa-filter-circle-xmark"></i>
+                </span>
+                <h2 className="relative mt-6 text-2xl font-black text-black">没有符合条件的追番记录</h2>
+                <p className="relative mt-2 inline-block border-2 border-black bg-[#fff5ee] px-4 py-2 text-sm font-bold text-zinc-600 shadow-[3px_3px_0_#4ecdc4]">
+                  尝试调整搜索或过滤条件。
+                </p>
               </div>
             )}
 
@@ -839,7 +835,7 @@ function Dashboard() {
       )}
       {isLogoutConfirmOpen && (
         <div
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm animate-[viewFadeIn_0.2s_ease-out_both]"
+          className="memphis-modal-backdrop fixed inset-0 z-[140] flex items-center justify-center bg-zinc-950/80 p-4 backdrop-blur-sm animate-[viewFadeIn_0.2s_ease-out_both]"
           role="dialog"
           aria-modal="true"
           aria-labelledby="logoutConfirmTitle"
@@ -847,17 +843,21 @@ function Dashboard() {
             if (event.target === event.currentTarget) setIsLogoutConfirmOpen(false)
           }}
         >
-          <section className="w-full max-w-sm overflow-hidden rounded-3xl border border-white/60 bg-white shadow-2xl" onMouseDown={(event) => event.stopPropagation()}>
-            <div className="h-2 bg-gradient-to-r from-pink-400 to-indigo-500"></div>
-            <div className="px-6 py-7 text-center">
-              <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-50 text-xl text-rose-500 shadow-inner">
+          <section className="relative w-full max-w-md border-4 border-black bg-[#fff5ee] text-black shadow-[12px_12px_0_#111]" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="h-4 border-b-4 border-black bg-[repeating-linear-gradient(135deg,#ff6b6b_0,#ff6b6b_18px,#ffe66d_18px,#ffe66d_36px)]"></div>
+            <span className="absolute right-5 top-8 grid grid-cols-3 gap-1.5 opacity-30" aria-hidden="true">
+              {Array.from({ length: 9 }, (_, index) => <i key={index} className="h-2 w-2 rounded-full bg-black"></i>)}
+            </span>
+            <div className="px-7 py-8 text-center">
+              <span className="mx-auto flex h-20 w-20 -rotate-3 items-center justify-center border-4 border-black bg-[#ff6b6b] text-3xl text-black shadow-[6px_6px_0_#ffe66d]">
                 <i className="fa-solid fa-arrow-right-from-bracket"></i>
               </span>
-              <h2 id="logoutConfirmTitle" className="mt-4 text-xl font-black text-slate-800">确定退出登录吗？</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-500">退出后需要重新登录才能进入你的私人手账。</p>
-              <div className="mt-6 grid grid-cols-2 gap-3">
-                <button type="button" onClick={() => setIsLogoutConfirmOpen(false)} className="rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-bold text-slate-600 transition hover:bg-slate-200 active:scale-95">继续整理</button>
-                <button type="button" onClick={confirmLogout} className="rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 px-4 py-2.5 text-sm font-black text-white shadow-md transition hover:-translate-y-0.5 hover:shadow-lg active:scale-95">确认退出</button>
+              <span className="mt-6 inline-block border-2 border-black bg-[#ffe66d] px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] shadow-[3px_3px_0_#111]">Session Exit</span>
+              <h2 id="logoutConfirmTitle" className="mt-4 text-2xl font-black">确定退出登录吗？</h2>
+              <p className="mx-auto mt-3 max-w-xs border-l-[6px] border-black bg-white px-4 py-3 text-sm font-bold leading-6 text-zinc-600">退出后需要重新登录才能进入你的私人手账。</p>
+              <div className="mt-7 grid grid-cols-2 gap-4">
+                <button type="button" onClick={() => setIsLogoutConfirmOpen(false)} className="border-[3px] border-black bg-white px-4 py-3 text-sm font-black shadow-[5px_5px_0_#4ecdc4] transition-none active:translate-x-[5px] active:translate-y-[5px] active:shadow-none">继续整理</button>
+                <button type="button" onClick={confirmLogout} className="border-[3px] border-black bg-[#ff6b6b] px-4 py-3 text-sm font-black shadow-[5px_5px_0_#111] transition-none hover:bg-[#ff8fab] active:translate-x-[5px] active:translate-y-[5px] active:shadow-none">确认退出</button>
               </div>
             </div>
           </section>

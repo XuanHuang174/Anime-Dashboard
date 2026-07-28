@@ -11,6 +11,7 @@ from PIL import Image, UnidentifiedImageError
 
 from .models import (
     Anime,
+    FeaturedQuickFilter,
     FeaturedSubmission,
     TAG_COLOR_KEYS,
     UserAnimeRecord,
@@ -567,6 +568,13 @@ class UserQuickFilterSerializer(serializers.ModelSerializer):
         if not normalized:
             raise serializers.ValidationError("请至少选择一个标签。")
         return normalized
+
+
+class FeaturedQuickFilterSerializer(UserQuickFilterSerializer):
+    """Global quick-filter configuration shared by the featured page."""
+
+    class Meta(UserQuickFilterSerializer.Meta):
+        model = FeaturedQuickFilter
 
 
 class FeaturedSubmissionSerializer(serializers.ModelSerializer):

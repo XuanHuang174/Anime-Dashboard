@@ -452,10 +452,16 @@ function App() {
         )}
 
         {isRecordsReady && filteredAnime.length === 0 && (
-          <div id="noResults" className="py-16 px-4 text-center">
-            <i className="fa-solid fa-mug-hot text-slate-300 text-5xl mb-4 animate-bounce"></i>
-            <h3 className="text-slate-600 font-bold text-lg">没有找到匹配的番剧</h3>
-            <p className="text-slate-400 text-xs mt-1">尝试调整过滤条件或搜索更精准的内容</p>
+          <div id="noResults" className="relative overflow-hidden border-4 border-black bg-white px-5 py-14 text-center shadow-[9px_9px_0_#ff6b6b]">
+            <span className="absolute -left-7 -top-7 h-20 w-20 rotate-12 border-4 border-black bg-[#4ecdc4]" aria-hidden="true"></span>
+            <span className="absolute -bottom-8 -right-5 h-20 w-20 rounded-full border-4 border-black bg-[#ff8fab]" aria-hidden="true"></span>
+            <span className="relative mx-auto flex h-20 w-20 -rotate-3 items-center justify-center border-4 border-black bg-[#ffe66d] text-3xl text-black shadow-[6px_6px_0_#111]">
+              <i className="fa-solid fa-magnifying-glass-minus"></i>
+            </span>
+            <h3 className="relative mt-6 text-2xl font-black text-black">没有找到匹配的番剧</h3>
+            <p className="relative mt-2 inline-block border-2 border-black bg-[#fff5ee] px-4 py-2 text-sm font-bold text-zinc-600 shadow-[3px_3px_0_#4ecdc4]">
+              尝试调整过滤条件，或搜索更精准的内容。
+            </p>
           </div>
         )}
 

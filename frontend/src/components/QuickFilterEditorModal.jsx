@@ -17,6 +17,8 @@ function QuickFilterEditorModal({
   onSaved,
   onDeleted,
   showToast,
+  endpoint = 'quick-filters',
+  description = '组合常用标签，并保存到当前账号。',
 }) {
   const overlayRef = useRef(null)
   const modalRef = useRef(null)
@@ -179,8 +181,8 @@ function QuickFilterEditorModal({
     try {
       const payload = { ...form, name }
       const response = editingId
-        ? await api.patch(`quick-filters/${editingId}/`, payload)
-        : await api.post('quick-filters/', payload)
+        ? await api.patch(`${endpoint}/${editingId}/`, payload)
+        : await api.post(`${endpoint}/`, payload)
       onSaved(response.data)
       showToast(editingId ? '快捷筛选已更新。' : '快捷筛选已创建。', 'success')
       playExit(() => {
@@ -199,7 +201,7 @@ function QuickFilterEditorModal({
     if (!window.confirm(`确定删除快捷筛选“${filter.name}”吗？`)) return
     setDeletingId(filter.id)
     try {
-      await api.delete(`quick-filters/${filter.id}/`)
+      await api.delete(`${endpoint}/${filter.id}/`)
       onDeleted(filter.id)
       if (editingId === filter.id) resetForm()
       showToast('快捷筛选已删除。', 'success')
@@ -233,7 +235,7 @@ function QuickFilterEditorModal({
             <h2 id="quickFilterEditorTitle" className="mt-3 text-xl font-black sm:text-2xl">
               <i className="fa-solid fa-filter-circle-plus mr-2"></i>自定义快速筛选
             </h2>
-            <p className="mt-1 text-xs font-bold text-zinc-700">组合常用标签，并保存到当前账号。</p>
+            <p className="mt-1 text-xs font-bold text-zinc-700">{description}</p>
           </div>
           <button type="button" onClick={handleClose} disabled={busy || Boolean(deletingId)} className="relative flex h-10 w-10 shrink-0 items-center justify-center border-[3px] border-black bg-white text-lg shadow-[4px_4px_0_#111] transition-none hover:bg-[#ff6b6b] active:translate-x-1 active:translate-y-1 active:shadow-none disabled:opacity-50" aria-label="关闭自定义筛选编辑器">
             <i className="fa-solid fa-xmark"></i>
