@@ -388,6 +388,7 @@ function Dashboard() {
   const listStartIndex = pageSize === 'all'
     ? 0
     : (currentPage - 1) * Number(pageSize)
+  const hasLoadedRecords = recordsTotal !== null
 
   const handlePageSizeChange = (nextPageSize) => {
     setPageSize(nextPageSize)
@@ -648,28 +649,28 @@ function Dashboard() {
         showToast={showToast}
       />
 
-      {isPreviewMode && isHeaderEntranceComplete && !isLoading && !error && (
+      {isPreviewMode && isHeaderEntranceComplete && hasLoadedRecords && !error && (
         <div className="dashboard-content-piece dashboard-entrance-piece relative z-20 mx-auto -mt-6 max-w-7xl px-4 sm:px-6 lg:px-8">
           <StatsSummary db={db} statsData={statsData} theme="memphis" />
         </div>
       )}
 
       <section className={`relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 ${isPreviewMode ? 'pb-8 pt-2' : 'py-7'}`}>
-        {isHeaderEntranceComplete && isLoading && (
+        {isHeaderEntranceComplete && isLoading && !hasLoadedRecords && (
           <div className="flex items-center justify-center gap-3 border-4 border-black bg-[#ffe66d] py-12 font-black text-black shadow-[8px_8px_0_#4ecdc4]">
             <i className="fa-solid fa-spinner animate-spin text-xl"></i>
             正在读取你的追番手账...
           </div>
         )}
 
-        {isHeaderEntranceComplete && !isLoading && error && (
+        {isHeaderEntranceComplete && error && (
           <div role="alert" className="border-4 border-black bg-[#ff6b6b] px-5 py-5 font-black text-black shadow-[8px_8px_0_#111]">
             <i className="fa-solid fa-circle-exclamation mr-2"></i>
             {error}
           </div>
         )}
 
-        {isHeaderEntranceComplete && !isLoading && !error && (
+        {isHeaderEntranceComplete && hasLoadedRecords && !error && (
           <>
             <div className="dashboard-content-piece dashboard-entrance-piece">
             <FilterBar

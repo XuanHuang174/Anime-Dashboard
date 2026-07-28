@@ -317,7 +317,7 @@ function AdminDashboard() {
   return (
     <main
       ref={pageRef}
-      className="admin-control-grid min-h-screen overflow-x-hidden bg-zinc-900 px-4 py-5 text-white sm:px-7 lg:px-10"
+      className="memphis-public admin-control-grid min-h-screen overflow-x-hidden bg-zinc-900 px-4 py-5 text-white sm:px-7 lg:px-10"
     >
       <header className="admin-console-header relative mx-auto max-w-[1500px] overflow-hidden border-4 border-black bg-zinc-800 p-5 shadow-[10px_10px_0_#c7ff4a] sm:p-7">
         <div className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full border-[16px] border-[#ffdf3e]" />
