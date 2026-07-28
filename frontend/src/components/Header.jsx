@@ -32,8 +32,8 @@ function Header({ onGetStarted, onViewFeatured, onViewUniverse }) {
       </div>
 
       <div className="relative z-10 mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8 lg:py-12">
-        <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-          <div className="max-w-3xl">
+        <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0 flex-1">
             <span className="memphis-header-piece inline-flex -rotate-1 items-center border-[3px] border-black bg-[#ffe66d] px-3 py-1.5 text-xs font-black uppercase tracking-[0.16em] shadow-[4px_4px_0_0_#111]">
               <i className="fa-solid fa-heart mr-2"></i>
               个人手账 / 追番记录
@@ -59,12 +59,12 @@ function Header({ onGetStarted, onViewFeatured, onViewUniverse }) {
             </p>
           </div>
 
-          <div className="memphis-header-piece mr-5 flex flex-wrap gap-3">
+          <div className="memphis-header-piece grid w-full shrink-0 grid-cols-2 gap-3 lg:ml-auto lg:mr-5 lg:w-[430px]">
             {onViewUniverse && (
               <button
                 type="button"
                 onClick={onViewUniverse}
-                className="memphis-pressable flex items-center gap-2 self-center border-[3px] border-black bg-[#4ecdc4] px-4 py-3 text-sm font-black text-black shadow-[5px_5px_0_#111]"
+                className="memphis-pressable flex items-center justify-center gap-2 border-[3px] border-black bg-[#4ecdc4] px-4 py-3 text-sm font-black text-black shadow-[5px_5px_0_#111]"
               >
                 <i className="fa-solid fa-earth-asia"></i>
                 番剧共创宇宙
@@ -74,7 +74,7 @@ function Header({ onGetStarted, onViewFeatured, onViewUniverse }) {
               <button
                 type="button"
                 onClick={onViewFeatured}
-                className="memphis-pressable flex items-center gap-2 self-center border-[3px] border-black bg-[#ff8fab] px-4 py-3 text-sm font-black text-black shadow-[5px_5px_0_#111]"
+                className="memphis-pressable flex items-center justify-center gap-2 border-[3px] border-black bg-[#ff8fab] px-4 py-3 text-sm font-black text-black shadow-[5px_5px_0_#111]"
               >
                 <i className="fa-solid fa-award"></i>
                 浏览精选专栏
@@ -84,7 +84,7 @@ function Header({ onGetStarted, onViewFeatured, onViewUniverse }) {
               id="exportCsvBtn"
               type="button"
               onClick={onGetStarted}
-              className="memphis-primary-cta memphis-pressable flex items-center gap-3 border-4 border-black bg-[#ffe66d] px-6 py-4 text-left font-black text-black shadow-[6px_6px_0_0_#111]"
+              className="memphis-primary-cta memphis-pressable col-span-2 flex items-center gap-3 border-4 border-black bg-[#ffe66d] px-6 py-4 text-left font-black text-black shadow-[6px_6px_0_0_#111]"
             >
               <span className="flex h-12 w-12 shrink-0 items-center justify-center border-[3px] border-black bg-[#ff6b6b] text-xl shadow-[3px_3px_0_#111]">
                 <i className="cta-spark-icon fa-solid fa-wand-magic-sparkles"></i>

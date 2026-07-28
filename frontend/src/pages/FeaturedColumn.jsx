@@ -215,7 +215,7 @@ function FeaturedColumn() {
               <span className="border-4 border-black bg-[#ff8fab] px-4 py-2 text-black shadow-[8px_8px_0_#111]">专栏</span>
             </h1>
             <p className="mt-6 max-w-2xl border-l-[10px] border-black bg-white px-5 py-3 text-sm font-black leading-7 shadow-[6px_6px_0_#4ecdc4] sm:text-base">
-              不追求千篇一律的标准答案。这里收录来自手账主理人的真实观看体验与长篇表达。
+              不追求千篇一律的标准答案。这里收录来自各位同好们的真实观看体验与长篇表达。
             </p>
           </div>
         </div>

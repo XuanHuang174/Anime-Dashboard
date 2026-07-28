@@ -162,7 +162,7 @@ function PublicUniverse() {
       className="memphis-public public-universe relative min-h-screen overflow-hidden bg-[#fff5ee] pb-12 text-black"
     >
       <div className="memphis-grid-texture pointer-events-none absolute inset-0" aria-hidden="true" />
-      <div className="pointer-events-none absolute -left-12 top-[34rem] h-36 w-36 rotate-12 border-4 border-black bg-[#ff8fab] shadow-[8px_8px_0_#111]" aria-hidden="true" />
+      <div className="pointer-events-none absolute -left-12 top-[45rem] h-36 w-36 rotate-12 border-4 border-black bg-[#ff8fab] shadow-[8px_8px_0_#111]" aria-hidden="true" />
       <div className="pointer-events-none absolute -right-14 top-[57rem] h-40 w-40 rounded-full border-[18px] border-black bg-[#4ecdc4] shadow-[8px_8px_0_#ffe66d]" aria-hidden="true" />
 
       <header className="relative z-10 overflow-hidden border-b-4 border-black bg-[#ffe66d]">
@@ -191,7 +191,7 @@ function PublicUniverse() {
               <span className="-rotate-1 border-4 border-black bg-white px-4 py-2 shadow-[9px_9px_0_#111]">宇宙</span>
             </h1>
             <p className="mt-6 max-w-3xl border-l-[10px] border-black bg-[#ff8fab] px-5 py-3 text-sm font-black leading-7 shadow-[6px_6px_0_#111] sm:text-base">
-              穿过不同主理人的观看轨道，发现真实同步、持续生长的私人番剧宇宙。
+              穿过各位同好们的观看轨道，发现真实同步、持续生长的私人番剧宇宙。
             </p>
 
             <label className="mt-8 block max-w-3xl">
@@ -207,7 +207,7 @@ function PublicUniverse() {
                   type="search"
                   value={searchInput}
                   onChange={(event) => setSearchInput(event.target.value)}
-                  placeholder="输入完整用户名，例如 XHcode"
+                  placeholder="输入完整用户名，例如兔子"
                   aria-label="精确搜索公开用户名"
                   className="min-w-0 flex-1 bg-white px-5 py-4 text-base font-black outline-none placeholder:text-zinc-500 focus:bg-[#fff3ad] sm:text-lg"
                 />
@@ -237,7 +237,7 @@ function PublicUniverse() {
           </div>
           <span className="border-4 border-black bg-[#ffe66d] px-4 py-2 text-sm font-black shadow-[4px_4px_0_#111]">
             <i className="fa-solid fa-users-viewfinder mr-2" />
-            {isLoading ? '正在扫描…' : `${profiles.length} 位主理人`}
+            {isLoading ? '正在扫描…' : `${profiles.length} 位同好`}
           </span>
         </div>
 
@@ -261,7 +261,7 @@ function PublicUniverse() {
               <i className="fa-solid fa-user-astronaut" />
             </span>
             <h3 className="mt-6 text-2xl font-black">
-              {searchQuery ? '没有捕捉到这个用户名' : '共创宇宙正在等待首位主理人'}
+              {searchQuery ? '没有捕捉到这个用户名' : '共创宇宙正在等待首位同好'}
             </h3>
             <p className="mx-auto mt-3 max-w-xl border-2 border-black bg-[#fff5ee] px-4 py-2 text-sm font-bold text-zinc-600 shadow-[3px_3px_0_#4ecdc4]">
               {searchQuery
