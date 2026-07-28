@@ -737,6 +737,8 @@ class PublicJournalLobbyView(generics.ListAPIView):
     serializer_class = PublicJournalLobbySerializer
     permission_classes = (permissions.AllowAny,)
     authentication_classes = ()
+    filter_backends = (filters.SearchFilter,)
+    search_fields = ("=user__username",)
 
     def get_queryset(self):
         return _public_journal_profiles()

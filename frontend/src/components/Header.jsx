@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import api from '../api/api.js'
 
-function Header({ onGetStarted, onViewFeatured }) {
+function Header({ onGetStarted, onViewFeatured, onViewUniverse }) {
   const [showcaseProfile, setShowcaseProfile] = useState(null)
 
   useEffect(() => {
@@ -60,6 +60,16 @@ function Header({ onGetStarted, onViewFeatured }) {
           </div>
 
           <div className="memphis-header-piece mr-5 flex flex-wrap gap-3">
+            {onViewUniverse && (
+              <button
+                type="button"
+                onClick={onViewUniverse}
+                className="memphis-pressable flex items-center gap-2 self-center border-[3px] border-black bg-[#4ecdc4] px-4 py-3 text-sm font-black text-black shadow-[5px_5px_0_#111]"
+              >
+                <i className="fa-solid fa-earth-asia"></i>
+                番剧共创宇宙
+              </button>
+            )}
             {onViewFeatured && (
               <button
                 type="button"

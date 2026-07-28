@@ -377,6 +377,7 @@ function App() {
       <Header
         onGetStarted={handleGetStarted}
         onViewFeatured={() => navigate('/featured')}
+        onViewUniverse={() => navigate('/universe')}
       />
 
       <div className="relative z-20 mx-auto -mt-6 max-w-7xl px-4 sm:px-6 lg:px-8">

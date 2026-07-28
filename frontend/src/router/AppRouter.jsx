@@ -8,13 +8,17 @@ import AdminLogin from '../pages/AdminLogin.jsx'
 import Dashboard from '../pages/Dashboard.jsx'
 import FeaturedColumn from '../pages/FeaturedColumn.jsx'
 import LoginPage from '../pages/LoginPage.jsx'
+import PublicUniverse from '../pages/PublicUniverse.jsx'
 import ResetPasswordPage from '../pages/ResetPasswordPage.jsx'
+import SharedJournalPage from '../pages/SharedJournalPage.jsx'
 
 function AppRouter() {
   return (
     <Routes>
       <Route path="/" element={<PublicHomePage />} />
       <Route path="/featured" element={<FeaturedColumn />} />
+      <Route path="/universe" element={<PublicUniverse />} />
+      <Route path="/shared/:username" element={<SharedJournalPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/activate" element={<ActivatePage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />

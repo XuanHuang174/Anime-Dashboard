@@ -2469,6 +2469,24 @@ class PublicJournalApiTests(APITestCase):
         self.assertNotIn("email", profiles[0])
         self.assertNotIn("records", profiles[0])
 
+        missing_response = self.client.get(
+            reverse("anime_api:public-journal-lobby"),
+            {"search": "journal"},
+        )
+        self.assertEqual(missing_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            missing_response.data.get("results", missing_response.data),
+            [],
+        )
+
+        exact_response = self.client.get(
+            reverse("anime_api:public-journal-lobby"),
+            {"search": self.user.username},
+        )
+        self.assertEqual(exact_response.status_code, status.HTTP_200_OK)
+        exact_profiles = exact_response.data.get("results", exact_response.data)
+        self.assertEqual(len(exact_profiles), 1)
+
     def test_public_detail_requires_approved_public_profile(self):
         detail_url = reverse(
             "anime_api:public-journal-detail",

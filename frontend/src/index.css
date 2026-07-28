@@ -862,6 +862,11 @@ select {
   outline-offset: 5px;
 }
 
+.public-universe-card {
+  contain: layout paint;
+  transform-origin: center bottom;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .featured-column-card img {
     transition: none;
