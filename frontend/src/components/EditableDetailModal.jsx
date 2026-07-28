@@ -324,12 +324,14 @@ function EditableDetailModal({
   }
 
   const handleDelete = async () => {
-    if (!window.confirm(`确定删除《${formData.title}》的私人追番记录吗？此操作不可恢复。`)) return
+    if (!window.confirm(
+      `确定删除《${formData.title}》的私人追番记录吗？\n\n如果该作品已提交或已入选精选专栏，对应的精选专栏内容也会同步删除。\n\n此操作不可恢复。`,
+    )) return
     setIsDeleting(true)
     setError('')
     try {
       await api.delete(`records/${renderedItem.id}/`)
-      showToast('私人追番记录已删除。', 'success')
+      showToast('私人追番记录及其精选专栏内容已同步删除。', 'success')
       playExit(() => onRecordDeleted(renderedItem.id))
     } catch {
       setError('删除失败，请稍后重试。')

@@ -1857,6 +1857,7 @@ class FeaturedColumnApiTests(APITestCase):
         submission = FeaturedSubmission.objects.get()
         self.assertEqual(submission.user, self.user)
         self.assertEqual(submission.source_anime, self.anime)
+        self.assertEqual(submission.source_record, self.record)
         self.assertEqual(response.data["source_anime_id"], self.anime.pk)
         self.assertEqual(
             submission.audit_status,
@@ -1889,6 +1890,39 @@ class FeaturedColumnApiTests(APITestCase):
         submission.refresh_from_db()
         self.assertEqual(submission.chinese_title, "精选测试番剧")
         self.assertEqual(submission.review, "一篇只属于当前用户的长评。")
+
+    def test_deleting_private_record_removes_only_its_owners_featured_content(self):
+        own_submission = FeaturedSubmission.objects.create(
+            user=self.user,
+            source_anime=self.anime,
+            source_record=self.record,
+            chinese_title=self.anime.chinese_title,
+            audit_status=FeaturedSubmission.AuditStatus.APPROVED,
+        )
+        other_submission = FeaturedSubmission.objects.create(
+            user=self.other_user,
+            source_anime=self.anime,
+            chinese_title="其他用户的同名精选内容",
+            audit_status=FeaturedSubmission.AuditStatus.APPROVED,
+        )
+
+        response = self.client.delete(
+            reverse(
+                "anime_api:user-anime-record-detail",
+                kwargs={"pk": self.record.pk},
+            )
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(
+            UserAnimeRecord.objects.filter(pk=self.record.pk).exists()
+        )
+        self.assertFalse(
+            FeaturedSubmission.objects.filter(pk=own_submission.pk).exists()
+        )
+        self.assertTrue(
+            FeaturedSubmission.objects.filter(pk=other_submission.pk).exists()
+        )
 
     def test_submit_rejects_user_at_approved_limit(self):
         self.user.profile.max_featured_limit = 1

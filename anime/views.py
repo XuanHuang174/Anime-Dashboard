@@ -979,6 +979,16 @@ class UserAnimeRecordViewSet(viewsets.ModelViewSet):
         )
 
     @transaction.atomic
+    def perform_destroy(self, instance):
+        """Delete featured snapshots derived from this private record as well."""
+
+        FeaturedSubmission.objects.filter(
+            user=self.request.user,
+            source_anime=instance.anime,
+        ).delete()
+        instance.delete()
+
+    @transaction.atomic
     def create(self, request, *args, **kwargs):
         """Create through the standard endpoint without exceeding the quota."""
 
@@ -1211,6 +1221,7 @@ class FeaturedSubmissionViewSet(
         snapshot = FeaturedSubmission(
             user=request.user,
             source_anime=anime,
+            source_record=record,
             chinese_title=metadata["chinese_title"],
             japanese_title=metadata["japanese_title"],
             year=int(year_match.group()) if year_match else None,
