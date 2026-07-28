@@ -1411,7 +1411,7 @@ class AdminFeaturedSubmissionViewSet(viewsets.ReadOnlyModelViewSet):
         user = submission.user
         UserNotification.objects.create(
             user=user,
-            message=f"《{title}》的精选专栏已按你的申请撤下。",
+            message=f"{title}的精选专栏已按你的申请撤下。",
         )
         submission.delete()
         return Response(
@@ -1442,7 +1442,7 @@ class AdminFeaturedSubmissionViewSet(viewsets.ReadOnlyModelViewSet):
         )
         UserNotification.objects.create(
             user=submission.user,
-            message=f"《{submission.chinese_title}》的撤下申请未获批准，专栏将继续展示。",
+            message=f"{submission.chinese_title}的撤下申请未获批准，专栏将继续展示。",
         )
         submission.refresh_from_db()
         return Response(

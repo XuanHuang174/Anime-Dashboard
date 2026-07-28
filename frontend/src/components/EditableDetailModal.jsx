@@ -327,7 +327,7 @@ function EditableDetailModal({
 
   const handleDelete = async () => {
     if (!window.confirm(
-      `确定删除《${formData.title}》的私人追番记录吗？\n\n如果该作品已提交或已入选精选专栏，对应的精选专栏内容也会同步删除。\n\n此操作不可恢复。`,
+      `确定删除${formData.title}的私人追番记录吗？\n\n如果该作品已提交或已入选精选专栏，对应的精选专栏内容也会同步删除。\n\n此操作不可恢复。`,
     )) return
     setIsDeleting(true)
     setError('')

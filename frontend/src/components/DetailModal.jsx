@@ -238,7 +238,7 @@ function DetailModal({
   }
 
   const handleDelete = async () => {
-    const confirmed = window.confirm(`确定要删除《${selectedItem.title}》的追番记录吗？此操作无法撤销。`)
+    const confirmed = window.confirm(`确定要删除${selectedItem.title}的追番记录吗？此操作无法撤销。`)
     if (!confirmed) return
 
     setIsDeleting(true)

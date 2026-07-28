@@ -68,9 +68,9 @@ def notify_featured_audit_result(sender, instance, created, **kwargs):
         return
 
     if instance.audit_status == FeaturedSubmission.AuditStatus.APPROVED:
-        message = f"恭喜，你对《{instance.chinese_title}》的番剧点评已被精选专栏收录。"
+        message = f"恭喜，你对{instance.chinese_title}的番剧点评已被精选专栏收录。"
     elif instance.audit_status == FeaturedSubmission.AuditStatus.REJECTED:
-        message = f"抱歉，你对《{instance.chinese_title}》的番剧点评未能入选精选专栏。"
+        message = f"抱歉，你对{instance.chinese_title}的番剧点评未能入选精选专栏。"
     else:
         return
 

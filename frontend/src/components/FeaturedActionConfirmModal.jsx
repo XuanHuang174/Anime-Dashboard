@@ -133,8 +133,8 @@ function FeaturedActionConfirmModal({ action, onClose, onConfirm }) {
         <div className="p-6">
           <p className="border-l-[7px] border-black bg-white px-4 py-3 text-sm font-bold leading-7 shadow-[4px_4px_0_#4ecdc4]">
             {isRemoval
-              ? `提交后，《${action.item.title}》会进入撤下审核流程，在处理完成前无法再次提交其他作品。`
-              : `将《${action.item.title}》当前的海报、评分、标签和个人长评制作成独立快照并提交审核。`
+              ? `提交后，${action.item.title}会进入撤下审核流程，在处理完成前无法再次提交其他作品。`
+              : `将${action.item.title}当前的海报、评分、标签和个人长评制作成独立快照并提交审核。`
             }
           </p>
           <div className="mt-6 grid grid-cols-2 gap-3">

@@ -76,7 +76,7 @@ function AdminAuditConfirmModal({
         </div>
 
         <p className="border-2 border-black bg-white p-4 text-sm font-bold leading-7 shadow-[5px_5px_0_#111]">
-          你即将对 <strong className="bg-[#ffdf3e] px-1">《{submission.chinese_title}》</strong>
+          你即将对 <strong className="bg-[#ffdf3e] px-1">{submission.chinese_title}</strong>
           执行“{verb}”。确认后将立即变更专栏状态，并向投稿用户发送站内通知。
         </p>
 
