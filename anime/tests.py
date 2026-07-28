@@ -1777,7 +1777,11 @@ class FeaturedColumnApiTests(APITestCase):
             chinese_title="精选测试番剧",
             japanese_title="特集テスト",
             airing_period="2026-10",
+            studio="测试动画工房",
+            episodes="12+1",
+            description="用于验证精选专栏完整快照的剧情简介。",
             poster_url="https://example.com/featured.jpg",
+            baike_url="https://example.com/featured-baike",
             base_tags=["剧场版", "动画"],
         )
         self.record = UserAnimeRecord.objects.create(
@@ -1787,6 +1791,11 @@ class FeaturedColumnApiTests(APITestCase):
             watch_status=UserAnimeRecord.WatchStatus.COMPLETED,
             review="一篇只属于当前用户的长评。",
             custom_tags=["力荐", "剧场版"],
+        )
+        UserAnimeTag.objects.create(
+            record=self.record,
+            name="剧场版",
+            color="rose",
         )
         self.client.force_authenticate(self.user)
 
@@ -1812,10 +1821,22 @@ class FeaturedColumnApiTests(APITestCase):
         self.assertEqual(submission.chinese_title, "精选测试番剧")
         self.assertEqual(submission.japanese_title, "特集テスト")
         self.assertEqual(submission.year, 2026)
+        self.assertEqual(submission.airing_period, "2026-10")
+        self.assertEqual(submission.studio, "测试动画工房")
+        self.assertEqual(submission.episodes, "12+1")
+        self.assertEqual(
+            submission.description,
+            "用于验证精选专栏完整快照的剧情简介。",
+        )
+        self.assertEqual(
+            submission.baike_url,
+            "https://example.com/featured-baike",
+        )
         self.assertEqual(submission.score, Decimal("9.6"))
         self.assertEqual(submission.review, "一篇只属于当前用户的长评。")
         self.assertEqual(submission.poster_url, "https://example.com/featured.jpg")
         self.assertEqual(submission.tags, ["剧场版", "动画", "力荐"])
+        self.assertEqual(submission.tag_colors, {"剧场版": "rose"})
 
         self.anime.chinese_title = "修改后的公共资料"
         self.anime.save(update_fields=("chinese_title",))
@@ -2053,6 +2074,7 @@ class FeaturedColumnApiTests(APITestCase):
         self.assertEqual(records[0]["id"], approved.pk)
         self.assertNotIn("user", records[0])
         self.assertEqual(records[0]["author_name"], "手账主理人")
+        self.assertEqual(records[0]["author_avatar"], "")
 
 
 class AdminFeaturedSubmissionApiTests(APITestCase):

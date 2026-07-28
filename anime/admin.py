@@ -135,14 +135,15 @@ class FeaturedSubmissionAdmin(admin.ModelAdmin):
         "chinese_title",
         "user",
         "source_anime",
-        "year",
+        "airing_period",
+        "studio",
         "watch_status",
         "score",
         "poster_url",
         "audit_status",
         "created_at",
     )
-    list_filter = ("audit_status", "watch_status", "year")
+    list_filter = ("audit_status", "watch_status", "year", "airing_period")
     search_fields = (
         "chinese_title",
         "japanese_title",

@@ -3,6 +3,7 @@ import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 import api from '../api/api.js'
 import { getCoverSrc, getTagClass } from '../utils/animeDisplay.js'
+import { formatAiringPeriod } from '../utils/featuredDisplay.js'
 
 gsap.registerPlugin(useGSAP)
 
@@ -200,6 +201,7 @@ function DetailModal({
 
   const coverSrc = getCoverSrc(selectedItem)
   const hasBaikeUrl = Boolean(selectedItem.baikeUrl)
+  const usesUploadedPoster = Boolean(selectedItem.posterImage)
 
   const handleFieldChange = (event) => {
     const { name, value } = event.target
@@ -376,14 +378,14 @@ function DetailModal({
 
               <div className="memphis-modal-piece mt-3 shrink-0">
                 <label htmlFor="coverUrlInput" className="mb-1 block text-[10px] font-black uppercase tracking-wider text-black">
-                  网络图片 URL
+                  当前海报来源 · {usesUploadedPoster ? '服务器文件' : '网络 URL'}
                 </label>
                 <input
                   type="text"
                   id="coverUrlInput"
                   readOnly
-                  value={selectedItem.cover || ''}
-                  placeholder="暂无链接..."
+                  value={coverSrc.startsWith('data:') ? '' : coverSrc}
+                  placeholder="暂无网络链接或服务器图片..."
                   className="w-full cursor-not-allowed border-2 border-black bg-white px-2.5 py-1.5 text-[10px] font-bold text-zinc-500 outline-none shadow-[inset_2px_2px_0_#d4d4d8]"
                 />
               </div>
@@ -416,7 +418,7 @@ function DetailModal({
                   {
                     label: '放送季度',
                     id: 'modalPeriod',
-                    value: selectedItem.period,
+                    value: formatAiringPeriod(selectedItem.period),
                     inputClass: 'text-black',
                   },
                   {

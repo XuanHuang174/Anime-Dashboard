@@ -307,6 +307,22 @@ class FeaturedSubmission(models.Model):
         validators=[MinValueValidator(1900), MaxValueValidator(2200)],
         db_index=True,
     )
+    airing_period = models.CharField(
+        "放送季度",
+        max_length=32,
+        blank=True,
+        default="",
+        help_text="投稿时从公共番剧资料复制的完整季度快照，例如：2026-1。",
+    )
+    studio = models.CharField("制作公司", max_length=200, blank=True, default="")
+    episodes = models.CharField("话数情况", max_length=50, blank=True, default="")
+    description = models.TextField("剧情简介", blank=True, default="")
+    baike_url = models.URLField(
+        "萌百链接",
+        max_length=1000,
+        blank=True,
+        default="",
+    )
     watch_status = models.CharField(
         "观看状态",
         max_length=16,
@@ -338,6 +354,12 @@ class FeaturedSubmission(models.Model):
         default=list,
         blank=True,
         validators=[validate_tag_list],
+    )
+    tag_colors = models.JSONField(
+        "标签配色快照",
+        default=dict,
+        blank=True,
+        validators=[validate_tag_color_map],
     )
     audit_status = models.CharField(
         "审核状态",

@@ -563,6 +563,7 @@ class FeaturedSubmissionSerializer(serializers.ModelSerializer):
     user = serializers.CharField(source="user.username", read_only=True)
     source_anime_id = serializers.IntegerField(read_only=True)
     tags = JsonStringListField(required=False)
+    tag_colors = JsonStringMapField(required=False)
     poster = serializers.ImageField(required=False, allow_null=True)
     watch_status_display = serializers.CharField(
         source="get_watch_status_display",
@@ -582,6 +583,11 @@ class FeaturedSubmissionSerializer(serializers.ModelSerializer):
             "chinese_title",
             "japanese_title",
             "year",
+            "airing_period",
+            "studio",
+            "episodes",
+            "description",
+            "baike_url",
             "watch_status",
             "watch_status_display",
             "score",
@@ -589,6 +595,7 @@ class FeaturedSubmissionSerializer(serializers.ModelSerializer):
             "poster",
             "poster_url",
             "tags",
+            "tag_colors",
             "audit_status",
             "audit_status_display",
             "created_at",
@@ -613,6 +620,12 @@ class FeaturedSubmissionSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("标签最多允许 20 个。")
         return normalized
 
+    def validate_tag_colors(self, tag_colors):
+        invalid_colors = set(tag_colors.values()) - TAG_COLOR_KEYS
+        if invalid_colors:
+            raise serializers.ValidationError("标签配色包含不支持的颜色。")
+        return tag_colors
+
 
 class AdminFeaturedSubmissionSerializer(FeaturedSubmissionSerializer):
     """Audit queue payload with submitter information for superusers."""
@@ -625,11 +638,20 @@ class AdminFeaturedSubmissionSerializer(FeaturedSubmissionSerializer):
 
     def get_submitter(self, submission):
         profile = getattr(submission.user, "profile", None)
+        avatar = ""
+        if profile and profile.avatar:
+            request = self.context.get("request")
+            avatar = (
+                request.build_absolute_uri(profile.avatar.url)
+                if request
+                else profile.avatar.url
+            )
         return {
             "id": submission.user_id,
             "username": submission.user.username,
             "email": submission.user.email,
             "nickname": profile.nickname if profile else "",
+            "avatar": avatar,
         }
 
 
@@ -641,6 +663,7 @@ class PublicFeaturedSubmissionSerializer(serializers.ModelSerializer):
     """Public-safe approved-column representation."""
 
     author_name = serializers.SerializerMethodField()
+    author_avatar = serializers.SerializerMethodField()
     watch_status_display = serializers.CharField(
         source="get_watch_status_display",
         read_only=True,
@@ -651,9 +674,15 @@ class PublicFeaturedSubmissionSerializer(serializers.ModelSerializer):
         fields = (
             "id",
             "author_name",
+            "author_avatar",
             "chinese_title",
             "japanese_title",
             "year",
+            "airing_period",
+            "studio",
+            "episodes",
+            "description",
+            "baike_url",
             "watch_status",
             "watch_status_display",
             "score",
@@ -661,6 +690,7 @@ class PublicFeaturedSubmissionSerializer(serializers.ModelSerializer):
             "poster",
             "poster_url",
             "tags",
+            "tag_colors",
             "created_at",
             "updated_at",
         )
@@ -671,6 +701,17 @@ class PublicFeaturedSubmissionSerializer(serializers.ModelSerializer):
         if profile and profile.nickname:
             return profile.nickname
         return "手账主理人"
+
+    def get_author_avatar(self, submission):
+        profile = getattr(submission.user, "profile", None)
+        if not profile or not profile.avatar:
+            return ""
+        request = self.context.get("request")
+        return (
+            request.build_absolute_uri(profile.avatar.url)
+            if request
+            else profile.avatar.url
+        )
 
 
 class UserNotificationSerializer(serializers.ModelSerializer):

@@ -1104,6 +1104,11 @@ class FeaturedSubmissionViewSet(
             chinese_title=anime.chinese_title,
             japanese_title=anime.japanese_title,
             year=int(year_match.group()) if year_match else None,
+            airing_period=anime.airing_period,
+            studio=anime.studio,
+            episodes=anime.episodes,
+            description=anime.description,
+            baike_url=anime.baike_url,
             watch_status=record.watch_status,
             score=record.personal_score,
             review=record.review,
@@ -1113,6 +1118,7 @@ class FeaturedSubmissionViewSet(
                     [*(anime.base_tags or []), *(record.custom_tags or [])]
                 )
             ),
+            tag_colors=get_record_tag_colors(record),
             audit_status=FeaturedSubmission.AuditStatus.PENDING,
         )
         if anime.poster_image:

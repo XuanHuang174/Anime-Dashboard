@@ -5,7 +5,12 @@ import { useNavigate } from 'react-router-dom'
 import api from '../api/api.js'
 import { clearTokens } from '../auth/tokenStorage.js'
 import AdminAuditConfirmModal from '../components/AdminAuditConfirmModal.jsx'
+import DetailModal from '../components/DetailModal.jsx'
 import MemphisToastStack from '../components/MemphisToastStack.jsx'
+import {
+  formatAiringPeriod,
+  mapFeaturedSubmission,
+} from '../utils/featuredDisplay.js'
 
 gsap.registerPlugin(useGSAP)
 
@@ -45,6 +50,7 @@ function AdminDashboard() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [confirmAction, setConfirmAction] = useState(null)
+  const [selectedSubmission, setSelectedSubmission] = useState(null)
   const [processingId, setProcessingId] = useState(null)
   const [toasts, setToasts] = useState([])
 
@@ -276,21 +282,33 @@ function AdminDashboard() {
 
                     <h3 className="truncate text-xl font-black sm:text-2xl">{submission.chinese_title}</h3>
                     <p className="mt-1 truncate text-sm font-bold text-zinc-500">
-                      {submission.japanese_title || '暂无日文名'} · {submission.year || '年份待定'}
+                      {submission.japanese_title || '暂无日文名'} · {formatAiringPeriod(
+                        submission.airing_period || submission.year,
+                      )}
                     </p>
                     <p className="mt-3 line-clamp-2 border-l-4 border-[#ff5b68] pl-3 text-sm font-bold leading-6 text-zinc-700">
                       {submission.review || '该投稿暂未填写个人长评。'}
                     </p>
 
                     <div className="mt-3 flex flex-wrap items-center gap-2">
-                      <span className="font-black">
-                        <i className="fa-solid fa-user-pen mr-1.5" />
+                      <span className="inline-flex items-center gap-2 border-2 border-black bg-[#4ecdc4] p-1 pr-2 font-black">
+                        {submission.submitter?.avatar ? (
+                          <img
+                            src={submission.submitter.avatar}
+                            alt={`${author}的头像`}
+                            className="h-8 w-8 border-2 border-black bg-white object-cover"
+                          />
+                        ) : (
+                          <span className="flex h-8 w-8 items-center justify-center border-2 border-black bg-white">
+                            <i className="fa-solid fa-user-pen" />
+                          </span>
+                        )}
                         {author}
                       </span>
                       {submission.submitter?.email && (
                         <span className="text-xs font-bold text-zinc-500">{submission.submitter.email}</span>
                       )}
-                      {(submission.tags || []).slice(0, 5).map((tag, tagIndex) => (
+                      {(submission.tags || []).map((tag, tagIndex) => (
                         <span
                           key={`${submission.id}-${tag}`}
                           className={`-rotate-1 border-2 border-black px-2 py-1 text-xs font-black ${
@@ -304,6 +322,14 @@ function AdminDashboard() {
                   </div>
 
                   <div className="grid min-w-[180px] grid-cols-2 gap-3 lg:grid-cols-1">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSubmission(submission)}
+                      className="col-span-2 border-4 border-black bg-white px-4 py-3 font-black shadow-[5px_5px_0_#4ecdc4] hover:bg-[#4ecdc4] active:translate-x-[5px] active:translate-y-[5px] active:shadow-none lg:col-span-1"
+                    >
+                      <i className="fa-solid fa-eye mr-2" />
+                      查看详细信息
+                    </button>
                     <button
                       type="button"
                       onClick={() => setConfirmAction({ action: 'approve', submission })}
@@ -337,6 +363,12 @@ function AdminDashboard() {
           onClose={() => setConfirmAction(null)}
         />
       )}
+      <DetailModal
+        selectedItem={
+          selectedSubmission ? mapFeaturedSubmission(selectedSubmission) : null
+        }
+        closeModal={() => setSelectedSubmission(null)}
+      />
       <MemphisToastStack
         toasts={toasts}
         onDismiss={(id) => setToasts((current) => current.filter((toast) => toast.id !== id))}

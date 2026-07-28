@@ -11,50 +11,14 @@ import {
   getCoverSrc,
   getTagClass,
 } from '../utils/animeDisplay.js'
+import {
+  formatAiringPeriod,
+  mapFeaturedSubmission,
+} from '../utils/featuredDisplay.js'
 
 gsap.registerPlugin(useGSAP)
 
 let hasPlayedFeaturedEntrance = false
-
-const statusLabels = {
-  plan: '想看',
-  watching: '在看',
-  completed: '看过',
-  on_hold: '搁置',
-}
-
-function mapFeaturedSubmission(submission) {
-  const score = submission.score === null || submission.score === ''
-    ? null
-    : Number(submission.score)
-  const year = submission.year ? String(submission.year) : '未定档'
-
-  return {
-    id: submission.id,
-    title: submission.chinese_title || '未命名番剧',
-    japaneseTitle: submission.japanese_title || '',
-    period: submission.year ? `${year}-全年` : year,
-    cover: submission.poster || submission.poster_url || '',
-    posterImage: submission.poster || '',
-    posterUrl: submission.poster_url || '',
-    score: Number.isFinite(score) ? score : null,
-    tags: Array.isArray(submission.tags) ? submission.tags : [],
-    tagColors: {},
-    status: submission.watch_status,
-    statusLabel: submission.watch_status_display
-      || statusLabels[submission.watch_status]
-      || submission.watch_status,
-    review: submission.review || '',
-    description: '',
-    studio: '',
-    episodes: '',
-    baikeUrl: '',
-    authorName: submission.author_name || '手账主理人',
-    createdAt: submission.created_at,
-    updatedAt: submission.updated_at,
-    rawSubmission: submission,
-  }
-}
 
 function getScoreTextClass(score) {
   if (score >= 9.9) {
@@ -310,10 +274,20 @@ function FeaturedColumn() {
                   </div>
 
                   <div className="flex min-w-0 flex-col p-5 sm:p-6">
-                    <p className="mb-4 inline-flex w-fit -rotate-1 items-center border-[3px] border-black bg-[#4ecdc4] px-3 py-1.5 text-xs font-black shadow-[4px_4px_0_#111]">
-                      <i className="fa-solid fa-pen-nib mr-2"></i>
-                      由 {item.authorName} 撰写
-                    </p>
+                    <div className="mb-4 flex w-fit -rotate-1 items-center gap-2 border-[3px] border-black bg-[#4ecdc4] p-1.5 pr-3 text-xs font-black shadow-[4px_4px_0_#111]">
+                      {item.authorAvatar ? (
+                        <img
+                          src={item.authorAvatar}
+                          alt={`${item.authorName}的头像`}
+                          className="h-9 w-9 border-2 border-black bg-white object-cover"
+                        />
+                      ) : (
+                        <span className="flex h-9 w-9 items-center justify-center border-2 border-black bg-white">
+                          <i className="fa-solid fa-user-pen"></i>
+                        </span>
+                      )}
+                      <span>由 {item.authorName} 撰写</span>
+                    </div>
 
                     <h2 className="text-2xl font-black leading-tight tracking-tight sm:text-3xl">
                       {item.title}
@@ -324,13 +298,14 @@ function FeaturedColumn() {
 
                     <div className="mt-4 grid grid-cols-[auto_1fr] items-center gap-3">
                       <span className="border-[3px] border-black bg-[#ffe66d] px-3 py-1 text-sm font-black shadow-[3px_3px_0_#111]">
-                        {item.rawSubmission.year || '年份待定'}
+                        {formatAiringPeriod(item.period)}
                       </span>
                       <div className="border-[3px] border-black bg-[#fff5ee] p-2 shadow-[3px_3px_0_#ff2f92]">
                         <div className="mb-1 flex items-center justify-between text-xs font-black">
                           <span>主观评分</span>
-                          <span className={`bg-white px-1.5 text-base ${getScoreTextClass(item.score)}`}>
-                            {item.score === null ? '待定' : item.score.toFixed(1)}
+                          <span className={`inline-flex items-center gap-1 bg-white px-1.5 text-base ${getScoreTextClass(item.score)}`}>
+                            <i className="fa-solid fa-star text-[11px]"></i>
+                            {item.score === null ? '待定' : `${item.score.toFixed(1)} / 10`}
                           </span>
                         </div>
                         <div className="h-3 overflow-hidden border-2 border-black bg-white">
@@ -342,7 +317,10 @@ function FeaturedColumn() {
                       </div>
                     </div>
 
-                    <p className="mt-5 line-clamp-[8] flex-1 border-l-[7px] border-black bg-[#fff5ee] px-4 py-3 text-sm font-bold leading-7 text-zinc-700">
+                    <p
+                      className="mt-5 max-h-[232px] min-h-[150px] flex-1 overflow-y-auto border-l-[7px] border-black bg-[#fff5ee] px-4 py-3 text-sm font-bold leading-7 text-zinc-700 custom-scrollbar"
+                      onClick={(event) => event.stopPropagation()}
+                    >
                       {item.review || '这位主理人暂时没有留下长评。'}
                     </p>
 
@@ -350,7 +328,7 @@ function FeaturedColumn() {
                       {item.tags.map((tag, tagIndex) => (
                         <span
                           key={tag}
-                          className={`memphis-sticker ${tagIndex % 2 ? 'rotate-1' : '-rotate-1'} rounded-full px-3 py-1 text-xs font-black ${getTagClass(tag)}`}
+                          className={`memphis-sticker ${tagIndex % 2 ? 'rotate-1' : '-rotate-1'} rounded-full px-3 py-1 text-xs font-black ${getTagClass(tag, item.tagColors?.[tag])}`}
                         >
                           {tag}
                         </span>
