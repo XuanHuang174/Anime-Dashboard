@@ -1016,6 +1016,29 @@ class FeaturedSubmissionViewSet(
             user=self.request.user,
         ).select_related("user")
 
+    @action(detail=False, methods=("get",), url_path="state")
+    def state(self, request):
+        profile, _created = UserProfile.objects.get_or_create(user=request.user)
+        actionable_statuses = (
+            FeaturedSubmission.AuditStatus.PENDING,
+            FeaturedSubmission.AuditStatus.APPROVED,
+            FeaturedSubmission.AuditStatus.REMOVAL_REQUESTED,
+        )
+        submissions = self.get_queryset().filter(
+            audit_status__in=actionable_statuses,
+        )
+        approved_count = submissions.filter(
+            audit_status=FeaturedSubmission.AuditStatus.APPROVED,
+        ).count()
+        return Response(
+            {
+                "max_featured_limit": profile.max_featured_limit,
+                "approved_count": approved_count,
+                "is_at_limit": approved_count >= profile.max_featured_limit,
+                "submissions": self.get_serializer(submissions, many=True).data,
+            }
+        )
+
     @action(
         detail=False,
         methods=("post",),
@@ -1062,6 +1085,7 @@ class FeaturedSubmissionViewSet(
         year_match = re.search(r"(?:19|20|21)\d{2}", anime.airing_period or "")
         snapshot = FeaturedSubmission(
             user=request.user,
+            source_anime=anime,
             chinese_title=anime.chinese_title,
             japanese_title=anime.japanese_title,
             year=int(year_match.group()) if year_match else None,
@@ -1094,6 +1118,28 @@ class FeaturedSubmissionViewSet(
             context=self.get_serializer_context(),
         )
         return Response(output_serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(
+        detail=True,
+        methods=("post",),
+        url_path="request-removal",
+    )
+    @transaction.atomic
+    def request_removal(self, request, pk=None):
+        submission = generics.get_object_or_404(
+            FeaturedSubmission.objects.select_for_update(),
+            pk=pk,
+            user=request.user,
+        )
+        if submission.audit_status != FeaturedSubmission.AuditStatus.APPROVED:
+            return Response(
+                {"detail": "只有已收录的精选专栏可以申请撤下。"},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        submission.audit_status = FeaturedSubmission.AuditStatus.REMOVAL_REQUESTED
+        submission.save(update_fields=("audit_status", "updated_at"))
+        return Response(self.get_serializer(submission).data)
 
 
 class UserNotificationViewSet(viewsets.ModelViewSet):

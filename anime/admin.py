@@ -134,6 +134,7 @@ class FeaturedSubmissionAdmin(admin.ModelAdmin):
     list_display = (
         "chinese_title",
         "user",
+        "source_anime",
         "year",
         "watch_status",
         "score",
@@ -149,7 +150,7 @@ class FeaturedSubmissionAdmin(admin.ModelAdmin):
         "user__email",
         "review",
     )
-    autocomplete_fields = ("user",)
+    autocomplete_fields = ("user", "source_anime")
     readonly_fields = ("created_at", "updated_at")
     list_select_related = ("user",)
 

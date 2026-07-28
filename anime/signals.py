@@ -2,10 +2,17 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 
 from django.conf import settings
-from django.db.models.signals import post_delete, post_save
+from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
 
-from .models import Anime, UserAnimeRecord, UserProfile, UserQuickFilter
+from .models import (
+    Anime,
+    FeaturedSubmission,
+    UserAnimeRecord,
+    UserNotification,
+    UserProfile,
+    UserQuickFilter,
+)
 
 
 DEFAULT_QUICK_FILTERS = (
@@ -43,6 +50,31 @@ def initialize_new_user(sender, instance, created, **kwargs):
         [UserQuickFilter(user=instance, **item) for item in DEFAULT_QUICK_FILTERS],
         ignore_conflicts=True,
     )
+
+
+@receiver(pre_save, sender=FeaturedSubmission)
+def remember_featured_audit_status(sender, instance, **kwargs):
+    if not instance.pk:
+        instance._previous_audit_status = None
+        return
+    instance._previous_audit_status = FeaturedSubmission.objects.filter(
+        pk=instance.pk,
+    ).values_list("audit_status", flat=True).first()
+
+
+@receiver(post_save, sender=FeaturedSubmission)
+def notify_featured_audit_result(sender, instance, created, **kwargs):
+    if created or getattr(instance, "_previous_audit_status", None) == instance.audit_status:
+        return
+
+    if instance.audit_status == FeaturedSubmission.AuditStatus.APPROVED:
+        message = f"恭喜，你对《{instance.chinese_title}》的番剧点评已被精选专栏收录。"
+    elif instance.audit_status == FeaturedSubmission.AuditStatus.REJECTED:
+        message = f"抱歉，你对《{instance.chinese_title}》的番剧点评未能入选精选专栏。"
+    else:
+        return
+
+    UserNotification.objects.create(user=instance.user, message=message)
 
 
 @receiver(post_delete, sender=UserAnimeRecord)

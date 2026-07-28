@@ -595,6 +595,26 @@ select {
   }
 }
 
+@keyframes featuredSelectedPop {
+  0%,
+  100% {
+    transform: rotate(2deg) translateY(0);
+  }
+  50% {
+    transform: rotate(-2deg) translateY(-4px);
+  }
+}
+
+.featured-selected-badge {
+  animation: featuredSelectedPop 1.8s steps(2, end) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .featured-selected-badge {
+    animation: none;
+  }
+}
+
 .memphis-anime-grid > .memphis-entry {
   border: 4px solid var(--memphis-ink) !important;
   border-radius: 0 !important;

@@ -20,6 +20,8 @@ function DetailModal({
   onRecordUpdated,
   onRecordDeleted,
   showToast,
+  featuredAction = null,
+  onFeaturedAction = null,
 }) {
   const [selectedItem, setSelectedItem] = useState(activeItem)
   const [formData, setFormData] = useState({ score: '', status: 'plan', review: '' })
@@ -253,6 +255,44 @@ function DetailModal({
   }
 
   const arcadeButtonClass = 'border-[3px] border-black bg-white px-4 py-1.5 text-xs font-black text-black shadow-[3px_3px_0_0_#111] transition-none hover:bg-[#ffe66d] active:translate-x-[3px] active:translate-y-[3px] active:shadow-none disabled:cursor-not-allowed disabled:opacity-50'
+  const featuredButton = {
+    default: {
+      label: '提交至精选专栏',
+      icon: 'fa-paper-plane',
+      className: 'bg-[#ff8fab] hover:bg-[#4ecdc4]',
+      disabled: false,
+    },
+    pending: {
+      label: '等待审核',
+      icon: 'fa-hourglass-half',
+      className: 'bg-[#ffe66d]',
+      disabled: true,
+    },
+    approved: {
+      label: '撤下专栏',
+      icon: 'fa-box-archive',
+      className: 'bg-[#ff6b6b] hover:bg-[#ff8fab]',
+      disabled: false,
+    },
+    removal_requested: {
+      label: '撤下申请处理中',
+      icon: 'fa-hourglass-half',
+      className: 'bg-[#ffe66d]',
+      disabled: true,
+    },
+    blocked: {
+      label: '已有申请处理中',
+      icon: 'fa-clock',
+      className: 'bg-[#ffe66d]',
+      disabled: true,
+    },
+    limit: {
+      label: '已达提交上限',
+      icon: 'fa-ban',
+      className: 'bg-zinc-300 text-zinc-600',
+      disabled: true,
+    },
+  }[featuredAction?.state || 'default']
 
   return (
     <div
@@ -277,6 +317,12 @@ function DetailModal({
         className="relative flex h-[calc(100dvh-1rem)] max-h-[860px] w-full max-w-4xl flex-col overflow-hidden border-4 border-black bg-[#fff5ee] shadow-[12px_12px_0_0_rgba(0,0,0,1)] sm:h-[calc(100dvh-2rem)]"
         onMouseDown={(event) => event.stopPropagation()}
       >
+        {!editable && featuredAction?.state === 'approved' && (
+          <span className="featured-selected-badge pointer-events-none absolute right-16 top-5 z-30 border-[3px] border-black bg-[#4ecdc4] px-3 py-1 text-xs font-black shadow-[3px_3px_0_#111]">
+            <i className="fa-solid fa-award mr-2"></i>
+            已入选
+          </span>
+        )}
         <div className="grid h-3 shrink-0 grid-cols-[1fr_0.7fr_1.2fr] border-b-4 border-black">
           <span className="bg-[#ff6b6b]" />
           <span className="border-x-4 border-black bg-[#ffe66d]" />
@@ -516,6 +562,18 @@ function DetailModal({
             >
               <i className={`fa-solid ${isDeleting ? 'fa-spinner animate-spin' : 'fa-trash-can'} mr-2`}></i>
               {isDeleting ? '删除中...' : '删除记录'}
+            </button>
+          ) : featuredAction ? (
+            <button
+              type="button"
+              onClick={() => onFeaturedAction?.(featuredAction)}
+              disabled={featuredButton.disabled || featuredAction.isProcessing || isClosing}
+              className={`${arcadeButtonClass} ${featuredButton.className}`}
+            >
+              <i className={`fa-solid ${
+                featuredAction.isProcessing ? 'fa-spinner animate-spin' : featuredButton.icon
+              } mr-2`}></i>
+              {featuredAction.isProcessing ? '处理中…' : featuredButton.label}
             </button>
           ) : <span />}
 

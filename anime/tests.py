@@ -1803,6 +1803,8 @@ class FeaturedColumnApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         submission = FeaturedSubmission.objects.get()
         self.assertEqual(submission.user, self.user)
+        self.assertEqual(submission.source_anime, self.anime)
+        self.assertEqual(response.data["source_anime_id"], self.anime.pk)
         self.assertEqual(
             submission.audit_status,
             FeaturedSubmission.AuditStatus.PENDING,
@@ -1842,6 +1844,33 @@ class FeaturedColumnApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(FeaturedSubmission.objects.count(), 1)
 
+    def test_state_endpoint_ignores_historical_rejections(self):
+        approved = FeaturedSubmission.objects.create(
+            user=self.user,
+            source_anime=self.anime,
+            chinese_title="已收录作品",
+            year=2025,
+            audit_status=FeaturedSubmission.AuditStatus.APPROVED,
+        )
+        FeaturedSubmission.objects.create(
+            user=self.user,
+            source_anime=self.anime,
+            chinese_title="历史拒绝记录",
+            year=2024,
+            audit_status=FeaturedSubmission.AuditStatus.REJECTED,
+        )
+
+        response = self.client.get(
+            reverse("anime_api:featured-submission-state"),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["max_featured_limit"], 3)
+        self.assertEqual(response.data["approved_count"], 1)
+        self.assertFalse(response.data["is_at_limit"])
+        self.assertEqual(len(response.data["submissions"]), 1)
+        self.assertEqual(response.data["submissions"][0]["id"], approved.pk)
+
     def test_submit_rejects_parallel_pending_or_removal_request(self):
         for audit_status in (
             FeaturedSubmission.AuditStatus.PENDING,
@@ -1864,6 +1893,64 @@ class FeaturedColumnApiTests(APITestCase):
 
                 self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
                 self.assertEqual(FeaturedSubmission.objects.count(), 1)
+
+    def test_approved_submission_can_be_changed_to_removal_requested(self):
+        submission = FeaturedSubmission.objects.create(
+            user=self.user,
+            source_anime=self.anime,
+            chinese_title=self.anime.chinese_title,
+            year=2026,
+            audit_status=FeaturedSubmission.AuditStatus.APPROVED,
+        )
+
+        response = self.client.post(
+            reverse(
+                "anime_api:featured-submission-request-removal",
+                kwargs={"pk": submission.pk},
+            ),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        submission.refresh_from_db()
+        self.assertEqual(
+            submission.audit_status,
+            FeaturedSubmission.AuditStatus.REMOVAL_REQUESTED,
+        )
+
+    def test_non_approved_submission_cannot_request_removal(self):
+        submission = FeaturedSubmission.objects.create(
+            user=self.user,
+            source_anime=self.anime,
+            chinese_title=self.anime.chinese_title,
+            year=2026,
+            audit_status=FeaturedSubmission.AuditStatus.PENDING,
+        )
+
+        response = self.client.post(
+            reverse(
+                "anime_api:featured-submission-request-removal",
+                kwargs={"pk": submission.pk},
+            ),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+
+    def test_audit_result_transition_creates_user_notification(self):
+        submission = FeaturedSubmission.objects.create(
+            user=self.user,
+            source_anime=self.anime,
+            chinese_title=self.anime.chinese_title,
+            year=2026,
+        )
+
+        submission.audit_status = FeaturedSubmission.AuditStatus.APPROVED
+        submission.save(update_fields=("audit_status", "updated_at"))
+
+        notification = UserNotification.objects.get(user=self.user)
+        self.assertIn("已被精选专栏收录", notification.message)
+        self.assertFalse(notification.is_read)
 
     def test_submission_detail_is_strictly_user_isolated(self):
         submission = FeaturedSubmission.objects.create(

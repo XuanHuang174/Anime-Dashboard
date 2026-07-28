@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -11,7 +11,9 @@ import BackToTop from '../components/BackToTop.jsx'
 import DashboardHeader from '../components/DashboardHeader.jsx'
 import DetailModal from '../components/DetailModal.jsx'
 import EditableDetailModal from '../components/EditableDetailModal.jsx'
+import FeaturedActionConfirmModal from '../components/FeaturedActionConfirmModal.jsx'
 import FilterBar from '../components/FilterBar.jsx'
+import MemphisToastStack from '../components/MemphisToastStack.jsx'
 import QuickFilterEditorModal from '../components/QuickFilterEditorModal.jsx'
 import {
   PageNavigation,
@@ -85,7 +87,7 @@ function Dashboard() {
   const [error, setError] = useState('')
   const [selectedItem, setSelectedItem] = useState(null)
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
-  const [toast, setToast] = useState(null)
+  const [toasts, setToasts] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
   const [tagFilter, setTagFilter] = useState('all')
   const [yearFilter, setYearFilter] = useState('all')
@@ -106,6 +108,11 @@ function Dashboard() {
   const [recordsRefreshKey, setRecordsRefreshKey] = useState(0)
   const [statsData, setStatsData] = useState(null)
   const [filterOptions, setFilterOptions] = useState({ tags: [], years: [] })
+  const [featuredSubmissions, setFeaturedSubmissions] = useState([])
+  const [featuredLimit, setFeaturedLimit] = useState(3)
+  const [featuredRefreshKey, setFeaturedRefreshKey] = useState(0)
+  const [featuredConfirmAction, setFeaturedConfirmAction] = useState(null)
+  const [isFeaturedActionProcessing, setIsFeaturedActionProcessing] = useState(false)
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('')
   const [lastLoadedPage, setLastLoadedPage] = useState(0)
   const [isHeaderEntranceComplete, setIsHeaderEntranceComplete] = useState(
@@ -122,6 +129,21 @@ function Dashboard() {
         sortOrder, typeFilter, activeCustomFilterId,
       ])
 
+  const showToast = useCallback((message, type = 'success') => {
+    setToasts((current) => [
+      ...current,
+      {
+        message,
+        type,
+        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      },
+    ])
+  }, [])
+
+  const dismissToast = useCallback((toastId) => {
+    setToasts((current) => current.filter((toast) => toast.id !== toastId))
+  }, [])
+
   useEffect(() => {
     if (window.innerWidth < 768) setView('grid')
   }, [])
@@ -134,12 +156,6 @@ function Dashboard() {
   useEffect(() => {
     if (pageSize !== 'all') setCurrentPage(1)
   }, [activeCustomFilterId, debouncedSearchQuery, pageSize, sortOrder, statusFilter, tagFilter, typeFilter, yearFilter])
-
-  useEffect(() => {
-    if (!toast) return undefined
-    const timer = window.setTimeout(() => setToast(null), 2600)
-    return () => window.clearTimeout(timer)
-  }, [toast])
 
   useEffect(() => {
     if (!isLogoutConfirmOpen) return undefined
@@ -226,6 +242,44 @@ function Dashboard() {
   }, [currentPage, location, navigate, pageSize, paginatedFilterKey, recordsRefreshKey])
 
   useEffect(() => {
+    const controller = new AbortController()
+
+    api.get('featured-submissions/state/', { signal: controller.signal })
+      .then((response) => {
+        setFeaturedSubmissions(response.data.submissions ?? [])
+        setFeaturedLimit(Number(response.data.max_featured_limit) || 0)
+      })
+      .catch((requestError) => {
+        if (requestError.code !== 'ERR_CANCELED') {
+          showToast('精选专栏状态加载失败，请稍后刷新重试。', 'error')
+        }
+      })
+
+    return () => controller.abort()
+  }, [featuredRefreshKey, showToast])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    api.get('notifications/poll/', { signal: controller.signal })
+      .then((response) => {
+        const notifications = Array.isArray(response.data) ? response.data : []
+        notifications.forEach((notification) => {
+          const isNegative = /抱歉|未能|失败|拒绝/.test(notification.message)
+          showToast(notification.message, isNegative ? 'error' : 'success')
+        })
+      })
+      .catch((requestError) => {
+        if (
+          requestError.code !== 'ERR_CANCELED'
+          && requestError.response?.status !== 401
+        ) {
+          showToast('站内通知读取失败，请稍后重试。', 'error')
+        }
+      })
+    return () => controller.abort()
+  }, [showToast])
+
+  useEffect(() => {
     if (lastLoadedPage !== currentPage || !shouldScrollAfterPageChange.current) return undefined
     const frame = window.requestAnimationFrame(() => {
       document.querySelector('#dashboardPaginationTop')?.scrollIntoView({
@@ -285,6 +339,54 @@ function Dashboard() {
       }
     })
   }, [activeCustomFilter, db, pageSize, searchQuery, sortOrder, statusFilter, tagFilter, typeFilter, yearFilter])
+
+  const approvedFeaturedCount = useMemo(
+    () => featuredSubmissions.filter(
+      (submission) => submission.audit_status === 'approved',
+    ).length,
+    [featuredSubmissions],
+  )
+  const featuredAction = useMemo(() => {
+    if (!selectedItem) return null
+
+    const relatedSubmissions = featuredSubmissions.filter(
+      (submission) => submission.source_anime_id === selectedItem.animeId,
+    )
+    const related = relatedSubmissions.find(
+      (submission) => submission.audit_status === 'pending',
+    ) || relatedSubmissions.find(
+      (submission) => submission.audit_status === 'removal_requested',
+    ) || relatedSubmissions.find(
+      (submission) => submission.audit_status === 'approved',
+    )
+
+    if (related?.audit_status === 'pending') {
+      return { state: 'pending', submission: related }
+    }
+    if (related?.audit_status === 'removal_requested') {
+      return { state: 'removal_requested', submission: related }
+    }
+    if (related?.audit_status === 'approved') {
+      return { state: 'approved', submission: related }
+    }
+
+    const hasProcessingSubmission = featuredSubmissions.some(
+      (submission) => (
+        submission.audit_status === 'pending'
+        || submission.audit_status === 'removal_requested'
+      ),
+    )
+    if (hasProcessingSubmission) return { state: 'blocked', submission: null }
+    if (approvedFeaturedCount >= featuredLimit) {
+      return { state: 'limit', submission: null }
+    }
+    return { state: 'default', submission: null }
+  }, [
+    approvedFeaturedCount,
+    featuredLimit,
+    featuredSubmissions,
+    selectedItem,
+  ])
 
   const visibleUnratedCount = filteredAnime.reduce(
     (count, item) => count + (item.score === null ? 1 : 0),
@@ -374,8 +476,70 @@ function Dashboard() {
     setActiveCustomFilterId((current) => current === filterId ? null : current)
   }
 
-  const showToast = (message, type = 'success') => {
-    setToast({ message, type, id: Date.now() })
+  const openFeaturedConfirmation = () => {
+    if (!selectedItem || !featuredAction) return
+    if (featuredAction.state === 'default') {
+      setFeaturedConfirmAction({
+        type: 'submit',
+        item: selectedItem,
+        submission: null,
+      })
+    } else if (featuredAction.state === 'approved') {
+      setFeaturedConfirmAction({
+        type: 'removal',
+        item: selectedItem,
+        submission: featuredAction.submission,
+      })
+    }
+  }
+
+  const performFeaturedAction = async (action) => {
+    setIsFeaturedActionProcessing(true)
+    try {
+      const response = action.type === 'submit'
+        ? await api.post('featured-submissions/submit/', {
+            anime_id: action.item.animeId,
+          })
+        : await api.post(
+            `featured-submissions/${action.submission.id}/request-removal/`,
+          )
+      const updatedSubmission = response.data
+      setFeaturedSubmissions((current) => {
+        const exists = current.some(
+          (submission) => submission.id === updatedSubmission.id,
+        )
+        return exists
+          ? current.map((submission) => (
+              submission.id === updatedSubmission.id
+                ? updatedSubmission
+                : submission
+            ))
+          : [updatedSubmission, ...current]
+      })
+      showToast(
+        action.type === 'submit'
+          ? '已提交，请留意后续结果。'
+          : '撤下申请已提交，请留意后续结果。',
+        'success',
+      )
+      return true
+    } catch (requestError) {
+      const detail = requestError.response?.data?.detail
+      showToast(
+        detail || (
+          action.type === 'submit'
+            ? '提交失败，请稍后重试。'
+            : '撤下申请失败，请稍后重试。'
+        ),
+        'error',
+      )
+      if ([403, 409].includes(requestError.response?.status)) {
+        setFeaturedRefreshKey((key) => key + 1)
+      }
+      return false
+    } finally {
+      setIsFeaturedActionProcessing(false)
+    }
   }
 
   const togglePreviewMode = () => {
@@ -634,6 +798,11 @@ function Dashboard() {
         <DetailModal
           selectedItem={selectedItem}
           closeModal={() => setSelectedItem(null)}
+          featuredAction={featuredAction ? {
+            ...featuredAction,
+            isProcessing: isFeaturedActionProcessing,
+          } : null}
+          onFeaturedAction={openFeaturedConfirmation}
         />
       ) : (
         <EditableDetailModal
@@ -644,6 +813,11 @@ function Dashboard() {
           showToast={showToast}
         />
       )}
+      <FeaturedActionConfirmModal
+        action={featuredConfirmAction}
+        onClose={() => setFeaturedConfirmAction(null)}
+        onConfirm={performFeaturedAction}
+      />
       <AddAnimeModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
@@ -688,18 +862,11 @@ function Dashboard() {
           </section>
         </div>
       )}
-      <BackToTop isModalOpen={Boolean(selectedItem) || isLogoutConfirmOpen} theme="memphis" />
-
-      {toast && (
-        <div
-          key={toast.id}
-          role="status"
-          className={`fixed bottom-6 right-6 z-[200] flex max-w-sm items-center gap-3 border-[3px] border-black px-5 py-4 font-black text-black shadow-[6px_6px_0_#111] animate-[parallaxReveal_0.25s_ease-out_forwards] ${toast.type === 'error' ? 'bg-[#ff6b6b]' : 'bg-[#4ecdc4]'}`}
-        >
-          <i className={`fa-solid ${toast.type === 'error' ? 'fa-circle-exclamation' : 'fa-circle-check'} text-lg`}></i>
-          {toast.message}
-        </div>
-      )}
+      <BackToTop
+        isModalOpen={Boolean(selectedItem) || isLogoutConfirmOpen || Boolean(featuredConfirmAction)}
+        theme="memphis"
+      />
+      <MemphisToastStack toasts={toasts} onDismiss={dismissToast} />
     </main>
   )
 }

@@ -561,6 +561,7 @@ class FeaturedSubmissionSerializer(serializers.ModelSerializer):
     """User-facing featured submission data; audit decisions are server-owned."""
 
     user = serializers.CharField(source="user.username", read_only=True)
+    source_anime_id = serializers.IntegerField(read_only=True)
     tags = JsonStringListField(required=False)
     poster = serializers.ImageField(required=False, allow_null=True)
     watch_status_display = serializers.CharField(
@@ -577,6 +578,7 @@ class FeaturedSubmissionSerializer(serializers.ModelSerializer):
         fields = (
             "id",
             "user",
+            "source_anime_id",
             "chinese_title",
             "japanese_title",
             "year",
@@ -595,6 +597,7 @@ class FeaturedSubmissionSerializer(serializers.ModelSerializer):
         read_only_fields = (
             "id",
             "user",
+            "source_anime_id",
             "audit_status",
             "audit_status_display",
             "created_at",

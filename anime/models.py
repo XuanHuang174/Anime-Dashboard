@@ -288,6 +288,16 @@ class FeaturedSubmission(models.Model):
         related_name="featured_submissions",
         db_index=True,
     )
+    source_anime = models.ForeignKey(
+        Anime,
+        verbose_name="来源番剧",
+        on_delete=models.SET_NULL,
+        related_name="featured_submissions",
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="仅用于关联用户手账中的原番剧；专栏展示内容仍使用独立快照。",
+    )
     chinese_title = models.CharField("中文名", max_length=200, db_index=True)
     japanese_title = models.CharField("日文名", max_length=200, blank=True)
     year = models.PositiveSmallIntegerField(
