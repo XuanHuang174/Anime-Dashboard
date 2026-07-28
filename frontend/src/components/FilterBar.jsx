@@ -39,6 +39,7 @@ function FilterBar({
   availableTags = null,
   availableYears = null,
   enablePosterViewHint = true,
+  showViewToggle = true,
   theme = 'default',
 }) {
   const [isMobileOpen, setIsMobileOpen] = useState(false)
@@ -286,33 +287,35 @@ function FilterBar({
           </div>
 
           <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end mt-2 md:mt-0">
-            <div
-              id="viewToggleGroup"
-              className={`relative bg-slate-100/80 p-1 rounded-xl flex gap-1 shadow-inner border ${shouldShowViewHint ? 'border-indigo-200/80 ring-2 ring-indigo-500/20' : 'border-slate-200/50'} transition-all duration-500`}
-              onClick={dismissViewHint}
-            >
-              <button
-                id="btnViewList"
-                type="button"
-                onClick={() => switchView('list')}
-                className={view === 'list' ? activeViewClass : inactiveViewClass}
+            {showViewToggle && (
+              <div
+                id="viewToggleGroup"
+                className={`relative bg-slate-100/80 p-1 rounded-xl flex gap-1 shadow-inner border ${shouldShowViewHint ? 'border-indigo-200/80 ring-2 ring-indigo-500/20' : 'border-slate-200/50'} transition-all duration-500`}
+                onClick={dismissViewHint}
               >
-                <i className="fa-solid fa-list-ul"></i> 列表
-              </button>
-              <button
-                id="btnViewGrid"
-                type="button"
-                onClick={() => switchView('grid')}
-                className={`relative ${view === 'grid' ? activeViewClass : inactiveViewClass}`}
-              >
-                <i className="fa-solid fa-border-all"></i> 海报墙
-                {shouldShowViewHint && (
-                  <span className="memphis-view-hint pointer-events-none absolute -right-2 -top-4 border-2 border-black bg-[#ffe66d] px-1.5 py-0.5 text-[8px] font-black leading-none text-black shadow-[2px_2px_0_#111]">
-                    试试
-                  </span>
-                )}
-              </button>
-            </div>
+                <button
+                  id="btnViewList"
+                  type="button"
+                  onClick={() => switchView('list')}
+                  className={view === 'list' ? activeViewClass : inactiveViewClass}
+                >
+                  <i className="fa-solid fa-list-ul"></i> 列表
+                </button>
+                <button
+                  id="btnViewGrid"
+                  type="button"
+                  onClick={() => switchView('grid')}
+                  className={`relative ${view === 'grid' ? activeViewClass : inactiveViewClass}`}
+                >
+                  <i className="fa-solid fa-border-all"></i> 海报墙
+                  {shouldShowViewHint && (
+                    <span className="memphis-view-hint pointer-events-none absolute -right-2 -top-4 border-2 border-black bg-[#ffe66d] px-1.5 py-0.5 text-[8px] font-black leading-none text-black shadow-[2px_2px_0_#111]">
+                      试试
+                    </span>
+                  )}
+                </button>
+              </div>
+            )}
 
             <div className="memphis-filter-result flex items-center gap-1.5 rounded-xl border-b border-b-white border-t-2 border-t-slate-200/50 bg-slate-100/80 px-3.5 py-1.5 text-xs font-medium text-slate-500 shadow-[inset_0_2px_5px_rgba(0,0,0,0.06)] transition-all">
               <i className="fa-solid fa-chart-pie text-slate-400"></i> 已筛选出

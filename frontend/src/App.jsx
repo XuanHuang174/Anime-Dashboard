@@ -374,7 +374,10 @@ function App() {
       <div className="memphis-float-ring pointer-events-none absolute right-[-54px] top-[34rem] z-0 h-32 w-32 rounded-full border-[18px] border-black bg-[#4ecdc4]" aria-hidden="true" />
       <div className="memphis-float-triangle pointer-events-none absolute left-[-32px] top-[52rem] z-0 h-0 w-0" aria-hidden="true" />
       <div className="memphis-float-zigzag pointer-events-none absolute bottom-24 right-0 z-0 h-16 w-44" aria-hidden="true" />
-      <Header onGetStarted={handleGetStarted} />
+      <Header
+        onGetStarted={handleGetStarted}
+        onViewFeatured={() => navigate('/featured')}
+      />
 
       <div className="relative z-20 mx-auto -mt-6 max-w-7xl px-4 sm:px-6 lg:px-8">
         <StatsSummary db={db} statsData={statsData} theme="memphis" />
