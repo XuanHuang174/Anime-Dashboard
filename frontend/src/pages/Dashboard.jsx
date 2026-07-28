@@ -806,6 +806,7 @@ function Dashboard() {
         />
       ) : (
         <EditableDetailModal
+          key={selectedItem?.id ?? 'closed-edit-modal'}
           selectedItem={selectedItem}
           closeModal={() => setSelectedItem(null)}
           onRecordUpdated={handleRecordUpdated}

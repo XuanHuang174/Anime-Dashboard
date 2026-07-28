@@ -84,6 +84,8 @@ function EditableDetailModal({
     setFormData(createForm(selectedItem))
     setPosterFile(null)
     setNewTag('')
+    setIsSaving(false)
+    setIsDeleting(false)
     setError('')
     setActiveTextPanel('description')
     if (posterInputRef.current) posterInputRef.current.value = ''
@@ -332,7 +334,10 @@ function EditableDetailModal({
     try {
       await api.delete(`records/${renderedItem.id}/`)
       showToast('私人追番记录及其精选专栏内容已同步删除。', 'success')
-      playExit(() => onRecordDeleted(renderedItem.id))
+      playExit(() => {
+        setIsDeleting(false)
+        onRecordDeleted(renderedItem.id)
+      })
     } catch {
       setError('删除失败，请稍后重试。')
       showToast('删除失败，请稍后重试。', 'error')
