@@ -120,18 +120,18 @@ function PublicUniverse() {
     const rightPanel = '.universe-crash-right'
     const artwork = '.universe-pop-art'
     const headerItems = '.universe-header-reveal'
-    const contentStage = '.universe-content-stage'
+    const signalStage = '.universe-signal-stage'
 
     if (reduceMotion) {
       gsap.set(
-        [leftPanel, rightPanel, artwork, headerItems, contentStage],
+        [leftPanel, rightPanel, artwork, headerItems, signalStage],
         { clearProps: 'all' },
       )
       setIsPageIntroComplete(true)
       return undefined
     }
 
-    gsap.set([leftPanel, rightPanel, artwork, contentStage], {
+    gsap.set([leftPanel, rightPanel, artwork, signalStage], {
       willChange: 'transform, opacity',
     })
 
@@ -139,7 +139,7 @@ function PublicUniverse() {
       defaults: { force3D: true },
       onComplete: () => {
         gsap.set(
-          [leftPanel, rightPanel, artwork, headerItems, contentStage],
+          [leftPanel, rightPanel, artwork, headerItems, signalStage],
           {
             clearProps: 'transform,opacity,visibility,willChange',
           },
@@ -189,7 +189,7 @@ function PublicUniverse() {
         0.43,
       )
       .fromTo(
-        contentStage,
+        signalStage,
         { autoAlpha: 0, y: 150 },
         {
           autoAlpha: 1,
@@ -212,9 +212,10 @@ function PublicUniverse() {
     ) {
       return undefined
     }
+    hasAnimatedCards.current = true
+
     const cards = gsap.utils.toArray('.public-universe-card')
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      hasAnimatedCards.current = true
       gsap.set(cards, { clearProps: 'all' })
       return undefined
     }
@@ -232,7 +233,6 @@ function PublicUniverse() {
         stagger: 0.1,
         ease: 'back.out(1.5)',
         onComplete: () => {
-          hasAnimatedCards.current = true
           gsap.set(cards, {
             clearProps: 'transform,opacity,visibility,willChange',
           })
@@ -324,52 +324,56 @@ function PublicUniverse() {
         </div>
       </header>
 
-      <section className="universe-content-stage relative z-10 mx-auto max-w-[1500px] px-4 py-9 sm:px-6 lg:px-8">
-        <div className="mb-7 flex flex-wrap items-end justify-between gap-4 border-b-4 border-black pb-4">
-          <div>
-            <span className="inline-flex border-2 border-black bg-[#4ecdc4] px-3 py-1 text-xs font-black uppercase tracking-[0.16em] shadow-[3px_3px_0_#111]">
-              LIVE SIGNALS
+      <section className="relative z-10 mx-auto max-w-[1500px] px-4 py-9 sm:px-6 lg:px-8">
+        <div className="universe-signal-stage">
+          <div className="mb-7 flex flex-wrap items-end justify-between gap-4 border-b-4 border-black pb-4">
+            <div>
+              <span className="inline-flex border-2 border-black bg-[#4ecdc4] px-3 py-1 text-xs font-black uppercase tracking-[0.16em] shadow-[3px_3px_0_#111]">
+                LIVE SIGNALS
+              </span>
+              <h2 className="mt-3 text-3xl font-black sm:text-4xl">公开手账信号</h2>
+            </div>
+            <span className="border-4 border-black bg-[#ffe66d] px-4 py-2 text-sm font-black shadow-[4px_4px_0_#111]">
+              <i className="fa-solid fa-users-viewfinder mr-2" />
+              {isLoading ? '正在扫描…' : `${profiles.length} 位同好`}
             </span>
-            <h2 className="mt-3 text-3xl font-black sm:text-4xl">公开手账信号</h2>
           </div>
-          <span className="border-4 border-black bg-[#ffe66d] px-4 py-2 text-sm font-black shadow-[4px_4px_0_#111]">
-            <i className="fa-solid fa-users-viewfinder mr-2" />
-            {isLoading ? '正在扫描…' : `${profiles.length} 位同好`}
-          </span>
+
+          {loadError && (
+            <div role="alert" className="border-4 border-black bg-[#ff6b6b] px-6 py-8 text-center text-lg font-black shadow-[8px_8px_0_#111]">
+              <i className="fa-solid fa-triangle-exclamation mr-2" />
+              {loadError}
+            </div>
+          )}
+
+          {!loadError && isLoading && (
+            <div className="border-4 border-black bg-white px-6 py-12 text-center font-black shadow-[8px_8px_0_#4ecdc4]">
+              <i className="fa-solid fa-satellite-dish mr-3 animate-pulse text-2xl text-[#ff2f92]" />
+              正在接收公开手账信号…
+            </div>
+          )}
+
+          {!loadError && !isLoading && profiles.length === 0 && (
+            <div className="relative overflow-hidden border-4 border-black bg-white px-6 py-14 text-center shadow-[9px_9px_0_#ff8fab]">
+              <span className="mx-auto flex h-20 w-20 -rotate-3 items-center justify-center border-4 border-black bg-[#ffe66d] text-3xl shadow-[6px_6px_0_#111]">
+                <i className="fa-solid fa-user-astronaut" />
+              </span>
+              <h3 className="mt-6 text-2xl font-black">
+                {searchQuery ? '没有捕捉到这个用户名' : '共创宇宙正在等待首位同好'}
+              </h3>
+              <p className="mx-auto mt-3 max-w-xl border-2 border-black bg-[#fff5ee] px-4 py-2 text-sm font-bold text-zinc-600 shadow-[3px_3px_0_#4ecdc4]">
+                {searchQuery
+                  ? '请输入完整用户名重新搜索；这里只匹配账号，不匹配昵称。'
+                  : '通过审核并主动公开后，用户的手账卡片会出现在这里。'}
+              </p>
+            </div>
+          )}
         </div>
 
-        {loadError && (
-          <div role="alert" className="border-4 border-black bg-[#ff6b6b] px-6 py-8 text-center text-lg font-black shadow-[8px_8px_0_#111]">
-            <i className="fa-solid fa-triangle-exclamation mr-2" />
-            {loadError}
-          </div>
-        )}
-
-        {!loadError && isLoading && (
-          <div className="border-4 border-black bg-white px-6 py-12 text-center font-black shadow-[8px_8px_0_#4ecdc4]">
-            <i className="fa-solid fa-satellite-dish mr-3 animate-pulse text-2xl text-[#ff2f92]" />
-            正在接收公开手账信号…
-          </div>
-        )}
-
-        {!loadError && !isLoading && profiles.length === 0 && (
-          <div className="relative overflow-hidden border-4 border-black bg-white px-6 py-14 text-center shadow-[9px_9px_0_#ff8fab]">
-            <span className="mx-auto flex h-20 w-20 -rotate-3 items-center justify-center border-4 border-black bg-[#ffe66d] text-3xl shadow-[6px_6px_0_#111]">
-              <i className="fa-solid fa-user-astronaut" />
-            </span>
-            <h3 className="mt-6 text-2xl font-black">
-              {searchQuery ? '没有捕捉到这个用户名' : '共创宇宙正在等待首位同好'}
-            </h3>
-            <p className="mx-auto mt-3 max-w-xl border-2 border-black bg-[#fff5ee] px-4 py-2 text-sm font-bold text-zinc-600 shadow-[3px_3px_0_#4ecdc4]">
-              {searchQuery
-                ? '请输入完整用户名重新搜索；这里只匹配账号，不匹配昵称。'
-                : '通过审核并主动公开后，用户的手账卡片会出现在这里。'}
-            </p>
-          </div>
-        )}
-
         <div ref={cardsRef} className="grid grid-cols-1 gap-9 lg:grid-cols-2">
-          {!isLoading && profiles.map((profile, profileIndex) => {
+          {isPageIntroComplete
+            && !isLoading
+            && profiles.map((profile, profileIndex) => {
             const displayName = profile.nickname?.trim() || profile.username
             const posters = profile.top_anime_poster_urls ?? []
             return (
