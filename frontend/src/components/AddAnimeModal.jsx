@@ -686,7 +686,20 @@ function AddAnimeModal({
               )}
               {searchError && <p role="alert" className="mt-5 border-[3px] border-black bg-[#ff6b6b] px-4 py-3 text-sm font-black shadow-[4px_4px_0_#111]">{searchError}</p>}
               {query.trim() && !isSearching && !searchError && results.length === 0 && (
-                <div className="py-12 text-center"><i className="fa-solid fa-face-frown-open text-4xl"></i><p className="mt-3 text-sm font-black">没有找到匹配的番剧</p></div>
+                <div className="add-modal-piece relative my-5 overflow-hidden border-4 border-black bg-[#fff5ee] px-5 py-10 text-center shadow-[7px_7px_0_#4ecdc4]">
+                  <span className="absolute -left-8 -top-8 h-20 w-20 rotate-12 border-4 border-black bg-[#ff8fab]" aria-hidden="true"></span>
+                  <span className="absolute -bottom-9 -right-6 h-24 w-24 rounded-full border-4 border-black bg-[#ffe66d]" aria-hidden="true"></span>
+                  <span className="relative mx-auto flex h-20 w-20 -rotate-3 items-center justify-center border-4 border-black bg-white text-3xl text-black shadow-[6px_6px_0_#ff6b6b]">
+                    <i className="fa-solid fa-magnifying-glass-minus"></i>
+                  </span>
+                  <span className="relative mt-6 inline-flex rotate-1 border-2 border-black bg-[#ff8fab] px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] shadow-[3px_3px_0_#111]">
+                    NO MATCH
+                  </span>
+                  <p className="relative mt-4 text-xl font-black text-black">轩皇的番剧库中没有匹配结果</p>
+                  <p className="relative mx-auto mt-3 max-w-lg border-2 border-black bg-white px-4 py-2 text-xs font-bold leading-6 text-zinc-600 shadow-[3px_3px_0_#ffe66d]">
+                    换一个番名、制作公司或季度试试，也可以切换到“智能录入新番”创建自己的记录。
+                  </p>
+                </div>
               )}
 
               <div className="mt-5 grid gap-3 sm:grid-cols-2">

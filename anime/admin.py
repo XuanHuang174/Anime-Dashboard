@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib import admin
 
 from .models import (
@@ -73,6 +74,18 @@ class AnimeAdmin(admin.ModelAdmin):
         ),
         ("系统信息", {"fields": ("created_at", "updated_at"), "classes": ("collapse",)}),
     )
+
+    def get_queryset(self, request):
+        """Treat the admin library as the configured showcase owner's catalog."""
+
+        return (
+            super()
+            .get_queryset(request)
+            .filter(
+                user_records__user__username=settings.PUBLIC_SHOWCASE_USERNAME,
+            )
+            .distinct()
+        )
 
 
 @admin.register(UserAnimeRecord)
