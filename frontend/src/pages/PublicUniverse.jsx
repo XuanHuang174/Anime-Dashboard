@@ -4,10 +4,14 @@ import gsap from 'gsap'
 import { useNavigate } from 'react-router-dom'
 import api from '../api/api.js'
 import BackToTop from '../components/BackToTop.jsx'
+import P5PopArtwork from '../components/P5PopArtwork.jsx'
 
 gsap.registerPlugin(useGSAP)
 
 let hasPlayedUniverseEntrance = false
+let hasPlayedUniverseCrash = false
+
+const UNIVERSE_CHARACTER_URL = 'https://api.dicebear.com/9.x/notionists/png?seed=UsagiOrbit&backgroundColor=transparent&size=700'
 
 const STAT_BLOCKS = [
   {
@@ -67,6 +71,9 @@ function PublicUniverse() {
   const pageRef = useRef(null)
   const cardsRef = useRef(null)
   const hasAnimatedCards = useRef(hasPlayedUniverseEntrance)
+  const [isPageIntroComplete, setIsPageIntroComplete] = useState(
+    hasPlayedUniverseCrash,
+  )
   const [searchInput, setSearchInput] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [profiles, setProfiles] = useState([])
@@ -111,8 +118,102 @@ function PublicUniverse() {
   }, [searchQuery])
 
   useGSAP(() => {
+    const reduceMotion = window.matchMedia(
+      '(prefers-reduced-motion: reduce)',
+    ).matches
+    const leftPanel = '.universe-crash-left'
+    const rightPanel = '.universe-crash-right'
+    const artwork = '.universe-pop-art'
+    const headerItems = '.universe-header-reveal'
+    const contentStage = '.universe-content-stage'
+
+    if (hasPlayedUniverseCrash || reduceMotion) {
+      hasPlayedUniverseCrash = true
+      gsap.set(
+        [leftPanel, rightPanel, artwork, headerItems, contentStage],
+        { clearProps: 'all' },
+      )
+      setIsPageIntroComplete(true)
+      return undefined
+    }
+
+    hasPlayedUniverseCrash = true
+    gsap.set([leftPanel, rightPanel, artwork, contentStage], {
+      willChange: 'transform, opacity',
+    })
+
+    const timeline = gsap.timeline({
+      defaults: { force3D: true },
+      onComplete: () => {
+        gsap.set(
+          [leftPanel, rightPanel, artwork, headerItems, contentStage],
+          {
+            clearProps: 'transform,opacity,visibility,willChange',
+          },
+        )
+        setIsPageIntroComplete(true)
+      },
+    })
+
+    timeline
+      .fromTo(
+        leftPanel,
+        { xPercent: -100 },
+        { xPercent: 0, duration: 0.48, ease: 'power4.out' },
+        0,
+      )
+      .fromTo(
+        rightPanel,
+        { xPercent: 100 },
+        { xPercent: 0, duration: 0.48, ease: 'power4.out' },
+        0,
+      )
+      .fromTo(
+        artwork,
+        { autoAlpha: 0, scale: 0.2, rotation: 30, x: 90, y: 24 },
+        {
+          autoAlpha: 1,
+          scale: 1,
+          rotation: 0,
+          x: 0,
+          y: 0,
+          duration: 0.64,
+          ease: 'back.out(2)',
+        },
+        0.34,
+      )
+      .fromTo(
+        headerItems,
+        { autoAlpha: 0, y: 46, rotation: 1.5 },
+        {
+          autoAlpha: 1,
+          y: 0,
+          rotation: 0,
+          duration: 0.34,
+          stagger: 0.045,
+          ease: 'back.out(1.7)',
+        },
+        0.43,
+      )
+      .fromTo(
+        contentStage,
+        { autoAlpha: 0, y: 150 },
+        {
+          autoAlpha: 1,
+          y: 0,
+          duration: 0.46,
+          ease: 'back.out(1.45)',
+        },
+        0.72,
+      )
+
+    return () => timeline.kill()
+  }, { scope: pageRef })
+
+  useGSAP(() => {
     if (
       isLoading
+      || !isPageIntroComplete
       || hasAnimatedCards.current
       || profiles.length === 0
     ) {
@@ -130,7 +231,7 @@ function PublicUniverse() {
     gsap.set(cards, { willChange: 'transform, opacity' })
     const animation = gsap.fromTo(
       cards,
-      { y: 72, scale: 0.88, rotation: -2, autoAlpha: 0 },
+      { y: 150, scale: 0.88, rotation: -2, autoAlpha: 0 },
       {
         y: 0,
         scale: 1,
@@ -149,7 +250,7 @@ function PublicUniverse() {
     return () => animation.kill()
   }, {
     scope: cardsRef,
-    dependencies: [isLoading, profiles.length],
+    dependencies: [isLoading, profiles.length, isPageIntroComplete],
   })
 
   const openJournal = (username) => {
@@ -165,36 +266,40 @@ function PublicUniverse() {
       <div className="pointer-events-none absolute -left-12 top-[45rem] h-36 w-36 rotate-12 border-4 border-black bg-[#ff8fab] shadow-[8px_8px_0_#111]" aria-hidden="true" />
       <div className="pointer-events-none absolute -right-14 top-[57rem] h-40 w-40 rounded-full border-[18px] border-black bg-[#4ecdc4] shadow-[8px_8px_0_#ffe66d]" aria-hidden="true" />
 
-      <header className="relative z-10 overflow-hidden border-b-4 border-black bg-[#ffe66d]">
-        <div className="absolute inset-y-0 right-0 w-[46%] -skew-x-12 border-l-4 border-black bg-[#ff2f92]" aria-hidden="true" />
-        <div className="absolute -right-10 -top-14 h-48 w-48 rounded-full border-[16px] border-black bg-[#4ecdc4] shadow-[8px_8px_0_#111]" aria-hidden="true">
-          <i className="fa-solid fa-earth-asia absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rotate-12 text-7xl" />
-        </div>
-        <div className="absolute bottom-5 right-[31%] h-16 w-16 rotate-12 border-4 border-black bg-white shadow-[5px_5px_0_#111]" aria-hidden="true" />
+      <header className="relative z-10 overflow-visible border-b-4 border-black">
+        <div className="universe-crash-left absolute inset-0 bg-[#ffe66d]" aria-hidden="true" />
+        <div className="universe-crash-right absolute inset-y-0 right-0 w-[46%] -skew-x-12 border-l-4 border-black bg-[#ff2f92]" aria-hidden="true" />
+        <div className="universe-crash-right absolute right-[31%] top-9 h-16 w-16 rotate-12 border-4 border-black bg-white shadow-[5px_5px_0_#111]" aria-hidden="true" />
+        <P5PopArtwork
+          src={UNIVERSE_CHARACTER_URL}
+          alt="番剧共创宇宙波普人物占位立绘"
+          eyebrow="COSMIC CUT-IN!"
+          className="universe-pop-art -bottom-7 right-[1.5%] h-[108%] w-[34%]"
+        />
 
         <div className="relative mx-auto max-w-[1500px] px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
           <button
             type="button"
             onClick={() => navigate('/')}
-            className="mb-7 inline-flex items-center gap-2 rounded-full border-4 border-black bg-white px-5 py-2.5 text-sm font-black shadow-[5px_5px_0_#111] active:translate-x-[5px] active:translate-y-[5px] active:shadow-none"
+            className="universe-header-reveal mb-7 inline-flex items-center gap-2 rounded-full border-4 border-black bg-white px-5 py-2.5 text-sm font-black shadow-[5px_5px_0_#111] active:translate-x-[5px] active:translate-y-[5px] active:shadow-none"
           >
             <i className="fa-solid fa-arrow-left" />
             返回展示主界面
           </button>
 
-          <div className="max-w-5xl">
-            <span className="inline-flex -rotate-2 border-[3px] border-black bg-[#4ecdc4] px-4 py-1.5 text-xs font-black uppercase tracking-[0.2em] shadow-[4px_4px_0_#111]">
+          <div className="max-w-5xl lg:max-w-[65%]">
+            <span className="universe-header-reveal inline-flex -rotate-2 border-[3px] border-black bg-[#4ecdc4] px-4 py-1.5 text-xs font-black uppercase tracking-[0.2em] shadow-[4px_4px_0_#111]">
               PUBLIC JOURNAL / LIVE UNIVERSE
             </span>
-            <h1 className="mt-5 flex flex-wrap items-end gap-3 text-5xl font-black tracking-[-0.065em] sm:text-7xl lg:text-8xl">
+            <h1 className="universe-header-reveal mt-5 flex flex-wrap items-end gap-3 text-5xl font-black tracking-[-0.065em] sm:text-7xl lg:text-8xl">
               <span className="border-4 border-black bg-black px-4 py-2 text-white">番剧共创</span>
               <span className="-rotate-1 border-4 border-black bg-white px-4 py-2 shadow-[9px_9px_0_#111]">宇宙</span>
             </h1>
-            <p className="mt-6 max-w-3xl border-l-[10px] border-black bg-[#ff8fab] px-5 py-3 text-sm font-black leading-7 shadow-[6px_6px_0_#111] sm:text-base">
+            <p className="universe-header-reveal mt-6 max-w-3xl border-l-[10px] border-black bg-[#ff8fab] px-5 py-3 text-sm font-black leading-7 shadow-[6px_6px_0_#111] sm:text-base">
               穿过各位同好们的观看轨道，发现真实同步、持续生长的私人番剧宇宙。
             </p>
 
-            <label className="mt-8 block max-w-3xl">
+            <label className="universe-header-reveal mt-8 block max-w-3xl">
               <span className="mb-2 inline-flex border-2 border-black bg-black px-3 py-1 text-xs font-black tracking-[0.13em] text-white">
                 <i className="fa-solid fa-satellite-dish mr-2" />
                 精确定位用户名
@@ -227,7 +332,7 @@ function PublicUniverse() {
         </div>
       </header>
 
-      <section className="relative z-10 mx-auto max-w-[1500px] px-4 py-9 sm:px-6 lg:px-8">
+      <section className="universe-content-stage relative z-10 mx-auto max-w-[1500px] px-4 py-9 sm:px-6 lg:px-8">
         <div className="mb-7 flex flex-wrap items-end justify-between gap-4 border-b-4 border-black pb-4">
           <div>
             <span className="inline-flex border-2 border-black bg-[#4ecdc4] px-3 py-1 text-xs font-black uppercase tracking-[0.16em] shadow-[3px_3px_0_#111]">

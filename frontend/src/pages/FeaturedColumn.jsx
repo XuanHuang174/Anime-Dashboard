@@ -6,6 +6,7 @@ import api from '../api/api.js'
 import BackToTop from '../components/BackToTop.jsx'
 import DetailModal from '../components/DetailModal.jsx'
 import FilterBar from '../components/FilterBar.jsx'
+import P5PopArtwork from '../components/P5PopArtwork.jsx'
 import {
   comparePeriod,
   getCoverSrc,
@@ -20,6 +21,9 @@ import { matchesCustomQuickFilter } from '../utils/quickFilter.js'
 gsap.registerPlugin(useGSAP)
 
 let hasPlayedFeaturedEntrance = false
+let hasPlayedFeaturedCrash = false
+
+const FEATURED_CHARACTER_URL = 'https://api.dicebear.com/9.x/notionists/png?seed=ColumnMuse&backgroundColor=transparent&size=700'
 
 function getScoreTextClass(score) {
   if (score >= 9.9) {
@@ -35,6 +39,9 @@ function FeaturedColumn() {
   const pageRef = useRef(null)
   const cardsRef = useRef(null)
   const hasAnimatedCards = useRef(hasPlayedFeaturedEntrance)
+  const [isPageIntroComplete, setIsPageIntroComplete] = useState(
+    hasPlayedFeaturedCrash,
+  )
   const [db, setDb] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -152,7 +159,105 @@ function FeaturedColumn() {
   ])
 
   useGSAP(() => {
-    if (isLoading || hasAnimatedCards.current || !filteredColumns.length) return undefined
+    const reduceMotion = window.matchMedia(
+      '(prefers-reduced-motion: reduce)',
+    ).matches
+    const leftPanel = '.featured-crash-left'
+    const rightPanel = '.featured-crash-right'
+    const artwork = '.featured-pop-art'
+    const headerItems = '.featured-header-reveal'
+    const contentStage = '.featured-content-stage'
+
+    if (hasPlayedFeaturedCrash || reduceMotion) {
+      hasPlayedFeaturedCrash = true
+      gsap.set(
+        [leftPanel, rightPanel, artwork, headerItems, contentStage],
+        { clearProps: 'all' },
+      )
+      setIsPageIntroComplete(true)
+      return undefined
+    }
+
+    hasPlayedFeaturedCrash = true
+    gsap.set([leftPanel, rightPanel, artwork, contentStage], {
+      willChange: 'transform, opacity',
+    })
+
+    const timeline = gsap.timeline({
+      defaults: { force3D: true },
+      onComplete: () => {
+        gsap.set(
+          [leftPanel, rightPanel, artwork, headerItems, contentStage],
+          {
+            clearProps: 'transform,opacity,visibility,willChange',
+          },
+        )
+        setIsPageIntroComplete(true)
+      },
+    })
+
+    timeline
+      .fromTo(
+        leftPanel,
+        { xPercent: -100 },
+        { xPercent: 0, duration: 0.48, ease: 'power4.out' },
+        0,
+      )
+      .fromTo(
+        rightPanel,
+        { xPercent: 100 },
+        { xPercent: 0, duration: 0.48, ease: 'power4.out' },
+        0,
+      )
+      .fromTo(
+        artwork,
+        { autoAlpha: 0, scale: 0.2, rotation: 30, x: 90, y: 24 },
+        {
+          autoAlpha: 1,
+          scale: 1,
+          rotation: 0,
+          x: 0,
+          y: 0,
+          duration: 0.64,
+          ease: 'back.out(2)',
+        },
+        0.34,
+      )
+      .fromTo(
+        headerItems,
+        { autoAlpha: 0, y: 46, rotation: -1.5 },
+        {
+          autoAlpha: 1,
+          y: 0,
+          rotation: 0,
+          duration: 0.34,
+          stagger: 0.045,
+          ease: 'back.out(1.7)',
+        },
+        0.43,
+      )
+      .fromTo(
+        contentStage,
+        { autoAlpha: 0, y: 150 },
+        {
+          autoAlpha: 1,
+          y: 0,
+          duration: 0.46,
+          ease: 'back.out(1.45)',
+        },
+        0.72,
+      )
+
+    return () => timeline.kill()
+  }, { scope: pageRef })
+
+  useGSAP(() => {
+    if (
+      isLoading
+      || !isPageIntroComplete
+      || hasAnimatedCards.current
+      || !filteredColumns.length
+    ) return undefined
     hasAnimatedCards.current = true
     hasPlayedFeaturedEntrance = true
 
@@ -165,7 +270,7 @@ function FeaturedColumn() {
     gsap.set(cards, { willChange: 'transform, opacity' })
     const animation = gsap.fromTo(
       cards,
-      { y: 54, scale: 0.92, rotation: -1.5, autoAlpha: 0 },
+      { y: 150, scale: 0.92, rotation: -1.5, autoAlpha: 0 },
       {
         y: 0,
         scale: 1,
@@ -180,7 +285,7 @@ function FeaturedColumn() {
     return () => animation.kill()
   }, {
     scope: cardsRef,
-    dependencies: [isLoading],
+    dependencies: [isLoading, isPageIntroComplete],
   })
 
   return (
@@ -190,38 +295,43 @@ function FeaturedColumn() {
     >
       <div className="memphis-grid-texture pointer-events-none absolute inset-0" aria-hidden="true" />
 
-      <header className="featured-column-header relative z-10 overflow-hidden border-b-4 border-black">
-        <div className="featured-header-yellow absolute inset-y-0 left-0 w-[62%] bg-[#ffe66d]" />
-        <div className="featured-header-magenta absolute inset-y-0 right-0 w-[48%] -skew-x-12 border-l-4 border-black bg-[#ff2f92]" />
-        <div className="absolute -right-10 -top-16 h-56 w-56 rounded-full border-[18px] border-black bg-[#4ecdc4] shadow-[9px_9px_0_#111]" />
-        <div className="absolute bottom-3 right-[24%] h-20 w-20 rotate-12 border-4 border-black bg-white shadow-[6px_6px_0_#111]" />
+      <header className="featured-column-header relative z-10 overflow-visible border-b-4 border-black">
+        <div className="featured-crash-left absolute inset-0 bg-[#ffe66d]" aria-hidden="true" />
+        <div className="featured-crash-right absolute inset-y-0 right-0 w-[48%] -skew-x-12 border-l-4 border-black bg-[#ff2f92]" aria-hidden="true" />
+        <div className="featured-crash-right absolute right-[28%] top-9 h-20 w-20 rotate-12 border-4 border-black bg-white shadow-[6px_6px_0_#111]" aria-hidden="true" />
+        <P5PopArtwork
+          src={FEATURED_CHARACTER_URL}
+          alt="精选专栏波普人物占位立绘"
+          eyebrow="EDITOR CUT-IN!"
+          className="featured-pop-art -bottom-7 right-[1.5%] h-[108%] w-[34%]"
+        />
 
         <div className="relative mx-auto max-w-[1500px] px-4 py-8 sm:px-6 lg:px-8 lg:py-11">
           <button
             type="button"
             onClick={() => navigate('/')}
-            className="mb-7 inline-flex items-center gap-2 rounded-full border-4 border-black bg-white px-5 py-2.5 text-sm font-black shadow-[5px_5px_0_#111] active:translate-x-[5px] active:translate-y-[5px] active:shadow-none"
+            className="featured-header-reveal mb-7 inline-flex items-center gap-2 rounded-full border-4 border-black bg-white px-5 py-2.5 text-sm font-black shadow-[5px_5px_0_#111] active:translate-x-[5px] active:translate-y-[5px] active:shadow-none"
           >
             <i className="fa-solid fa-arrow-left"></i>
             返回展示主界面
           </button>
 
-          <div className="max-w-4xl">
-            <span className="inline-flex -rotate-2 border-[3px] border-black bg-[#4ecdc4] px-3 py-1 text-xs font-black tracking-[0.2em] shadow-[4px_4px_0_#111]">
+          <div className="max-w-4xl lg:max-w-[62%]">
+            <span className="featured-header-reveal inline-flex -rotate-2 border-[3px] border-black bg-[#4ecdc4] px-3 py-1 text-xs font-black tracking-[0.2em] shadow-[4px_4px_0_#111]">
               EDITOR&apos;S CHOICE / CURATED STORIES
             </span>
-            <h1 className="mt-5 flex flex-wrap items-end gap-3 text-5xl font-black tracking-[-0.06em] sm:text-7xl lg:text-8xl">
+            <h1 className="featured-header-reveal mt-5 flex flex-wrap items-end gap-3 text-5xl font-black tracking-[-0.06em] sm:text-7xl lg:text-8xl">
               <span className="border-4 border-black bg-black px-4 py-2 text-white">精选</span>
               <span className="border-4 border-black bg-[#ff8fab] px-4 py-2 text-black shadow-[8px_8px_0_#111]">专栏</span>
             </h1>
-            <p className="mt-6 max-w-2xl border-l-[10px] border-black bg-white px-5 py-3 text-sm font-black leading-7 shadow-[6px_6px_0_#4ecdc4] sm:text-base">
+            <p className="featured-header-reveal mt-6 max-w-2xl border-l-[10px] border-black bg-white px-5 py-3 text-sm font-black leading-7 shadow-[6px_6px_0_#4ecdc4] sm:text-base">
               不追求千篇一律的标准答案。这里收录来自各位同好们的真实观看体验与长篇表达。
             </p>
           </div>
         </div>
       </header>
 
-      <div className="relative z-20 mx-auto max-w-[1500px] px-4 sm:px-6 lg:px-8">
+      <div className="featured-content-stage relative z-20 mx-auto max-w-[1500px] px-4 sm:px-6 lg:px-8">
         <div className="-mt-1">
           <FilterBar
             db={db}

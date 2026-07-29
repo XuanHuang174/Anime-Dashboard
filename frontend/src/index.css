@@ -867,8 +867,85 @@ select {
   transform-origin: center bottom;
 }
 
+.p5-pop-art {
+  isolation: isolate;
+  transform-origin: 72% 100%;
+}
+
+.p5-pop-art__burst {
+  position: absolute;
+  inset: 7% 0 1% 6%;
+  z-index: -2;
+  border: 5px solid #111;
+  background:
+    repeating-conic-gradient(
+      from -18deg at 58% 58%,
+      #ffe66d 0deg 7deg,
+      transparent 7deg 15deg
+    );
+  clip-path: polygon(
+    51% 0%, 58% 20%, 72% 5%, 73% 27%, 94% 15%, 83% 36%,
+    100% 45%, 80% 54%, 94% 73%, 72% 70%, 68% 100%, 53% 77%,
+    35% 96%, 36% 72%, 8% 82%, 24% 58%, 0 48%, 25% 39%, 8% 20%,
+    34% 27%
+  );
+  filter: drop-shadow(8px 8px 0 #111);
+}
+
+.p5-pop-art__halftone {
+  position: absolute;
+  inset: 13% 3% 2% 12%;
+  z-index: -1;
+  background-image: radial-gradient(#111 2px, transparent 2px);
+  background-size: 13px 13px;
+  opacity: 0.24;
+  transform: rotate(-5deg);
+}
+
+.p5-pop-art__image {
+  position: absolute;
+  right: 1%;
+  bottom: 0;
+  width: 88%;
+  height: 108%;
+  object-fit: contain;
+  object-position: right bottom;
+  filter: grayscale(1) contrast(1.55) drop-shadow(8px 8px 0 #111);
+  mix-blend-mode: luminosity;
+  transform: translate3d(0, 0, 0) rotate(-2deg);
+  transform-origin: 60% 100%;
+  transition: none;
+}
+
+.p5-pop-art:hover .p5-pop-art__image {
+  filter: grayscale(0) contrast(1.12) saturate(1.2)
+    drop-shadow(8px 8px 0 #4ecdc4);
+  mix-blend-mode: normal;
+  transform: translate3d(-8px, -8px, 0) rotate(-2deg);
+}
+
+.p5-pop-art__sticker {
+  position: absolute;
+  right: 4%;
+  top: 13%;
+  z-index: 2;
+  border: 3px solid #111;
+  background: #fff;
+  padding: 0.35rem 0.65rem;
+  color: #111;
+  font-size: 0.65rem;
+  font-weight: 1000;
+  letter-spacing: 0.16em;
+  box-shadow: 4px 4px 0 #111;
+  transform: rotate(4deg);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .featured-column-card img {
+    transition: none;
+  }
+
+  .p5-pop-art__image {
     transition: none;
   }
 }
