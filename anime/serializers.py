@@ -311,6 +311,21 @@ class AdminPublicJournalProfileSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class AdminRejectReasonSerializer(serializers.Serializer):
+    """Validate the administrator's reason before a rejection is committed."""
+
+    reject_reason = serializers.CharField(
+        max_length=500,
+        trim_whitespace=True,
+        allow_blank=False,
+        error_messages={
+            "blank": "请填写退回原因。",
+            "required": "请填写退回原因。",
+            "max_length": "退回原因不能超过 500 个字符。",
+        },
+    )
+
+
 class ChangePasswordSerializer(serializers.Serializer):
     """Validate the authenticated user's current and replacement passwords."""
 

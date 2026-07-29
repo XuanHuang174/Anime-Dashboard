@@ -57,6 +57,7 @@ from .serializers import (
     AccountDeletionSerializer,
     AdminFeaturedSubmissionSerializer,
     AdminPublicJournalProfileSerializer,
+    AdminRejectReasonSerializer,
     AnimeSerializer,
     ChangePasswordSerializer,
     CustomTokenObtainPairSerializer,
@@ -1759,11 +1760,17 @@ class AdminPublicJournalProfileViewSet(viewsets.ReadOnlyModelViewSet):
                 {"detail": "只有审核中的申请可以打回。"},
                 status=status.HTTP_409_CONFLICT,
             )
+        reason_serializer = AdminRejectReasonSerializer(data=request.data)
+        reason_serializer.is_valid(raise_exception=True)
+        reject_reason = reason_serializer.validated_data["reject_reason"]
         profile.public_status = UserProfile.PublicStatus.PRIVATE
         profile.save(update_fields=("public_status", "is_public"))
         UserNotification.objects.create(
             user=profile.user,
-            message="抱歉，你的个人手账分享申请未通过审核。",
+            message=(
+                "抱歉，您的手账分享未能通过审核。"
+                f"原因：{reject_reason}"
+            ),
         )
         return self._response(profile, "申请已打回，手账保持私密。")
 
@@ -1901,10 +1908,20 @@ class AdminFeaturedSubmissionViewSet(viewsets.ReadOnlyModelViewSet):
     @transaction.atomic
     def reject(self, request, pk=None):
         submission = self._get_locked_submission(pk)
+        reason_serializer = AdminRejectReasonSerializer(data=request.data)
+        reason_serializer.is_valid(raise_exception=True)
+        reject_reason = reason_serializer.validated_data["reject_reason"]
 
         if submission.audit_status == FeaturedSubmission.AuditStatus.PENDING:
             submission.audit_status = FeaturedSubmission.AuditStatus.REJECTED
             submission.save(update_fields=("audit_status", "updated_at"))
+            UserNotification.objects.create(
+                user=submission.user,
+                message=(
+                    f"抱歉，您的番剧点评《{submission.chinese_title}》"
+                    f"未能入选精选专栏。原因：{reject_reason}"
+                ),
+            )
             return Response(
                 {
                     "detail": "已打回该精选专栏投稿。",
@@ -1918,7 +1935,10 @@ class AdminFeaturedSubmissionViewSet(viewsets.ReadOnlyModelViewSet):
         )
         UserNotification.objects.create(
             user=submission.user,
-            message=f"{submission.chinese_title}的撤下申请未获批准，专栏将继续展示。",
+            message=(
+                f"《{submission.chinese_title}》的撤下申请未获批准，"
+                f"专栏将继续展示。原因：{reject_reason}"
+            ),
         )
         submission.refresh_from_db()
         return Response(

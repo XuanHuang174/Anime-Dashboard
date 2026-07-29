@@ -2387,7 +2387,9 @@ class AdminFeaturedSubmissionApiTests(APITestCase):
             reverse(
                 "anime_api:admin-featured-submission-reject",
                 kwargs={"pk": submission.pk},
-            )
+            ),
+            {"reject_reason": "撤下说明不完整"},
+            format="json",
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -2399,7 +2401,44 @@ class AdminFeaturedSubmissionApiTests(APITestCase):
         self.assertTrue(
             UserNotification.objects.filter(
                 user=self.user,
-                message__contains="撤下申请未获批准",
+                message__contains="撤下说明不完整",
+            ).exists()
+        )
+
+    def test_admin_rejection_requires_reason_and_notifies_owner(self):
+        submission = self.create_submission(FeaturedSubmission.AuditStatus.PENDING)
+        self.client.force_authenticate(user=self.superuser)
+        url = reverse(
+            "anime_api:admin-featured-submission-reject",
+            kwargs={"pk": submission.pk},
+        )
+
+        missing_reason_response = self.client.post(url, {}, format="json")
+        self.assertEqual(
+            missing_reason_response.status_code,
+            status.HTTP_400_BAD_REQUEST,
+        )
+        submission.refresh_from_db()
+        self.assertEqual(
+            submission.audit_status,
+            FeaturedSubmission.AuditStatus.PENDING,
+        )
+
+        response = self.client.post(
+            url,
+            {"reject_reason": "内容过于简略，请补充具体观感。"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        submission.refresh_from_db()
+        self.assertEqual(
+            submission.audit_status,
+            FeaturedSubmission.AuditStatus.REJECTED,
+        )
+        self.assertTrue(
+            UserNotification.objects.filter(
+                user=self.user,
+                message__contains="内容过于简略，请补充具体观感",
             ).exists()
         )
 
@@ -2680,7 +2719,7 @@ class AdminPublicJournalApiTests(APITestCase):
                 "anime_api:admin-public-journal-reject",
                 kwargs={"pk": self.profile.pk},
             ),
-            {},
+            {"reject_reason": "手账副标题包含违规内容"},
             format="json",
         )
         self.assertEqual(reject_response.status_code, status.HTTP_200_OK)
@@ -2690,6 +2729,12 @@ class AdminPublicJournalApiTests(APITestCase):
             UserProfile.PublicStatus.PRIVATE,
         )
         self.assertFalse(self.profile.is_public)
+        self.assertTrue(
+            UserNotification.objects.filter(
+                user=self.owner,
+                message__contains="手账副标题包含违规内容",
+            ).exists()
+        )
 
         self.profile.public_status = UserProfile.PublicStatus.APPROVED
         self.profile.save()
@@ -2708,3 +2753,26 @@ class AdminPublicJournalApiTests(APITestCase):
             UserProfile.PublicStatus.PRIVATE,
         )
         self.assertFalse(self.profile.is_public)
+
+    def test_admin_rejection_requires_reason_and_queue_supports_username_search(self):
+        self.client.force_authenticate(user=self.admin)
+        reject_url = reverse(
+            "anime_api:admin-public-journal-reject",
+            kwargs={"pk": self.profile.pk},
+        )
+
+        reject_response = self.client.post(reject_url, {}, format="json")
+        self.assertEqual(reject_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.profile.refresh_from_db()
+        self.assertEqual(
+            self.profile.public_status,
+            UserProfile.PublicStatus.PENDING,
+        )
+
+        search_response = self.client.get(
+            reverse("anime_api:admin-public-journal-list"),
+            {"search": self.owner.username},
+        )
+        profiles = search_response.data.get("results", search_response.data)
+        self.assertEqual(search_response.status_code, status.HTTP_200_OK)
+        self.assertEqual([profile["username"] for profile in profiles], [self.owner.username])

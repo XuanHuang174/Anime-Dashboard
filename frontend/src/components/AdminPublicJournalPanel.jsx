@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api/api.js'
 import AdminPublicJournalConfirmModal from './AdminPublicJournalConfirmModal.jsx'
+import AdminRejectReasonModal from './AdminRejectReasonModal.jsx'
 import MemphisToastStack from './MemphisToastStack.jsx'
 
 function normalizeNextUrl(nextUrl) {
@@ -101,7 +102,7 @@ function PublicJournalProfileCard({ profile, kind, onReview, onAction }) {
   )
 }
 
-function EmptyState({ type }) {
+function EmptyState({ type, isSearching }) {
   const isPending = type === 'pending'
   return (
     <div className={`flex min-h-52 flex-col items-center justify-center border-4 border-black p-7 text-center shadow-[7px_7px_0_#111] ${isPending ? 'bg-[#ffdf3e]' : 'bg-[#4ecdc4]'}`}>
@@ -109,10 +110,14 @@ function EmptyState({ type }) {
         <i className={`fa-solid ${isPending ? 'fa-inbox' : 'fa-lock'}`} />
       </span>
       <h3 className="mt-5 text-xl font-black">
-        {isPending ? '当前没有待审批申请' : '当前没有已公开用户'}
+        {isSearching
+          ? `没有找到匹配的${isPending ? '待审核用户' : '已公开用户'}`
+          : (isPending ? '当前没有待审批申请' : '当前没有已公开用户')}
       </h3>
       <p className="mt-2 text-sm font-bold">
-        {isPending ? '新的分享申请会自动出现在这里。' : '发放通行证后，可在此处管理和吊销。'}
+        {isSearching
+          ? '请检查用户名，或清空搜索条件后重试。'
+          : (isPending ? '新的分享申请会自动出现在这里。' : '发放通行证后，可在此处管理和吊销。')}
       </p>
     </div>
   )
@@ -126,14 +131,31 @@ function AdminPublicJournalPanel() {
   const [confirmAction, setConfirmAction] = useState(null)
   const [processingId, setProcessingId] = useState(null)
   const [toasts, setToasts] = useState([])
+  const [userSearch, setUserSearch] = useState('')
+  const deferredUserSearch = useDeferredValue(userSearch)
+  const normalizedSearch = deferredUserSearch.trim().toLocaleLowerCase()
+  const filteredProfiles = useMemo(() => {
+    if (!normalizedSearch) return profiles
+    return profiles.filter((profile) => (
+      [profile.username, profile.nickname, profile.email]
+        .filter(Boolean)
+        .some((value) => value.toLocaleLowerCase().includes(normalizedSearch))
+    ))
+  }, [normalizedSearch, profiles])
   const pendingProfiles = useMemo(
-    () => profiles.filter((profile) => profile.public_status === 'pending'),
-    [profiles],
+    () => filteredProfiles.filter((profile) => profile.public_status === 'pending'),
+    [filteredProfiles],
   )
   const approvedProfiles = useMemo(
-    () => profiles.filter((profile) => profile.public_status === 'approved' && profile.is_public),
-    [profiles],
+    () => filteredProfiles.filter((profile) => profile.public_status === 'approved' && profile.is_public),
+    [filteredProfiles],
   )
+  const totalPending = profiles.filter(
+    (profile) => profile.public_status === 'pending',
+  ).length
+  const totalApproved = profiles.filter(
+    (profile) => profile.public_status === 'approved' && profile.is_public,
+  ).length
 
   const pushToast = useCallback((message, type = 'success') => {
     setToasts((current) => [
@@ -171,13 +193,14 @@ function AdminPublicJournalPanel() {
     loadProfiles()
   }, [loadProfiles])
 
-  async function handleConfirm() {
+  async function handleConfirm(rejectReason = '') {
     if (!confirmAction) return
     const { action, profile } = confirmAction
     setProcessingId(profile.id)
     try {
       const response = await api.post(
         `admin/public-journals/${profile.id}/${action}/`,
+        action === 'reject' ? { reject_reason: rejectReason } : {},
       )
       const updatedProfile = response.data.profile
       setProfiles((current) => {
@@ -215,10 +238,10 @@ function AdminPublicJournalPanel() {
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <span className="border-3 border-black bg-[#ffdf3e] px-4 py-2 text-sm font-black shadow-[4px_4px_0_#111]">
-              待审批 {pendingProfiles.length}
+              待审批 {totalPending}
             </span>
             <span className="border-3 border-black bg-[#c7ff4a] px-4 py-2 text-sm font-black shadow-[4px_4px_0_#111]">
-              已公开 {approvedProfiles.length}
+              已公开 {totalApproved}
             </span>
             <button
               type="button"
@@ -238,6 +261,41 @@ function AdminPublicJournalPanel() {
             {error}
           </div>
         )}
+
+        <div className="mb-8 grid gap-4 border-4 border-black bg-[#4ecdc4] p-4 shadow-[7px_7px_0_#111] md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+          <label className="block min-w-0">
+            <span className="mb-2 flex items-center gap-2 text-sm font-black">
+              <i className="fa-solid fa-magnifying-glass" />
+              用户名搜索
+            </span>
+            <span className="relative block">
+              <i className="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-lg" />
+              <input
+                type="search"
+                value={userSearch}
+                onChange={(event) => setUserSearch(event.target.value)}
+                placeholder="输入用户名，快速检索待审核与已公开用户"
+                className="w-full border-4 border-black bg-white py-3 pl-12 pr-12 font-bold outline-none shadow-[5px_5px_0_#ff5b68] placeholder:text-zinc-400 focus:translate-x-1 focus:translate-y-1 focus:bg-[#fff8c7] focus:shadow-none"
+              />
+              {userSearch && (
+                <button
+                  type="button"
+                  onClick={() => setUserSearch('')}
+                  className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center border-2 border-black bg-[#ffdf3e] shadow-[2px_2px_0_#111] active:translate-x-0.5 active:translate-y-0 active:shadow-none"
+                  aria-label="清空用户名搜索"
+                >
+                  <i className="fa-solid fa-xmark" />
+                </button>
+              )}
+            </span>
+          </label>
+          <div className="border-4 border-black bg-[#ffdf3e] px-5 py-3 text-center font-black shadow-[5px_5px_0_#111]">
+            <span className="block text-[10px] uppercase tracking-[0.18em]">Lookup Result</span>
+            <span className="mt-1 block text-lg">
+              匹配 {filteredProfiles.length} 位用户
+            </span>
+          </div>
+        </div>
 
         {isLoading ? (
           <div className="flex min-h-72 flex-col items-center justify-center border-4 border-black bg-[#ffdf3e] text-center shadow-[7px_7px_0_#111]">
@@ -268,7 +326,7 @@ function AdminPublicJournalPanel() {
                     />
                   ))}
                 </div>
-              ) : <EmptyState type="pending" />}
+              ) : <EmptyState type="pending" isSearching={Boolean(normalizedSearch)} />}
             </section>
 
             <div className="h-3 border-2 border-black bg-[repeating-linear-gradient(135deg,#111_0,#111_9px,#ff5b68_9px,#ff5b68_18px)]" />
@@ -295,13 +353,21 @@ function AdminPublicJournalPanel() {
                     />
                   ))}
                 </div>
-              ) : <EmptyState type="approved" />}
+              ) : <EmptyState type="approved" isSearching={Boolean(normalizedSearch)} />}
             </section>
           </div>
         )}
       </section>
 
-      {confirmAction && (
+      {confirmAction?.action === 'reject' ? (
+        <AdminRejectReasonModal
+          subject={`${confirmAction.profile.nickname || confirmAction.profile.username}（@${confirmAction.profile.username}）`}
+          contextLabel="番剧共创 · 通行证申请"
+          isSubmitting={processingId === confirmAction.profile.id}
+          onConfirm={handleConfirm}
+          onClose={() => setConfirmAction(null)}
+        />
+      ) : confirmAction && (
         <AdminPublicJournalConfirmModal
           action={confirmAction.action}
           profile={confirmAction.profile}

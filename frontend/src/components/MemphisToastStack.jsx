@@ -53,28 +53,32 @@ function MemphisToast({ toast, onDismiss }) {
   })
 
   useEffect(() => {
-    const timer = window.setTimeout(dismiss, 3000)
+    const messageLength = String(toast.message || '').length
+    const displayDuration = Math.min(8000, Math.max(3500, 2800 + messageLength * 35))
+    const timer = window.setTimeout(dismiss, displayDuration)
     return () => window.clearTimeout(timer)
-  }, [dismiss])
+  }, [dismiss, toast.message])
 
   return (
     <div
       ref={toastRef}
       role={toast.type === 'error' ? 'alert' : 'status'}
-      className={`pointer-events-auto flex w-full max-w-sm items-center gap-3 border-[3px] border-black px-5 py-4 font-black text-black shadow-[6px_6px_0_#111] ${
+      className={`pointer-events-auto flex w-full items-start gap-3 border-[3px] border-black px-5 py-4 font-black text-black shadow-[6px_6px_0_#111] ${
         toast.type === 'error' ? 'bg-[#ff6b6b]' : 'bg-[#4ecdc4]'
       }`}
     >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center border-2 border-black bg-white shadow-[2px_2px_0_#111]">
+      <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center border-2 border-black bg-white shadow-[2px_2px_0_#111]">
         <i className={`fa-solid ${
           toast.type === 'error' ? 'fa-circle-exclamation' : 'fa-circle-check'
         } text-lg`} />
       </span>
-      <span className="min-w-0 flex-1 text-sm leading-6">{toast.message}</span>
+      <span className="min-w-0 flex-1 whitespace-pre-wrap break-words text-sm leading-6 [overflow-wrap:anywhere]">
+        {toast.message}
+      </span>
       <button
         type="button"
         onClick={dismiss}
-        className="flex h-7 w-7 shrink-0 items-center justify-center border-2 border-black bg-white text-xs shadow-[2px_2px_0_#111] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none"
+        className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center border-2 border-black bg-white text-xs shadow-[2px_2px_0_#111] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none"
         aria-label="关闭提示"
       >
         <i className="fa-solid fa-xmark" />
@@ -87,7 +91,7 @@ function MemphisToastStack({ toasts, onDismiss }) {
   if (!toasts.length) return null
 
   return (
-    <div className="pointer-events-none fixed bottom-6 right-6 z-[300] flex w-[min(24rem,calc(100vw-3rem))] flex-col items-end gap-3">
+    <div className="pointer-events-none fixed bottom-6 right-6 z-[600] flex w-[min(30rem,calc(100vw-3rem))] flex-col items-end gap-3">
       {toasts.map((toast) => (
         <MemphisToast key={toast.id} toast={toast} onDismiss={onDismiss} />
       ))}

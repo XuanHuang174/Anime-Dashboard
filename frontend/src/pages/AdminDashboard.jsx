@@ -6,6 +6,7 @@ import api from '../api/api.js'
 import { clearTokens } from '../auth/tokenStorage.js'
 import AdminAuditConfirmModal from '../components/AdminAuditConfirmModal.jsx'
 import AdminPublicJournalPanel from '../components/AdminPublicJournalPanel.jsx'
+import AdminRejectReasonModal from '../components/AdminRejectReasonModal.jsx'
 import DetailModal from '../components/DetailModal.jsx'
 import FilterBar from '../components/FilterBar.jsx'
 import MemphisToastStack from '../components/MemphisToastStack.jsx'
@@ -206,13 +207,14 @@ function AdminDashboard() {
     }
   }, [isFeaturedModule])
 
-  async function handleAudit() {
+  async function handleAudit(rejectReason = '') {
     if (!confirmAction) return
     const { action, submission } = confirmAction
     setProcessingId(submission.id)
     try {
       const response = await api.post(
         `admin/featured-submissions/${submission.id}/${action}/`,
+        action === 'reject' ? { reject_reason: rejectReason } : {},
       )
       setSubmissions((current) => current.filter((item) => item.id !== submission.id))
       setConfirmAction(null)
@@ -643,7 +645,19 @@ function AdminDashboard() {
         </section>
       )}
 
-      {confirmAction && (
+      {confirmAction?.action === 'reject' ? (
+        <AdminRejectReasonModal
+          subject={`《${confirmAction.submission.chinese_title}》`}
+          contextLabel={
+            confirmAction.submission.audit_status === 'removal_requested'
+              ? '精选专栏 · 撤下申请'
+              : '精选专栏 · 投稿审核'
+          }
+          isSubmitting={processingId === confirmAction.submission.id}
+          onConfirm={handleAudit}
+          onClose={() => setConfirmAction(null)}
+        />
+      ) : confirmAction && (
         <AdminAuditConfirmModal
           action={confirmAction.action}
           submission={confirmAction.submission}
