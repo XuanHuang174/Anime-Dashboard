@@ -41,6 +41,7 @@ function AddAnimeModal({
   const closeHandlerRef = useRef(null)
   const posterInputRef = useRef(null)
   const magicSearchRef = useRef(null)
+  const magicDropdownRef = useRef(null)
   const magicSearchTimerRef = useRef(null)
   const magicSearchRequestRef = useRef(null)
   const autofillRequestRef = useRef(null)
@@ -132,6 +133,74 @@ function AddAnimeModal({
         ease: 'power3.in',
       })
       .to(overlayRef.current, { autoAlpha: 0, duration: 0.12 }, '-=0.08')
+  })
+
+  useGSAP(() => {
+    if (
+      !isMagicDropdownOpen
+      || !magicDropdownRef.current
+      || window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ) {
+      return undefined
+    }
+
+    const dropdownTween = gsap.fromTo(
+      magicDropdownRef.current,
+      {
+        autoAlpha: 0,
+        scaleY: 0,
+        transformOrigin: 'top center',
+      },
+      {
+        autoAlpha: 1,
+        scaleY: 1,
+        duration: 0.38,
+        ease: 'back.out(1.5)',
+        clearProps: 'transform,transformOrigin,opacity,visibility',
+      },
+    )
+
+    return () => dropdownTween.kill()
+  }, {
+    scope: magicSearchRef,
+    dependencies: [isMagicDropdownOpen],
+  })
+
+  const playAutofillShockwave = contextSafe((fieldNames) => {
+    if (
+      !modalRef.current
+      || fieldNames.length === 0
+      || window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ) {
+      return
+    }
+
+    const filledFields = Array.from(
+      modalRef.current.querySelectorAll('[data-autofill-field]'),
+    ).filter((field) => fieldNames.includes(field.dataset.autofillField))
+
+    if (filledFields.length === 0) return
+
+    gsap.killTweensOf(filledFields)
+    gsap.fromTo(
+      filledFields,
+      {
+        backgroundColor: '#ffffff',
+        x: 0,
+        y: 0,
+      },
+      {
+        backgroundColor: '#ffe66d',
+        x: 2,
+        y: 2,
+        duration: 0.16,
+        repeat: 1,
+        yoyo: true,
+        stagger: 0.035,
+        ease: 'power2.inOut',
+        clearProps: 'transform,backgroundColor',
+      },
+    )
   })
 
   const busy = isCreating || addingAnimeIds.size > 0
@@ -361,6 +430,20 @@ function AddAnimeModal({
           ? nextValue
           : currentValue
       )
+      const autofillFieldMap = {
+        chineseTitle: scraped.chineseTitle,
+        japaneseTitle: scraped.japaneseTitle,
+        airingPeriod: scraped.airingPeriod,
+        studio: scraped.studio,
+        episodes: scraped.episodes,
+        tags: scraped.tags,
+        description: scraped.description,
+        posterUrl: scraped.posterUrl,
+        baikeUrl: scraped.baikeUrl,
+      }
+      const filledFieldNames = Object.entries(autofillFieldMap)
+        .filter(([, value]) => typeof value === 'string' && value.trim())
+        .map(([fieldName]) => fieldName)
 
       skipNextMagicSearchRef.current = (
         scraped.chineseTitle?.trim()
@@ -403,6 +486,9 @@ function AddAnimeModal({
       setMagicSearchResults([])
       setIsMagicDropdownOpen(false)
       setManualError('')
+      window.requestAnimationFrame(() => {
+        playAutofillShockwave(filledFieldNames)
+      })
       showToast('番剧资料已自动填充，请检查后再创建。', 'success')
     } catch (requestError) {
       if (requestError.code !== 'ERR_CANCELED') {
@@ -589,7 +675,7 @@ function AddAnimeModal({
                   </label>
                   {posterFile && <p className="mt-3 break-all border-2 border-black bg-[#ffe66d] p-2 text-[10px] font-black">{posterFile.name}</p>}
                   <label htmlFor="newPosterUrl" className={`${labelClass} mt-4`}>或填写网络图片 URL</label>
-                  <input id="newPosterUrl" name="posterUrl" type="url" value={manualForm.posterUrl} onChange={updateManualField} className={inputClass} placeholder="https://..." />
+                  <input id="newPosterUrl" name="posterUrl" type="url" value={manualForm.posterUrl} onChange={updateManualField} className={inputClass} placeholder="https://..." data-autofill-field="posterUrl" />
                 </aside>
 
                 <div className="add-modal-piece grid content-start gap-4 sm:grid-cols-2">
@@ -616,6 +702,7 @@ function AddAnimeModal({
                         className={`${inputClass} min-w-0 flex-1`}
                         placeholder="输入名称，停顿后智能搜索"
                         autoComplete="off"
+                        data-autofill-field="chineseTitle"
                       />
                       <button
                         type="button"
@@ -634,7 +721,7 @@ function AddAnimeModal({
                     </div>
 
                     {isMagicDropdownOpen && (
-                      <div className="absolute left-0 right-0 top-[calc(100%+0.55rem)] z-[70] max-h-80 overflow-y-auto border-4 border-black bg-white p-2 shadow-[8px_8px_0_#111] custom-scrollbar">
+                      <div ref={magicDropdownRef} className="absolute left-0 right-0 top-[calc(100%+0.55rem)] z-[70] max-h-80 origin-top overflow-y-auto border-4 border-black bg-white p-2 shadow-[8px_8px_0_#111] custom-scrollbar">
                         <div className="mb-2 flex items-center justify-between border-b-2 border-black bg-[#ffe66d] px-3 py-2 text-[10px] font-black tracking-[0.12em]">
                           <span>
                             <i className="fa-solid fa-satellite-dish mr-2" />
@@ -718,13 +805,13 @@ function AddAnimeModal({
                       </div>
                     )}
                   </div>
-                  <label className="block"><span className={labelClass}>番剧日文名</span><input name="japaneseTitle" value={manualForm.japaneseTitle} onChange={updateManualField} className={inputClass} /></label>
-                  <label className="block"><span className={labelClass}>放送季度 *</span><input required name="airingPeriod" value={manualForm.airingPeriod} onChange={updateManualField} className={inputClass} placeholder="例如 2026-4" /></label>
-                  <label className="block"><span className={labelClass}>制作公司</span><input name="studio" value={manualForm.studio} onChange={updateManualField} className={inputClass} /></label>
-                  <label className="block"><span className={labelClass}>话数情况</span><input name="episodes" value={manualForm.episodes} onChange={updateManualField} className={inputClass} placeholder="例如 12、12+1" /></label>
-                  <label className="block"><span className={labelClass}>萌娘百科 URL</span><input name="baikeUrl" type="url" value={manualForm.baikeUrl} onChange={updateManualField} className={inputClass} placeholder="https://zh.moegirl.org.cn/..." /></label>
-                  <label className="block sm:col-span-2"><span className={labelClass}>公共标签</span><input name="tags" value={manualForm.tags} onChange={updateManualField} className={inputClass} placeholder="使用逗号分隔，例如：日常，治愈，原创" /></label>
-                  <label className="block sm:col-span-2"><span className={labelClass}>剧情简介</span><textarea name="description" value={manualForm.description} onChange={updateManualField} className={`${inputClass} h-24 resize-y leading-6`} /></label>
+                  <label className="block"><span className={labelClass}>番剧日文名</span><input name="japaneseTitle" value={manualForm.japaneseTitle} onChange={updateManualField} className={inputClass} data-autofill-field="japaneseTitle" /></label>
+                  <label className="block"><span className={labelClass}>放送季度 *</span><input required name="airingPeriod" value={manualForm.airingPeriod} onChange={updateManualField} className={inputClass} placeholder="例如 2026-4" data-autofill-field="airingPeriod" /></label>
+                  <label className="block"><span className={labelClass}>制作公司</span><input name="studio" value={manualForm.studio} onChange={updateManualField} className={inputClass} data-autofill-field="studio" /></label>
+                  <label className="block"><span className={labelClass}>话数情况</span><input name="episodes" value={manualForm.episodes} onChange={updateManualField} className={inputClass} placeholder="例如 12、12+1" data-autofill-field="episodes" /></label>
+                  <label className="block"><span className={labelClass}>萌娘百科 URL</span><input name="baikeUrl" type="url" value={manualForm.baikeUrl} onChange={updateManualField} className={inputClass} placeholder="https://zh.moegirl.org.cn/..." data-autofill-field="baikeUrl" /></label>
+                  <label className="block sm:col-span-2"><span className={labelClass}>公共标签</span><input name="tags" value={manualForm.tags} onChange={updateManualField} className={inputClass} placeholder="使用逗号分隔，例如：日常，治愈，原创" data-autofill-field="tags" /></label>
+                  <label className="block sm:col-span-2"><span className={labelClass}>剧情简介</span><textarea name="description" value={manualForm.description} onChange={updateManualField} className={`${inputClass} h-24 resize-y leading-6`} data-autofill-field="description" /></label>
 
                   <div className="sm:col-span-2 border-[3px] border-black bg-[#ffe66d] p-4 shadow-[6px_6px_0_#ff8fab]">
                     <h3 className="mb-3 text-sm font-black"><i className="fa-solid fa-bookmark mr-2"></i>初始私人手账信息</h3>
