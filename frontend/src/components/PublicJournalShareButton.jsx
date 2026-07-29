@@ -25,16 +25,18 @@ function PublicJournalShareButton({
   onStatusChange,
   showToast,
 }) {
-  const [isConfirmOpen, setIsConfirmOpen] = useState(false)
+  const [confirmAction, setConfirmAction] = useState(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const buttonState = BUTTON_STATES[publicStatus] ?? BUTTON_STATES.private
+  const isConfirmOpen = Boolean(confirmAction)
+  const isCancelConfirmation = confirmAction === 'cancel'
 
   useEffect(() => {
     if (!isConfirmOpen) return undefined
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     const closeOnEscape = (event) => {
-      if (event.key === 'Escape' && !isProcessing) setIsConfirmOpen(false)
+      if (event.key === 'Escape' && !isProcessing) setConfirmAction(null)
     }
     window.addEventListener('keydown', closeOnEscape)
     return () => {
@@ -48,7 +50,7 @@ function PublicJournalShareButton({
     try {
       const response = await api.post('public-journal/status/', {})
       onStatusChange?.(response.data)
-      setIsConfirmOpen(false)
+      setConfirmAction(null)
       showToast?.('分享申请已提交，请等待管理员审核。')
     } catch (error) {
       showToast?.(
@@ -65,6 +67,7 @@ function PublicJournalShareButton({
     try {
       const response = await api.patch('public-journal/status/', {})
       onStatusChange?.(response.data)
+      setConfirmAction(null)
       showToast?.('已取消分享，你的手账已立即恢复私密。')
     } catch (error) {
       showToast?.(
@@ -79,10 +82,10 @@ function PublicJournalShareButton({
   const handleClick = () => {
     if (isProcessing || publicStatus === 'pending') return
     if (publicStatus === 'approved') {
-      cancelSharing()
+      setConfirmAction('cancel')
       return
     }
-    setIsConfirmOpen(true)
+    setConfirmAction('share')
   }
 
   return (
@@ -103,7 +106,7 @@ function PublicJournalShareButton({
           role="presentation"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget && !isProcessing) {
-              setIsConfirmOpen(false)
+              setConfirmAction(null)
             }
           }}
         >
@@ -113,34 +116,40 @@ function PublicJournalShareButton({
             aria-labelledby="share-journal-title"
             className="relative w-full max-w-lg border-4 border-black bg-[#fff5ee] p-6 text-black shadow-[12px_12px_0_#111]"
           >
-            <span className="absolute -right-5 -top-5 flex h-14 w-14 rotate-6 items-center justify-center border-4 border-black bg-[#4ecdc4] text-2xl shadow-[4px_4px_0_#ffe66d]">
-              <i className="fa-solid fa-satellite-dish" />
+            <span className={`absolute -right-5 -top-5 flex h-14 w-14 rotate-6 items-center justify-center border-4 border-black text-2xl ${isCancelConfirmation ? 'bg-[#ff6b6b] shadow-[4px_4px_0_#ffe66d]' : 'bg-[#4ecdc4] shadow-[4px_4px_0_#ffe66d]'}`}>
+              <i className={`fa-solid ${isCancelConfirmation ? 'fa-eye-slash' : 'fa-satellite-dish'}`} />
             </span>
-            <span className="inline-flex -rotate-1 border-2 border-black bg-[#ffe66d] px-3 py-1 text-xs font-black tracking-[0.15em] shadow-[3px_3px_0_#111]">
-              PUBLIC JOURNAL PASS
+            <span className={`inline-flex -rotate-1 border-2 border-black px-3 py-1 text-xs font-black tracking-[0.15em] shadow-[3px_3px_0_#111] ${isCancelConfirmation ? 'bg-[#ff8fab]' : 'bg-[#ffe66d]'}`}>
+              {isCancelConfirmation ? 'PRIVACY SWITCH' : 'PUBLIC JOURNAL PASS'}
             </span>
             <h2 id="share-journal-title" className="mt-5 text-3xl font-black">
-              申请分享个人手账？
+              {isCancelConfirmation ? '确认取消分享？' : '申请分享个人手账？'}
             </h2>
-            <p className="mt-4 border-l-[7px] border-black bg-white px-4 py-3 text-sm font-bold leading-7 shadow-[4px_4px_0_#ff8fab]">
-              审核通过后，其他访客可以查看你的番剧记录、评分和个人评价；账号邮箱、管理功能与私人操作不会公开。
+            <p className={`mt-4 border-l-[7px] border-black bg-white px-4 py-3 text-sm font-bold leading-7 ${isCancelConfirmation ? 'shadow-[4px_4px_0_#ff6b6b]' : 'shadow-[4px_4px_0_#ff8fab]'}`}>
+              {isCancelConfirmation
+                ? '取消后，你的手账将立即从番剧共创宇宙中隐藏，其他访客无法继续进入查看。以后仍可重新提交分享申请。'
+                : '审核通过后，其他访客可以查看你的番剧记录、评分和个人评价；账号邮箱、管理功能与私人操作不会公开。'}
             </p>
             <div className="mt-7 grid grid-cols-2 gap-4">
               <button
                 type="button"
-                onClick={() => setIsConfirmOpen(false)}
+                onClick={() => setConfirmAction(null)}
                 disabled={isProcessing}
                 className="border-4 border-black bg-white px-4 py-3 font-black shadow-[5px_5px_0_#111] active:translate-x-[5px] active:translate-y-[5px] active:shadow-none disabled:opacity-60"
               >
-                暂不分享
+                {isCancelConfirmation ? '继续公开' : '暂不分享'}
               </button>
               <button
                 type="button"
-                onClick={applyForSharing}
+                onClick={isCancelConfirmation ? cancelSharing : applyForSharing}
                 disabled={isProcessing}
-                className="border-4 border-black bg-[#4ecdc4] px-4 py-3 font-black shadow-[5px_5px_0_#111] active:translate-x-[5px] active:translate-y-[5px] active:shadow-none disabled:opacity-60"
+                className={`border-4 border-black px-4 py-3 font-black shadow-[5px_5px_0_#111] active:translate-x-[5px] active:translate-y-[5px] active:shadow-none disabled:opacity-60 ${isCancelConfirmation ? 'bg-[#ff6b6b]' : 'bg-[#4ecdc4]'}`}
               >
-                {isProcessing ? '正在提交…' : '确认申请'}
+                {isProcessing
+                  ? '正在处理…'
+                  : isCancelConfirmation
+                    ? '确认取消分享'
+                    : '确认申请'}
               </button>
             </div>
           </section>
