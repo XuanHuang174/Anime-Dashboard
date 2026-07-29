@@ -304,7 +304,7 @@ function FeaturedColumn() {
         <P5PopArtwork
           src={FEATURED_CHARACTER_URL}
           alt="精选专栏波普人物占位立绘"
-          eyebrow="EDITOR CUT-IN!"
+          eyebrow="X：@yng_hoti"
           className="featured-pop-art -bottom-7 right-[1.5%] h-[108%] w-[34%]"
         />
 

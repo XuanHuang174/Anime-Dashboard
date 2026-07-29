@@ -8,7 +8,7 @@ import P5PopArtwork from '../components/P5PopArtwork.jsx'
 
 gsap.registerPlugin(useGSAP)
 
-const UNIVERSE_CHARACTER_URL = '/renako.png'
+const UNIVERSE_CHARACTER_URL = '/koisinu.png'
 
 const CORE_STATS = [
   {
@@ -279,8 +279,8 @@ function PublicUniverse() {
         <div className="universe-crash-right absolute right-[31%] top-9 h-16 w-16 rotate-12 border-4 border-black bg-white shadow-[5px_5px_0_#111]" aria-hidden="true" />
         <P5PopArtwork
           src={UNIVERSE_CHARACTER_URL}
-          alt="番剧共创宇宙波普人物占位立绘"
-          eyebrow="COSMIC CUT-IN!"
+          alt="番剧共创宇宙波普人物立绘"
+          eyebrow="X：@yng_hoti"
           className="universe-pop-art -bottom-7 right-[1.5%] h-[108%] w-[34%]"
         />
 
