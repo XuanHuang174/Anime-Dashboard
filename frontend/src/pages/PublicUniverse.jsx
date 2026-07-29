@@ -10,48 +10,63 @@ gsap.registerPlugin(useGSAP)
 
 const UNIVERSE_CHARACTER_URL = '/renako.png'
 
-const STAT_BLOCKS = [
+const CORE_STATS = [
   {
     key: 'completed_count',
-    label: '追完数量',
+    label: '追完',
     icon: 'fa-circle-check',
     color: 'bg-[#ffe66d]',
-    className: 'sm:col-span-2',
   },
   {
     key: 'average_score',
-    label: '平均评分',
+    label: '均分',
     icon: 'fa-chart-line',
     color: 'bg-[#ff8fab]',
-    className: '',
   },
   {
     key: 'masterpiece_count',
-    label: '极高推荐',
+    label: '9.5+',
     icon: 'fa-crown',
     color: 'bg-[#4ecdc4]',
-    className: '',
   },
+]
+
+const SECONDARY_STATS = [
   {
     key: 'movie_count',
     label: '剧场版',
     icon: 'fa-film',
-    color: 'bg-white',
-    className: '',
   },
   {
     key: 'ova_count',
     label: 'OVA',
     icon: 'fa-compact-disc',
-    color: 'bg-[#ff6b6b]',
-    className: '',
   },
   {
     key: 'short_count',
     label: '泡面番',
     icon: 'fa-bowl-food',
-    color: 'bg-[#b8f2e6]',
-    className: 'sm:col-span-2',
+  },
+]
+
+const POLAROID_STYLES = [
+  {
+    rotation: '-rotate-6',
+    shadow: 'shadow-[9px_9px_0_#ff2f92]',
+    zIndex: 'z-[3]',
+    offset: 'mt-8',
+  },
+  {
+    rotation: 'rotate-3',
+    shadow: 'shadow-[9px_9px_0_#4ecdc4]',
+    zIndex: 'z-[2]',
+    offset: 'mb-8',
+  },
+  {
+    rotation: '-rotate-2',
+    shadow: 'shadow-[9px_9px_0_#ffe66d]',
+    zIndex: 'z-[1]',
+    offset: 'mt-12',
   },
 ]
 
@@ -420,59 +435,74 @@ function PublicUniverse() {
                     <p className="mt-2 border-l-[6px] border-black bg-[#fff5ee] px-3 py-2 text-sm font-bold leading-6 text-zinc-700">
                       {profile.showcase_subtitle?.trim() || '这位主理人还没有留下宇宙宣言。'}
                     </p>
+                    <div className="mt-4 flex flex-wrap items-center gap-2">
+                      {CORE_STATS.map((stat) => (
+                        <span
+                          key={stat.key}
+                          className={`${stat.color} inline-flex items-center gap-2 rounded-full border-2 border-black px-3 py-1 text-[11px] font-black shadow-[3px_3px_0_#111]`}
+                        >
+                          <i className={`fa-solid ${stat.icon}`} />
+                          <span>{stat.label}</span>
+                          <strong className="border-l-2 border-black pl-2 text-sm leading-none">
+                            {formatStatValue(profile, stat.key)}
+                          </strong>
+                        </span>
+                      ))}
+                    </div>
+                    <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                      {SECONDARY_STATS.map((stat, statIndex) => (
+                        <span
+                          key={stat.key}
+                          className={`${statIndex === 1 ? 'bg-zinc-200 text-black' : 'bg-black text-white'} inline-flex items-center gap-1.5 border-2 border-black px-2 py-1 text-[10px] font-black tracking-wide`}
+                        >
+                          <i className={`fa-solid ${stat.icon}`} />
+                          {stat.label}
+                          <strong>{formatStatValue(profile, stat.key)}</strong>
+                        </span>
+                      ))}
+                    </div>
                   </div>
                   <span className="hidden h-12 w-12 shrink-0 rotate-3 items-center justify-center border-4 border-black bg-[#ff8fab] text-xl shadow-[4px_4px_0_#111] sm:flex">
                     <i className="fa-solid fa-arrow-up-right-from-square" />
                   </span>
                 </div>
 
-                <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  {STAT_BLOCKS.map((stat, statIndex) => (
-                    <div
-                      key={stat.key}
-                      className={`${stat.className} ${stat.color} min-h-24 border-[3px] border-black p-3 shadow-[4px_4px_0_#111] ${statIndex % 3 === 1 ? 'sm:-rotate-1' : ''}`}
-                    >
-                      <div className="flex items-center justify-between gap-2 text-[11px] font-black">
-                        <span>{stat.label}</span>
-                        <i className={`fa-solid ${stat.icon}`} />
-                      </div>
-                      <strong className="mt-3 block text-3xl font-black leading-none">
-                        {formatStatValue(profile, stat.key)}
-                      </strong>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-6 border-t-4 border-black pt-5">
+                <div className="mt-5 pt-1">
                   <div className="mb-4 flex items-center justify-between gap-3">
                     <span className="border-2 border-black bg-black px-3 py-1 text-xs font-black tracking-[0.14em] text-white">
                       TOP 3 / 高分轨道
                     </span>
-                    <span className="text-xs font-black text-zinc-600">
-                      点击卡片进入手账
+                    <span className="rotate-1 border-2 border-black bg-[#ffe66d] px-2 py-1 text-[10px] font-black shadow-[3px_3px_0_#ff2f92]">
+                      <i className="fa-solid fa-hand-pointer mr-1.5" />
+                      悬停抽取照片
                     </span>
                   </div>
                   {posters.length > 0 ? (
-                    <div className="flex min-h-44 items-end justify-center gap-3 overflow-hidden px-2 pb-3 pt-2 sm:min-h-52 sm:gap-5">
+                    <div className="relative flex min-h-[25rem] items-center justify-center overflow-visible px-1 pb-5 pt-4 sm:min-h-[30rem] sm:px-4">
                       {posters.map((poster, posterIndex) => (
                         <figure
                           key={`${poster}-${posterIndex}`}
-                          className={`${posterIndex % 2 === 0 ? '-rotate-2' : 'rotate-2'} w-[29%] max-w-32 border-4 border-black bg-white p-1.5 shadow-[5px_5px_0_#111] group-hover:rotate-0`}
+                          className={`${POLAROID_STYLES[posterIndex]?.rotation ?? '-rotate-2'} ${POLAROID_STYLES[posterIndex]?.shadow ?? 'shadow-[9px_9px_0_#ff2f92]'} ${POLAROID_STYLES[posterIndex]?.zIndex ?? 'z-[1]'} ${POLAROID_STYLES[posterIndex]?.offset ?? ''} ${posterIndex > 0 ? '-ml-8 sm:-ml-12' : ''} relative w-[42%] max-w-[220px] shrink-0 border-4 border-black bg-white p-2 transition-[transform,box-shadow] duration-150 ease-out hover:z-50 hover:-translate-y-5 hover:rotate-0 hover:shadow-[12px_12px_0_#111] sm:p-2.5`}
                         >
                           <img
                             src={poster}
                             alt={`${displayName}的高分番剧海报 ${posterIndex + 1}`}
-                            className="aspect-[2/3] w-full bg-[#ffe66d] object-cover"
+                            className="aspect-[2/3] w-full border-2 border-black bg-[#ffe66d] object-cover"
                             loading="lazy"
                           />
-                          <figcaption className="pt-1.5 text-center text-[10px] font-black">
-                            NO.{posterIndex + 1}
+                          <figcaption className="flex min-h-12 items-center justify-between gap-2 px-1 pt-2 text-[11px] font-black sm:min-h-14 sm:text-sm">
+                            <span className="border-2 border-black bg-[#fff5ee] px-2 py-1">
+                              NO.{posterIndex + 1}
+                            </span>
+                            <span className="truncate tracking-[0.08em] text-zinc-500">
+                              TOP PICK
+                            </span>
                           </figcaption>
                         </figure>
                       ))}
                     </div>
                   ) : (
-                    <div className="flex min-h-44 items-center justify-center border-4 border-black bg-[#fff5ee] text-center font-black text-zinc-500 shadow-[5px_5px_0_#4ecdc4]">
+                    <div className="flex min-h-[25rem] items-center justify-center border-4 border-black bg-[#fff5ee] text-center font-black text-zinc-500 shadow-[7px_7px_0_#4ecdc4] sm:min-h-[30rem]">
                       <span>
                         <i className="fa-solid fa-images mr-2" />
                         暂无高分海报信号
