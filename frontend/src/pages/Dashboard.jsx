@@ -505,6 +505,7 @@ function Dashboard() {
     : (currentPage - 1) * Number(pageSize)
   const hasLoadedRecords = recordsTotal !== null
   const hasAnyRecords = Number(statsData?.total_count ?? recordsTotal ?? 0) > 0
+  const hasCompactPreviewResult = isPreviewMode && filteredAnime.length <= 1
 
   const handlePageSizeChange = (nextPageSize) => {
     setPageSize(nextPageSize)
@@ -748,7 +749,7 @@ function Dashboard() {
   return (
     <main
       ref={dashboardRef}
-      className="memphis-public memphis-dashboard relative min-h-screen overflow-x-clip bg-[#fff5ee] pb-8 text-black"
+      className={`memphis-public memphis-dashboard relative min-h-screen overflow-x-clip bg-[#fff5ee] text-black ${hasCompactPreviewResult ? 'pb-0' : 'pb-8'}`}
     >
       <div className="memphis-grid-texture pointer-events-none absolute inset-0" aria-hidden="true" />
       <div className="memphis-float-ring pointer-events-none absolute right-[-64px] top-[30rem] z-0 h-32 w-32 rounded-full border-[18px] border-black bg-[#4ecdc4]" aria-hidden="true" />
@@ -778,7 +779,7 @@ function Dashboard() {
         </div>
       )}
 
-      <section className={`relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 ${isPreviewMode ? 'pb-8 pt-2' : 'py-7'}`}>
+      <section className={`relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 ${isPreviewMode ? `${hasCompactPreviewResult ? 'pb-0' : 'pb-8'} pt-2` : 'py-7'}`}>
         {isHeaderEntranceComplete && isLoading && !hasLoadedRecords && (
           <div className="flex items-center justify-center gap-3 border-4 border-black bg-[#ffe66d] py-12 font-black text-black shadow-[8px_8px_0_#4ecdc4]">
             <i className="fa-solid fa-spinner animate-spin text-xl"></i>

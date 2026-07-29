@@ -914,6 +914,8 @@ class AnimeApiTests(APITestCase):
 
     def test_add_endpoint_reuses_matching_public_anime_from_anime_data(self):
         anime_count = Anime.objects.count()
+        self.other_anime.base_tags = ["旧标签一", "旧标签二", "旧标签三"]
+        self.other_anime.save(update_fields=("base_tags",))
         self.client.force_authenticate(self.user)
 
         response = self.client.post(
@@ -924,6 +926,7 @@ class AnimeApiTests(APITestCase):
                     "japanese_title": self.other_anime.japanese_title,
                     "airing_period": self.other_anime.airing_period,
                     "poster_url": "https://example.com/duplicate-input.jpg",
+                    "base_tags": ["校园", "治愈"],
                 },
                 "personal_score": "9.9",
                 "watch_status": UserAnimeRecord.WatchStatus.COMPLETED,
@@ -941,6 +944,16 @@ class AnimeApiTests(APITestCase):
         )
         self.assertEqual(record.personal_score, Decimal("9.9"))
         self.assertEqual(record.review, "通过智能录入关联已有公共番剧")
+        self.assertEqual(record.private_base_tags, ["校园", "治愈"])
+        self.assertEqual(
+            response.data["anime"]["base_tags"],
+            ["校园", "治愈"],
+        )
+        self.other_anime.refresh_from_db()
+        self.assertEqual(
+            self.other_anime.base_tags,
+            ["旧标签一", "旧标签二", "旧标签三"],
+        )
 
     def test_add_endpoint_rejects_duplicate_private_record_from_anime_data(self):
         self.client.force_authenticate(self.user)

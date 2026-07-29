@@ -1047,7 +1047,17 @@ class UserAnimeRecordAddSerializer(serializers.Serializer):
                         {"anime_data": "这部番剧已经在你的手账中。"}
                     )
 
+                private_metadata_serializer = AnimeSerializer(
+                    matched_anime,
+                    data=payload,
+                    partial=True,
+                    context=self.context,
+                )
+                private_metadata_serializer.is_valid(raise_exception=True)
                 attrs["existing_anime"] = matched_anime
+                attrs["_private_metadata"] = (
+                    private_metadata_serializer.validated_data
+                )
                 return attrs
 
             anime_serializer = AnimeSerializer(
@@ -1062,6 +1072,7 @@ class UserAnimeRecordAddSerializer(serializers.Serializer):
     def create(self, validated_data):
         request = self.context["request"]
         anime_serializer = validated_data.pop("_anime_serializer", None)
+        private_metadata = validated_data.pop("_private_metadata", None)
         validated_data.pop("anime_data", None)
         validated_data.pop("poster_image", None)
         anime = validated_data.pop("existing_anime", None)
@@ -1073,5 +1084,27 @@ class UserAnimeRecordAddSerializer(serializers.Serializer):
             anime=anime,
             **validated_data,
         )
+        if private_metadata:
+            metadata_field_map = {
+                "chinese_title": "private_chinese_title",
+                "japanese_title": "private_japanese_title",
+                "airing_period": "private_airing_period",
+                "studio": "private_studio",
+                "episodes": "private_episodes",
+                "description": "private_description",
+                "poster_url": "private_poster_url",
+                "poster_image": "private_poster_image",
+                "baike_url": "private_baike_url",
+                "base_tags": "private_base_tags",
+            }
+            updated_fields = ["metadata_initialized"]
+            for source_field, target_field in metadata_field_map.items():
+                if source_field not in private_metadata:
+                    continue
+                setattr(record, target_field, private_metadata[source_field])
+                updated_fields.append(target_field)
+            record.metadata_initialized = True
+            record.save(update_fields=updated_fields)
+
         initialize_record_tag_colors(record=record, user=request.user)
         return record
