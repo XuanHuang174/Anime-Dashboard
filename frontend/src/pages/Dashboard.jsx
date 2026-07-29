@@ -336,23 +336,51 @@ function Dashboard() {
   useEffect(() => {
     if (isSharedJournal) return undefined
     const controller = new AbortController()
-    api.get('notifications/poll/', { signal: controller.signal })
-      .then((response) => {
+    let isActive = true
+    let isPolling = false
+
+    async function pollNotifications() {
+      if (!isActive || isPolling) return
+      isPolling = true
+      try {
+        const response = await api.get('notifications/poll/', {
+          signal: controller.signal,
+        })
         const notifications = Array.isArray(response.data) ? response.data : []
         notifications.forEach((notification) => {
           const isNegative = /抱歉|未能|失败|拒绝/.test(notification.message)
           showToast(notification.message, isNegative ? 'error' : 'success')
         })
-      })
-      .catch((requestError) => {
+      } catch (requestError) {
         if (
           requestError.code !== 'ERR_CANCELED'
           && requestError.response?.status !== 401
         ) {
           showToast('站内通知读取失败，请稍后重试。', 'error')
         }
-      })
-    return () => controller.abort()
+      } finally {
+        isPolling = false
+      }
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'visible') {
+        pollNotifications()
+      }
+    }
+
+    pollNotifications()
+    const pollingTimer = window.setInterval(pollNotifications, 30000)
+    window.addEventListener('focus', pollNotifications)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      isActive = false
+      window.clearInterval(pollingTimer)
+      window.removeEventListener('focus', pollNotifications)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      controller.abort()
+    }
   }, [isSharedJournal, showToast])
 
   useEffect(() => {

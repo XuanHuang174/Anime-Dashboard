@@ -647,7 +647,7 @@ function AdminDashboard() {
 
       {confirmAction?.action === 'reject' ? (
         <AdminRejectReasonModal
-          subject={`《${confirmAction.submission.chinese_title}》`}
+          subject={confirmAction.submission.chinese_title}
           contextLabel={
             confirmAction.submission.audit_status === 'removal_requested'
               ? '精选专栏 · 撤下申请'
