@@ -29,6 +29,18 @@ function normalizeResults(data) {
   return Array.isArray(data) ? data : data.results ?? []
 }
 
+function formatBangumiChineseTitle(value) {
+  const title = String(value ?? '').trim()
+  if (!title) return ''
+
+  const unwrappedTitle = title
+    .replace(/^《+/, '')
+    .replace(/》+$/, '')
+    .trim()
+
+  return unwrappedTitle ? `《${unwrappedTitle}》` : ''
+}
+
 function AddAnimeModal({
   isOpen,
   onClose,
@@ -430,8 +442,11 @@ function AddAnimeModal({
           ? nextValue
           : currentValue
       )
+      const formattedChineseTitle = formatBangumiChineseTitle(
+        scraped.chineseTitle || name,
+      )
       const autofillFieldMap = {
-        chineseTitle: scraped.chineseTitle,
+        chineseTitle: formattedChineseTitle,
         japaneseTitle: scraped.japaneseTitle,
         airingPeriod: scraped.airingPeriod,
         studio: scraped.studio,
@@ -445,14 +460,11 @@ function AddAnimeModal({
         .filter(([, value]) => typeof value === 'string' && value.trim())
         .map(([fieldName]) => fieldName)
 
-      skipNextMagicSearchRef.current = (
-        scraped.chineseTitle?.trim()
-        || name.trim()
-      )
+      skipNextMagicSearchRef.current = formattedChineseTitle
       setManualForm((current) => ({
         ...current,
         chineseTitle: keepExistingWhenBlank(
-          scraped.chineseTitle,
+          formattedChineseTitle,
           current.chineseTitle,
         ),
         japaneseTitle: keepExistingWhenBlank(
@@ -597,7 +609,7 @@ function AddAnimeModal({
         <div className="add-modal-piece mx-5 mt-4 grid shrink-0 grid-cols-2 border-4 border-black border-b-0 bg-zinc-300 shadow-[6px_6px_0_#111] sm:mx-6" role="tablist" aria-label="添加方式">
           {[
             ['search', 'fa-magnifying-glass', '搜索轩皇的番剧库'],
-            ['manual', 'fa-pen-to-square', '手动录入新番'],
+            ['manual', 'fa-wand-magic-sparkles', '智能录入新番'],
           ].map(([value, icon, label], index) => (
             <button key={value} type="button" role="tab" aria-selected={activeTab === value} onClick={() => setActiveTab(value)} className={`flex items-center justify-center gap-2 px-3 py-3 text-sm font-black transition-none ${index === 1 ? 'border-l-4 border-black' : ''} ${activeTab === value ? 'relative translate-y-1 bg-[#ffe66d]' : 'bg-zinc-300 text-zinc-600 hover:bg-white hover:text-black'}`}>
               <i className={`fa-solid ${icon}`}></i>{label}
@@ -811,14 +823,14 @@ function AddAnimeModal({
                   <label className="block"><span className={labelClass}>话数情况</span><input name="episodes" value={manualForm.episodes} onChange={updateManualField} className={inputClass} placeholder="例如 12、12+1" data-autofill-field="episodes" /></label>
                   <label className="block"><span className={labelClass}>萌娘百科 URL</span><input name="baikeUrl" type="url" value={manualForm.baikeUrl} onChange={updateManualField} className={inputClass} placeholder="https://zh.moegirl.org.cn/..." data-autofill-field="baikeUrl" /></label>
                   <label className="block sm:col-span-2"><span className={labelClass}>公共标签</span><input name="tags" value={manualForm.tags} onChange={updateManualField} className={inputClass} placeholder="使用逗号分隔，例如：日常，治愈，原创" data-autofill-field="tags" /></label>
-                  <label className="block sm:col-span-2"><span className={labelClass}>剧情简介</span><textarea name="description" value={manualForm.description} onChange={updateManualField} className={`${inputClass} h-24 resize-y leading-6`} data-autofill-field="description" /></label>
+                  <label className="flex min-h-[220px] flex-col"><span className={labelClass}>剧情简介</span><textarea name="description" value={manualForm.description} onChange={updateManualField} className={`${inputClass} min-h-[190px] flex-1 resize-y leading-6`} data-autofill-field="description" /></label>
 
-                  <div className="sm:col-span-2 border-[3px] border-black bg-[#ffe66d] p-4 shadow-[6px_6px_0_#ff8fab]">
+                  <div className="border-[3px] border-black bg-[#ffe66d] p-4 shadow-[6px_6px_0_#ff8fab]">
                     <h3 className="mb-3 text-sm font-black"><i className="fa-solid fa-bookmark mr-2"></i>初始私人手账信息</h3>
                     <div className="grid gap-4 sm:grid-cols-2">
                       <label className="block"><span className={labelClass}>观看状态</span><select name="watchStatus" value={manualForm.watchStatus} onChange={updateManualField} className={inputClass}><option value="plan">想看</option><option value="watching">在看</option><option value="completed">看过</option><option value="on_hold">搁置</option></select></label>
                       <label className="block"><span className={labelClass}>主观评分</span><input name="personalScore" type="number" min="0" max="10" step="0.1" value={manualForm.personalScore} onChange={updateManualField} className={inputClass} placeholder="0.0 - 10.0" /></label>
-                      <label className="block sm:col-span-2"><span className={labelClass}>个人评价</span><textarea name="review" value={manualForm.review} onChange={updateManualField} className={`${inputClass} h-20 resize-y`} /></label>
+                      <label className="block sm:col-span-2"><span className={labelClass}>个人评价</span><textarea name="review" value={manualForm.review} onChange={updateManualField} className={`${inputClass} min-h-[112px] resize-y leading-6`} /></label>
                     </div>
                   </div>
                 </div>
