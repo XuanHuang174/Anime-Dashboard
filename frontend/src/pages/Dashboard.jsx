@@ -753,7 +753,12 @@ function Dashboard() {
     >
       <div className="memphis-grid-texture pointer-events-none absolute inset-0" aria-hidden="true" />
       <div className="memphis-float-ring pointer-events-none absolute right-[-64px] top-[30rem] z-0 h-32 w-32 rounded-full border-[18px] border-black bg-[#4ecdc4]" aria-hidden="true" />
-      <div className="memphis-float-triangle pointer-events-none absolute left-[-32px] top-[54rem] z-0 h-0 w-0" aria-hidden="true" />
+      <div
+        className={`memphis-float-triangle pointer-events-none absolute left-[-32px] z-0 h-0 w-0 ${
+          hasCompactResult ? 'bottom-28' : 'top-[54rem]'
+        }`}
+        aria-hidden="true"
+      />
       <div className="memphis-float-zigzag pointer-events-none absolute bottom-24 right-0 z-0 h-16 w-44" aria-hidden="true" />
 
       <DashboardHeader
