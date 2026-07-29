@@ -343,9 +343,19 @@ function AddAnimeModal({
               </div>
 
               {!query.trim() && (
-                <div className="add-modal-piece py-12 text-center">
-                  <i className="fa-solid fa-book-atlas text-5xl text-[#ff4f9a]"></i>
-                  <p className="mt-4 text-sm font-black">输入关键字开始搜索公共番剧库</p>
+                <div className="add-modal-piece relative my-5 overflow-hidden border-4 border-black bg-[#fff5ee] px-5 py-9 text-center shadow-[7px_7px_0_#ff8fab]">
+                  <span className="absolute -left-7 -top-7 h-20 w-20 rotate-12 border-4 border-black bg-[#4ecdc4]" aria-hidden="true"></span>
+                  <span className="absolute -bottom-8 -right-5 h-20 w-20 rounded-full border-4 border-black bg-[#ffe66d]" aria-hidden="true"></span>
+                  <span className="relative mx-auto flex h-20 w-20 -rotate-3 items-center justify-center border-4 border-black bg-[#ff8fab] text-3xl text-black shadow-[6px_6px_0_#111]">
+                    <i className="fa-solid fa-book-atlas"></i>
+                  </span>
+                  <span className="relative mt-6 inline-flex rotate-1 border-2 border-black bg-[#4ecdc4] px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] shadow-[3px_3px_0_#111]">
+                    LIBRARY SEARCH
+                  </span>
+                  <p className="relative mt-4 text-xl font-black">输入关键字开始搜索公共番剧库</p>
+                  <p className="relative mx-auto mt-3 max-w-lg border-l-[6px] border-black bg-white px-4 py-2 text-xs font-bold leading-6 text-zinc-600 shadow-[3px_3px_0_#4ecdc4]">
+                    支持中文名、日文名、制作公司，以及 2025-10 格式的放送季度。
+                  </p>
                 </div>
               )}
               {searchError && <p role="alert" className="mt-5 border-[3px] border-black bg-[#ff6b6b] px-4 py-3 text-sm font-black shadow-[4px_4px_0_#111]">{searchError}</p>}

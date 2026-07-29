@@ -149,53 +149,65 @@ function DashboardHeader({
   )
 
   const actions = (
-    <div className={`flex shrink-0 flex-wrap items-center gap-2 ${isPreviewMode ? 'md:max-w-[48%] md:justify-end' : 'lg:max-w-[54%] lg:justify-end'}`}>
+    <div
+      className={`w-full shrink-0 self-stretch md:w-auto md:self-auto ${
+        isPreviewMode
+          ? 'md:min-w-[360px] md:max-w-[48%]'
+          : 'lg:w-[62%] lg:max-w-[760px]'
+      }`}
+    >
       {isSharedJournal ? (
-        <button
-          type="button"
-          onClick={onReturnToUniverse}
-          className="dashboard-arcade-button inline-flex items-center gap-2 rounded-full bg-[#ffe66d] shadow-[5px_5px_0_#111]"
-        >
-          <i className="fa-solid fa-arrow-left" />
-          {returnLabel}
-        </button>
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={onReturnToUniverse}
+            className="dashboard-arcade-button inline-flex items-center gap-2 rounded-full bg-[#ffe66d] shadow-[5px_5px_0_#111]"
+          >
+            <i className="fa-solid fa-arrow-left" />
+            {returnLabel}
+          </button>
+        </div>
       ) : (
         <>
-      {!isPreviewMode && (
-        <JournalDataTransfer
-          onImported={onRecordsImported}
-          showToast={showToast}
-          theme="memphis"
-        />
-      )}
-      <button
-        type="button"
-        onClick={onTogglePreview}
-        className={`dashboard-arcade-button inline-flex items-center gap-2 ${isPreviewMode ? 'dashboard-edit-mode-cta bg-[#ffe66d]' : 'bg-white'}`}
-      >
-        <i className={`fa-solid ${isPreviewMode ? 'fa-pen-to-square' : 'fa-eye'}`} />
-        {isPreviewMode ? '编辑模式' : '预览模式'}
-      </button>
-      {!isPreviewMode && (
-        <button
-          type="button"
-          onClick={onAddAnime}
-          className="dashboard-arcade-button dashboard-add-anime-cta group inline-flex items-center gap-2 bg-[#4ecdc4]"
-        >
-          <span className="flex h-6 w-6 items-center justify-center border-2 border-black bg-white text-xs group-hover:rotate-6">
-            <i className="fa-solid fa-plus" />
-          </span>
-          添加番剧
-          <span className="border-2 border-black bg-[#ffe66d] px-1.5 py-0.5 text-[9px] font-black">ADD</span>
-        </button>
-      )}
-          <PublicJournalShareButton
-            publicStatus={profile?.public_status}
-            onStatusChange={(nextStatus) => {
-              setProfile((current) => ({ ...current, ...nextStatus }))
-            }}
-            showToast={showToast}
-          />
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {!isPreviewMode && (
+              <JournalDataTransfer
+                onImported={onRecordsImported}
+                showToast={showToast}
+                theme="memphis"
+              />
+            )}
+            <button
+              type="button"
+              onClick={onTogglePreview}
+              className={`dashboard-arcade-button inline-flex items-center gap-2 ${isPreviewMode ? 'dashboard-edit-mode-cta bg-[#ffe66d]' : 'bg-white'}`}
+            >
+              <i className={`fa-solid ${isPreviewMode ? 'fa-pen-to-square' : 'fa-eye'}`} />
+              {isPreviewMode ? '编辑模式' : '预览模式'}
+            </button>
+            {!isPreviewMode && (
+              <button
+                type="button"
+                onClick={onAddAnime}
+                className="dashboard-arcade-button dashboard-add-anime-cta group inline-flex items-center gap-2 bg-[#4ecdc4]"
+              >
+                <span className="flex h-6 w-6 items-center justify-center border-2 border-black bg-white text-xs group-hover:rotate-6">
+                  <i className="fa-solid fa-plus" />
+                </span>
+                添加番剧
+                <span className="border-2 border-black bg-[#ffe66d] px-1.5 py-0.5 text-[9px] font-black">ADD</span>
+              </button>
+            )}
+          </div>
+          <div className={`${isPreviewMode ? 'mt-5' : 'mt-4'} flex justify-end`}>
+            <PublicJournalShareButton
+              publicStatus={profile?.public_status}
+              onStatusChange={(nextStatus) => {
+                setProfile((current) => ({ ...current, ...nextStatus }))
+              }}
+              showToast={showToast}
+            />
+          </div>
         </>
       )}
     </div>
