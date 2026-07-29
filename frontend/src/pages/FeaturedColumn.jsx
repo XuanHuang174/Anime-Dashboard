@@ -20,9 +20,6 @@ import { matchesCustomQuickFilter } from '../utils/quickFilter.js'
 
 gsap.registerPlugin(useGSAP)
 
-let hasPlayedFeaturedEntrance = false
-let hasPlayedFeaturedCrash = false
-
 const FEATURED_CHARACTER_URL = '/renako.png'
 
 function getScoreTextClass(score) {
@@ -38,10 +35,8 @@ function FeaturedColumn() {
   const navigate = useNavigate()
   const pageRef = useRef(null)
   const cardsRef = useRef(null)
-  const hasAnimatedCards = useRef(hasPlayedFeaturedEntrance)
-  const [isPageIntroComplete, setIsPageIntroComplete] = useState(
-    hasPlayedFeaturedCrash,
-  )
+  const hasAnimatedCards = useRef(false)
+  const [isPageIntroComplete, setIsPageIntroComplete] = useState(false)
   const [db, setDb] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -62,31 +57,37 @@ function FeaturedColumn() {
       setIsLoading(true)
       setLoadError('')
       try {
-        const filtersPromise = api.get('featured-filters/', {
-          params: { page_size: 100 },
-          signal: controller.signal,
-        })
-        const submissions = []
-        let page = 1
-        let hasNext = true
+        const loadSubmissions = async () => {
+          const submissions = []
+          let page = 1
+          let hasNext = true
 
-        while (hasNext) {
-          const response = await api.get('featured/', {
-            params: { page, page_size: 100 },
-            signal: controller.signal,
-          })
-          const payload = response.data
-          if (Array.isArray(payload)) {
-            submissions.push(...payload)
-            hasNext = false
-          } else {
-            submissions.push(...(payload.results ?? []))
-            hasNext = Boolean(payload.next)
-            page += 1
+          while (hasNext) {
+            const response = await api.get('featured/', {
+              params: { page, page_size: 100 },
+              signal: controller.signal,
+            })
+            const payload = response.data
+            if (Array.isArray(payload)) {
+              submissions.push(...payload)
+              hasNext = false
+            } else {
+              submissions.push(...(payload.results ?? []))
+              hasNext = Boolean(payload.next)
+              page += 1
+            }
           }
+
+          return submissions
         }
 
-        const filtersResponse = await filtersPromise
+        const [filtersResponse, submissions] = await Promise.all([
+          api.get('featured-filters/', {
+            params: { page_size: 100 },
+            signal: controller.signal,
+          }),
+          loadSubmissions(),
+        ])
         const filtersPayload = filtersResponse.data
         setDb(submissions.map(mapFeaturedSubmission))
         setFeaturedQuickFilters(
@@ -168,8 +169,7 @@ function FeaturedColumn() {
     const headerItems = '.featured-header-reveal'
     const contentStage = '.featured-content-stage'
 
-    if (hasPlayedFeaturedCrash || reduceMotion) {
-      hasPlayedFeaturedCrash = true
+    if (reduceMotion) {
       gsap.set(
         [leftPanel, rightPanel, artwork, headerItems, contentStage],
         { clearProps: 'all' },
@@ -178,7 +178,6 @@ function FeaturedColumn() {
       return undefined
     }
 
-    hasPlayedFeaturedCrash = true
     gsap.set([leftPanel, rightPanel, artwork, contentStage], {
       willChange: 'transform, opacity',
     })
@@ -258,11 +257,9 @@ function FeaturedColumn() {
       || hasAnimatedCards.current
       || !filteredColumns.length
     ) return undefined
-    hasAnimatedCards.current = true
-    hasPlayedFeaturedEntrance = true
-
     const cards = gsap.utils.toArray('.featured-column-card')
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      hasAnimatedCards.current = true
       gsap.set(cards, { clearProps: 'all' })
       return undefined
     }
@@ -279,7 +276,12 @@ function FeaturedColumn() {
         duration: 0.52,
         stagger: 0.1,
         ease: 'back.out(1.5)',
-        onComplete: () => gsap.set(cards, { clearProps: 'transform,opacity,visibility,willChange' }),
+        onComplete: () => {
+          hasAnimatedCards.current = true
+          gsap.set(cards, {
+            clearProps: 'transform,opacity,visibility,willChange',
+          })
+        },
       },
     )
     return () => animation.kill()

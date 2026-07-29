@@ -8,9 +8,6 @@ import P5PopArtwork from '../components/P5PopArtwork.jsx'
 
 gsap.registerPlugin(useGSAP)
 
-let hasPlayedUniverseEntrance = false
-let hasPlayedUniverseCrash = false
-
 const UNIVERSE_CHARACTER_URL = '/renako.png'
 
 const STAT_BLOCKS = [
@@ -70,10 +67,8 @@ function PublicUniverse() {
   const navigate = useNavigate()
   const pageRef = useRef(null)
   const cardsRef = useRef(null)
-  const hasAnimatedCards = useRef(hasPlayedUniverseEntrance)
-  const [isPageIntroComplete, setIsPageIntroComplete] = useState(
-    hasPlayedUniverseCrash,
-  )
+  const hasAnimatedCards = useRef(false)
+  const [isPageIntroComplete, setIsPageIntroComplete] = useState(false)
   const [searchInput, setSearchInput] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [profiles, setProfiles] = useState([])
@@ -127,8 +122,7 @@ function PublicUniverse() {
     const headerItems = '.universe-header-reveal'
     const contentStage = '.universe-content-stage'
 
-    if (hasPlayedUniverseCrash || reduceMotion) {
-      hasPlayedUniverseCrash = true
+    if (reduceMotion) {
       gsap.set(
         [leftPanel, rightPanel, artwork, headerItems, contentStage],
         { clearProps: 'all' },
@@ -137,7 +131,6 @@ function PublicUniverse() {
       return undefined
     }
 
-    hasPlayedUniverseCrash = true
     gsap.set([leftPanel, rightPanel, artwork, contentStage], {
       willChange: 'transform, opacity',
     })
@@ -219,11 +212,9 @@ function PublicUniverse() {
     ) {
       return undefined
     }
-    hasAnimatedCards.current = true
-    hasPlayedUniverseEntrance = true
-
     const cards = gsap.utils.toArray('.public-universe-card')
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      hasAnimatedCards.current = true
       gsap.set(cards, { clearProps: 'all' })
       return undefined
     }
@@ -241,6 +232,7 @@ function PublicUniverse() {
         stagger: 0.1,
         ease: 'back.out(1.5)',
         onComplete: () => {
+          hasAnimatedCards.current = true
           gsap.set(cards, {
             clearProps: 'transform,opacity,visibility,willChange',
           })
