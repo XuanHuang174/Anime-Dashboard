@@ -436,6 +436,40 @@ class UserProfileApiTests(APITestCase):
             "这是我的追番展示宣言。",
         )
 
+    def test_profile_nickname_must_be_unique_but_owner_can_keep_it(self):
+        other_user = get_user_model().objects.create_user(
+            username="other-profile@example.com",
+            email="other-profile@example.com",
+            password="Other-Profile-2026!",
+        )
+        other_user.profile.nickname = "宇宙兔子"
+        other_user.profile.save(update_fields=("nickname",))
+        self.client.force_authenticate(self.user)
+
+        duplicate_response = self.client.patch(
+            reverse("anime_api:user-profile"),
+            {"nickname": "宇宙兔子"},
+            format="json",
+        )
+        self.assertEqual(
+            duplicate_response.status_code,
+            status.HTTP_400_BAD_REQUEST,
+        )
+        self.assertEqual(
+            duplicate_response.data["nickname"][0],
+            "该昵称已被使用，请更换一个。",
+        )
+
+        self.user.profile.nickname = "自己的昵称"
+        self.user.profile.save(update_fields=("nickname",))
+        unchanged_response = self.client.patch(
+            reverse("anime_api:user-profile"),
+            {"nickname": " 自己的昵称 "},
+            format="json",
+        )
+        self.assertEqual(unchanged_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(unchanged_response.data["nickname"], "自己的昵称")
+
     def test_public_showcase_profile_exposes_identity_without_email(self):
         self.user.profile.nickname = "公开主理人"
         self.user.profile.showcase_subtitle = "公开展示副标题"
@@ -2512,6 +2546,7 @@ class PublicJournalApiTests(APITestCase):
         UserProfile.objects.filter(pk=self.profile.pk).update(
             public_status=UserProfile.PublicStatus.APPROVED,
             is_public=True,
+            nickname="宇宙兔子",
         )
         private_user = get_user_model().objects.create_user(
             username="private-owner",
@@ -2544,15 +2579,28 @@ class PublicJournalApiTests(APITestCase):
         self.assertNotIn("email", profiles[0])
         self.assertNotIn("records", profiles[0])
 
-        missing_response = self.client.get(
+        username_fragment_response = self.client.get(
             reverse("anime_api:public-journal-lobby"),
             {"search": "journal"},
         )
-        self.assertEqual(missing_response.status_code, status.HTTP_200_OK)
-        self.assertEqual(
-            missing_response.data.get("results", missing_response.data),
-            [],
+        self.assertEqual(username_fragment_response.status_code, status.HTTP_200_OK)
+        username_profiles = username_fragment_response.data.get(
+            "results",
+            username_fragment_response.data,
         )
+        self.assertEqual(len(username_profiles), 1)
+
+        nickname_response = self.client.get(
+            reverse("anime_api:public-journal-lobby"),
+            {"search": "兔子"},
+        )
+        self.assertEqual(nickname_response.status_code, status.HTTP_200_OK)
+        nickname_profiles = nickname_response.data.get(
+            "results",
+            nickname_response.data,
+        )
+        self.assertEqual(len(nickname_profiles), 1)
+        self.assertEqual(nickname_profiles[0]["nickname"], "宇宙兔子")
 
         exact_response = self.client.get(
             reverse("anime_api:public-journal-lobby"),

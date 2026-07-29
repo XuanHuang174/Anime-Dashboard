@@ -742,11 +742,16 @@ class PublicJournalLobbyView(generics.ListAPIView):
     serializer_class = PublicJournalLobbySerializer
     permission_classes = (permissions.AllowAny,)
     authentication_classes = ()
-    filter_backends = (filters.SearchFilter,)
-    search_fields = ("=user__username",)
 
     def get_queryset(self):
-        return _public_journal_profiles()
+        queryset = _public_journal_profiles()
+        search_query = self.request.query_params.get("search", "").strip()
+        if search_query:
+            queryset = queryset.filter(
+                Q(nickname__icontains=search_query)
+                | Q(user__username__icontains=search_query)
+            )
+        return queryset
 
 
 class PublicJournalDetailView(generics.ListAPIView):

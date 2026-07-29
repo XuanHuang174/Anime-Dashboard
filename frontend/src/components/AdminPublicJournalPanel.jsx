@@ -44,7 +44,7 @@ function PublicJournalProfileCard({ profile, kind, onReview, onAction }) {
             {isPending ? '等待审批' : '已持有通行证'}
           </span>
           <span className="border-2 border-black bg-[#4ecdc4] px-3 py-1 text-xs font-black">
-            @{profile.username}
+            {profile.username}
           </span>
         </div>
         <h3 className="mt-4 truncate text-2xl font-black sm:text-3xl">{displayName}</h3>
@@ -361,7 +361,7 @@ function AdminPublicJournalPanel() {
 
       {confirmAction?.action === 'reject' ? (
         <AdminRejectReasonModal
-          subject={`${confirmAction.profile.nickname || confirmAction.profile.username}（@${confirmAction.profile.username}）`}
+          subject={`${confirmAction.profile.nickname || confirmAction.profile.username}（${confirmAction.profile.username}）`}
           contextLabel="番剧共创 · 通行证申请"
           isSubmitting={processingId === confirmAction.profile.id}
           onConfirm={handleConfirm}

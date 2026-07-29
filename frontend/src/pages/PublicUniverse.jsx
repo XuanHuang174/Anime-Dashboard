@@ -294,7 +294,7 @@ function PublicUniverse() {
             <label className="universe-header-reveal mt-8 block max-w-3xl">
               <span className="mb-2 inline-flex border-2 border-black bg-black px-3 py-1 text-xs font-black tracking-[0.13em] text-white">
                 <i className="fa-solid fa-satellite-dish mr-2" />
-                精确定位用户名
+                搜索昵称或账号
               </span>
               <span className="flex border-4 border-black bg-white shadow-[9px_9px_0_#111] focus-within:translate-x-[5px] focus-within:translate-y-[5px] focus-within:shadow-none">
                 <span className="flex w-16 shrink-0 items-center justify-center border-r-4 border-black bg-[#4ecdc4] text-xl">
@@ -304,15 +304,15 @@ function PublicUniverse() {
                   type="search"
                   value={searchInput}
                   onChange={(event) => setSearchInput(event.target.value)}
-                  placeholder="输入完整用户名，例如兔子"
-                  aria-label="精确搜索公开用户名"
+                  placeholder="搜索用户昵称，例如：兔子"
+                  aria-label="搜索公开用户昵称或账号"
                   className="min-w-0 flex-1 bg-white px-5 py-4 text-base font-black outline-none placeholder:text-zinc-500 focus:bg-[#fff3ad] sm:text-lg"
                 />
                 {searchInput && (
                   <button
                     type="button"
                     onClick={() => setSearchInput('')}
-                    aria-label="清空用户名搜索"
+                    aria-label="清空用户搜索"
                     className="w-14 shrink-0 border-l-4 border-black bg-[#ff6b6b] text-lg font-black active:bg-white"
                   >
                     <i className="fa-solid fa-xmark" />
@@ -359,11 +359,11 @@ function PublicUniverse() {
                 <i className="fa-solid fa-user-astronaut" />
               </span>
               <h3 className="mt-6 text-2xl font-black">
-                {searchQuery ? '没有捕捉到这个用户名' : '共创宇宙正在等待首位同好'}
+                {searchQuery ? '没有捕捉到匹配的用户' : '共创宇宙正在等待首位同好'}
               </h3>
               <p className="mx-auto mt-3 max-w-xl border-2 border-black bg-[#fff5ee] px-4 py-2 text-sm font-bold text-zinc-600 shadow-[3px_3px_0_#4ecdc4]">
                 {searchQuery
-                  ? '请输入完整用户名重新搜索；这里只匹配账号，不匹配昵称。'
+                  ? '可以输入昵称或账号中的关键词重新搜索。'
                   : '通过审核并主动公开后，用户的手账卡片会出现在这里。'}
               </p>
             </div>

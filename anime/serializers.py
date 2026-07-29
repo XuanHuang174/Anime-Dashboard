@@ -216,6 +216,18 @@ class UserProfileSerializer(serializers.ModelSerializer):
     def validate_avatar(self, avatar):
         return validate_uploaded_image(avatar, label="头像")
 
+    def validate_nickname(self, value):
+        nickname = value.strip()
+        if not nickname:
+            return ""
+
+        profiles = UserProfile.objects.filter(nickname__iexact=nickname)
+        if self.instance is not None:
+            profiles = profiles.exclude(pk=self.instance.pk)
+        if profiles.exists():
+            raise serializers.ValidationError("该昵称已被使用，请更换一个。")
+        return nickname
+
 
 class PublicUserProfileSerializer(serializers.ModelSerializer):
     """Public-safe showcase identity; deliberately excludes the email address."""
