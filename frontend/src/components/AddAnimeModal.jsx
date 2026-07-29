@@ -204,6 +204,9 @@ function AddAnimeModal({
         anime_id: anime.id,
         watch_status: 'plan',
       })
+      setResults((current) => current.map((item) => (
+        item.id === anime.id ? { ...item, is_added: true } : item
+      )))
       onRecordAdded(response.data)
       showToast(`${anime.chinese_title}已加入手账。`, 'success')
     } catch (requestError) {
@@ -352,7 +355,7 @@ function AddAnimeModal({
 
               <div className="mt-5 grid gap-3 sm:grid-cols-2">
                 {results.map((anime, index) => {
-                  const isAdded = existingAnimeIds.has(anime.id)
+                  const isAdded = anime.is_added || existingAnimeIds.has(anime.id)
                   const isAdding = addingAnimeIds.has(anime.id)
                   const poster = anime.poster_image || anime.poster_url
                   return (

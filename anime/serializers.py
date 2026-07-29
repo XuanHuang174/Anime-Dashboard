@@ -431,6 +431,7 @@ class AnimeSerializer(serializers.ModelSerializer):
 
     base_tags = JsonStringListField(required=False)
     tag_colors = JsonStringMapField(required=False)
+    is_added = serializers.SerializerMethodField()
 
     class Meta:
         model = Anime
@@ -447,10 +448,24 @@ class AnimeSerializer(serializers.ModelSerializer):
             "baike_url",
             "base_tags",
             "tag_colors",
+            "is_added",
             "created_at",
             "updated_at",
         )
-        read_only_fields = ("id", "created_at", "updated_at")
+        read_only_fields = ("id", "is_added", "created_at", "updated_at")
+
+    def get_is_added(self, anime):
+        annotated_value = getattr(anime, "is_added", None)
+        if annotated_value is not None:
+            return bool(annotated_value)
+
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+        return UserAnimeRecord.objects.filter(
+            user=request.user,
+            anime=anime,
+        ).exists()
 
     def validate_poster_image(self, poster_image):
         return validate_uploaded_image(poster_image, label="海报")

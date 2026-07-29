@@ -476,6 +476,7 @@ function Dashboard() {
     ? 0
     : (currentPage - 1) * Number(pageSize)
   const hasLoadedRecords = recordsTotal !== null
+  const hasAnyRecords = Number(statsData?.total_count ?? recordsTotal ?? 0) > 0
 
   const handlePageSizeChange = (nextPageSize) => {
     setPageSize(nextPageSize)
@@ -840,7 +841,7 @@ function Dashboard() {
               </div>
             )}
 
-            {isContentEntranceComplete && filteredAnime.length === 0 && db.length === 0 && !isSharedJournal && (
+            {isContentEntranceComplete && filteredAnime.length === 0 && !hasAnyRecords && !isSharedJournal && (
               <button
                 type="button"
                 onClick={() => setIsAddModalOpen(true)}
@@ -859,7 +860,7 @@ function Dashboard() {
               </button>
             )}
 
-            {isContentEntranceComplete && filteredAnime.length === 0 && db.length === 0 && isSharedJournal && (
+            {isContentEntranceComplete && filteredAnime.length === 0 && !hasAnyRecords && isSharedJournal && (
               <div className="dashboard-content-piece border-4 border-black bg-white px-6 py-14 text-center shadow-[8px_8px_0_#4ecdc4]">
                 <span className="mx-auto flex h-16 w-16 items-center justify-center border-4 border-black bg-[#ffe66d] text-2xl shadow-[5px_5px_0_#111]">
                   <i className="fa-solid fa-book-open" />
@@ -869,7 +870,7 @@ function Dashboard() {
               </div>
             )}
 
-            {isContentEntranceComplete && filteredAnime.length === 0 && db.length > 0 && (
+            {isContentEntranceComplete && filteredAnime.length === 0 && hasAnyRecords && (
               <div className="dashboard-content-piece relative overflow-hidden border-4 border-black bg-white px-5 py-14 text-center shadow-[9px_9px_0_#ff6b6b]">
                 <span className="absolute -left-7 -top-7 h-20 w-20 rotate-12 border-4 border-black bg-[#4ecdc4]" aria-hidden="true"></span>
                 <span className="absolute -bottom-8 -right-5 h-20 w-20 rounded-full border-4 border-black bg-[#ff8fab]" aria-hidden="true"></span>

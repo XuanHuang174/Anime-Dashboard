@@ -13,10 +13,12 @@ from django.core.mail import send_mail
 from django.db import transaction
 from django.db.models import (
     Avg,
+    BooleanField,
     Case,
     CharField,
     Count,
     DecimalField,
+    Exists,
     F,
     IntegerField,
     OuterRef,
@@ -381,6 +383,7 @@ def _build_record_stats(queryset):
         else "N/A"
     )
     return {
+        "total_count": queryset.count(),
         "completed_count": completed_count,
         "average_score": average_score,
         "movie_count": movie_count,
@@ -1100,7 +1103,6 @@ class UserJournalImportView(APIView):
 class AnimeViewSet(viewsets.ModelViewSet):
     """Public reads/creates; only superusers may mutate shared library rows."""
 
-    queryset = Anime.objects.filter(is_active=True)
     serializer_class = AnimeSerializer
     parser_classes = (parsers.JSONParser, parsers.FormParser, parsers.MultiPartParser)
     filter_backends = (filters.SearchFilter,)
@@ -1111,6 +1113,43 @@ class AnimeViewSet(viewsets.ModelViewSet):
         "airing_period",
         "description",
     )
+
+    def get_queryset(self):
+        queryset = Anime.objects.filter(is_active=True)
+        user = self.request.user
+        if user.is_authenticated:
+            queryset = queryset.annotate(
+                is_added=Exists(
+                    UserAnimeRecord.objects.filter(
+                        user=user,
+                        anime_id=OuterRef("pk"),
+                    )
+                )
+            )
+        else:
+            queryset = queryset.annotate(
+                is_added=Value(False, output_field=BooleanField()),
+            )
+
+        valid_period = Q(airing_period__regex=r"^\d{4}-(1|4|7|10)$")
+        return queryset.annotate(
+            _airing_year=Case(
+                When(
+                    valid_period,
+                    then=Cast(Substr("airing_period", 1, 4), IntegerField()),
+                ),
+                default=Value(-1),
+                output_field=IntegerField(),
+            ),
+            _airing_month=Case(
+                When(
+                    valid_period,
+                    then=Cast(Substr("airing_period", 6), IntegerField()),
+                ),
+                default=Value(-1),
+                output_field=IntegerField(),
+            ),
+        ).order_by("-_airing_year", "-_airing_month", "chinese_title", "pk")
 
     def get_permissions(self):
         if self.request.method in permissions.SAFE_METHODS:

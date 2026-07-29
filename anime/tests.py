@@ -631,6 +631,41 @@ class AnimeApiTests(APITestCase):
         self.assertEqual(len(response.data["results"]), 1)
         self.assertEqual(response.data["results"][0]["id"], self.anime.id)
 
+    def test_anime_library_reports_added_state_for_complete_user_journal(self):
+        self.client.force_authenticate(self.user)
+
+        response = self.client.get(
+            reverse("anime_api:animes-list"),
+            {"page_size": 100},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        added_by_id = {
+            item["id"]: item["is_added"]
+            for item in response.data["results"]
+        }
+        self.assertTrue(added_by_id[self.anime.id])
+        self.assertFalse(added_by_id[self.other_anime.id])
+
+    def test_anime_library_orders_same_year_by_quarter_month_descending(self):
+        Anime.objects.bulk_create(
+            [
+                Anime(chinese_title=f"季度排序 {month}", airing_period=f"2030-{month}")
+                for month in (1, 4, 7, 10)
+            ]
+        )
+
+        response = self.client.get(
+            reverse("anime_api:animes-list"),
+            {"search": "季度排序", "page_size": 100},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            [item["airing_period"] for item in response.data["results"]],
+            ["2030-10", "2030-7", "2030-4", "2030-1"],
+        )
+
     def test_retired_anime_is_hidden_from_search_and_cannot_be_added(self):
         self.anime.is_active = False
         self.anime.save(update_fields=("is_active",))
@@ -956,6 +991,7 @@ class AnimeApiTests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["total_count"], 2)
         self.assertEqual(response.data["completed_count"], 1)
         self.assertEqual(response.data["average_score"], "9.60")
         self.assertEqual(response.data["movie_count"], 1)
