@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import api from '../api/api.js'
 
 const BUTTON_STATES = {
@@ -96,9 +97,9 @@ function PublicJournalShareButton({
         {isProcessing ? '处理中…' : buttonState.label}
       </button>
 
-      {isConfirmOpen && (
+      {isConfirmOpen && createPortal(
         <div
-          className="fixed inset-0 z-[300] flex items-center justify-center bg-zinc-950/80 px-4 backdrop-blur-[2px]"
+          className="memphis-modal-backdrop fixed inset-0 z-[1000] flex items-center justify-center bg-zinc-950/80 px-4 backdrop-blur-sm animate-[viewFadeIn_0.2s_ease-out_both]"
           role="presentation"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget && !isProcessing) {
@@ -143,7 +144,8 @@ function PublicJournalShareButton({
               </button>
             </div>
           </section>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   )
