@@ -1,11 +1,13 @@
 import json
 import re
+import unicodedata
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.files.storage import default_storage
+from django.db.models import Count
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from PIL import Image, UnidentifiedImageError
@@ -43,6 +45,18 @@ KNOWN_PROVIDER_DOMAINS = {
 }
 
 MAX_IMAGE_UPLOAD_SIZE = 5 * 1024 * 1024
+
+
+def normalize_anime_identity(value, *, strip_book_title_marks=False):
+    """Normalize harmless typography differences before matching an anime."""
+
+    normalized = unicodedata.normalize("NFKC", str(value or ""))
+    normalized = re.sub(r"\s+", "", normalized).strip().casefold()
+    if strip_book_title_marks:
+        normalized = normalized.removeprefix("《").removesuffix("》")
+    return normalized
+
+
 ALLOWED_IMAGE_FORMATS = {"JPEG", "PNG", "WEBP", "GIF"}
 
 
@@ -955,6 +969,87 @@ class UserAnimeRecordAddSerializer(serializers.Serializer):
             payload = dict(anime_data)
             if poster_image:
                 payload["poster_image"] = poster_image
+
+            anime_lookup = {
+                "chinese_title": str(payload.get("chinese_title", "")).strip(),
+                "japanese_title": str(payload.get("japanese_title", "")).strip(),
+                "airing_period": str(payload.get("airing_period", "")).strip(),
+            }
+            matched_anime = None
+            if anime_lookup["chinese_title"] and anime_lookup["airing_period"]:
+                normalized_chinese_title = normalize_anime_identity(
+                    anime_lookup["chinese_title"],
+                    strip_book_title_marks=True,
+                )
+                normalized_japanese_title = normalize_anime_identity(
+                    anime_lookup["japanese_title"],
+                )
+                candidates = [
+                    anime
+                    for anime in Anime.objects.filter(
+                        airing_period=anime_lookup["airing_period"],
+                    ).annotate(record_count=Count("user_records"))
+                    if normalize_anime_identity(
+                        anime.chinese_title,
+                        strip_book_title_marks=True,
+                    ) == normalized_chinese_title
+                    and normalize_anime_identity(
+                        anime.japanese_title,
+                    ) == normalized_japanese_title
+                ]
+
+                owned_candidate_ids = set(
+                    UserAnimeRecord.objects.filter(
+                        user=request.user,
+                        anime_id__in=[anime.pk for anime in candidates],
+                    ).values_list("anime_id", flat=True)
+                )
+                if owned_candidate_ids:
+                    raise serializers.ValidationError(
+                        {"anime_data": "这部番剧已经在你的手账中。"}
+                    )
+
+                active_candidates = [
+                    anime for anime in candidates if anime.is_active
+                ]
+                if active_candidates:
+                    matched_anime = max(
+                        active_candidates,
+                        key=lambda anime: (anime.record_count, -anime.pk),
+                    )
+                elif candidates:
+                    matched_anime = candidates[0]
+
+            if matched_anime is not None:
+                if not matched_anime.is_active:
+                    raise serializers.ValidationError(
+                        {
+                            "anime_data": (
+                                "公共番剧库中已有相同资料，但该条目目前已下架，"
+                                "请联系管理员恢复后再添加。"
+                            )
+                        }
+                    )
+                if poster_image:
+                    raise serializers.ValidationError(
+                        {
+                            "poster_image": (
+                                "该番剧已存在于公共资料库，请直接关联已有条目，"
+                                "加入手账后可在私人编辑页面上传专属海报。"
+                            )
+                        }
+                    )
+                if UserAnimeRecord.objects.filter(
+                    user=request.user,
+                    anime=matched_anime,
+                ).exists():
+                    raise serializers.ValidationError(
+                        {"anime_data": "这部番剧已经在你的手账中。"}
+                    )
+
+                attrs["existing_anime"] = matched_anime
+                return attrs
+
             anime_serializer = AnimeSerializer(
                 data=payload,
                 context=self.context,

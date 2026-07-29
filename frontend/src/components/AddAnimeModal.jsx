@@ -571,13 +571,13 @@ function AddAnimeModal({
     try {
       const response = await api.post('records/add/', formData)
       onRecordAdded(response.data)
-      showToast(`${animeData.chinese_title}已创建并加入手账。`, 'success')
+      showToast(`${animeData.chinese_title}已加入手账。`, 'success')
       playExit(onClose)
     } catch (requestError) {
       const detail = requestError.response?.data
       const message = Object.values(detail ?? {}).flat(Infinity).join(' ') || '创建失败，请检查填写内容。'
       setManualError(message)
-      showToast('创建失败，请检查填写内容。', 'error')
+      showToast(message, 'error')
     } finally {
       setIsCreating(false)
     }

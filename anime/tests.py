@@ -899,6 +899,103 @@ class AnimeApiTests(APITestCase):
             ).exists()
         )
 
+    def test_add_endpoint_reuses_matching_public_anime_from_anime_data(self):
+        anime_count = Anime.objects.count()
+        self.client.force_authenticate(self.user)
+
+        response = self.client.post(
+            reverse("anime_api:user-anime-record-add"),
+            {
+                "anime_data": {
+                    "chinese_title": self.other_anime.chinese_title,
+                    "japanese_title": self.other_anime.japanese_title,
+                    "airing_period": self.other_anime.airing_period,
+                    "poster_url": "https://example.com/duplicate-input.jpg",
+                },
+                "personal_score": "9.9",
+                "watch_status": UserAnimeRecord.WatchStatus.COMPLETED,
+                "review": "通过智能录入关联已有公共番剧",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["anime"]["id"], self.other_anime.id)
+        self.assertEqual(Anime.objects.count(), anime_count)
+        record = UserAnimeRecord.objects.get(
+            user=self.user,
+            anime=self.other_anime,
+        )
+        self.assertEqual(record.personal_score, Decimal("9.9"))
+        self.assertEqual(record.review, "通过智能录入关联已有公共番剧")
+
+    def test_add_endpoint_rejects_duplicate_private_record_from_anime_data(self):
+        self.client.force_authenticate(self.user)
+
+        response = self.client.post(
+            reverse("anime_api:user-anime-record-add"),
+            {
+                "anime_data": {
+                    "chinese_title": self.anime.chinese_title,
+                    "japanese_title": self.anime.japanese_title,
+                    "airing_period": self.anime.airing_period,
+                },
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("anime_data", response.data)
+        self.assertEqual(
+            UserAnimeRecord.objects.filter(
+                user=self.user,
+                anime=self.anime,
+            ).count(),
+            1,
+        )
+
+    def test_add_endpoint_treats_fullwidth_punctuation_as_same_private_anime(self):
+        canonical_anime = Anime.objects.create(
+            chinese_title="《别当欧尼酱了！》",
+            japanese_title="お兄ちゃんはおしまい!",
+            airing_period="2023-1",
+        )
+        UserAnimeRecord.objects.create(
+            user=self.user,
+            anime=canonical_anime,
+        )
+        Anime.objects.create(
+            chinese_title="别当欧尼酱了！",
+            japanese_title="お兄ちゃんはおしまい！",
+            airing_period="2023-1",
+        )
+
+        self.client.force_authenticate(self.user)
+        response = self.client.post(
+            reverse("anime_api:user-anime-record-add"),
+            {
+                "anime_data": {
+                    "chinese_title": "《别当欧尼酱了！》",
+                    "japanese_title": "お兄ちゃんはおしまい！",
+                    "airing_period": "2023-1",
+                },
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data["anime_data"][0],
+            "这部番剧已经在你的手账中。",
+        )
+        self.assertEqual(
+            UserAnimeRecord.objects.filter(
+                user=self.user,
+                anime__airing_period="2023-1",
+            ).count(),
+            1,
+        )
+
     def test_add_endpoint_can_create_new_anime_and_record(self):
         self.client.force_authenticate(self.user)
         response = self.client.post(
