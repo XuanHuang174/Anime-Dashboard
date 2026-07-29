@@ -28,6 +28,7 @@ from .models import (
     UserProfile,
     UserQuickFilter,
 )
+from .utils.scraper import MetadataScraper, MetadataScraperError
 
 
 @override_settings(
@@ -2824,3 +2825,185 @@ class AdminPublicJournalApiTests(APITestCase):
         profiles = search_response.data.get("results", search_response.data)
         self.assertEqual(search_response.status_code, status.HTTP_200_OK)
         self.assertEqual([profile["username"] for profile in profiles], [self.owner.username])
+
+
+class MetadataScraperTests(APITestCase):
+    def setUp(self):
+        cache.clear()
+
+    @patch.object(MetadataScraper, "_request_json")
+    def test_search_bangumi_returns_five_simplified_anime_results(self, request_json):
+        request_json.return_value = {
+            "data": [
+                {
+                    "id": index,
+                    "name": f"日本名 {index}",
+                    "name_cn": f"中文名 {index}",
+                    "images": {"grid": f"https://example.com/{index}.jpg"},
+                }
+                for index in range(1, 8)
+            ]
+        }
+
+        results = MetadataScraper.search_bangumi("测试番剧")
+
+        self.assertEqual(len(results), 5)
+        self.assertEqual(
+            results[0],
+            {
+                "id": 1,
+                "chinese_title": "中文名 1",
+                "japanese_title": "日本名 1",
+                "thumbnail": "https://example.com/1.jpg",
+            },
+        )
+        request_payload = request_json.call_args.kwargs["payload"]
+        self.assertEqual(request_payload["filter"]["type"], [2])
+        self.assertFalse(request_payload["filter"]["nsfw"])
+
+    @patch.object(MetadataScraper, "_request_json")
+    def test_bangumi_details_parse_infobox_tags_and_airing_period(self, request_json):
+        request_json.return_value = {
+            "id": 123,
+            "name": "テストアニメ",
+            "name_cn": "测试动画",
+            "date": "2026-10-05",
+            "summary": "剧情简介",
+            "eps": 12,
+            "images": {"large": "https://example.com/large.jpg"},
+            "infobox": [
+                {"key": "放送开始", "value": "2026年10月5日"},
+                {
+                    "key": "动画制作",
+                    "value": [{"v": "Studio A"}, {"v": "Studio B"}],
+                },
+            ],
+            "tags": [
+                {"name": f"标签{index}", "count": index}
+                for index in range(1, 11)
+            ],
+        }
+
+        details = MetadataScraper.get_bangumi_details(123)
+
+        self.assertEqual(details["airing_period"], "2026-10")
+        self.assertEqual(details["studio"], "Studio A、Studio B")
+        self.assertEqual(details["episodes"], "12")
+        self.assertEqual(
+            details["tags"],
+            "标签10,标签9,标签8,标签7,标签6,标签5,标签4,标签3",
+        )
+
+    @patch.object(MetadataScraper, "_request_json")
+    def test_bangumi_details_fall_back_to_subject_persons_for_studio(
+        self,
+        request_json,
+    ):
+        request_json.side_effect = [
+            {
+                "id": 123,
+                "name": "テストアニメ",
+                "name_cn": "测试动画",
+                "date": "2026-04-01",
+                "summary": "",
+                "eps": 12,
+                "images": {},
+                "infobox": [],
+                "tags": [],
+            },
+            [
+                {
+                    "name": "测试动画公司",
+                    "relation": "动画制作",
+                    "type": 2,
+                },
+                {
+                    "name": "无关人员",
+                    "relation": "制作进行",
+                    "type": 1,
+                },
+            ],
+        ]
+
+        details = MetadataScraper.get_bangumi_details(123)
+
+        self.assertEqual(details["studio"], "测试动画公司")
+        self.assertEqual(request_json.call_count, 2)
+
+
+class ExternalMetadataApiTests(APITestCase):
+    def setUp(self):
+        cache.clear()
+        self.user = get_user_model().objects.create_user(
+            username="scraper-user",
+            email="scraper@example.com",
+            password="Scraper-Test-2026!",
+        )
+        self.client.force_authenticate(user=self.user)
+
+    @patch("anime.views.MetadataScraper.search_bangumi")
+    def test_external_search_returns_proxy_results(self, search_bangumi):
+        search_bangumi.return_value = [
+            {
+                "id": 123,
+                "chinese_title": "测试动画",
+                "japanese_title": "テストアニメ",
+                "thumbnail": "https://example.com/thumb.jpg",
+            }
+        ]
+
+        response = self.client.get(
+            reverse("anime_api:external-anime-search"),
+            {"q": "测试"},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data[0]["id"], 123)
+        search_bangumi.assert_called_once_with("测试")
+
+    @patch("anime.views.MetadataScraper.get_moegirl_url")
+    @patch("anime.views.MetadataScraper.get_bangumi_details")
+    def test_external_autofill_maps_to_manual_form_fields(
+        self,
+        get_bangumi_details,
+        get_moegirl_url,
+    ):
+        get_bangumi_details.return_value = {
+            "bangumi_id": 123,
+            "chinese_title": "测试动画",
+            "japanese_title": "テストアニメ",
+            "air_date": "2026年10月5日",
+            "airing_period": "2026-10",
+            "studio": "Studio A",
+            "episodes": "12",
+            "description": "剧情简介",
+            "poster_url": "https://example.com/poster.jpg",
+            "tags": "原创,日常",
+        }
+        get_moegirl_url.return_value = "https://zh.moegirl.org.cn/测试动画"
+
+        response = self.client.get(
+            reverse("anime_api:external-anime-autofill"),
+            {"id": "123", "name": "测试动画"},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["chineseTitle"], "测试动画")
+        self.assertEqual(response.data["airingPeriod"], "2026-10")
+        self.assertEqual(response.data["tags"], "原创,日常")
+        self.assertEqual(
+            response.data["baikeUrl"],
+            "https://zh.moegirl.org.cn/测试动画",
+        )
+
+    @patch(
+        "anime.views.MetadataScraper.search_bangumi",
+        side_effect=MetadataScraperError("timeout"),
+    )
+    def test_external_search_converts_upstream_failure_to_502(self, _search):
+        response = self.client.get(
+            reverse("anime_api:external-anime-search"),
+            {"q": "测试"},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_502_BAD_GATEWAY)

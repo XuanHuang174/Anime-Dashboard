@@ -12,6 +12,8 @@ from .views import (
     ChangePasswordView,
     CurrentUserAccountView,
     CurrentUserProfileView,
+    ExternalAnimeAutofillView,
+    ExternalAnimeSearchView,
     FeaturedSubmissionViewSet,
     FeaturedQuickFilterViewSet,
     PasswordResetConfirmView,
@@ -107,6 +109,16 @@ urlpatterns = [
         name="change-password",
     ),
     path("user/account/", CurrentUserAccountView.as_view(), name="user-account"),
+    path(
+        "external/search/",
+        ExternalAnimeSearchView.as_view(),
+        name="external-anime-search",
+    ),
+    path(
+        "external/autofill/",
+        ExternalAnimeAutofillView.as_view(),
+        name="external-anime-autofill",
+    ),
     path(
         "public-journal/status/",
         PublicJournalAccessView.as_view(),

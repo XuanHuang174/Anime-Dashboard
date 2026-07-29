@@ -85,6 +85,7 @@ from .tag_services import (
     replace_record_tag_colors,
 )
 from .throttles import SensitiveAuthRateThrottle
+from .utils.scraper import MetadataScraper, MetadataScraperError
 
 
 logger = logging.getLogger(__name__)
@@ -100,6 +101,87 @@ class IsSuperUser(permissions.BasePermission):
             request.user
             and request.user.is_authenticated
             and request.user.is_superuser
+        )
+
+
+class ExternalAnimeSearchView(APIView):
+    """Proxy Bangumi subject search without exposing third-party details."""
+
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request):
+        keyword = request.query_params.get("q", "").strip()
+        if not keyword:
+            return Response(
+                {"detail": "请输入需要搜索的番剧名称。"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if len(keyword) > 100:
+            return Response(
+                {"detail": "搜索关键词不能超过 100 个字符。"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            results = MetadataScraper.search_bangumi(keyword)
+        except MetadataScraperError as exc:
+            logger.warning("Bangumi search failed: %s", exc)
+            return Response(
+                {"detail": "Bangumi 暂时无法访问，请稍后重试。"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        return Response(results)
+
+
+class ExternalAnimeAutofillView(APIView):
+    """Return a flat payload that maps directly to AddAnimeModal state."""
+
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request):
+        subject_id = request.query_params.get("id", "").strip()
+        anime_name = request.query_params.get("name", "").strip()
+        if not subject_id:
+            return Response(
+                {"detail": "缺少 Bangumi 条目 ID。"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if anime_name and len(anime_name) > 200:
+            return Response(
+                {"detail": "番剧名称不能超过 200 个字符。"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            details = MetadataScraper.get_bangumi_details(subject_id)
+        except ValueError as exc:
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except MetadataScraperError as exc:
+            logger.warning("Bangumi details request failed: %s", exc)
+            return Response(
+                {"detail": "Bangumi 条目详情暂时无法访问，请稍后重试。"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        moegirl_keyword = anime_name or details["chinese_title"]
+        baike_url = MetadataScraper.get_moegirl_url(moegirl_keyword)
+        return Response(
+            {
+                "bangumiId": details["bangumi_id"],
+                "chineseTitle": details["chinese_title"],
+                "japaneseTitle": details["japanese_title"],
+                "airDate": details["air_date"],
+                "airingPeriod": details["airing_period"],
+                "studio": details["studio"],
+                "episodes": details["episodes"],
+                "description": details["description"],
+                "posterUrl": details["poster_url"],
+                "tags": details["tags"],
+                "baikeUrl": baike_url,
+            }
         )
 
 
