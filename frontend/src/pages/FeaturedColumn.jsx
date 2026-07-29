@@ -167,18 +167,18 @@ function FeaturedColumn() {
     const rightPanel = '.featured-crash-right'
     const artwork = '.featured-pop-art'
     const headerItems = '.featured-header-reveal'
-    const contentStage = '.featured-content-stage'
+    const filterStage = '.featured-filter-stage'
 
     if (reduceMotion) {
       gsap.set(
-        [leftPanel, rightPanel, artwork, headerItems, contentStage],
+        [leftPanel, rightPanel, artwork, headerItems, filterStage],
         { clearProps: 'all' },
       )
       setIsPageIntroComplete(true)
       return undefined
     }
 
-    gsap.set([leftPanel, rightPanel, artwork, contentStage], {
+    gsap.set([leftPanel, rightPanel, artwork, filterStage], {
       willChange: 'transform, opacity',
     })
 
@@ -186,7 +186,7 @@ function FeaturedColumn() {
       defaults: { force3D: true },
       onComplete: () => {
         gsap.set(
-          [leftPanel, rightPanel, artwork, headerItems, contentStage],
+          [leftPanel, rightPanel, artwork, headerItems, filterStage],
           {
             clearProps: 'transform,opacity,visibility,willChange',
           },
@@ -236,7 +236,7 @@ function FeaturedColumn() {
         0.43,
       )
       .fromTo(
-        contentStage,
+        filterStage,
         { autoAlpha: 0, y: 150 },
         {
           autoAlpha: 1,
@@ -257,9 +257,10 @@ function FeaturedColumn() {
       || hasAnimatedCards.current
       || !filteredColumns.length
     ) return undefined
+    hasAnimatedCards.current = true
+
     const cards = gsap.utils.toArray('.featured-column-card')
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      hasAnimatedCards.current = true
       gsap.set(cards, { clearProps: 'all' })
       return undefined
     }
@@ -277,7 +278,6 @@ function FeaturedColumn() {
         stagger: 0.1,
         ease: 'back.out(1.5)',
         onComplete: () => {
-          hasAnimatedCards.current = true
           gsap.set(cards, {
             clearProps: 'transform,opacity,visibility,willChange',
           })
@@ -333,8 +333,8 @@ function FeaturedColumn() {
         </div>
       </header>
 
-      <div className="featured-content-stage relative z-20 mx-auto max-w-[1500px] px-4 sm:px-6 lg:px-8">
-        <div className="-mt-1">
+      <div className="relative z-20 mx-auto max-w-[1500px] px-4 sm:px-6 lg:px-8">
+        <div className="featured-filter-stage -mt-1">
           <FilterBar
             db={db}
             searchQuery={searchQuery}
@@ -387,7 +387,10 @@ function FeaturedColumn() {
           </div>
         )}
 
-        {!isLoading && !loadError && filteredColumns.length > 0 && (
+        {isPageIntroComplete
+          && !isLoading
+          && !loadError
+          && filteredColumns.length > 0 && (
           <div ref={cardsRef} className="grid grid-cols-1 gap-8 xl:grid-cols-2">
             {filteredColumns.map((item, index) => {
               const score = item.score ?? 0
