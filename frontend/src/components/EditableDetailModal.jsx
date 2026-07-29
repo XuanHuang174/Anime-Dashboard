@@ -67,7 +67,7 @@ function EditableDetailModal({
   const [isSaving, setIsSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [error, setError] = useState('')
-  const [activeTextPanel, setActiveTextPanel] = useState('description')
+  const [activeEditorPanel, setActiveEditorPanel] = useState('tags')
 
   const localPosterPreview = useMemo(
     () => (posterFile ? URL.createObjectURL(posterFile) : ''),
@@ -87,7 +87,7 @@ function EditableDetailModal({
     setIsSaving(false)
     setIsDeleting(false)
     setError('')
-    setActiveTextPanel('description')
+    setActiveEditorPanel('tags')
     if (posterInputRef.current) posterInputRef.current.value = ''
   }, [selectedItem])
 
@@ -350,6 +350,33 @@ function EditableDetailModal({
     || renderedItem.posterImage
     || getCoverSrc({ title: formData.title || '番剧', cover: '' })
   const validBaikeUrl = isHttpUrl(formData.baikeUrl.trim())
+  const editorPanelOptions = [
+    { value: 'tags', label: '标签管理', icon: 'fa-tags', activeClass: 'bg-[#ffe66d]' },
+    { value: 'description', label: '剧情简介', icon: 'fa-align-left', activeClass: 'bg-[#4ecdc4]' },
+    { value: 'review', label: '个人评价', icon: 'fa-pen-nib', activeClass: 'bg-[#ff8fab]' },
+  ]
+  const editorPanelSwitcher = (
+    <div className="grid grid-cols-3 border-[3px] border-black bg-white shadow-[4px_4px_0_#111]">
+      {editorPanelOptions.map((option, index) => (
+        <button
+          key={option.value}
+          type="button"
+          aria-pressed={activeEditorPanel === option.value}
+          onClick={() => setActiveEditorPanel(option.value)}
+          className={`min-w-0 px-2 py-2 text-[10px] font-black transition-none sm:text-xs ${
+            index < editorPanelOptions.length - 1 ? 'border-r-[3px] border-black' : ''
+          } ${
+            activeEditorPanel === option.value
+              ? `${option.activeClass} translate-x-0.5 translate-y-0.5`
+              : 'bg-[#f4f1ea] hover:bg-white'
+          }`}
+        >
+          <i className={`fa-solid ${option.icon} mr-1.5`}></i>
+          {option.label}
+        </button>
+      ))}
+    </div>
+  )
 
   return (
     <div
@@ -357,14 +384,14 @@ function EditableDetailModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="editAnimeTitle"
-      className="fixed inset-0 z-[110] flex items-center justify-center overflow-y-auto bg-zinc-950/80 p-2 backdrop-blur-sm sm:p-4"
+      className="fixed inset-0 z-[110] flex items-center justify-center overflow-y-auto bg-zinc-950/80 p-2 backdrop-blur-sm sm:p-4 lg:overflow-hidden"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) handleClose()
       }}
     >
       <section
         ref={modalRef}
-        className="relative my-auto flex max-h-[96vh] w-full max-w-6xl flex-col overflow-hidden border-4 border-black bg-[#fff5ee] text-black shadow-[12px_12px_0_#111]"
+        className="relative my-auto flex max-h-[96vh] w-full max-w-6xl flex-col overflow-hidden border-4 border-black bg-[#fff5ee] text-black shadow-[12px_12px_0_#111] lg:h-[96vh]"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <header className="edit-modal-piece flex shrink-0 items-start justify-between gap-4 border-b-4 border-black bg-[#4ecdc4] px-4 py-3 sm:px-6">
@@ -386,39 +413,39 @@ function EditableDetailModal({
           </button>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar sm:p-5">
-          <div className="grid gap-5 lg:grid-cols-[240px_1fr]">
-            <aside className="edit-modal-piece mx-auto w-full max-w-[240px] lg:mx-0">
-              <div className="aspect-[3/4] overflow-hidden border-4 border-black bg-[#ff8fab] shadow-[7px_7px_0_#4ecdc4]">
+        <div className="min-h-0 flex-1 overflow-y-auto p-3 custom-scrollbar sm:p-4 lg:overflow-hidden">
+          <div className="grid gap-4 lg:h-full lg:min-h-0 lg:grid-cols-[220px_minmax(0,1fr)]">
+            <aside className="edit-modal-piece mx-auto w-full max-w-[240px] lg:mx-0 lg:flex lg:h-full lg:max-w-[220px] lg:min-h-0 lg:flex-col">
+              <div className="aspect-[3/4] overflow-hidden border-4 border-black bg-[#ff8fab] shadow-[7px_7px_0_#4ecdc4] lg:min-h-0 lg:flex-1">
                 <img src={coverPreview} alt={`${formData.title} 海报`} className="h-full w-full object-cover" />
               </div>
 
-              <label className="mt-4 block cursor-pointer border-[3px] border-black bg-[#ffe66d] px-4 py-2.5 text-center text-xs font-black shadow-[5px_5px_0_#111] transition-none hover:bg-[#4ecdc4] active:translate-x-[5px] active:translate-y-[5px] active:shadow-none">
+              <label className="mt-3 block shrink-0 cursor-pointer border-[3px] border-black bg-[#ffe66d] px-3 py-2 text-center text-[11px] font-black shadow-[4px_4px_0_#111] transition-none hover:bg-[#4ecdc4] active:translate-x-1 active:translate-y-1 active:shadow-none">
                 <i className="fa-solid fa-upload mr-2"></i>
                 {posterFile ? '已选择：更换文件' : '从本地上传海报'}
                 <input ref={posterInputRef} type="file" accept={IMAGE_FILE_ACCEPT} onChange={handlePosterChange} className="sr-only" />
               </label>
               {posterFile && <p className="mt-2 break-all text-[10px] font-black">{posterFile.name}</p>}
 
-              <label htmlFor="editCoverUrl" className="mb-1 mt-4 block text-xs font-black">网络图片 URL</label>
+              <label htmlFor="editCoverUrl" className="mb-1 mt-3 block shrink-0 text-[11px] font-black">网络图片 URL</label>
               <input id="editCoverUrl" name="cover" type="url" value={formData.cover} onChange={updateField} placeholder="https://..." className={fieldClass} />
 
-              <label htmlFor="editBaikeUrl" className="mb-1 mt-4 block text-xs font-black">萌娘百科 URL</label>
+              <label htmlFor="editBaikeUrl" className="mb-1 mt-3 block shrink-0 text-[11px] font-black">萌娘百科 URL</label>
               <input id="editBaikeUrl" name="baikeUrl" type="url" value={formData.baikeUrl} onChange={updateField} placeholder="https://zh.moegirl.org.cn/..." className={fieldClass} />
               <a
                 href={validBaikeUrl ? formData.baikeUrl.trim() : undefined}
                 target={validBaikeUrl ? '_blank' : undefined}
                 rel={validBaikeUrl ? 'noreferrer' : undefined}
                 aria-disabled={!validBaikeUrl}
-                className={`mt-3 flex w-full items-center justify-center gap-2 border-[3px] border-black bg-[#ff8fab] px-4 py-2.5 text-xs font-black shadow-[5px_5px_0_#111] transition-none active:translate-x-[5px] active:translate-y-[5px] active:shadow-none${validBaikeUrl ? '' : ' pointer-events-none bg-zinc-300 text-zinc-500'}`}
+                className={`mt-3 flex w-full shrink-0 items-center justify-center gap-2 border-[3px] border-black bg-[#ff8fab] px-3 py-2 text-[11px] font-black shadow-[4px_4px_0_#111] transition-none active:translate-x-1 active:translate-y-1 active:shadow-none${validBaikeUrl ? '' : ' pointer-events-none bg-zinc-300 text-zinc-500'}`}
               >
                 <i className={`fa-solid ${validBaikeUrl ? 'fa-book-open' : 'fa-link-slash'}`}></i>
                 {validBaikeUrl ? '前往萌娘百科' : '请输入有效的 HTTP(S) 地址'}
               </a>
             </aside>
 
-            <div className="space-y-4">
-              <div className="edit-modal-piece grid gap-3 border-[3px] border-black bg-white p-3 shadow-[6px_6px_0_#ffe66d] sm:grid-cols-2 lg:grid-cols-3">
+            <div className="flex min-h-0 flex-col gap-3">
+              <div className="edit-modal-piece grid shrink-0 gap-2.5 border-[3px] border-black bg-white p-3 shadow-[6px_6px_0_#ffe66d] sm:grid-cols-2 lg:grid-cols-3">
                 {[
                   ['period', '放送季度', 'text', '2026-1'],
                   ['studio', '制作公司', 'text', ''],
@@ -441,79 +468,92 @@ function EditableDetailModal({
                 </label>
               </div>
 
-              <section className="edit-modal-piece grid gap-4 lg:grid-cols-2">
-                <div className="border-[3px] border-black bg-white p-3 shadow-[6px_6px_0_#4ecdc4]">
-                  <div className="mb-3 flex items-center justify-between gap-2">
-                    <span className="text-xs font-black"><i className="fa-solid fa-tags mr-2"></i>当前标签</span>
-                    <span className="rounded-full border-2 border-black bg-[#ffe66d] px-2.5 py-1 text-[10px] font-black">{formData.tags.length} 个</span>
-                  </div>
+              <section className="edit-modal-piece min-h-0 flex-1">
+                {activeEditorPanel === 'tags' ? (
+                  <div className="grid h-full min-h-0 gap-3 lg:grid-cols-2">
+                    <div className="flex min-h-0 flex-col border-[3px] border-black bg-white p-2.5 shadow-[6px_6px_0_#4ecdc4]">
+                      <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
+                        <span className="text-xs font-black"><i className="fa-solid fa-tags mr-2"></i>当前标签</span>
+                        <span className="rounded-full border-2 border-black bg-[#ffe66d] px-2.5 py-1 text-[10px] font-black">{formData.tags.length} 个</span>
+                      </div>
 
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {formData.tags.map((tag, index) => {
-                      const color = formData.tagColors[tag] || getDefaultTagColor(tag)
-                      return (
-                        <div key={`${tag}-${index}`} className={`rounded-[24px] border-[3px] border-black p-2 shadow-[3px_3px_0_#111] ${getTagClass(tag, color)}`}>
-                          <div className="flex items-center gap-1.5">
-                            <input value={tag} onChange={(event) => updateTag(index, event.target.value)} className={`min-w-0 flex-1 rounded-full border-2 border-black bg-white px-2.5 py-1.5 text-center text-xs font-black outline-none focus:bg-[#fff2a8] ${getTagTextClass(tag, color)}`} aria-label={`修改标签 ${tag}`} />
-                            <button type="button" onClick={() => removeTag(index)} className="flex h-7 w-7 shrink-0 items-center justify-center border-2 border-black bg-[#ff6b6b] text-black shadow-[2px_2px_0_#111] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none" aria-label={`删除标签 ${tag}`}>
-                              <i className="fa-solid fa-xmark"></i>
-                            </button>
-                          </div>
-                          <select value={color} onChange={(event) => updateTagColor(tag, event.target.value)} className="mt-1.5 w-full rounded-full border-2 border-black bg-white px-2 py-1 text-[10px] font-black text-black outline-none focus:bg-[#fff2a8]" aria-label={`${tag}的颜色`}>
-                            {tagColorOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                          </select>
-                        </div>
-                      )
-                    })}
-                  </div>
+                      <div className="grid min-h-0 flex-1 gap-1.5 overflow-y-auto pr-1 custom-scrollbar sm:grid-cols-2">
+                        {formData.tags.map((tag, index) => {
+                          const color = formData.tagColors[tag] || getDefaultTagColor(tag)
+                          return (
+                            <div key={`${tag}-${index}`} className={`rounded-[22px] border-[3px] border-black p-1.5 shadow-[3px_3px_0_#111] ${getTagClass(tag, color)}`}>
+                              <div className="flex items-center gap-1.5">
+                                <input value={tag} onChange={(event) => updateTag(index, event.target.value)} className={`min-w-0 flex-1 rounded-full border-2 border-black bg-white px-2 py-1 text-center text-[11px] font-black outline-none focus:bg-[#fff2a8] ${getTagTextClass(tag, color)}`} aria-label={`修改标签 ${tag}`} />
+                                <button type="button" onClick={() => removeTag(index)} className="flex h-6 w-6 shrink-0 items-center justify-center border-2 border-black bg-[#ff6b6b] text-[11px] text-black shadow-[2px_2px_0_#111] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none" aria-label={`删除标签 ${tag}`}>
+                                  <i className="fa-solid fa-xmark"></i>
+                                </button>
+                              </div>
+                              <select value={color} onChange={(event) => updateTagColor(tag, event.target.value)} className="mt-1 w-full rounded-full border-2 border-black bg-white px-2 py-0.5 text-[10px] font-black text-black outline-none focus:bg-[#fff2a8]" aria-label={`${tag}的颜色`}>
+                                {tagColorOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                              </select>
+                            </div>
+                          )
+                        })}
+                      </div>
 
-                  <div className="mt-3 flex border-[3px] border-black bg-[#ff8fab] p-2 shadow-[4px_4px_0_#111]">
-                    <input
-                      value={newTag}
-                      onChange={(event) => setNewTag(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter') {
-                          event.preventDefault()
-                          addTag()
-                        }
-                      }}
-                      className="min-w-0 flex-1 border-2 border-black bg-white px-3 py-2 text-xs font-black outline-none focus:bg-[#fff2a8]"
-                      placeholder="自定义新标签"
-                    />
-                    <button type="button" onClick={addTag} className="border-y-2 border-r-2 border-black bg-[#ffe66d] px-3 text-xs font-black hover:bg-[#4ecdc4]">
-                      <i className="fa-solid fa-plus mr-1.5"></i>增加
-                    </button>
-                  </div>
-                </div>
-
-                <div className="border-[3px] border-black bg-[#ffe66d] p-3 shadow-[6px_6px_0_#ff8fab]">
-                  <div className="mb-3">
-                    <span className="text-xs font-black"><i className="fa-solid fa-wand-magic-sparkles mr-2"></i>快捷预设</span>
-                    <p className="mt-1 text-[10px] font-bold">点击即可加入，再在左侧选择专属颜色。</p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {presetTags.map((tag) => {
-                      const isSelected = formData.tags.includes(tag)
-                      return (
-                        <button key={tag} type="button" disabled={isSelected} onClick={() => addTagValue(tag)} className={`rounded-full border-2 border-black px-2.5 py-1.5 text-xs font-black shadow-[2px_2px_0_#111] transition-none active:translate-x-0.5 active:translate-y-0.5 active:shadow-none disabled:cursor-default disabled:opacity-40 ${getTagClass(tag, getDefaultTagColor(tag))}`}>
-                          <i className={`fa-solid ${isSelected ? 'fa-check' : 'fa-plus'} mr-1.5 text-[9px]`}></i>{tag}
+                      <div className="mt-2 flex shrink-0 border-[3px] border-black bg-[#ff8fab] p-1.5 shadow-[4px_4px_0_#111]">
+                        <input
+                          value={newTag}
+                          onChange={(event) => setNewTag(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                              event.preventDefault()
+                              addTag()
+                            }
+                          }}
+                          className="min-w-0 flex-1 border-2 border-black bg-white px-3 py-1.5 text-xs font-black outline-none focus:bg-[#fff2a8]"
+                          placeholder="自定义新标签"
+                        />
+                        <button type="button" onClick={addTag} className="border-y-2 border-r-2 border-black bg-[#ffe66d] px-3 text-xs font-black hover:bg-[#4ecdc4]">
+                          <i className="fa-solid fa-plus mr-1.5"></i>增加
                         </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              </section>
+                      </div>
+                    </div>
 
-              <section className="edit-modal-piece">
-                <div className="mb-2 grid grid-cols-2 border-[3px] border-black bg-white shadow-[4px_4px_0_#111]">
-                  <button type="button" aria-pressed={activeTextPanel === 'description'} onClick={() => setActiveTextPanel('description')} className={`border-r-[3px] border-black px-4 py-2 text-xs font-black ${activeTextPanel === 'description' ? 'bg-[#4ecdc4]' : 'bg-[#f4f1ea]'}`}>
-                    <i className="fa-solid fa-align-left mr-2"></i>剧情简介
-                  </button>
-                  <button type="button" aria-pressed={activeTextPanel === 'review'} onClick={() => setActiveTextPanel('review')} className={`px-4 py-2 text-xs font-black ${activeTextPanel === 'review' ? 'bg-[#ff8fab]' : 'bg-[#f4f1ea]'}`}>
-                    <i className="fa-solid fa-pen-nib mr-2"></i>个人评价
-                  </button>
-                </div>
-                <textarea key={activeTextPanel} name={activeTextPanel} value={formData[activeTextPanel]} onChange={updateField} className={`${fieldClass} h-32 resize-y leading-6`} placeholder={activeTextPanel === 'description' ? '填写番剧剧情简介...' : '写下你的观看感受...'} aria-label={activeTextPanel === 'description' ? '剧情简介' : '个人评价'} />
+                    <div className="flex min-h-0 flex-col border-[3px] border-black bg-[#ffe66d] p-3 shadow-[6px_6px_0_#ff8fab]">
+                      <div className="mb-2 shrink-0">
+                        <span className="text-xs font-black"><i className="fa-solid fa-wand-magic-sparkles mr-2"></i>快捷预设</span>
+                        <p className="mt-1 text-[10px] font-bold">点击即可加入，再在左侧选择专属颜色。</p>
+                      </div>
+                      <div className="flex min-h-0 flex-1 content-start flex-wrap gap-1.5">
+                        {presetTags.map((tag) => {
+                          const isSelected = formData.tags.includes(tag)
+                          return (
+                            <button key={tag} type="button" disabled={isSelected} onClick={() => addTagValue(tag)} className={`rounded-full border-2 border-black px-2 py-1 text-[11px] font-black leading-4 shadow-[2px_2px_0_#111] transition-none active:translate-x-0.5 active:translate-y-0.5 active:shadow-none disabled:cursor-default disabled:opacity-40 ${getTagClass(tag, getDefaultTagColor(tag))}`}>
+                              <i className={`fa-solid ${isSelected ? 'fa-check' : 'fa-plus'} mr-1.5 text-[9px]`}></i>{tag}
+                            </button>
+                          )
+                        })}
+                      </div>
+                      <div className="mt-3 shrink-0 border-t-[3px] border-black pt-3">
+                        <p className="mb-2 text-[10px] font-black uppercase tracking-[0.12em]">切换编辑模块</p>
+                        {editorPanelSwitcher}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className={`flex h-full min-h-0 flex-col border-[3px] border-black p-3 shadow-[6px_6px_0_#111] ${
+                    activeEditorPanel === 'description' ? 'bg-[#4ecdc4]' : 'bg-[#ff8fab]'
+                  }`}>
+                    <div className="mb-3 shrink-0">
+                      {editorPanelSwitcher}
+                    </div>
+                    <textarea
+                      key={activeEditorPanel}
+                      name={activeEditorPanel}
+                      value={formData[activeEditorPanel]}
+                      onChange={updateField}
+                      className={`${fieldClass} min-h-0 flex-1 resize-none overflow-y-auto p-4 text-sm leading-7 custom-scrollbar`}
+                      placeholder={activeEditorPanel === 'description' ? '填写番剧剧情简介...' : '写下你的观看感受...'}
+                      aria-label={activeEditorPanel === 'description' ? '剧情简介' : '个人评价'}
+                    />
+                  </div>
+                )}
               </section>
 
               {error && <p role="alert" className="edit-modal-piece border-[3px] border-black bg-[#ff6b6b] px-4 py-3 text-sm font-black shadow-[4px_4px_0_#111]"><i className="fa-solid fa-circle-exclamation mr-2"></i>{error}</p>}
