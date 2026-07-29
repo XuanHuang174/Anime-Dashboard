@@ -29,6 +29,40 @@ function normalizeResults(data) {
   return Array.isArray(data) ? data : data.results ?? []
 }
 
+function normalizeAnimeIdentityPart(value) {
+  return String(value ?? '')
+    .normalize('NFKC')
+    .trim()
+    .toLocaleLowerCase()
+    .replace(/[《》〈〉「」『』【】[\]()（）\s]/g, '')
+}
+
+function getAnimeIdentityKey(anime) {
+  const chineseTitle = anime?.chinese_title ?? anime?.title
+  const japaneseTitle = anime?.japanese_title ?? anime?.japaneseTitle
+  const airingPeriod = anime?.airing_period ?? anime?.period
+
+  return [
+    normalizeAnimeIdentityPart(chineseTitle),
+    normalizeAnimeIdentityPart(japaneseTitle),
+    normalizeAnimeIdentityPart(airingPeriod),
+  ].join('|')
+}
+
+function normalizeShowcaseResults(data) {
+  const uniqueAnime = new Map()
+
+  normalizeResults(data).forEach((record) => {
+    const anime = record?.anime ?? record
+    if (!anime?.id) return
+
+    const identityKey = getAnimeIdentityKey(anime) || `id:${anime.id}`
+    if (!uniqueAnime.has(identityKey)) uniqueAnime.set(identityKey, anime)
+  })
+
+  return [...uniqueAnime.values()]
+}
+
 function formatBangumiChineseTitle(value) {
   const title = String(value ?? '').trim()
   if (!title) return ''
@@ -44,7 +78,8 @@ function formatBangumiChineseTitle(value) {
 function AddAnimeModal({
   isOpen,
   onClose,
-  existingAnimeIds,
+  existingAnimeIds = new Set(),
+  existingAnimeItems = [],
   onRecordAdded,
   showToast,
 }) {
@@ -73,6 +108,10 @@ function AddAnimeModal({
   const [isAutofilling, setIsAutofilling] = useState(false)
   const [magicSearchError, setMagicSearchError] = useState('')
   const [isMagicDropdownOpen, setIsMagicDropdownOpen] = useState(false)
+  const existingAnimeKeys = useMemo(
+    () => new Set(existingAnimeItems.map(getAnimeIdentityKey).filter(Boolean)),
+    [existingAnimeItems],
+  )
 
   const posterPreview = useMemo(() => {
     if (posterFile) return URL.createObjectURL(posterFile)
@@ -278,11 +317,11 @@ function AddAnimeModal({
       setIsSearching(true)
       setSearchError('')
       try {
-        const response = await api.get('animes/', {
-          params: { search: keyword, _fresh: Date.now() },
+        const response = await api.get('showcase/', {
+          params: { search: keyword, page_size: 'all', _fresh: Date.now() },
           signal: controller.signal,
         })
-        setResults(normalizeResults(response.data))
+        setResults(normalizeShowcaseResults(response.data))
       } catch (requestError) {
         if (requestError.code !== 'ERR_CANCELED') setSearchError('搜索失败，请稍后重试。')
       } finally {
@@ -652,7 +691,9 @@ function AddAnimeModal({
 
               <div className="mt-5 grid gap-3 sm:grid-cols-2">
                 {results.map((anime, index) => {
-                  const isAdded = anime.is_added || existingAnimeIds.has(anime.id)
+                  const isAdded = anime.is_added
+                    || existingAnimeIds.has(anime.id)
+                    || existingAnimeKeys.has(getAnimeIdentityKey(anime))
                   const isAdding = addingAnimeIds.has(anime.id)
                   const poster = anime.poster_image || anime.poster_url
                   return (

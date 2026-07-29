@@ -748,7 +748,7 @@ function Dashboard() {
   return (
     <main
       ref={dashboardRef}
-      className="memphis-public memphis-dashboard relative min-h-screen overflow-x-hidden bg-[#fff5ee] pb-8 text-black"
+      className="memphis-public memphis-dashboard relative min-h-screen overflow-x-clip bg-[#fff5ee] pb-8 text-black"
     >
       <div className="memphis-grid-texture pointer-events-none absolute inset-0" aria-hidden="true" />
       <div className="memphis-float-ring pointer-events-none absolute right-[-64px] top-[30rem] z-0 h-32 w-32 rounded-full border-[18px] border-black bg-[#4ecdc4]" aria-hidden="true" />
@@ -957,6 +957,7 @@ function Dashboard() {
             isOpen={isAddModalOpen}
             onClose={() => setIsAddModalOpen(false)}
             existingAnimeIds={new Set(db.map((item) => item.animeId))}
+            existingAnimeItems={db}
             onRecordAdded={handleRecordAdded}
             showToast={showToast}
           />
