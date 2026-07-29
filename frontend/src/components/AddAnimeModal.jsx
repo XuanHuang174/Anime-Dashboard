@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 import api from '../api/api.js'
@@ -40,6 +40,11 @@ function AddAnimeModal({
   const modalRef = useRef(null)
   const closeHandlerRef = useRef(null)
   const posterInputRef = useRef(null)
+  const magicSearchRef = useRef(null)
+  const magicSearchTimerRef = useRef(null)
+  const magicSearchRequestRef = useRef(null)
+  const autofillRequestRef = useRef(null)
+  const skipNextMagicSearchRef = useRef('')
   const [activeTab, setActiveTab] = useState('search')
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
@@ -50,6 +55,11 @@ function AddAnimeModal({
   const [posterFile, setPosterFile] = useState(null)
   const [manualError, setManualError] = useState('')
   const [isCreating, setIsCreating] = useState(false)
+  const [magicSearchResults, setMagicSearchResults] = useState([])
+  const [isMagicSearching, setIsMagicSearching] = useState(false)
+  const [isAutofilling, setIsAutofilling] = useState(false)
+  const [magicSearchError, setMagicSearchError] = useState('')
+  const [isMagicDropdownOpen, setIsMagicDropdownOpen] = useState(false)
 
   const posterPreview = useMemo(() => {
     if (posterFile) return URL.createObjectURL(posterFile)
@@ -141,6 +151,16 @@ function AddAnimeModal({
       setPosterFile(null)
       setManualError('')
       setIsCreating(false)
+      setMagicSearchResults([])
+      setIsMagicSearching(false)
+      setIsAutofilling(false)
+      setMagicSearchError('')
+      setIsMagicDropdownOpen(false)
+      skipNextMagicSearchRef.current = ''
+      window.clearTimeout(magicSearchTimerRef.current)
+      magicSearchTimerRef.current = null
+      magicSearchRequestRef.current?.abort()
+      autofillRequestRef.current?.abort()
       if (posterInputRef.current) posterInputRef.current.value = ''
       return undefined
     }
@@ -195,6 +215,94 @@ function AddAnimeModal({
     }
   }, [activeTab, isOpen, query])
 
+  const performMagicSearch = useCallback(async (rawKeyword) => {
+    const keyword = rawKeyword.trim()
+    if (!keyword) {
+      setMagicSearchResults([])
+      setMagicSearchError('请先输入需要查找的番剧名称。')
+      setIsMagicDropdownOpen(true)
+      return
+    }
+
+    magicSearchRequestRef.current?.abort()
+    const controller = new AbortController()
+    magicSearchRequestRef.current = controller
+    setIsMagicSearching(true)
+    setMagicSearchError('')
+    setIsMagicDropdownOpen(true)
+
+    try {
+      const response = await api.get('external/search/', {
+        params: { q: keyword },
+        signal: controller.signal,
+      })
+      setMagicSearchResults(normalizeResults(response.data))
+    } catch (requestError) {
+      if (requestError.code !== 'ERR_CANCELED') {
+        setMagicSearchResults([])
+        setMagicSearchError(
+          requestError.response?.data?.detail
+          || '智能搜索暂时不可用，请稍后重试。',
+        )
+      }
+    } finally {
+      if (magicSearchRequestRef.current === controller) {
+        setIsMagicSearching(false)
+        magicSearchRequestRef.current = null
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!isOpen || activeTab !== 'manual') return undefined
+    const keyword = manualForm.chineseTitle.trim()
+    if (skipNextMagicSearchRef.current === keyword) {
+      skipNextMagicSearchRef.current = ''
+      return undefined
+    }
+    skipNextMagicSearchRef.current = ''
+
+    if (!keyword) {
+      magicSearchRequestRef.current?.abort()
+      setMagicSearchResults([])
+      setMagicSearchError('')
+      setIsMagicSearching(false)
+      setIsMagicDropdownOpen(false)
+      return undefined
+    }
+
+    magicSearchTimerRef.current = window.setTimeout(() => {
+      performMagicSearch(keyword)
+    }, 500)
+    return () => {
+      window.clearTimeout(magicSearchTimerRef.current)
+      magicSearchTimerRef.current = null
+      magicSearchRequestRef.current?.abort()
+    }
+  }, [
+    activeTab,
+    isOpen,
+    manualForm.chineseTitle,
+    performMagicSearch,
+  ])
+
+  useEffect(() => {
+    if (!isMagicDropdownOpen) return undefined
+    const closeDropdown = (event) => {
+      if (!magicSearchRef.current?.contains(event.target)) {
+        setIsMagicDropdownOpen(false)
+      }
+    }
+    document.addEventListener('pointerdown', closeDropdown)
+    return () => document.removeEventListener('pointerdown', closeDropdown)
+  }, [isMagicDropdownOpen])
+
+  useEffect(() => () => {
+    window.clearTimeout(magicSearchTimerRef.current)
+    magicSearchRequestRef.current?.abort()
+    autofillRequestRef.current?.abort()
+  }, [])
+
   if (!isOpen) return null
 
   const handleAddExisting = async (anime) => {
@@ -229,6 +337,87 @@ function AddAnimeModal({
       if (posterInputRef.current) posterInputRef.current.value = ''
     }
     setManualForm((current) => ({ ...current, [name]: value }))
+  }
+
+  const handleSelectAnime = async (subjectId, name) => {
+    magicSearchRequestRef.current?.abort()
+    autofillRequestRef.current?.abort()
+    const controller = new AbortController()
+    autofillRequestRef.current = controller
+    setIsAutofilling(true)
+    setMagicSearchError('')
+
+    try {
+      const response = await api.get('external/autofill/', {
+        params: {
+          id: subjectId,
+          name,
+        },
+        signal: controller.signal,
+      })
+      const scraped = response.data ?? {}
+      const keepExistingWhenBlank = (nextValue, currentValue) => (
+        typeof nextValue === 'string' && nextValue.trim()
+          ? nextValue
+          : currentValue
+      )
+
+      skipNextMagicSearchRef.current = (
+        scraped.chineseTitle?.trim()
+        || name.trim()
+      )
+      setManualForm((current) => ({
+        ...current,
+        chineseTitle: keepExistingWhenBlank(
+          scraped.chineseTitle,
+          current.chineseTitle,
+        ),
+        japaneseTitle: keepExistingWhenBlank(
+          scraped.japaneseTitle,
+          current.japaneseTitle,
+        ),
+        airingPeriod: keepExistingWhenBlank(
+          scraped.airingPeriod,
+          current.airingPeriod,
+        ),
+        studio: keepExistingWhenBlank(scraped.studio, current.studio),
+        episodes: keepExistingWhenBlank(scraped.episodes, current.episodes),
+        tags: keepExistingWhenBlank(scraped.tags, current.tags),
+        description: keepExistingWhenBlank(
+          scraped.description,
+          current.description,
+        ),
+        posterUrl: keepExistingWhenBlank(
+          scraped.posterUrl,
+          current.posterUrl,
+        ),
+        baikeUrl: keepExistingWhenBlank(
+          scraped.baikeUrl,
+          current.baikeUrl,
+        ),
+      }))
+      if (scraped.posterUrl) {
+        setPosterFile(null)
+        if (posterInputRef.current) posterInputRef.current.value = ''
+      }
+      setMagicSearchResults([])
+      setIsMagicDropdownOpen(false)
+      setManualError('')
+      showToast('番剧资料已自动填充，请检查后再创建。', 'success')
+    } catch (requestError) {
+      if (requestError.code !== 'ERR_CANCELED') {
+        setMagicSearchError(
+          requestError.response?.data?.detail
+          || '自动填充失败，请稍后重试。',
+        )
+        setIsMagicDropdownOpen(true)
+      }
+    } finally {
+      if (autofillRequestRef.current === controller) {
+        setIsAutofilling(false)
+        autofillRequestRef.current = null
+      }
+    }
   }
 
   const handlePosterChange = (event) => {
@@ -404,7 +593,131 @@ function AddAnimeModal({
                 </aside>
 
                 <div className="add-modal-piece grid content-start gap-4 sm:grid-cols-2">
-                  <label className="block"><span className={labelClass}>番剧中文名 *</span><input required name="chineseTitle" value={manualForm.chineseTitle} onChange={updateManualField} className={inputClass} /></label>
+                  <div ref={magicSearchRef} className="relative z-50">
+                    <label htmlFor="newAnimeChineseTitle" className={labelClass}>
+                      番剧中文名 *
+                    </label>
+                    <div className="flex items-stretch gap-2">
+                      <input
+                        id="newAnimeChineseTitle"
+                        required
+                        name="chineseTitle"
+                        value={manualForm.chineseTitle}
+                        onChange={updateManualField}
+                        onFocus={() => {
+                          if (
+                            magicSearchResults.length
+                            || isMagicSearching
+                            || magicSearchError
+                          ) {
+                            setIsMagicDropdownOpen(true)
+                          }
+                        }}
+                        className={`${inputClass} min-w-0 flex-1`}
+                        placeholder="输入名称，停顿后智能搜索"
+                        autoComplete="off"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          window.clearTimeout(magicSearchTimerRef.current)
+                          magicSearchTimerRef.current = null
+                          performMagicSearch(manualForm.chineseTitle)
+                        }}
+                        disabled={isMagicSearching || isAutofilling}
+                        aria-label="从 Bangumi 自动搜索番剧资料"
+                        title="自动搜索并填充"
+                        className="flex w-12 shrink-0 items-center justify-center border-[3px] border-black bg-[#ffe66d] text-lg text-black shadow-[4px_4px_0_#ff2f92] transition-none hover:bg-[#ff8fab] active:translate-x-1 active:translate-y-1 active:shadow-none disabled:cursor-wait disabled:bg-zinc-300 disabled:shadow-none"
+                      >
+                        <i className={`fa-solid ${isMagicSearching ? 'fa-spinner animate-spin' : 'fa-magnifying-glass'}`} />
+                      </button>
+                    </div>
+
+                    {isMagicDropdownOpen && (
+                      <div className="absolute left-0 right-0 top-[calc(100%+0.55rem)] z-[70] max-h-80 overflow-y-auto border-4 border-black bg-white p-2 shadow-[8px_8px_0_#111] custom-scrollbar">
+                        <div className="mb-2 flex items-center justify-between border-b-2 border-black bg-[#ffe66d] px-3 py-2 text-[10px] font-black tracking-[0.12em]">
+                          <span>
+                            <i className="fa-solid fa-satellite-dish mr-2" />
+                            MAGIC METADATA SEARCH
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setIsMagicDropdownOpen(false)}
+                            aria-label="关闭智能搜索结果"
+                            className="flex h-6 w-6 items-center justify-center border-2 border-black bg-white active:translate-x-0.5 active:translate-y-0.5"
+                          >
+                            <i className="fa-solid fa-xmark" />
+                          </button>
+                        </div>
+
+                        {isMagicSearching && (
+                          <div className="flex items-center justify-center gap-3 bg-[#fff5ee] px-4 py-8 text-sm font-black">
+                            <i className="fa-solid fa-spinner animate-spin text-xl text-[#ff2f92]" />
+                            正在搜索 Bangumi…
+                          </div>
+                        )}
+
+                        {!isMagicSearching && isAutofilling && (
+                          <div className="flex items-center justify-center gap-3 bg-[#4ecdc4] px-4 py-8 text-sm font-black">
+                            <i className="fa-solid fa-wand-magic-sparkles animate-pulse text-xl" />
+                            正在读取完整资料…
+                          </div>
+                        )}
+
+                        {!isMagicSearching && !isAutofilling && magicSearchError && (
+                          <p role="alert" className="border-2 border-black bg-[#ff8fab] px-3 py-3 text-xs font-black leading-5">
+                            <i className="fa-solid fa-triangle-exclamation mr-2" />
+                            {magicSearchError}
+                          </p>
+                        )}
+
+                        {!isMagicSearching
+                          && !isAutofilling
+                          && !magicSearchError
+                          && magicSearchResults.length === 0 && (
+                          <p className="bg-[#fff5ee] px-3 py-7 text-center text-xs font-black text-zinc-600">
+                            没有找到匹配条目，换一个名称试试。
+                          </p>
+                        )}
+
+                        {!isMagicSearching
+                          && !isAutofilling
+                          && magicSearchResults.map((anime) => (
+                          <button
+                            key={anime.id}
+                            type="button"
+                            onClick={() => handleSelectAnime(
+                              anime.id,
+                              anime.chinese_title,
+                            )}
+                            className="group flex w-full items-center gap-3 border-b-2 border-black px-2 py-2 text-left last:border-b-0 hover:bg-[#b8f2e6] active:bg-[#ffb0c8]"
+                          >
+                            <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden border-[3px] border-black bg-[#ffe66d] shadow-[3px_3px_0_#ff2f92]">
+                              {anime.thumbnail ? (
+                                <img
+                                  src={anime.thumbnail}
+                                  alt={`${anime.chinese_title} 缩略图`}
+                                  className="h-full w-full object-cover"
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <i className="fa-solid fa-image text-lg" />
+                              )}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <strong className="block truncate text-sm font-black">
+                                {anime.chinese_title || '未命名番剧'}
+                              </strong>
+                              <span className="mt-1 block truncate text-[11px] font-bold text-zinc-600">
+                                {anime.japanese_title || '暂无日文名'}
+                              </span>
+                            </span>
+                            <i className="fa-solid fa-arrow-right shrink-0 group-hover:translate-x-1" />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   <label className="block"><span className={labelClass}>番剧日文名</span><input name="japaneseTitle" value={manualForm.japaneseTitle} onChange={updateManualField} className={inputClass} /></label>
                   <label className="block"><span className={labelClass}>放送季度 *</span><input required name="airingPeriod" value={manualForm.airingPeriod} onChange={updateManualField} className={inputClass} placeholder="例如 2026-4" /></label>
                   <label className="block"><span className={labelClass}>制作公司</span><input name="studio" value={manualForm.studio} onChange={updateManualField} className={inputClass} /></label>
