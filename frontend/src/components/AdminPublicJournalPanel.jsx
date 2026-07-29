@@ -271,7 +271,9 @@ function AdminPublicJournalPanel() {
             <span className="relative block">
               <i className="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-lg" />
               <input
-                type="search"
+                type="text"
+                inputMode="search"
+                role="searchbox"
                 value={userSearch}
                 onChange={(event) => setUserSearch(event.target.value)}
                 placeholder="输入用户名，快速检索待审核与已公开用户"

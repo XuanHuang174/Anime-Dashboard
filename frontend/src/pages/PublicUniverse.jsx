@@ -301,7 +301,9 @@ function PublicUniverse() {
                   <i className="fa-solid fa-magnifying-glass" />
                 </span>
                 <input
-                  type="search"
+                  type="text"
+                  inputMode="search"
+                  role="searchbox"
                   value={searchInput}
                   onChange={(event) => setSearchInput(event.target.value)}
                   placeholder="搜索用户昵称，例如：兔子"
