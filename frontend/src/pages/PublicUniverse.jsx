@@ -11,7 +11,7 @@ gsap.registerPlugin(useGSAP)
 let hasPlayedUniverseEntrance = false
 let hasPlayedUniverseCrash = false
 
-const UNIVERSE_CHARACTER_URL = 'https://api.dicebear.com/9.x/notionists/png?seed=UsagiOrbit&backgroundColor=transparent&size=700'
+const UNIVERSE_CHARACTER_URL = '/renako.png'
 
 const STAT_BLOCKS = [
   {

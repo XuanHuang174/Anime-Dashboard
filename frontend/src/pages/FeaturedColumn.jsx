@@ -23,7 +23,7 @@ gsap.registerPlugin(useGSAP)
 let hasPlayedFeaturedEntrance = false
 let hasPlayedFeaturedCrash = false
 
-const FEATURED_CHARACTER_URL = 'https://api.dicebear.com/9.x/notionists/png?seed=ColumnMuse&backgroundColor=transparent&size=700'
+const FEATURED_CHARACTER_URL = '/renako.png'
 
 function getScoreTextClass(score) {
   if (score >= 9.9) {
