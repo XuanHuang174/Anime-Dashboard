@@ -1221,6 +1221,29 @@ class AnimeApiTests(APITestCase):
         self.assertEqual(response.headers["X-Result-Limit"], "2")
         self.assertEqual(response.headers["X-Result-Truncated"], "true")
 
+    def test_private_records_keep_unset_airing_period_at_the_end(self):
+        unset_anime = Anime.objects.create(
+            chinese_title="未定档排序测试番剧",
+            airing_period="未定档",
+        )
+        UserAnimeRecord.objects.create(
+            user=self.user,
+            anime=unset_anime,
+            personal_score=Decimal("8.0"),
+        )
+        self.record.personal_score = Decimal("8.0")
+        self.record.save(update_fields=("personal_score",))
+        self.client.force_authenticate(self.user)
+
+        response = self.client.get(
+            reverse("anime_api:user-anime-record-list"),
+            {"page_size": "all"},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 2)
+        self.assertEqual(response.data[-1]["anime"]["airing_period"], "未定档")
+
     def test_unrated_records_are_sorted_after_all_rated_records_before_pagination(self):
         rated_anime = [
             Anime.objects.create(

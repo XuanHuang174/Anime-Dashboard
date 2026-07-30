@@ -398,12 +398,26 @@ def _order_record_queryset(queryset, sort_order):
             default=F("anime__chinese_title"),
             output_field=CharField(),
         ),
-        _airing_year=Cast(
-            Substr("_effective_airing_period", 1, 4),
+        _airing_year=Case(
+            When(
+                _effective_airing_period__regex=r"^\d{4}-(1|4|7|10)$",
+                then=Cast(
+                    Substr("_effective_airing_period", 1, 4),
+                    output_field=IntegerField(),
+                ),
+            ),
+            default=Value(0),
             output_field=IntegerField(),
         ),
-        _airing_season=Cast(
-            Substr("_effective_airing_period", 6),
+        _airing_season=Case(
+            When(
+                _effective_airing_period__regex=r"^\d{4}-(1|4|7|10)$",
+                then=Cast(
+                    Substr("_effective_airing_period", 6),
+                    output_field=IntegerField(),
+                ),
+            ),
+            default=Value(0),
             output_field=IntegerField(),
         ),
     )
