@@ -238,6 +238,28 @@ PUBLIC_SHOWCASE_USERNAME = 'XHcode'
 # Per-account storage quota for private anime journal records.
 USER_ANIME_RECORD_LIMIT = env.int('USER_ANIME_RECORD_LIMIT', default=3000)
 
+# Bangumi metadata proxy
+#
+# Fill these with the origins of your own reverse proxies, without a trailing
+# `/v0` or path. For example:
+# BANGUMI_PROXY_API=https://api-bgm.example.com
+# BANGUMI_PROXY_IMAGE=https://img-bgm.example.com
+BANGUMI_PROXY_API = env('BANGUMI_PROXY_API', default='').strip().rstrip('/')
+BANGUMI_PROXY_IMAGE = env('BANGUMI_PROXY_IMAGE', default='').strip().rstrip('/')
+
+# The self-hosted API proxy is always tried first. The official public API
+# remains the final fallback when the proxy is empty or temporarily unavailable.
+BANGUMI_API_NODES = tuple(
+    dict.fromkeys(
+        node
+        for node in (
+            BANGUMI_PROXY_API,
+            'https://api.bgm.tv',
+        )
+        if node
+    )
+)
+
 
 # Registration email
 #

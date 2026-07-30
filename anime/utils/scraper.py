@@ -5,7 +5,7 @@ import json
 import re
 import socket
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit, urlunsplit
 from urllib.request import Request, urlopen
 
 from django.conf import settings
@@ -17,7 +17,8 @@ class MetadataScraperError(RuntimeError):
 
 
 class MetadataScraper:
-    BANGUMI_BASE_URL = "https://api.bgm.tv/v0"
+    BANGUMI_OFFICIAL_API = "https://api.bgm.tv"
+    BANGUMI_OFFICIAL_IMAGE_HOSTS = frozenset({"lain.bgm.tv"})
     MOEGIRL_API_URL = "https://zh.moegirl.org.cn/api.php"
     REQUEST_TIMEOUT = 8
     SEARCH_CACHE_SECONDS = 5 * 60
@@ -71,6 +72,108 @@ class MetadataScraper:
             raise MetadataScraperError("第三方服务连接超时或暂时不可用。") from exc
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
             raise MetadataScraperError("第三方服务返回了无法解析的数据。") from exc
+
+    @staticmethod
+    def _normalize_origin(value):
+        origin = str(value or "").strip().rstrip("/")
+        if not origin:
+            return ""
+
+        # BANGUMI_API_NODES stores origins. Accepting a mistakenly appended
+        # `/v0` here avoids producing `/v0/v0/...` without changing the
+        # documented environment-variable format.
+        if origin.casefold().endswith("/v0"):
+            origin = origin[:-3].rstrip("/")
+
+        parsed = urlsplit(origin)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            return ""
+        return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, "", ""))
+
+    @classmethod
+    def _bangumi_api_nodes(cls):
+        configured_nodes = getattr(settings, "BANGUMI_API_NODES", ())
+        if isinstance(configured_nodes, str):
+            configured_nodes = (configured_nodes,)
+
+        candidates = (
+            getattr(settings, "BANGUMI_PROXY_API", ""),
+            *configured_nodes,
+            cls.BANGUMI_OFFICIAL_API,
+        )
+        nodes = []
+        for candidate in candidates:
+            node = cls._normalize_origin(candidate)
+            if node and node not in nodes:
+                nodes.append(node)
+        return tuple(nodes)
+
+    @classmethod
+    def _safe_request(
+        cls,
+        endpoint,
+        *,
+        method="GET",
+        params=None,
+        payload=None,
+    ):
+        """Try the configured Bangumi proxy first, then official fallbacks."""
+
+        endpoint = str(endpoint or "").lstrip("/")
+        last_error = None
+        for node in cls._bangumi_api_nodes():
+            try:
+                return cls._request_json(
+                    f"{node}/v0/{endpoint}",
+                    method=method,
+                    params=params,
+                    payload=payload,
+                )
+            except MetadataScraperError as exc:
+                last_error = exc
+
+        if last_error is not None:
+            raise MetadataScraperError(
+                "Bangumi 所有 API 节点均暂时不可用。"
+            ) from last_error
+        raise MetadataScraperError("未配置可用的 Bangumi API 节点。")
+
+    @classmethod
+    def _proxy_image_url(cls, value):
+        """Replace only official Bangumi CDN origins and preserve the URL tail."""
+
+        original = str(value or "").strip()
+        if not original:
+            return ""
+
+        source_url = f"https:{original}" if original.startswith("//") else original
+        source = urlsplit(source_url)
+        source_host = (source.hostname or "").casefold()
+        is_official_image = any(
+            source_host == host or source_host.endswith(f".{host}")
+            for host in cls.BANGUMI_OFFICIAL_IMAGE_HOSTS
+        )
+        if not is_official_image:
+            return original
+
+        proxy_origin = str(
+            getattr(settings, "BANGUMI_PROXY_IMAGE", "") or ""
+        ).strip().rstrip("/")
+        if proxy_origin and "://" not in proxy_origin:
+            proxy_origin = f"https://{proxy_origin}"
+        proxy = urlsplit(proxy_origin)
+        if proxy.scheme not in {"http", "https"} or not proxy.netloc:
+            return original
+
+        return urlunsplit(
+            (
+                proxy.scheme,
+                proxy.netloc,
+                source.path,
+                source.query,
+                source.fragment,
+            )
+        )
 
     @staticmethod
     def _as_text(value):
@@ -159,9 +262,7 @@ class MetadataScraper:
         """Fallback for subjects whose infobox omits the animation studio."""
 
         try:
-            persons = cls._request_json(
-                f"{cls.BANGUMI_BASE_URL}/subjects/{subject_id}/persons"
-            )
+            persons = cls._safe_request(f"subjects/{subject_id}/persons")
         except MetadataScraperError:
             return ""
 
@@ -186,13 +287,17 @@ class MetadataScraper:
         if not keyword:
             return []
 
-        cache_key = cls._cache_key("bangumi-search", keyword)
+        image_proxy = getattr(settings, "BANGUMI_PROXY_IMAGE", "")
+        cache_key = cls._cache_key(
+            "bangumi-search",
+            f"{keyword}:{image_proxy}",
+        )
         cached = cache.get(cache_key)
         if cached is not None:
             return cached
 
-        payload = cls._request_json(
-            f"{cls.BANGUMI_BASE_URL}/search/subjects",
+        payload = cls._safe_request(
+            "search/subjects",
             method="POST",
             params={"limit": 5, "offset": 0},
             payload={
@@ -222,10 +327,12 @@ class MetadataScraper:
                     ).strip(),
                     "japanese_title": (subject.get("name") or "").strip(),
                     "thumbnail": (
-                        images.get("grid")
-                        or images.get("small")
-                        or images.get("medium")
-                        or ""
+                        cls._proxy_image_url(
+                            images.get("grid")
+                            or images.get("small")
+                            or images.get("medium")
+                            or ""
+                        )
                     ),
                 }
             )
@@ -242,14 +349,16 @@ class MetadataScraper:
         if subject_id <= 0:
             raise ValueError("Bangumi 条目 ID 必须是正整数。")
 
-        cache_key = cls._cache_key("bangumi-details", subject_id)
+        image_proxy = getattr(settings, "BANGUMI_PROXY_IMAGE", "")
+        cache_key = cls._cache_key(
+            "bangumi-details",
+            f"{subject_id}:{image_proxy}",
+        )
         cached = cache.get(cache_key)
         if cached is not None:
             return cached
 
-        subject = cls._request_json(
-            f"{cls.BANGUMI_BASE_URL}/subjects/{subject_id}"
-        )
+        subject = cls._safe_request(f"subjects/{subject_id}")
         if not isinstance(subject, dict):
             raise MetadataScraperError("Bangumi 详情接口返回了异常的数据结构。")
 
@@ -298,7 +407,12 @@ class MetadataScraper:
             "studio": studio,
             "episodes": episodes,
             "description": cls._as_text(subject.get("summary")),
-            "poster_url": images.get("large") or "",
+            "poster_url": cls._proxy_image_url(
+                images.get("large")
+                or images.get("common")
+                or images.get("medium")
+                or ""
+            ),
             "tags": cls._top_tags(subject.get("tags")),
         }
         cache.set(cache_key, details, cls.DETAILS_CACHE_SECONDS)

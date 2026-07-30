@@ -2984,6 +2984,67 @@ class MetadataScraperTests(APITestCase):
         self.assertEqual(request_payload["filter"]["type"], [2])
         self.assertFalse(request_payload["filter"]["nsfw"])
 
+    @override_settings(
+        BANGUMI_PROXY_API="https://proxy-api.example.com",
+        BANGUMI_API_NODES=("https://api.bgm.tv",),
+    )
+    @patch.object(MetadataScraper, "_request_json")
+    def test_bangumi_proxy_falls_back_to_official_api(self, request_json):
+        request_json.side_effect = [
+            MetadataScraperError("proxy unavailable"),
+            {"data": []},
+        ]
+
+        results = MetadataScraper.search_bangumi("代理回退测试")
+
+        self.assertEqual(results, [])
+        self.assertEqual(request_json.call_count, 2)
+        self.assertEqual(
+            request_json.call_args_list[0].args[0],
+            "https://proxy-api.example.com/v0/search/subjects",
+        )
+        self.assertEqual(
+            request_json.call_args_list[1].args[0],
+            "https://api.bgm.tv/v0/search/subjects",
+        )
+
+    @override_settings(
+        BANGUMI_PROXY_IMAGE="https://img-bgm.example.com",
+    )
+    @patch.object(MetadataScraper, "_request_json")
+    def test_bangumi_images_use_proxy_and_preserve_path_and_query(
+        self,
+        request_json,
+    ):
+        request_json.return_value = {
+            "id": 456,
+            "name": "テストアニメ",
+            "name_cn": "测试动画",
+            "date": "2026-10-05",
+            "summary": "剧情简介",
+            "eps": 12,
+            "images": {
+                "large": (
+                    "https://lain.bgm.tv/pic/cover/l/ab/cd/456.jpg"
+                    "?token=original#poster"
+                ),
+            },
+            "infobox": [
+                {"key": "动画制作", "value": "Studio Test"},
+            ],
+            "tags": [],
+        }
+
+        details = MetadataScraper.get_bangumi_details(456)
+
+        self.assertEqual(
+            details["poster_url"],
+            (
+                "https://img-bgm.example.com/pic/cover/l/ab/cd/456.jpg"
+                "?token=original#poster"
+            ),
+        )
+
     @patch.object(MetadataScraper, "_request_json")
     def test_bangumi_details_parse_infobox_tags_and_airing_period(self, request_json):
         request_json.return_value = {
