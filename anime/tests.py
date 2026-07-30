@@ -3219,6 +3219,68 @@ class ExternalMetadataApiTests(APITestCase):
         self.assertEqual(response.data[0]["id"], 123)
         search_bangumi.assert_called_once_with("测试")
 
+    def test_external_search_requires_login_with_guidance(self):
+        self.client.force_authenticate(user=None)
+
+        response = self.client.get(
+            reverse("anime_api:external-anime-search"),
+            {"q": "测试"},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(
+            response.data["detail"],
+            "请先登录后再使用番剧智能搜索与自动填充功能。",
+        )
+
+    @patch("anime.views.MetadataScraper.search_bangumi", return_value=[])
+    def test_external_search_returns_custom_429_after_thirty_requests(
+        self,
+        search_bangumi,
+    ):
+        url = reverse("anime_api:external-anime-search")
+
+        for index in range(30):
+            response = self.client.get(url, {"q": f"测试{index}"})
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        response = self.client.get(url, {"q": "测试31"})
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_429_TOO_MANY_REQUESTS,
+        )
+        self.assertEqual(
+            response.data["detail"],
+            "你的手速太快啦！键盘要冒烟了，请休息一分钟~",
+        )
+        self.assertEqual(response.data["code"], "rate_limited")
+        self.assertEqual(search_bangumi.call_count, 30)
+
+    @patch("anime.views.MetadataScraper.search_bangumi", return_value=[])
+    def test_external_search_limit_is_isolated_by_user(
+        self,
+        search_bangumi,
+    ):
+        url = reverse("anime_api:external-anime-search")
+        for index in range(31):
+            response = self.client.get(url, {"q": f"用户一{index}"})
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_429_TOO_MANY_REQUESTS,
+        )
+
+        other_user = get_user_model().objects.create_user(
+            username="other-scraper-user",
+            email="other-scraper@example.com",
+            password="Scraper-Test-2026!",
+        )
+        self.client.force_authenticate(user=other_user)
+
+        response = self.client.get(url, {"q": "用户二"})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
     @patch("anime.views.MetadataScraper.get_moegirl_url")
     @patch("anime.views.MetadataScraper.get_bangumi_details")
     def test_external_autofill_maps_to_manual_form_fields(
@@ -3253,6 +3315,50 @@ class ExternalMetadataApiTests(APITestCase):
             response.data["baikeUrl"],
             "https://zh.moegirl.org.cn/测试动画",
         )
+
+    @patch("anime.views.MetadataScraper.get_moegirl_url", return_value="")
+    @patch("anime.views.MetadataScraper.get_bangumi_details")
+    def test_external_autofill_returns_custom_429_after_one_hundred_requests(
+        self,
+        get_bangumi_details,
+        get_moegirl_url,
+    ):
+        get_bangumi_details.return_value = {
+            "bangumi_id": 123,
+            "chinese_title": "测试动画",
+            "japanese_title": "テストアニメ",
+            "air_date": "2026-10-01",
+            "airing_period": "2026-10",
+            "studio": "Studio Test",
+            "episodes": "12",
+            "description": "剧情简介",
+            "poster_url": "https://example.com/poster.jpg",
+            "tags": "日常,治愈",
+        }
+        url = reverse("anime_api:external-anime-autofill")
+
+        for index in range(100):
+            response = self.client.get(
+                url,
+                {"id": 123, "name": f"测试动画{index}"},
+            )
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        response = self.client.get(
+            url,
+            {"id": 123, "name": "测试动画101"},
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_429_TOO_MANY_REQUESTS,
+        )
+        self.assertEqual(
+            response.data["detail"],
+            "电波过载！一小时内录入了太多番剧，请稍后再试。",
+        )
+        self.assertEqual(response.data["code"], "rate_limited")
+        self.assertEqual(get_bangumi_details.call_count, 100)
 
     @patch(
         "anime.views.MetadataScraper.search_bangumi",

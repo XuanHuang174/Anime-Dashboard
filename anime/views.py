@@ -34,9 +34,10 @@ from django.utils.encoding import force_bytes, force_str
 from django.utils.decorators import method_decorator
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.views.decorators.cache import never_cache
+from django_ratelimit.decorators import ratelimit
 from rest_framework import filters, generics, mixins, parsers, permissions, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import NotAuthenticated, PermissionDenied
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
@@ -104,12 +105,50 @@ class IsSuperUser(permissions.BasePermission):
         )
 
 
-class ExternalAnimeSearchView(APIView):
+class IsAuthenticatedForExternalMetadata(permissions.IsAuthenticated):
+    """Give unauthenticated scraper requests a useful login instruction."""
+
+    message = "请先登录后再使用番剧智能搜索与自动填充功能。"
+
+
+class ExternalMetadataAPIView(APIView):
+    """Shared authentication behavior for third-party metadata endpoints."""
+
+    permission_classes = (IsAuthenticatedForExternalMetadata,)
+    authentication_required_message = (
+        "请先登录后再使用番剧智能搜索与自动填充功能。"
+    )
+
+    def permission_denied(self, request, message=None, code=None):
+        if not request.user or not request.user.is_authenticated:
+            raise NotAuthenticated(self.authentication_required_message)
+        return super().permission_denied(request, message=message, code=code)
+
+
+class ExternalAnimeSearchView(ExternalMetadataAPIView):
     """Proxy Bangumi subject search without exposing third-party details."""
 
-    permission_classes = (permissions.IsAuthenticated,)
-
+    @method_decorator(
+        ratelimit(
+            group="external-anime-search",
+            key="user",
+            rate="30/m",
+            method="GET",
+            block=False,
+        )
+    )
     def get(self, request):
+        if getattr(request, "limited", False):
+            return Response(
+                {
+                    "detail": (
+                        "你的手速太快啦！键盘要冒烟了，请休息一分钟~"
+                    ),
+                    "code": "rate_limited",
+                },
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+
         keyword = request.query_params.get("q", "").strip()
         if not keyword:
             return Response(
@@ -133,12 +172,30 @@ class ExternalAnimeSearchView(APIView):
         return Response(results)
 
 
-class ExternalAnimeAutofillView(APIView):
+class ExternalAnimeAutofillView(ExternalMetadataAPIView):
     """Return a flat payload that maps directly to AddAnimeModal state."""
 
-    permission_classes = (permissions.IsAuthenticated,)
-
+    @method_decorator(
+        ratelimit(
+            group="external-anime-autofill",
+            key="user",
+            rate="100/h",
+            method="GET",
+            block=False,
+        )
+    )
     def get(self, request):
+        if getattr(request, "limited", False):
+            return Response(
+                {
+                    "detail": (
+                        "电波过载！一小时内录入了太多番剧，请稍后再试。"
+                    ),
+                    "code": "rate_limited",
+                },
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+
         subject_id = request.query_params.get("id", "").strip()
         anime_name = request.query_params.get("name", "").strip()
         if not subject_id:
