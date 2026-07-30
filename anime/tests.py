@@ -3,8 +3,9 @@ import tempfile
 from decimal import Decimal
 from io import BytesIO
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
+import requests
 from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
@@ -3007,6 +3008,79 @@ class MetadataScraperTests(APITestCase):
             request_json.call_args_list[1].args[0],
             "https://api.bgm.tv/v0/search/subjects",
         )
+
+    @override_settings(
+        BANGUMI_PROXY_API="https://proxy-api.example.com",
+        BANGUMI_API_NODES=("https://api.bgm.tv",),
+    )
+    @patch("anime.utils.scraper.requests.request")
+    def test_bangumi_request_uses_identifying_ua_without_cookies(
+        self,
+        request,
+    ):
+        response = Mock()
+        response.status_code = 200
+        response.url = "https://proxy-api.example.com/v0/subjects/1"
+        response.json.return_value = {"id": 1}
+        request.return_value = response
+
+        result = MetadataScraper._safe_request("subjects/1")
+
+        self.assertEqual(result, {"id": 1})
+        request_kwargs = request.call_args.kwargs
+        self.assertEqual(
+            request_kwargs["headers"]["User-Agent"],
+            "XHcode/AnimeJournal/1.0 (Web)",
+        )
+        self.assertNotIn("Cookie", request_kwargs["headers"])
+        self.assertNotIn("cookies", request_kwargs)
+
+    @override_settings(
+        BANGUMI_PROXY_API="https://proxy-api.example.com",
+        BANGUMI_API_NODES=("https://api.bgm.tv",),
+    )
+    @patch("anime.utils.scraper.requests.request")
+    def test_bangumi_logs_http_status_then_falls_back(self, request):
+        forbidden = Mock()
+        forbidden.status_code = 403
+        forbidden.url = "https://proxy-api.example.com/v0/subjects/1"
+        forbidden.text = "Cloudflare denied"
+
+        success = Mock()
+        success.status_code = 200
+        success.url = "https://api.bgm.tv/v0/subjects/1"
+        success.json.return_value = {"id": 1}
+        request.side_effect = [forbidden, success]
+
+        with self.assertLogs("anime.utils.scraper", level="ERROR") as logs:
+            result = MetadataScraper._safe_request("subjects/1")
+
+        self.assertEqual(result, {"id": 1})
+        self.assertIn("[Bangumi API 状态异常]", logs.output[0])
+        self.assertIn("状态码: 403", logs.output[0])
+        self.assertIn("Cloudflare denied", logs.output[0])
+
+    @override_settings(
+        BANGUMI_PROXY_API="https://proxy-api.example.com",
+        BANGUMI_API_NODES=("https://api.bgm.tv",),
+    )
+    @patch("anime.utils.scraper.requests.request")
+    def test_bangumi_logs_timeout_then_falls_back(self, request):
+        success = Mock()
+        success.status_code = 200
+        success.url = "https://api.bgm.tv/v0/subjects/1"
+        success.json.return_value = {"id": 1}
+        request.side_effect = [
+            requests.exceptions.Timeout("connection timed out"),
+            success,
+        ]
+
+        with self.assertLogs("anime.utils.scraper", level="ERROR") as logs:
+            result = MetadataScraper._safe_request("subjects/1")
+
+        self.assertEqual(result, {"id": 1})
+        self.assertIn("[Bangumi API 节点故障]", logs.output[0])
+        self.assertIn("connection timed out", logs.output[0])
 
     @override_settings(
         BANGUMI_PROXY_IMAGE="https://img-bgm.example.com",

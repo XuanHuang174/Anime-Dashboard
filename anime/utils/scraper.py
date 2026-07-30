@@ -1,19 +1,31 @@
 """Metadata clients for the public Bangumi and Moegirlpedia APIs."""
 
 import hashlib
-import json
+import logging
 import re
-import socket
-from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode, urlsplit, urlunsplit
-from urllib.request import Request, urlopen
+from urllib.parse import urlsplit, urlunsplit
+
+import requests
 
 from django.conf import settings
 from django.core.cache import cache
 
 
+logger = logging.getLogger(__name__)
+
+
 class MetadataScraperError(RuntimeError):
     """Raised when a required third-party metadata request fails."""
+
+
+class MetadataHTTPStatusError(MetadataScraperError):
+    """Preserve an upstream non-200 response for per-node diagnostics."""
+
+    def __init__(self, url, status_code, response_text):
+        self.url = url
+        self.status_code = status_code
+        self.response_text = response_text
+        super().__init__(f"第三方服务返回异常状态码：{status_code}")
 
 
 class MetadataScraper:
@@ -24,14 +36,10 @@ class MetadataScraper:
     SEARCH_CACHE_SECONDS = 5 * 60
     DETAILS_CACHE_SECONDS = 60 * 60
     MOEGIRL_CACHE_SECONDS = 6 * 60 * 60
-    USER_AGENT = getattr(
-        settings,
-        "BANGUMI_USER_AGENT",
-        (
-            "XuanHuang174/Anime-Dashboard "
-            "(https://github.com/XuanHuang174/Anime-Dashboard)"
-        ),
-    )
+    # Bangumi requires third-party clients to identify themselves instead of
+    # using a library/default crawler User-Agent.
+    USER_AGENT = "XHcode/AnimeJournal/1.0 (Web)"
+    RESPONSE_LOG_LIMIT = 1200
 
     @staticmethod
     def _cache_key(namespace, value):
@@ -46,32 +54,44 @@ class MetadataScraper:
         method="GET",
         params=None,
         payload=None,
+        headers=None,
     ):
-        if params:
-            url = f"{url}?{urlencode(params)}"
-
-        body = None
-        headers = {
+        # Build a fresh, minimal header dictionary for every request. In
+        # particular, never forward browser/session Cookies to a proxy node.
+        request_headers = {
             "Accept": "application/json",
             "User-Agent": cls.USER_AGENT,
         }
-        if payload is not None:
-            body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-            headers["Content-Type"] = "application/json"
+        for key, value in (headers or {}).items():
+            if str(key).casefold() != "cookie":
+                request_headers[str(key)] = str(value)
 
-        request = Request(url, data=body, headers=headers, method=method)
+        response = requests.request(
+            method=method,
+            url=url,
+            params=params,
+            json=payload,
+            headers=request_headers,
+            timeout=cls.REQUEST_TIMEOUT,
+        )
+        if response.status_code != requests.codes.ok:
+            raise MetadataHTTPStatusError(
+                response.url or url,
+                response.status_code,
+                response.text,
+            )
+
         try:
-            with urlopen(request, timeout=cls.REQUEST_TIMEOUT) as response:
-                charset = response.headers.get_content_charset() or "utf-8"
-                return json.loads(response.read().decode(charset))
-        except HTTPError as exc:
-            raise MetadataScraperError(
-                f"第三方服务返回异常状态码：{exc.code}"
-            ) from exc
-        except (URLError, socket.timeout, TimeoutError) as exc:
-            raise MetadataScraperError("第三方服务连接超时或暂时不可用。") from exc
-        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            return response.json()
+        except requests.exceptions.JSONDecodeError as exc:
             raise MetadataScraperError("第三方服务返回了无法解析的数据。") from exc
+
+    @classmethod
+    def _response_log_preview(cls, value):
+        normalized = re.sub(r"\s+", " ", str(value or "")).strip()
+        if len(normalized) <= cls.RESPONSE_LOG_LIMIT:
+            return normalized
+        return f"{normalized[:cls.RESPONSE_LOG_LIMIT]}…[响应内容已截断]"
 
     @staticmethod
     def _normalize_origin(value):
@@ -122,15 +142,40 @@ class MetadataScraper:
         endpoint = str(endpoint or "").lstrip("/")
         last_error = None
         for node in cls._bangumi_api_nodes():
+            url = f"{node}/v0/{endpoint}"
             try:
                 return cls._request_json(
-                    f"{node}/v0/{endpoint}",
+                    url,
                     method=method,
                     params=params,
                     payload=payload,
+                    headers={
+                        "Accept": "application/json",
+                        "User-Agent": cls.USER_AGENT,
+                    },
+                )
+            except MetadataHTTPStatusError as exc:
+                last_error = exc
+                logger.error(
+                    "[Bangumi API 状态异常] 节点: %s, 状态码: %s, 返回内容: %s",
+                    exc.url or url,
+                    exc.status_code,
+                    cls._response_log_preview(exc.response_text),
+                )
+            except requests.exceptions.RequestException as exc:
+                last_error = exc
+                logger.error(
+                    "[Bangumi API 节点故障] 节点: %s, 报错原因: %s",
+                    url,
+                    exc,
                 )
             except MetadataScraperError as exc:
                 last_error = exc
+                logger.error(
+                    "[Bangumi API 响应异常] 节点: %s, 报错原因: %s",
+                    url,
+                    exc,
+                )
 
         if last_error is not None:
             raise MetadataScraperError(
@@ -443,7 +488,12 @@ class MetadataScraper:
             )
             urls = payload[3] if isinstance(payload, list) and len(payload) > 3 else []
             result = urls[0] if urls else ""
-        except (MetadataScraperError, IndexError, TypeError):
+        except (
+            MetadataScraperError,
+            requests.exceptions.RequestException,
+            IndexError,
+            TypeError,
+        ):
             # Moegirlpedia occasionally rejects anonymous traffic. Autofill
             # should still return the useful Bangumi metadata in that case.
             result = ""
