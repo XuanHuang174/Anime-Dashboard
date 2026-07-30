@@ -17,11 +17,20 @@ Including another URLconf
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
+from django.http import JsonResponse
 from django.urls import include, path
 from django.views.generic import TemplateView
 from rest_framework_simplejwt.views import TokenRefreshView
 
 from anime.views import CustomTokenObtainPairView
+
+
+def health_check(request):
+    return JsonResponse({
+        'status': 'ok',
+        'message': 'Anime API is running',
+    })
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -43,7 +52,7 @@ urlpatterns = [
     path('dashboard/', TemplateView.as_view(template_name='index.html')),
     path('admin-login/', TemplateView.as_view(template_name='index.html')),
     path('admin-dashboard/', TemplateView.as_view(template_name='index.html')),
-    path('', TemplateView.as_view(template_name='index.html'), name='frontend'),
+    path('', health_check, name='health-check'),
 ]
 
 if settings.DEBUG:
