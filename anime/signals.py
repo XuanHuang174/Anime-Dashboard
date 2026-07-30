@@ -42,8 +42,11 @@ def suppress_showcase_cleanup():
 
 
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)
-def initialize_new_user(sender, instance, created, **kwargs):
-    if not created:
+def initialize_new_user(sender, instance, created, raw=False, **kwargs):
+    # Fixtures already contain the related profile and quick filters. Creating
+    # defaults while loaddata is restoring raw rows causes duplicate unique
+    # constraints and makes cross-database migrations impossible.
+    if raw or not created:
         return
     UserProfile.objects.get_or_create(user=instance)
     UserQuickFilter.objects.bulk_create(

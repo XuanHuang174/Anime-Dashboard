@@ -411,6 +411,22 @@ class UserProfileApiTests(APITestCase):
         self.assertEqual(profile.nickname, "")
         self.assertFalse(profile.avatar)
 
+    def test_raw_fixture_user_save_does_not_create_related_defaults(self):
+        from .signals import initialize_new_user
+
+        UserProfile.objects.filter(user=self.user).delete()
+        UserQuickFilter.objects.filter(user=self.user).delete()
+
+        initialize_new_user(
+            sender=get_user_model(),
+            instance=self.user,
+            created=True,
+            raw=True,
+        )
+
+        self.assertFalse(UserProfile.objects.filter(user=self.user).exists())
+        self.assertFalse(UserQuickFilter.objects.filter(user=self.user).exists())
+
     def test_anonymous_user_cannot_read_profile(self):
         response = self.client.get(reverse("anime_api:user-profile"))
 
