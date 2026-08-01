@@ -721,6 +721,29 @@ class UserQuickFilterSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("请至少选择一个标签。")
         return normalized
 
+    def validate_name(self, value):
+        """Reject duplicate names before the database unique constraint fires."""
+
+        name = value.strip()
+        if not name:
+            raise serializers.ValidationError("筛选名称不能为空。")
+
+        model = self.Meta.model
+        duplicates = model.objects.filter(name__iexact=name)
+        if model is UserQuickFilter:
+            request = self.context.get("request")
+            if request is not None and request.user.is_authenticated:
+                duplicates = duplicates.filter(user=request.user)
+            else:
+                duplicates = duplicates.none()
+        if self.instance is not None:
+            duplicates = duplicates.exclude(pk=self.instance.pk)
+        if duplicates.exists():
+            raise serializers.ValidationError(
+                "该筛选名称已存在，请更换名称或编辑已有组合。",
+            )
+        return name
+
 
 class FeaturedQuickFilterSerializer(UserQuickFilterSerializer):
     """Global quick-filter configuration shared by the featured page."""

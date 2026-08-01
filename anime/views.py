@@ -9,7 +9,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.core.files.base import ContentFile
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import (
     Avg,
     BooleanField,
@@ -36,7 +36,11 @@ from django.views.decorators.cache import never_cache
 from django_ratelimit.decorators import ratelimit
 from rest_framework import filters, generics, mixins, parsers, permissions, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import NotAuthenticated, PermissionDenied
+from rest_framework.exceptions import (
+    NotAuthenticated,
+    PermissionDenied,
+    ValidationError as DRFValidationError,
+)
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
@@ -1673,7 +1677,14 @@ class UserQuickFilterViewSet(viewsets.ModelViewSet):
         return UserQuickFilter.objects.filter(user=self.request.user)
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        try:
+            serializer.save(user=self.request.user)
+        except IntegrityError as exc:
+            # Protect against two simultaneous requests racing after serializer
+            # validation and hitting the (user, name) database constraint.
+            raise DRFValidationError(
+                {"name": "该筛选名称已存在，请更换名称或编辑已有组合。"},
+            ) from exc
 
 
 class FeaturedSubmissionViewSet(

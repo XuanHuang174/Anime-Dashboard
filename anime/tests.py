@@ -1637,6 +1637,41 @@ class AnimeApiTests(APITestCase):
             [item["name"] for item in owner_response.data["results"]],
         )
 
+    def test_duplicate_quick_filter_name_with_ampersand_returns_400(self):
+        self.client.force_authenticate(self.user)
+
+        response = self.client.post(
+            reverse("anime_api:quick-filter-list"),
+            {
+                "name": "萌系 & 日常",
+                "tags": ["萌系", "日常"],
+                "match_mode": UserQuickFilter.MatchMode.ANY,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.data["name"][0],
+            "该筛选名称已存在，请更换名称或编辑已有组合。",
+        )
+
+    def test_unique_quick_filter_name_can_contain_ampersand(self):
+        self.client.force_authenticate(self.user)
+
+        response = self.client.post(
+            reverse("anime_api:quick-filter-list"),
+            {
+                "name": "萌系 & 日常 · 自选",
+                "tags": ["萌系", "日常"],
+                "match_mode": UserQuickFilter.MatchMode.ALL,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["name"], "萌系 & 日常 · 自选")
+
     def test_user_can_update_and_delete_own_quick_filter(self):
         quick_filter = UserQuickFilter.objects.create(
             user=self.user,

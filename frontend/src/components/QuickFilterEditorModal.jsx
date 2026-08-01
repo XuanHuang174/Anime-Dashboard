@@ -9,6 +9,13 @@ gsap.registerPlugin(useGSAP)
 const emptyForm = { name: '', tags: [], match_mode: 'any' }
 const fieldClass = 'mt-1 w-full border-[3px] border-black bg-white px-3 py-2.5 text-sm font-black text-black shadow-[4px_4px_0_#111] outline-none transition-none placeholder:text-zinc-400 focus:translate-x-1 focus:translate-y-1 focus:bg-[#fff2a8] focus:shadow-none'
 
+function getRequestErrorMessage(requestError, fallback) {
+  const detail = requestError.response?.data
+  if (!detail || typeof detail === 'string') return fallback
+  const message = Object.values(detail).flat(Infinity).filter(Boolean).join(' ')
+  return message || fallback
+}
+
 function QuickFilterEditorModal({
   isOpen,
   onClose,
@@ -190,8 +197,7 @@ function QuickFilterEditorModal({
         onClose()
       })
     } catch (requestError) {
-      const detail = requestError.response?.data
-      setError(Object.values(detail ?? {}).flat(Infinity).join(' ') || '保存失败，请稍后重试。')
+      setError(getRequestErrorMessage(requestError, '保存失败，请稍后重试。'))
     } finally {
       setBusy(false)
     }
