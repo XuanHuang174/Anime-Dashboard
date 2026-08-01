@@ -48,6 +48,7 @@ ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=[])
 INSTALLED_APPS = [
     'config.apps.SecureSimpleUIConfig',
     'corsheaders',
+    'storages',
     'anime.apps.AnimeConfig',
     'rest_framework',
     'rest_framework_simplejwt.token_blacklist',
@@ -158,6 +159,72 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# Cloudflare R2 media storage. Static assets remain on the existing
+# django.contrib.staticfiles/WhiteNoise path; only Django's default file
+# storage (ImageField/FileField uploads) switches to R2.
+AWS_ACCESS_KEY_ID = env('AWS_ACCESS_KEY_ID', default='').strip()
+AWS_SECRET_ACCESS_KEY = env('AWS_SECRET_ACCESS_KEY', default='').strip()
+AWS_STORAGE_BUCKET_NAME = env('AWS_STORAGE_BUCKET_NAME', default='').strip()
+AWS_S3_ENDPOINT_URL = env('AWS_S3_ENDPOINT_URL', default='').strip().rstrip('/')
+AWS_S3_CUSTOM_DOMAIN = env('AWS_S3_CUSTOM_DOMAIN', default='').strip()
+AWS_S3_CUSTOM_DOMAIN = (
+    AWS_S3_CUSTOM_DOMAIN.removeprefix('https://')
+    .removeprefix('http://')
+    .rstrip('/')
+)
+
+_R2_REQUIRED_SETTINGS = {
+    'AWS_ACCESS_KEY_ID': AWS_ACCESS_KEY_ID,
+    'AWS_SECRET_ACCESS_KEY': AWS_SECRET_ACCESS_KEY,
+    'AWS_STORAGE_BUCKET_NAME': AWS_STORAGE_BUCKET_NAME,
+    'AWS_S3_ENDPOINT_URL': AWS_S3_ENDPOINT_URL,
+}
+R2_STORAGE_ENABLED = all(_R2_REQUIRED_SETTINGS.values())
+_R2_STORAGE_PARTIALLY_CONFIGURED = any(_R2_REQUIRED_SETTINGS.values())
+
+if _R2_STORAGE_PARTIALLY_CONFIGURED and not R2_STORAGE_ENABLED:
+    missing_r2_settings = ', '.join(
+        name for name, value in _R2_REQUIRED_SETTINGS.items() if not value
+    )
+    raise ImproperlyConfigured(
+        f'Cloudflare R2 configuration is incomplete. Missing: {missing_r2_settings}'
+    )
+
+AWS_S3_REGION_NAME = 'auto'
+AWS_S3_SIGNATURE_VERSION = 's3v4'
+AWS_S3_FILE_OVERWRITE = False
+AWS_DEFAULT_ACL = None
+AWS_QUERYSTRING_AUTH = not bool(AWS_S3_CUSTOM_DOMAIN)
+
+STORAGES = {
+    'default': {
+        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+    },
+    'staticfiles': {
+        'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+    },
+}
+
+if R2_STORAGE_ENABLED:
+    r2_storage_options = {
+        'access_key': AWS_ACCESS_KEY_ID,
+        'secret_key': AWS_SECRET_ACCESS_KEY,
+        'bucket_name': AWS_STORAGE_BUCKET_NAME,
+        'endpoint_url': AWS_S3_ENDPOINT_URL,
+        'region_name': AWS_S3_REGION_NAME,
+        'signature_version': AWS_S3_SIGNATURE_VERSION,
+        'file_overwrite': AWS_S3_FILE_OVERWRITE,
+        'default_acl': AWS_DEFAULT_ACL,
+        'querystring_auth': AWS_QUERYSTRING_AUTH,
+    }
+    if AWS_S3_CUSTOM_DOMAIN:
+        r2_storage_options['custom_domain'] = AWS_S3_CUSTOM_DOMAIN
+
+    STORAGES['default'] = {
+        'BACKEND': 'storages.backends.s3boto3.S3Boto3Storage',
+        'OPTIONS': r2_storage_options,
+    }
 
 
 # Django REST Framework
