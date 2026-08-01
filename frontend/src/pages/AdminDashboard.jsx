@@ -81,10 +81,24 @@ function normalizeNextUrl(nextUrl) {
 function getErrorMessage(error, fallback = '操作失败，请稍后重试。') {
   const data = error.response?.data
   if (typeof data?.detail === 'string') return data.detail
-  const firstMessage = data && Object.values(data).flat().find(
-    (message) => typeof message === 'string',
-  )
-  return firstMessage || fallback
+
+  function findMessage(value) {
+    if (typeof value === 'string') return value
+    if (Array.isArray(value)) {
+      return value.map(findMessage).find(Boolean)
+    }
+    if (value && typeof value === 'object') {
+      return Object.values(value).map(findMessage).find(Boolean)
+    }
+    return ''
+  }
+
+  const message = findMessage(data)
+  if (message) return message
+  if (error.response?.status) {
+    return `${fallback}（HTTP ${error.response.status}）`
+  }
+  return error.message || fallback
 }
 
 function AdminDashboard() {

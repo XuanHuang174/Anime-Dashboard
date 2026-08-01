@@ -250,6 +250,43 @@ PRESET_QUICK_FILTER_TAGS = {
 }
 
 
+def _search_variants(search):
+    """Return tolerant season spellings while preserving ordinary keywords."""
+
+    normalized = search.strip()
+    variants = {normalized}
+    season_match = re.fullmatch(
+        r"(?P<year>(?:19|20|21)\d{2})\s*(?:[-/.年]\s*)?"
+        r"(?:(?P<month>0?[147]|10)\s*月?|Q(?P<quarter>[1-4]))",
+        normalized,
+        flags=re.IGNORECASE,
+    )
+    if season_match:
+        year = season_match.group("year")
+        month = season_match.group("month")
+        if month is None:
+            month = {"1": 1, "2": 4, "3": 7, "4": 10}[
+                season_match.group("quarter")
+            ]
+        month = int(month)
+        variants.update((f"{year}-{month}", f"{year}-{month:02d}"))
+    return tuple(value for value in variants if value)
+
+
+def _anime_search_query(search, private=False):
+    """Build title/studio/season matching for shared or per-user metadata."""
+
+    variants = _search_variants(search)
+    prefix = "private_" if private else "anime__"
+    query = Q()
+    for value in variants:
+        query |= Q(**{f"{prefix}chinese_title__icontains": value})
+        query |= Q(**{f"{prefix}japanese_title__icontains": value})
+        query |= Q(**{f"{prefix}studio__icontains": value})
+        query |= Q(**{f"{prefix}airing_period__icontains": value})
+    return query
+
+
 def _combined_record_tags(record):
     base_tags = (
         record.get("private_base_tags")
@@ -281,17 +318,11 @@ def _apply_record_filters(queryset, request, filter_owner):
         queryset = queryset.filter(
             (
                 Q(metadata_initialized=True)
-                & (
-                    Q(private_chinese_title__icontains=search)
-                    | Q(private_japanese_title__icontains=search)
-                )
+                & _anime_search_query(search, private=True)
             )
             | (
                 Q(metadata_initialized=False)
-                & (
-                    Q(anime__chinese_title__icontains=search)
-                    | Q(anime__japanese_title__icontains=search)
-                )
+                & _anime_search_query(search)
             )
         )
     if year and year != "all" and year.isdigit():
@@ -475,6 +506,17 @@ def _build_filter_options(queryset):
         "tags": sorted(tags),
         "years": sorted(years, reverse=True),
     }
+
+
+def _build_shared_journal_filter_options(queryset, owner):
+    """Include the journal owner's live quick-filter configuration."""
+
+    options = _build_filter_options(queryset)
+    options["quick_filters"] = UserQuickFilterSerializer(
+        UserQuickFilter.objects.filter(user=owner).order_by("created_at", "pk"),
+        many=True,
+    ).data
+    return options
 
 
 def _build_record_stats(queryset):
@@ -982,7 +1024,7 @@ class PublicJournalFilterOptionsView(APIView):
         queryset = UserAnimeRecord.objects.filter(user=profile.user).select_related(
             "anime",
         )
-        return Response(_build_filter_options(queryset))
+        return Response(_build_shared_journal_filter_options(queryset, profile.user))
 
 
 class ChangePasswordView(APIView):
@@ -1264,17 +1306,20 @@ class AnimeViewSet(viewsets.ModelViewSet):
 
     serializer_class = AnimeSerializer
     parser_classes = (parsers.JSONParser, parsers.FormParser, parsers.MultiPartParser)
-    filter_backends = (filters.SearchFilter,)
-    search_fields = (
-        "chinese_title",
-        "japanese_title",
-        "studio",
-        "airing_period",
-        "description",
-    )
+    filter_backends = ()
 
     def get_queryset(self):
         queryset = Anime.objects.filter(is_active=True)
+        search = self.request.query_params.get("search", "").strip()
+        if search:
+            search_query = Q()
+            for value in _search_variants(search):
+                search_query |= Q(chinese_title__icontains=value)
+                search_query |= Q(japanese_title__icontains=value)
+                search_query |= Q(studio__icontains=value)
+                search_query |= Q(airing_period__icontains=value)
+                search_query |= Q(description__icontains=value)
+            queryset = queryset.filter(search_query)
         user = self.request.user
         if user.is_authenticated:
             queryset = queryset.annotate(
@@ -2008,7 +2053,7 @@ class AdminPublicJournalFilterOptionsView(APIView):
         queryset = UserAnimeRecord.objects.filter(user=profile.user).select_related(
             "anime",
         )
-        return Response(_build_filter_options(queryset))
+        return Response(_build_shared_journal_filter_options(queryset, profile.user))
 
 
 class AdminFeaturedSubmissionViewSet(viewsets.ReadOnlyModelViewSet):
@@ -2032,7 +2077,19 @@ class AdminFeaturedSubmissionViewSet(viewsets.ReadOnlyModelViewSet):
             pk=pk,
         )
 
-    @action(detail=True, methods=("post",))
+    @staticmethod
+    def _transition_response(submission_id, audit_status, detail):
+        """Keep mutation responses independent from media-storage serialization."""
+
+        return Response(
+            {
+                "detail": detail,
+                "submission_id": submission_id,
+                "audit_status": audit_status,
+            }
+        )
+
+    @action(detail=True, methods=("post",), url_path="approve")
     @transaction.atomic
     def approve(self, request, pk=None):
         submission = self._get_locked_submission(pk)
@@ -2040,11 +2097,16 @@ class AdminFeaturedSubmissionViewSet(viewsets.ReadOnlyModelViewSet):
         if submission.audit_status == FeaturedSubmission.AuditStatus.PENDING:
             submission.audit_status = FeaturedSubmission.AuditStatus.APPROVED
             submission.save(update_fields=("audit_status", "updated_at"))
+            return self._transition_response(
+                submission.pk,
+                submission.audit_status,
+                "已通过该精选专栏投稿。",
+            )
+
+        if submission.audit_status != FeaturedSubmission.AuditStatus.REMOVAL_REQUESTED:
             return Response(
-                {
-                    "detail": "已通过该精选专栏投稿。",
-                    "submission": self.get_serializer(submission).data,
-                }
+                {"detail": "该投稿当前状态不允许执行此操作。"},
+                status=status.HTTP_409_CONFLICT,
             )
 
         submission_id = submission.pk
@@ -2055,14 +2117,13 @@ class AdminFeaturedSubmissionViewSet(viewsets.ReadOnlyModelViewSet):
             message=f"{title}的精选专栏已按你的申请撤下。",
         )
         submission.delete()
-        return Response(
-            {
-                "detail": "已批准撤下该精选专栏。",
-                "submission_id": submission_id,
-            }
+        return self._transition_response(
+            submission_id,
+            "removed",
+            "已批准撤下该精选专栏。",
         )
 
-    @action(detail=True, methods=("post",))
+    @action(detail=True, methods=("post",), url_path="reject")
     @transaction.atomic
     def reject(self, request, pk=None):
         submission = self._get_locked_submission(pk)
@@ -2080,11 +2141,16 @@ class AdminFeaturedSubmissionViewSet(viewsets.ReadOnlyModelViewSet):
                     f"未能入选精选专栏。原因：{reject_reason}"
                 ),
             )
+            return self._transition_response(
+                submission.pk,
+                submission.audit_status,
+                "已打回该精选专栏投稿。",
+            )
+
+        if submission.audit_status != FeaturedSubmission.AuditStatus.REMOVAL_REQUESTED:
             return Response(
-                {
-                    "detail": "已打回该精选专栏投稿。",
-                    "submission": self.get_serializer(submission).data,
-                }
+                {"detail": "该投稿当前状态不允许执行此操作。"},
+                status=status.HTTP_409_CONFLICT,
             )
 
         FeaturedSubmission.objects.filter(pk=submission.pk).update(
@@ -2098,10 +2164,8 @@ class AdminFeaturedSubmissionViewSet(viewsets.ReadOnlyModelViewSet):
                 f"专栏将继续展示。原因：{reject_reason}"
             ),
         )
-        submission.refresh_from_db()
-        return Response(
-            {
-                "detail": "已驳回撤下申请，该专栏将继续展示。",
-                "submission": self.get_serializer(submission).data,
-            }
+        return self._transition_response(
+            submission.pk,
+            FeaturedSubmission.AuditStatus.APPROVED,
+            "已驳回撤下申请，该专栏将继续展示。",
         )

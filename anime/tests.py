@@ -1389,7 +1389,8 @@ class AnimeApiTests(APITestCase):
     def test_public_showcase_search_and_filter_options_cover_full_dataset(self):
         target_anime = Anime.objects.create(
             chinese_title="全量筛选选项专用番剧",
-            airing_period="1999-10",
+            airing_period="1999-07",
+            studio="季度检索动画工房",
             base_tags=["全量专属标签"],
         )
         UserAnimeRecord.objects.create(
@@ -1406,6 +1407,14 @@ class AnimeApiTests(APITestCase):
             options_response = self.client.get(
                 reverse("anime_api:showcase-filter-options"),
             )
+            studio_response = self.client.get(
+                reverse("anime_api:showcase-list"),
+                {"page_size": 10, "search": "季度检索动画工房"},
+            )
+            padded_season_response = self.client.get(
+                reverse("anime_api:showcase-list"),
+                {"page_size": 10, "search": "1999-07"},
+            )
 
         self.assertEqual(search_response.data["count"], 1)
         self.assertEqual(
@@ -1414,6 +1423,15 @@ class AnimeApiTests(APITestCase):
         )
         self.assertIn("全量专属标签", options_response.data["tags"])
         self.assertIn("1999", options_response.data["years"])
+        self.assertEqual(studio_response.data["count"], 1)
+        self.assertEqual(padded_season_response.data["count"], 1)
+
+        with self.settings(PUBLIC_SHOWCASE_USERNAME=self.user.username):
+            unpadded_season_response = self.client.get(
+                reverse("anime_api:showcase-list"),
+                {"page_size": 10, "search": "1999-7"},
+            )
+        self.assertEqual(unpadded_season_response.data["count"], 1)
 
     def test_record_create_automatically_binds_authenticated_user(self):
         self.client.force_authenticate(self.user)
@@ -2602,6 +2620,12 @@ class AdminFeaturedSubmissionApiTests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["submission_id"], submission.pk)
+        self.assertEqual(
+            response.data["audit_status"],
+            FeaturedSubmission.AuditStatus.APPROVED,
+        )
+        self.assertNotIn("submission", response.data)
         submission.refresh_from_db()
         self.assertEqual(
             submission.audit_status,
@@ -2834,6 +2858,12 @@ class PublicJournalApiTests(APITestCase):
         self.assertEqual(len(exact_profiles), 1)
 
     def test_public_detail_requires_approved_public_profile(self):
+        quick_filter = UserQuickFilter.objects.create(
+            user=self.user,
+            name="剧场版优选",
+            tags=["剧场版"],
+            match_mode=UserQuickFilter.MatchMode.ALL,
+        )
         detail_url = reverse(
             "anime_api:public-journal-detail",
             kwargs={"username": self.user.username},
@@ -2883,6 +2913,20 @@ class PublicJournalApiTests(APITestCase):
         self.assertEqual(options_response.status_code, status.HTTP_200_OK)
         self.assertIn("剧场版", options_response.data["tags"])
         self.assertIn("2026", options_response.data["years"])
+        self.assertIn(
+            "剧场版优选",
+            [item["name"] for item in options_response.data["quick_filters"]],
+        )
+
+        quick_filter_response = self.client.get(
+            detail_url,
+            {"quick_filter": quick_filter.pk},
+        )
+        quick_filter_records = quick_filter_response.data.get(
+            "results",
+            quick_filter_response.data,
+        )
+        self.assertEqual([item["id"] for item in quick_filter_records], [self.record.pk])
 
 
 class AdminPublicJournalApiTests(APITestCase):
@@ -2922,6 +2966,12 @@ class AdminPublicJournalApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_admin_can_review_pending_journal_and_approve_it(self):
+        UserQuickFilter.objects.create(
+            user=self.owner,
+            name="共创标签组合",
+            tags=["共创"],
+            match_mode=UserQuickFilter.MatchMode.ANY,
+        )
         self.client.force_authenticate(user=self.admin)
         list_response = self.client.get(
             reverse("anime_api:admin-public-journal-list"),
@@ -2960,6 +3010,10 @@ class AdminPublicJournalApiTests(APITestCase):
         )
         self.assertEqual(options_response.status_code, status.HTTP_200_OK)
         self.assertIn("共创", options_response.data["tags"])
+        self.assertIn(
+            "共创标签组合",
+            [item["name"] for item in options_response.data["quick_filters"]],
+        )
 
         approve_response = self.client.post(
             reverse(

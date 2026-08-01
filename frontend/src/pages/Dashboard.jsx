@@ -248,7 +248,7 @@ function Dashboard() {
           ? `${sharedBase}/filter-options/`
           : 'records/filter-options/'
         const filtersRequest = isSharedJournal
-          ? Promise.resolve({ data: [] })
+          ? Promise.resolve(null)
           : api.get('quick-filters/', { signal: controller.signal })
         const [recordsResponse, filtersResponse, statsResponse, optionsResponse] = await Promise.all([
           api.get(recordsEndpoint, {
@@ -260,7 +260,9 @@ function Dashboard() {
           api.get(optionsEndpoint, { signal: controller.signal }),
         ])
         const recordData = recordsResponse.data
-        const filterData = filtersResponse.data
+        const filterData = isSharedJournal
+          ? optionsResponse.data?.quick_filters ?? []
+          : filtersResponse?.data ?? []
         setRecords(Array.isArray(recordData) ? recordData : recordData.results ?? [])
         setRecordsTotal(Array.isArray(recordData) ? recordData.length : recordData.count)
         setHasNextPage(!Array.isArray(recordData) && Boolean(recordData.next))
