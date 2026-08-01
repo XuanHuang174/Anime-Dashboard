@@ -1,8 +1,42 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useGSAP } from '@gsap/react'
+import gsap from 'gsap'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import api from '../api/api.js'
 
+gsap.registerPlugin(useGSAP)
+
+const COLORS = {
+  '--cream': '#fff5ee',
+  '--coral': '#ff6b6b',
+  '--teal': '#4ecdc4',
+  '--yellow': '#ffe66d',
+  '--ink': '#111111',
+}
+
+const STATUS_STYLE = {
+  checking: {
+    icon: 'fa-spinner animate-spin',
+    label: 'VERIFYING SIGNAL',
+    title: '正在激活账号',
+    color: 'bg-[var(--yellow)]',
+  },
+  success: {
+    icon: 'fa-circle-check',
+    label: 'ACCESS GRANTED',
+    title: '激活成功！',
+    color: 'bg-[var(--teal)]',
+  },
+  error: {
+    icon: 'fa-circle-xmark',
+    label: 'SIGNAL LOST',
+    title: '激活未完成',
+    color: 'bg-[var(--coral)]',
+  },
+}
+
 function ActivatePage() {
+  const pageRef = useRef(null)
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [status, setStatus] = useState('checking')
@@ -49,39 +83,76 @@ function ActivatePage() {
     }
   }, [navigate, searchParams])
 
-  const appearance = {
-    checking: { icon: 'fa-spinner animate-spin', color: 'text-indigo-500', panel: 'from-indigo-50 to-purple-50' },
-    success: { icon: 'fa-circle-check', color: 'text-emerald-500', panel: 'from-emerald-50 to-indigo-50' },
-    error: { icon: 'fa-circle-xmark', color: 'text-rose-500', panel: 'from-rose-50 to-pink-50' },
-  }[status]
+  useGSAP(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    gsap.from('.activation-card', {
+      scale: 0.55,
+      y: -70,
+      rotation: -4,
+      opacity: 0,
+      duration: 0.75,
+      ease: 'back.out(1.8)',
+    })
+    gsap.from('.activation-piece', {
+      y: 35,
+      opacity: 0,
+      stagger: 0.08,
+      duration: 0.42,
+      ease: 'back.out(1.5)',
+      delay: 0.28,
+    })
+  }, { scope: pageRef })
+
+  useGSAP(() => {
+    gsap.fromTo(
+      '.activation-status',
+      { scale: 0.75, rotation: -8 },
+      { scale: 1, rotation: 2, duration: 0.45, ease: 'back.out(2)' },
+    )
+  }, { scope: pageRef, dependencies: [status] })
+
+  const appearance = STATUS_STYLE[status]
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-slate-950 px-4 py-12 text-slate-800">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(236,72,153,0.3),_transparent_35%),radial-gradient(circle_at_bottom_right,_rgba(99,102,241,0.35),_transparent_40%)]" />
-      <div className="absolute left-1/2 top-1/2 h-80 w-80 -translate-x-1/2 -translate-y-1/2 rounded-full bg-indigo-500/20 blur-3xl" />
+    <main ref={pageRef} style={COLORS} className="relative flex min-h-[100dvh] items-center justify-center overflow-hidden bg-[var(--cream)] p-5 text-[var(--ink)]">
+      <div className="pointer-events-none absolute inset-0 opacity-30" style={{ backgroundImage: 'radial-gradient(#111 1.5px, transparent 1.5px)', backgroundSize: '20px 20px' }} />
+      <div className="pointer-events-none absolute -left-16 top-20 h-40 w-40 rotate-12 border-4 border-black bg-[var(--coral)] shadow-[10px_10px_0_#111]" />
+      <div className="pointer-events-none absolute -right-10 bottom-16 h-36 w-36 rounded-full border-[16px] border-black bg-[var(--teal)] shadow-[8px_8px_0_var(--coral)]" />
 
-      <section className="relative z-10 mx-auto flex min-h-[calc(100vh-6rem)] max-w-md items-center">
-        <div className="w-full rounded-3xl border border-white/30 bg-white/90 p-8 text-center shadow-2xl shadow-indigo-950/40 backdrop-blur-xl sm:p-10">
-          <div className={`mx-auto flex h-24 w-24 items-center justify-center rounded-3xl border-4 border-white bg-gradient-to-br ${appearance.panel} text-4xl shadow-xl shadow-indigo-200/40 ring-1 ring-slate-100 ${appearance.color}`}>
-            <i className={`fa-solid ${appearance.icon}`} />
-          </div>
-
-          <h1 className="mt-7 text-3xl font-black tracking-tight text-slate-900">
-            {status === 'checking' && '正在激活账号'}
-            {status === 'success' && '激活成功！'}
-            {status === 'error' && '激活未完成'}
-          </h1>
-          <p role={status === 'error' ? 'alert' : 'status'} className="mt-3 rounded-2xl border border-slate-100 bg-slate-50/80 px-5 py-4 text-sm font-medium leading-7 text-slate-600 shadow-inner">
-            {message}
-          </p>
-
-          {status === 'success' && <p className="mt-4 text-xs font-semibold text-emerald-600"><i className="fa-solid fa-clock mr-1.5" />即将自动返回登录页面</p>}
-          {status === 'error' && (
-            <Link to="/login" replace className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl border-b-[4px] border-b-indigo-700 bg-gradient-to-r from-pink-500 to-indigo-500 px-5 py-3.5 font-bold text-white shadow-lg transition-all hover:-translate-y-0.5 hover:shadow-xl active:translate-y-[2px] active:border-b">
-              <i className="fa-solid fa-arrow-left" />返回登录与注册
-            </Link>
-          )}
+      <section className="activation-card relative z-10 w-full max-w-xl border-4 border-black bg-white p-6 shadow-[12px_12px_0_0_var(--ink)] sm:p-9">
+        <div className="absolute left-0 top-0 flex h-3 w-full">
+          <span className="w-1/3 bg-[var(--coral)]" />
+          <span className="w-1/3 bg-[var(--yellow)]" />
+          <span className="w-1/3 bg-[var(--teal)]" />
         </div>
+
+        <div className="activation-piece mt-3 flex items-center justify-between gap-4 border-b-4 border-black pb-5">
+          <span className="-rotate-2 border-2 border-black bg-black px-3 py-1.5 text-[10px] font-black tracking-[0.2em] text-white">ACCOUNT ACTIVATION</span>
+          <span className="font-black">ANIME JOURNAL / 账户通行证</span>
+        </div>
+
+        <div className="activation-piece mt-8 text-center">
+          <span className={`activation-status mx-auto flex h-24 w-24 items-center justify-center border-4 border-black text-4xl shadow-[7px_7px_0_0_var(--ink)] ${appearance.color}`}>
+            <i className={`fa-solid ${appearance.icon}`} />
+          </span>
+          <span className="mt-7 inline-block border-2 border-black bg-[var(--yellow)] px-3 py-1 text-[10px] font-black tracking-[0.2em]">{appearance.label}</span>
+          <h1 className="mt-4 text-4xl font-black uppercase leading-none">{appearance.title}</h1>
+        </div>
+
+        <p role={status === 'error' ? 'alert' : 'status'} className="activation-piece mt-6 border-4 border-black bg-[var(--cream)] px-5 py-4 text-sm font-black leading-7 shadow-[5px_5px_0_0_var(--teal)]">
+          {message}
+        </p>
+
+        {status === 'success' && (
+          <p className="activation-piece mt-5 border-l-8 border-[var(--coral)] bg-[var(--yellow)] px-4 py-3 text-sm font-black">
+            <i className="fa-solid fa-clock mr-2" />即将自动返回登录页面
+          </p>
+        )}
+        {status === 'error' && (
+          <Link to="/login" replace className="activation-piece mt-6 flex w-full items-center justify-center gap-2 border-4 border-black bg-[var(--coral)] px-5 py-3.5 font-black shadow-[6px_6px_0_#111] active:translate-x-[6px] active:translate-y-[6px] active:shadow-none">
+            <i className="fa-solid fa-arrow-left" />返回登录与注册
+          </Link>
+        )}
       </section>
     </main>
   )

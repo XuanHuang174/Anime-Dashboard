@@ -1666,7 +1666,10 @@ class FeaturedSubmissionViewSet(
             audit_status__in=actionable_statuses,
         )
         approved_count = submissions.filter(
-            audit_status=FeaturedSubmission.AuditStatus.APPROVED,
+            audit_status__in=(
+                FeaturedSubmission.AuditStatus.APPROVED,
+                FeaturedSubmission.AuditStatus.REMOVAL_REQUESTED,
+            ),
         ).count()
         return Response(
             {
@@ -1693,7 +1696,10 @@ class FeaturedSubmissionViewSet(
         )
         approved_count = FeaturedSubmission.objects.filter(
             user=request.user,
-            audit_status=FeaturedSubmission.AuditStatus.APPROVED,
+            audit_status__in=(
+                FeaturedSubmission.AuditStatus.APPROVED,
+                FeaturedSubmission.AuditStatus.REMOVAL_REQUESTED,
+            ),
         ).count()
         if approved_count >= profile.max_featured_limit:
             return Response(
@@ -1825,7 +1831,7 @@ class UserNotificationViewSet(viewsets.ModelViewSet):
 
 
 class PublicFeaturedSubmissionViewSet(viewsets.ReadOnlyModelViewSet):
-    """Anonymous read-only access to approved featured columns."""
+    """Public columns stay visible until an administrator approves removal."""
 
     serializer_class = PublicFeaturedSubmissionSerializer
     permission_classes = (permissions.AllowAny,)
@@ -1833,7 +1839,10 @@ class PublicFeaturedSubmissionViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         queryset = FeaturedSubmission.objects.filter(
-            audit_status=FeaturedSubmission.AuditStatus.APPROVED,
+            audit_status__in=(
+                FeaturedSubmission.AuditStatus.APPROVED,
+                FeaturedSubmission.AuditStatus.REMOVAL_REQUESTED,
+            ),
         ).select_related("user", "user__profile")
         search = self.request.query_params.get("search", "").strip()
         if search:

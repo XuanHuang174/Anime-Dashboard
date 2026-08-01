@@ -2331,6 +2331,16 @@ class FeaturedColumnApiTests(APITestCase):
             FeaturedSubmission.AuditStatus.REMOVAL_REQUESTED,
         )
 
+        state_response = self.client.get(
+            reverse("anime_api:featured-submission-state"),
+        )
+        self.assertEqual(state_response.data["approved_count"], 1)
+
+        self.client.force_authenticate(user=None)
+        public_response = self.client.get(reverse("anime_api:featured-list"))
+        public_records = public_response.data.get("results", public_response.data)
+        self.assertIn(submission.pk, [item["id"] for item in public_records])
+
     def test_non_approved_submission_cannot_request_removal(self):
         submission = FeaturedSubmission.objects.create(
             user=self.user,

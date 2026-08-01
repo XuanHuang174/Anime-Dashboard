@@ -197,6 +197,7 @@ function LoginPage() {
 
   const isRegister = mode === 'register'
   const isReset = mode === 'reset'
+  const hasCompletionNotice = Boolean(notice && (isRegister || isReset))
   const inputClass = 'w-full border-4 border-black bg-white px-12 py-3.5 text-base font-black text-black outline-none shadow-[5px_5px_0_0_var(--memphis-teal)] placeholder:font-bold placeholder:text-black/45 focus:translate-x-[3px] focus:translate-y-[3px] focus:bg-[var(--memphis-yellow)] focus:shadow-[2px_2px_0_0_var(--memphis-coral)]'
   const pressableClass = 'border-4 border-black shadow-[6px_6px_0_0_var(--memphis-ink)] transition-none hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[4px_4px_0_0_var(--memphis-ink)] active:translate-x-[6px] active:translate-y-[6px] active:shadow-none'
   const primaryActionClass = 'border-4 border-black bg-[var(--memphis-yellow)] text-black shadow-[7px_7px_0_0_var(--memphis-coral)] transition-none hover:translate-x-[2px] hover:translate-y-[2px] hover:bg-black hover:text-[var(--memphis-yellow)] hover:shadow-[5px_5px_0_0_var(--memphis-teal)] active:translate-x-[7px] active:translate-y-[7px] active:shadow-none'
@@ -368,7 +369,36 @@ function LoginPage() {
                 </button>
               )}
 
-              <form className="space-y-4" onSubmit={handleSubmit}>
+              {hasCompletionNotice && (
+                <section className="mode-piece border-4 border-black bg-[var(--memphis-yellow)] p-5 shadow-[8px_8px_0_0_var(--memphis-teal)]">
+                  <div className="flex items-start gap-4">
+                    <span className="flex h-14 w-14 shrink-0 -rotate-3 items-center justify-center border-4 border-black bg-[var(--memphis-teal)] text-2xl shadow-[4px_4px_0_0_var(--memphis-coral)]">
+                      <i className={`fa-solid ${isRegister ? 'fa-envelope-circle-check' : 'fa-paper-plane'}`} />
+                    </span>
+                    <div>
+                      <span className="inline-block bg-black px-2 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-white">
+                        {isRegister ? 'ACTIVATION SENT' : 'RESET SIGNAL SENT'}
+                      </span>
+                      <h2 className="mt-3 text-2xl font-black leading-tight">
+                        {isRegister ? '注册成功，去邮箱完成激活！' : '重置入口已经出发！'}
+                      </h2>
+                    </div>
+                  </div>
+                  <p role="status" className="mt-5 border-2 border-black bg-white px-4 py-3 text-sm font-black leading-6 shadow-[4px_4px_0_0_var(--memphis-ink)]">
+                    {notice}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => switchMode('login')}
+                    className={`mt-5 flex w-full items-center justify-center gap-2 bg-[var(--memphis-coral)] px-5 py-3 font-black ${pressableClass}`}
+                  >
+                    <i className="fa-solid fa-arrow-left" />
+                    返回登录
+                  </button>
+                </section>
+              )}
+
+              {!hasCompletionNotice && <form className="space-y-4" onSubmit={handleSubmit}>
                 {isRegister || isReset ? (
                   <label className="mode-piece block">
                     <span className="mb-2 inline-block -rotate-1 bg-black px-2 py-1 text-xs font-black text-white">邮箱 EMAIL</span>
@@ -381,7 +411,7 @@ function LoginPage() {
                         value={email}
                         onChange={(event) => setEmail(event.target.value)}
                         className={inputClass}
-                        placeholder={isReset ? '请输入注册时使用的邮箱' : '请输入邮箱地址（支持 QQ 邮箱 / 网易邮箱）'}
+                        placeholder={isReset ? '请输入注册时使用的邮箱' : '请输入邮箱地址（支持 QQ / 网易 / 谷歌等主流邮箱）'}
                       />
                     </div>
                   </label>
@@ -464,17 +494,6 @@ function LoginPage() {
                   </p>
                 )}
 
-                {isReset && notice && (
-                  <button
-                    type="button"
-                    onClick={() => switchMode('login')}
-                    className={`mode-piece flex w-full items-center justify-center bg-white px-5 py-3 font-black ${pressableClass}`}
-                  >
-                    <i className="fa-solid fa-arrow-left" />
-                    返回登录
-                  </button>
-                )}
-
                 <button
                   type="submit"
                   disabled={isSubmitting}
@@ -492,7 +511,7 @@ function LoginPage() {
                     </>
                   )}
                 </button>
-              </form>
+              </form>}
 
               <div className="login-piece mt-5 flex items-center justify-between border-t-4 border-black pt-3 text-[10px] font-black uppercase tracking-[0.12em]">
                 <span><i className="fa-solid fa-lock mr-1.5" />安全连接</span>
