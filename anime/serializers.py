@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 import unicodedata
 from decimal import Decimal
@@ -23,6 +24,10 @@ from .models import (
     UserQuickFilter,
 )
 from .tag_services import get_record_tag_colors, initialize_record_tag_colors
+from .utils.scraper import MetadataScraper
+
+
+logger = logging.getLogger(__name__)
 
 
 STRICT_EMAIL_PATTERN = re.compile(
@@ -1076,8 +1081,39 @@ class UserAnimeRecordAddSerializer(serializers.Serializer):
         validated_data.pop("anime_data", None)
         validated_data.pop("poster_image", None)
         anime = validated_data.pop("existing_anime", None)
+        created_anime = anime is None
         if anime is None:
             anime = anime_serializer.save()
+
+        source_metadata = (
+            anime_serializer.validated_data
+            if created_anime and anime_serializer is not None
+            else private_metadata
+        )
+        source_poster_url = (
+            source_metadata.get("poster_url", "") if source_metadata else ""
+        )
+        downloaded_poster = None
+        if source_poster_url:
+            try:
+                downloaded_poster = MetadataScraper.download_bangumi_poster(
+                    source_poster_url,
+                )
+                # Persist a newly created Anime before UserAnimeRecord.save()
+                # snapshots its metadata into the user's private fields.
+                if created_anime and downloaded_poster is not None:
+                    anime.poster_image.save(
+                        downloaded_poster.name,
+                        downloaded_poster,
+                        save=True,
+                    )
+            except Exception as exc:  # Remote/storage errors are non-fatal.
+                downloaded_poster = None
+                logger.warning(
+                    "Bangumi poster persistence failed for anime_id=%s: %s",
+                    anime.pk,
+                    exc,
+                )
 
         record = UserAnimeRecord.objects.create(
             user=request.user,
@@ -1105,6 +1141,26 @@ class UserAnimeRecordAddSerializer(serializers.Serializer):
                 updated_fields.append(target_field)
             record.metadata_initialized = True
             record.save(update_fields=updated_fields)
+
+        # Bangumi image URLs are often inaccessible to clients in mainland
+        # China. Download once on the backend and let the configured default
+        # storage persist it (Cloudflare R2 in production, local media in dev).
+        # Existing shared Anime rows must never be mutated for another user,
+        # so matched records receive an isolated private image instead.
+        if not created_anime and downloaded_poster is not None:
+            try:
+                if not record.private_poster_image:
+                    record.private_poster_image.save(
+                        downloaded_poster.name,
+                        downloaded_poster,
+                        save=True,
+                    )
+            except Exception as exc:  # Storage errors must not abort record creation.
+                logger.warning(
+                    "Bangumi private poster persistence failed for anime_id=%s: %s",
+                    anime.pk,
+                    exc,
+                )
 
         initialize_record_tag_colors(record=record, user=request.user)
         return record

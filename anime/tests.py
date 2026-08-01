@@ -11,6 +11,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.core.cache import cache
 from django.core import mail
+from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import transaction
 from django.test import RequestFactory, override_settings
@@ -1132,6 +1133,74 @@ class AnimeApiTests(APITestCase):
             ).exists()
         )
         self.assertEqual(response.data["anime"]["studio"], "事务动画")
+
+    @patch.object(MetadataScraper, "download_bangumi_poster")
+    def test_smart_add_persists_downloaded_bangumi_poster(
+        self,
+        download_bangumi_poster,
+    ):
+        image_buffer = BytesIO()
+        Image.new("RGB", (2, 2), color="pink").save(image_buffer, format="PNG")
+        download_bangumi_poster.return_value = ContentFile(
+            image_buffer.getvalue(),
+            name="bangumi-test.png",
+        )
+        self.client.force_authenticate(self.user)
+
+        with tempfile.TemporaryDirectory() as media_root, self.settings(
+            MEDIA_ROOT=media_root,
+        ):
+            response = self.client.post(
+                reverse("anime_api:user-anime-record-add"),
+                {
+                    "anime_data": {
+                        "chinese_title": "Bangumi 海报持久化测试",
+                        "japanese_title": "Bangumi poster test",
+                        "airing_period": "2029-1",
+                        "poster_url": "https://lain.bgm.tv/pic/cover/l/test.jpg",
+                    },
+                },
+                format="json",
+            )
+
+            self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+            anime = Anime.objects.get(chinese_title="Bangumi 海报持久化测试")
+            self.assertTrue(anime.poster_image.name.endswith("bangumi-test.png"))
+            self.assertTrue(response.data["anime"]["poster_image"])
+            download_bangumi_poster.assert_called_once_with(
+                "https://lain.bgm.tv/pic/cover/l/test.jpg",
+            )
+
+    @patch.object(
+        MetadataScraper,
+        "download_bangumi_poster",
+        return_value=None,
+    )
+    def test_smart_add_keeps_original_url_when_poster_download_fails(
+        self,
+        download_bangumi_poster,
+    ):
+        self.client.force_authenticate(self.user)
+
+        response = self.client.post(
+            reverse("anime_api:user-anime-record-add"),
+            {
+                "anime_data": {
+                    "chinese_title": "海报失败仍可创建",
+                    "japanese_title": "Poster fallback",
+                    "airing_period": "2029-4",
+                    "poster_url": "https://lain.bgm.tv/pic/cover/l/fallback.jpg",
+                },
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(
+            response.data["anime"]["poster_url"],
+            "https://lain.bgm.tv/pic/cover/l/fallback.jpg",
+        )
+        download_bangumi_poster.assert_called_once()
 
     def test_add_endpoint_accepts_multipart_poster_upload(self):
         image_buffer = BytesIO()
@@ -3294,6 +3363,79 @@ class MetadataScraperTests(APITestCase):
             (
                 "https://img-bgm.example.com/pic/cover/l/ab/cd/456.jpg"
                 "?token=original#poster"
+            ),
+        )
+
+    @override_settings(BANGUMI_PROXY_IMAGE="https://img-bgm.example.com")
+    @patch("anime.utils.scraper.requests.get")
+    def test_download_bangumi_poster_returns_valid_content_file(self, get):
+        image_buffer = BytesIO()
+        Image.new("RGB", (3, 3), color="cyan").save(image_buffer, format="PNG")
+        response = Mock()
+        response.headers = {"Content-Type": "image/png; charset=binary"}
+        response.content = image_buffer.getvalue()
+        response.raise_for_status.return_value = None
+        get.return_value = response
+
+        poster = MetadataScraper.download_bangumi_poster(
+            "https://img-bgm.example.com/pic/cover/l/test.png",
+        )
+
+        self.assertIsNotNone(poster)
+        self.assertTrue(poster.name.startswith("bangumi-"))
+        self.assertTrue(poster.name.endswith(".png"))
+        request_kwargs = get.call_args.kwargs
+        self.assertIn("Mozilla/5.0", request_kwargs["headers"]["User-Agent"])
+        self.assertNotIn("Cookie", request_kwargs["headers"])
+
+    @patch("anime.utils.scraper.requests.get")
+    def test_moegirl_uses_opensearch_api_and_browser_headers(self, get):
+        response = Mock()
+        response.status_code = 200
+        response.json.return_value = [
+            "测试动画",
+            ["测试动画"],
+            [""],
+            ["https://zh.moegirl.org.cn/测试动画"],
+        ]
+        response.raise_for_status.return_value = None
+        get.return_value = response
+
+        result = MetadataScraper.get_moegirl_url("测试动画")
+
+        self.assertEqual(result, "https://zh.moegirl.org.cn/测试动画")
+        self.assertEqual(get.call_args.args[0], MetadataScraper.MOEGIRL_API_URL)
+        self.assertEqual(get.call_args.kwargs["params"]["action"], "opensearch")
+        self.assertIn("Mozilla/5.0", get.call_args.kwargs["headers"]["User-Agent"])
+        self.assertEqual(
+            get.call_args.kwargs["headers"]["Accept-Language"],
+            "zh-CN,zh;q=0.9,en;q=0.8",
+        )
+
+    @patch("anime.utils.scraper.requests.get")
+    def test_moegirl_non_200_response_uses_fallback_url(self, get):
+        response = Mock()
+        response.status_code = 403
+        get.return_value = response
+
+        result = MetadataScraper.get_moegirl_url("摇曳露营")
+
+        self.assertEqual(
+            result,
+            "https://zh.moegirl.org.cn/%E6%91%87%E6%9B%B3%E9%9C%B2%E8%90%A5",
+        )
+
+    @patch("anime.utils.scraper.requests.get")
+    def test_moegirl_failure_falls_back_to_encoded_article_url(self, get):
+        get.side_effect = requests.exceptions.Timeout("WAF timeout")
+
+        result = MetadataScraper.get_moegirl_url("别当欧尼酱了！")
+
+        self.assertEqual(
+            result,
+            (
+                "https://zh.moegirl.org.cn/"
+                "%E5%88%AB%E5%BD%93%E6%AC%A7%E5%B0%BC%E9%85%B1%E4%BA%86%EF%BC%81"
             ),
         )
 

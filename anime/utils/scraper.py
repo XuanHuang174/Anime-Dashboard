@@ -1,14 +1,19 @@
 """Metadata clients for the public Bangumi and Moegirlpedia APIs."""
 
 import hashlib
+import io
 import logging
 import re
-from urllib.parse import urlsplit, urlunsplit
+import uuid
+from pathlib import PurePosixPath
+from urllib.parse import quote, urlsplit, urlunsplit
 
 import requests
+from PIL import Image, UnidentifiedImageError
 
 from django.conf import settings
 from django.core.cache import cache
+from django.core.files.base import ContentFile
 
 
 logger = logging.getLogger(__name__)
@@ -39,7 +44,27 @@ class MetadataScraper:
     # Bangumi requires third-party clients to identify themselves instead of
     # using a library/default crawler User-Agent.
     USER_AGENT = "XHcode/AnimeJournal/1.0 (Web)"
+    BROWSER_USER_AGENT = (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/126.0.0.0 Safari/537.36"
+    )
     RESPONSE_LOG_LIMIT = 1200
+    MAX_POSTER_BYTES = 5 * 1024 * 1024
+    POSTER_CONTENT_TYPES = {
+        "image/jpeg": ".jpg",
+        "image/jpg": ".jpg",
+        "image/pjpeg": ".jpg",
+        "image/png": ".png",
+        "image/webp": ".webp",
+        "image/gif": ".gif",
+    }
+    POSTER_IMAGE_FORMATS = {
+        "JPEG": ".jpg",
+        "PNG": ".png",
+        "WEBP": ".webp",
+        "GIF": ".gif",
+    }
 
     @staticmethod
     def _cache_key(namespace, value):
@@ -219,6 +244,91 @@ class MetadataScraper:
                 source.fragment,
             )
         )
+
+    @classmethod
+    def _is_bangumi_image_url(cls, value):
+        """Only download trusted Bangumi or configured proxy image hosts."""
+
+        parsed = urlsplit(str(value or "").strip())
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+            return False
+
+        allowed_hosts = set(cls.BANGUMI_OFFICIAL_IMAGE_HOSTS)
+        proxy = urlsplit(
+            str(getattr(settings, "BANGUMI_PROXY_IMAGE", "") or "").strip()
+        )
+        if proxy.hostname:
+            allowed_hosts.add(proxy.hostname.casefold())
+
+        source_host = parsed.hostname.casefold()
+        return any(
+            source_host == host or source_host.endswith(f".{host}")
+            for host in allowed_hosts
+        )
+
+    @classmethod
+    def download_bangumi_poster(cls, poster_url):
+        """Download a Bangumi poster into memory for an ImageField upload.
+
+        Returning ``None`` is deliberate: remote media is optional and a CDN,
+        proxy, image decoder, or object-storage outage must never abort the
+        user's anime-record creation request.
+        """
+
+        poster_url = str(poster_url or "").strip()
+        if not cls._is_bangumi_image_url(poster_url):
+            return None
+
+        try:
+            response = requests.get(
+                poster_url,
+                headers={
+                    "User-Agent": cls.BROWSER_USER_AGENT,
+                    "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+                    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+                },
+                timeout=cls.REQUEST_TIMEOUT,
+                allow_redirects=True,
+            )
+            response.raise_for_status()
+
+            content_type = response.headers.get("Content-Type", "")
+            content_type = content_type.split(";", 1)[0].strip().casefold()
+            content = response.content
+            if not content or len(content) > cls.MAX_POSTER_BYTES:
+                raise ValueError("poster is empty or exceeds the 5 MB limit")
+
+            with Image.open(io.BytesIO(content)) as image:
+                image_format = str(image.format or "").upper()
+                image.verify()
+            if image_format not in cls.POSTER_IMAGE_FORMATS:
+                raise ValueError(f"unsupported poster image format: {image_format}")
+
+            url_suffix = PurePosixPath(urlsplit(poster_url).path).suffix.casefold()
+            suffix = (
+                url_suffix
+                if url_suffix in set(cls.POSTER_CONTENT_TYPES.values())
+                else cls.POSTER_CONTENT_TYPES.get(
+                    content_type,
+                    cls.POSTER_IMAGE_FORMATS[image_format],
+                )
+            )
+            return ContentFile(
+                content,
+                name=f"bangumi-{uuid.uuid4().hex}{suffix}",
+            )
+        except (
+            requests.exceptions.RequestException,
+            OSError,
+            UnidentifiedImageError,
+            ValueError,
+        ) as exc:
+            logger.warning(
+                "[Bangumi poster download failed] url=%s reason=%s",
+                poster_url,
+                exc,
+            )
+            return None
 
     @staticmethod
     def _as_text(value):
@@ -474,8 +584,9 @@ class MetadataScraper:
         if cached is not None:
             return cached
 
+        fallback_url = f"https://zh.moegirl.org.cn/{quote(keyword, safe='')}"
         try:
-            payload = cls._request_json(
+            response = requests.get(
                 cls.MOEGIRL_API_URL,
                 params={
                     "action": "opensearch",
@@ -483,20 +594,35 @@ class MetadataScraper:
                     "limit": 1,
                     "namespace": 0,
                     "format": "json",
-                    "origin": "*",
                 },
+                headers={
+                    "User-Agent": cls.BROWSER_USER_AGENT,
+                    "Accept": "application/json,text/plain,*/*",
+                    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+                },
+                timeout=cls.REQUEST_TIMEOUT,
             )
+            if response.status_code != requests.codes.ok:
+                raise requests.exceptions.HTTPError(
+                    f"Moegirl API returned HTTP {response.status_code}",
+                    response=response,
+                )
+            payload = response.json()
             urls = payload[3] if isinstance(payload, list) and len(payload) > 3 else []
-            result = urls[0] if urls else ""
+            result = str(urls[0]).strip() if urls else fallback_url
         except (
-            MetadataScraperError,
             requests.exceptions.RequestException,
+            requests.exceptions.JSONDecodeError,
             IndexError,
             TypeError,
-        ):
-            # Moegirlpedia occasionally rejects anonymous traffic. Autofill
-            # should still return the useful Bangumi metadata in that case.
-            result = ""
+            ValueError,
+        ) as exc:
+            logger.warning(
+                "[Moegirl API fallback] keyword=%s reason=%s",
+                keyword,
+                exc,
+            )
+            result = fallback_url
 
         cache.set(cache_key, result, cls.MOEGIRL_CACHE_SECONDS)
         return result
