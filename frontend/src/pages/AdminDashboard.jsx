@@ -81,6 +81,15 @@ function normalizeNextUrl(nextUrl) {
 function getErrorMessage(error, fallback = '操作失败，请稍后重试。') {
   const data = error.response?.data
   if (typeof data?.detail === 'string') return data.detail
+  if (typeof data === 'string') {
+    const normalized = data.trim()
+    if (/^<!doctype\s+html|^<html[\s>]/i.test(normalized)) {
+      return error.response?.status
+        ? `${fallback}（HTTP ${error.response.status}）`
+        : fallback
+    }
+    if (normalized) return normalized
+  }
 
   function findMessage(value) {
     if (typeof value === 'string') return value

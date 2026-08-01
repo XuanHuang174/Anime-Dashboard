@@ -12,6 +12,7 @@ from django.contrib.auth.tokens import default_token_generator
 from django.core.cache import cache
 from django.core import mail
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import transaction
 from django.test import RequestFactory, override_settings
 from django.urls import reverse
 from django.utils.encoding import force_bytes
@@ -32,6 +33,7 @@ from .models import (
     UserQuickFilter,
 )
 from .utils.scraper import MetadataScraper, MetadataScraperError
+from .views import AdminFeaturedSubmissionViewSet
 
 
 @override_settings(
@@ -2590,6 +2592,20 @@ class AdminFeaturedSubmissionApiTests(APITestCase):
 
         self.assertEqual(session_response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(queue_response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_row_lock_does_not_reuse_nullable_outer_join_queue_queryset(self):
+        submission = self.create_submission(FeaturedSubmission.AuditStatus.PENDING)
+        view = AdminFeaturedSubmissionViewSet()
+
+        with patch.object(
+            view,
+            "get_queryset",
+            side_effect=AssertionError("queue queryset must not be used for row locking"),
+        ):
+            with transaction.atomic():
+                locked_submission = view._get_locked_submission(submission.pk)
+
+        self.assertEqual(locked_submission.pk, submission.pk)
 
     def test_admin_queue_only_contains_actionable_submissions(self):
         pending = self.create_submission(FeaturedSubmission.AuditStatus.PENDING)

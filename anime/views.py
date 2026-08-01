@@ -2072,8 +2072,16 @@ class AdminFeaturedSubmissionViewSet(viewsets.ReadOnlyModelViewSet):
         ).select_related("user", "user__profile", "source_anime")
 
     def _get_locked_submission(self, pk):
+        # Do not reuse the queue queryset here. It joins nullable relations such as
+        # source_anime and user.profile; PostgreSQL rejects SELECT ... FOR UPDATE
+        # across the nullable side of those outer joins.
         return generics.get_object_or_404(
-            self.get_queryset().select_for_update(),
+            FeaturedSubmission.objects.select_for_update().filter(
+                audit_status__in=(
+                    FeaturedSubmission.AuditStatus.PENDING,
+                    FeaturedSubmission.AuditStatus.REMOVAL_REQUESTED,
+                )
+            ),
             pk=pk,
         )
 
