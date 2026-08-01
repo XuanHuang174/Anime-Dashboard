@@ -300,5 +300,28 @@ DEFAULT_FROM_EMAIL = env(
     default=EMAIL_HOST_USER or 'noreply@localhost',
 )
 
+# Transactional emails use Resend's HTTPS API in production. With the default
+# "auto" provider, defining RESEND_API_KEY is enough to bypass SMTP entirely.
+TRANSACTIONAL_EMAIL_PROVIDER = env(
+    'TRANSACTIONAL_EMAIL_PROVIDER',
+    default='auto',
+).strip().lower()
+RESEND_API_KEY = env('RESEND_API_KEY', default='').strip()
+RESEND_API_URL = env(
+    'RESEND_API_URL',
+    default='https://api.resend.com/emails',
+).strip()
+RESEND_FROM_EMAIL = env(
+    'RESEND_FROM_EMAIL',
+    default=DEFAULT_FROM_EMAIL,
+).strip()
+RESEND_CONNECT_TIMEOUT = env.float('RESEND_CONNECT_TIMEOUT', default=3.05)
+RESEND_READ_TIMEOUT = env.float('RESEND_READ_TIMEOUT', default=8.0)
+
+if TRANSACTIONAL_EMAIL_PROVIDER not in {'auto', 'django', 'resend'}:
+    raise ImproperlyConfigured(
+        'TRANSACTIONAL_EMAIL_PROVIDER must be auto, django, or resend.'
+    )
+
 if EMAIL_USE_SSL and EMAIL_USE_TLS:
     raise ImproperlyConfigured('EMAIL_USE_SSL and EMAIL_USE_TLS cannot both be true.')

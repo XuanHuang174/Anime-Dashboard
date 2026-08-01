@@ -9,7 +9,6 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.core.files.base import ContentFile
-from django.core.mail import send_mail
 from django.db import transaction
 from django.db.models import (
     Avg,
@@ -43,6 +42,7 @@ from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
 
+from .email_service import EmailDeliveryError, send_transactional_email
 from .models import (
     Anime,
     FeaturedQuickFilter,
@@ -562,11 +562,13 @@ class UserRegistrationView(APIView):
     authentication_classes = ()
     throttle_classes = (AnonRateThrottle, SensitiveAuthRateThrottle)
 
-    @transaction.atomic
     def post(self, request):
         serializer = UserRegistrationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = serializer.save()
+        # Keep network I/O outside the database transaction so a slow provider
+        # cannot hold a PostgreSQL transaction open for the whole HTTP request.
+        with transaction.atomic():
+            user = serializer.save()
 
         uid = urlsafe_base64_encode(force_bytes(user.pk))
         token = default_token_generator.make_token(user)
@@ -574,7 +576,7 @@ class UserRegistrationView(APIView):
         activation_url = f"{settings.FRONTEND_URL}/activate?{query}"
 
         try:
-            send_mail(
+            send_transactional_email(
                 subject="激活你的个人番剧汇总账户",
                 message=(
                     "欢迎注册XuanHuang的番剧汇总网站。\n\n"
@@ -582,13 +584,12 @@ class UserRegistrationView(APIView):
                     f"{activation_url}\n\n"
                     "如果这不是你的操作，请忽略本邮件。"
                 ),
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[user.email],
-                fail_silently=False,
+                recipient=user.email,
             )
-        except Exception:
+        except EmailDeliveryError:
             # Do not leave an unusable inactive account when delivery fails.
-            transaction.set_rollback(True)
+            logger.exception("Activation email delivery failed for user_id=%s", user.pk)
+            user.delete()
             return Response(
                 {"detail": "激活邮件发送失败，请稍后重试。"},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -664,7 +665,7 @@ class PasswordResetRequestView(APIView):
         reset_url = f"{settings.FRONTEND_URL}/reset-password?{query}"
 
         try:
-            send_mail(
+            send_transactional_email(
                 subject="重置你的个人番剧汇总账户密码",
                 message=(
                     "我们收到了重置你账户密码的请求。\n\n"
@@ -672,11 +673,10 @@ class PasswordResetRequestView(APIView):
                     f"{reset_url}\n\n"
                     "如果这不是你的操作，请忽略本邮件，你的密码不会发生改变。"
                 ),
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[user.email],
-                fail_silently=False,
+                recipient=user.email,
             )
-        except Exception:
+        except EmailDeliveryError:
+            logger.exception("Password reset email delivery failed for user_id=%s", user.pk)
             return Response(
                 {"detail": "密码重置邮件发送失败，请稍后重试。"},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,

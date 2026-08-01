@@ -35,6 +35,7 @@ from .utils.scraper import MetadataScraper, MetadataScraperError
 
 
 @override_settings(
+    TRANSACTIONAL_EMAIL_PROVIDER="django",
     EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
     DEFAULT_FROM_EMAIL="noreply@example.com",
     FRONTEND_URL="http://127.0.0.1:5173",
@@ -62,6 +63,62 @@ class RegistrationApiTests(APITestCase):
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn("http://127.0.0.1:5173/activate?uid=", mail.outbox[0].body)
         self.assertIn("&token=", mail.outbox[0].body)
+
+    @override_settings(
+        TRANSACTIONAL_EMAIL_PROVIDER="resend",
+        RESEND_API_KEY="re_test_key",
+        RESEND_FROM_EMAIL="Anime Dashboard <noreply@example.com>",
+        RESEND_API_URL="https://api.resend.com/emails",
+        RESEND_CONNECT_TIMEOUT=1.0,
+        RESEND_READ_TIMEOUT=2.0,
+    )
+    @patch("anime.email_service.requests.post")
+    def test_registration_uses_resend_https_api(self, post_mock):
+        post_mock.return_value.status_code = 200
+        post_mock.return_value.json.return_value = {"id": "email-message-id"}
+
+        response = self.client.post(
+            reverse("anime_api:register"),
+            {
+                "email": "resend-user@example.com",
+                "password": "Resend-Account-2026!",
+                "password_confirm": "Resend-Account-2026!",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        request_kwargs = post_mock.call_args.kwargs
+        self.assertEqual(post_mock.call_args.args[0], "https://api.resend.com/emails")
+        self.assertEqual(request_kwargs["timeout"], (1.0, 2.0))
+        self.assertEqual(request_kwargs["json"]["to"], ["resend-user@example.com"])
+        self.assertEqual(
+            request_kwargs["headers"]["Authorization"],
+            "Bearer re_test_key",
+        )
+        self.assertIn("User-Agent", request_kwargs["headers"])
+
+    @override_settings(
+        TRANSACTIONAL_EMAIL_PROVIDER="resend",
+        RESEND_API_KEY="re_test_key",
+        RESEND_FROM_EMAIL="Anime Dashboard <noreply@example.com>",
+    )
+    @patch("anime.email_service.requests.post", side_effect=requests.Timeout("timed out"))
+    def test_registration_timeout_returns_503_and_removes_inactive_user(self, _post_mock):
+        response = self.client.post(
+            reverse("anime_api:register"),
+            {
+                "email": "timeout-user@example.com",
+                "password": "Timeout-Account-2026!",
+                "password_confirm": "Timeout-Account-2026!",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+        self.assertFalse(
+            get_user_model().objects.filter(email="timeout-user@example.com").exists()
+        )
 
     def test_registration_rejects_duplicate_email_case_insensitively(self):
         get_user_model().objects.create_user(
@@ -143,6 +200,7 @@ class RegistrationApiTests(APITestCase):
 
 
 @override_settings(
+    TRANSACTIONAL_EMAIL_PROVIDER="django",
     EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
     DEFAULT_FROM_EMAIL="noreply@example.com",
     FRONTEND_URL="http://127.0.0.1:5173",
@@ -534,6 +592,7 @@ class UserProfileApiTests(APITestCase):
 
 
 @override_settings(
+    TRANSACTIONAL_EMAIL_PROVIDER="django",
     EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
     DEFAULT_FROM_EMAIL="noreply@example.com",
     FRONTEND_URL="http://127.0.0.1:5173",
