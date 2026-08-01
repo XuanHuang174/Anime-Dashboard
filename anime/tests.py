@@ -1856,6 +1856,54 @@ class AnimeApiTests(APITestCase):
                 {"本地上传": "rose"},
             )
 
+    def test_stale_bangumi_proxy_url_cannot_replace_persisted_poster(self):
+        image_buffer = BytesIO()
+        Image.new("RGB", (2, 2), color="purple").save(image_buffer, format="PNG")
+        self.record.private_poster_image = SimpleUploadedFile(
+            "persisted-r2-poster.png",
+            image_buffer.getvalue(),
+            content_type="image/png",
+        )
+        self.record.private_poster_url = "https://example.com/original-source.jpg"
+
+        self.client.force_authenticate(self.user)
+        with tempfile.TemporaryDirectory() as media_root, self.settings(
+            MEDIA_ROOT=media_root,
+        ):
+            self.record.save(
+                update_fields=("private_poster_image", "private_poster_url"),
+            )
+            original_image_name = self.record.private_poster_image.name
+            response = self.client.patch(
+                reverse(
+                    "anime_api:user-anime-record-update-details",
+                    kwargs={"pk": self.record.pk},
+                ),
+                {
+                    "anime": {
+                        "studio": "Studio Updated",
+                        "poster_url": (
+                            "https://bgm-img-proxy.xhcytus100.workers.dev/"
+                            "pic/cover/l/stale.jpg"
+                        ),
+                    },
+                },
+                format="json",
+            )
+
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            self.record.refresh_from_db()
+            self.assertEqual(self.record.private_studio, "Studio Updated")
+            self.assertEqual(
+                self.record.private_poster_image.name,
+                original_image_name,
+            )
+            self.assertEqual(
+                self.record.private_poster_url,
+                "https://example.com/original-source.jpg",
+            )
+            self.assertTrue(response.data["anime"]["poster_image"])
+
     def test_saving_poster_url_clears_previous_uploaded_poster(self):
         image_buffer = BytesIO()
         Image.new("RGB", (2, 2), color="teal").save(image_buffer, format="PNG")

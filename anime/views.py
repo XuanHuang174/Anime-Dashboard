@@ -2,7 +2,7 @@ import json
 import logging
 import re
 from pathlib import Path
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 from uuid import uuid4
 
 from django.conf import settings
@@ -90,6 +90,23 @@ from .utils.scraper import MetadataScraper, MetadataScraperError
 
 
 logger = logging.getLogger(__name__)
+
+
+def _is_stale_bangumi_proxy_url(value):
+    """Recognize proxy URLs that must not replace a persisted media file."""
+
+    parsed = urlsplit(str(value or "").strip())
+    hostname = (parsed.hostname or "").casefold()
+    proxy_hosts = {"bgm-img-proxy.xhcytus100.workers.dev"}
+    configured_proxy_value = str(
+        getattr(settings, "BANGUMI_PROXY_IMAGE", "") or ""
+    ).strip()
+    if configured_proxy_value and "://" not in configured_proxy_value:
+        configured_proxy_value = f"https://{configured_proxy_value}"
+    configured_proxy = urlsplit(configured_proxy_value)
+    if configured_proxy.hostname:
+        proxy_hosts.add(configured_proxy.hostname.casefold())
+    return parsed.scheme in {"http", "https"} and hostname in proxy_hosts
 
 
 class IsSuperUser(permissions.BasePermission):
@@ -1550,9 +1567,30 @@ class UserAnimeRecordViewSet(viewsets.ModelViewSet):
             )
 
         anime_payload = dict(anime_payload)
+        legacy_poster_url = anime_payload.pop("poster", "")
+        if legacy_poster_url and not anime_payload.get("poster_url"):
+            anime_payload["poster_url"] = legacy_poster_url
         poster_image = request.FILES.get("poster_image")
+        incoming_poster_url = anime_payload.get("poster_url", "")
+        current_poster_image = (
+            record.private_poster_image
+            if record.metadata_initialized
+            else record.anime.poster_image
+        )
         if poster_image is not None:
             anime_payload["poster_image"] = poster_image
+        elif current_poster_image and _is_stale_bangumi_proxy_url(
+            incoming_poster_url,
+        ):
+            # A stale frontend form can still contain the pre-import proxy URL.
+            # Never let it clear/replace a successfully persisted R2 ImageField.
+            anime_payload.pop("poster_url", None)
+            anime_payload.pop("poster_image", None)
+            logger.info(
+                "Ignored stale Bangumi proxy poster for record_id=%s user_id=%s",
+                record.pk,
+                request.user.pk,
+            )
         elif anime_payload.get("poster_url"):
             # URL and uploaded files are mutually exclusive display sources.
             # Explicitly saving a URL switches away from any previous upload.

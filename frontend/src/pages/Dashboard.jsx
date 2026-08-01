@@ -561,7 +561,13 @@ function Dashboard() {
   }
 
   const handleRecordAdded = (newRecord) => {
-    if (records.some((record) => record.id === newRecord.id)) return
+    // Keep the POST response (including its newly persisted R2 poster URL) in
+    // local state immediately; the refresh below remains the source of truth
+    // for pagination, sorting and aggregate counts.
+    setRecords((current) => {
+      const remaining = current.filter((record) => record.id !== newRecord.id)
+      return [newRecord, ...remaining]
+    })
     setCurrentPage(1)
     setRecordsRefreshKey((key) => key + 1)
   }
@@ -656,6 +662,11 @@ function Dashboard() {
     if (isSharedJournal) return
     setSelectedItem(null)
     setIsQuickFilterEditorOpen(false)
+    if (isPreviewMode) {
+      // Re-entering edit mode always reloads server-normalized metadata (for
+      // example, a Bangumi poster that has just been persisted to R2).
+      setRecordsRefreshKey((key) => key + 1)
+    }
     setIsPreviewMode((current) => !current)
   }
 

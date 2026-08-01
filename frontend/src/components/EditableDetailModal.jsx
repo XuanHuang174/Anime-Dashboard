@@ -10,6 +10,7 @@ import {
   tagColorOptions,
 } from '../utils/animeDisplay.js'
 import { getImageFileError, IMAGE_FILE_ACCEPT } from '../utils/imageUpload.js'
+import { mapRecordToAnimeItem } from '../utils/recordMapping.js'
 
 gsap.registerPlugin(useGSAP)
 
@@ -40,7 +41,9 @@ function createForm(item) {
     episodes: item.episodes ?? '',
     tags: [...(item.baseTags ?? item.tags ?? [])],
     tagColors: { ...(item.tagColors ?? {}) },
-    cover: item.posterUrl ?? '',
+    // The persisted ImageField URL (R2 in production) is authoritative. The
+    // original Bangumi proxy URL remains only as a fallback/display source.
+    cover: item.posterImage || item.posterUrl || item.cover || '',
     description: item.description ?? '',
     baikeUrl: item.baikeUrl ?? '',
     score: item.score ?? '',
@@ -288,8 +291,7 @@ function EditableDetailModal({
     setIsSaving(true)
     setError('')
 
-    const payload = new FormData()
-    payload.append('anime', JSON.stringify({
+    const animePayload = {
       chinese_title: formData.title.trim(),
       japanese_title: formData.japaneseTitle.trim(),
       airing_period: formData.period.trim(),
@@ -297,10 +299,22 @@ function EditableDetailModal({
       episodes: formData.episodes.trim(),
       base_tags: normalizedTags,
       tag_colors: normalizedTagColors,
-      poster_url: formData.cover.trim(),
       description: formData.description.trim(),
       baike_url: formData.baikeUrl.trim(),
-    }))
+    }
+    const persistedCover = (
+      renderedItem.posterImage
+      || renderedItem.posterUrl
+      || renderedItem.cover
+      || ''
+    ).trim()
+    const nextCover = formData.cover.trim()
+    if (!posterFile && nextCover !== persistedCover) {
+      animePayload.poster_url = nextCover
+    }
+
+    const payload = new FormData()
+    payload.append('anime', JSON.stringify(animePayload))
     payload.append('record', JSON.stringify({
       personal_score: score,
       watch_status: formData.status,
@@ -310,6 +324,9 @@ function EditableDetailModal({
 
     try {
       const response = await api.patch(`records/${renderedItem.id}/details/`, payload)
+      const latestItem = mapRecordToAnimeItem(response.data)
+      setRenderedItem(latestItem)
+      setFormData(createForm(latestItem))
       onRecordUpdated(response.data)
       setPosterFile(null)
       if (posterInputRef.current) posterInputRef.current.value = ''
