@@ -41,9 +41,9 @@ function AnimeGrid({
         const scoreDisplay = item.score !== null ? item.score.toFixed(1) : '待定'
         const scoreColorClass = getGridScoreColorClass(item.score, isMemphis)
         const season = getSeasonDetails(item.period)
-        // 海报卡片优先完整展示前两个标签，其余统一收进省略入口。
-        // 不让多个长标签相互挤压成“剧... / 真... / 校...”这样的缩写。
-        const topTags = item.tags.slice(0, 2)
+        // 固定展示前三个完整标签；超出卡片的部分由容器裁切，
+        // 右侧省略入口独立置顶，避免长标签把它挤出可视区域。
+        const topTags = item.tags.slice(0, 3)
 
         return (
           <div
@@ -135,8 +135,8 @@ function AnimeGrid({
                   {item.japaneseTitle || ' '}
                 </p>
               </div>
-              <div className="relative mt-auto flex min-w-0 items-center gap-1">
-                <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-1 overflow-hidden">
+              <div className="relative mt-auto min-w-0 overflow-hidden pr-8">
+                <div className="flex min-w-max flex-nowrap items-center gap-1">
                   {topTags.map((tag, tagIndex) => (
                     <span
                       key={tag}
@@ -147,9 +147,7 @@ function AnimeGrid({
                     </span>
                   ))}
                 </div>
-                {item.tags.length > topTags.length && (
-                  <span className="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-400">...</span>
-                )}
+                <span className="absolute right-0 top-1/2 z-20 -translate-y-1/2 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-400 shadow-[0_0_0_3px_white]">...</span>
                 {!isMemphis && (
                   <div className="pointer-events-none absolute bottom-0 right-0 top-0 w-4 bg-gradient-to-l from-white to-transparent"></div>
                 )}
