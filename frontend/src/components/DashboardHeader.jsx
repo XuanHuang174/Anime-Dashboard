@@ -29,6 +29,7 @@ function DashboardHeader({
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
   const [isAccountDeletionOpen, setIsAccountDeletionOpen] = useState(false)
   const [isModeTransitioning, setIsModeTransitioning] = useState(false)
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false)
 
   useEffect(() => {
     if (isSharedJournal) return undefined
@@ -71,6 +72,11 @@ function DashboardHeader({
   }, [isPreviewMode])
 
   const activeProfile = isSharedJournal ? sharedProfile : profile
+
+  useEffect(() => {
+    setAvatarLoadFailed(false)
+  }, [activeProfile?.avatar])
+
   const displayName = activeProfile?.nickname?.trim()
     || activeProfile?.username
     || '手账主理人'
@@ -80,8 +86,8 @@ function DashboardHeader({
     <span
       className={`flex shrink-0 items-center justify-center overflow-hidden border-4 border-black bg-white text-black ${preview ? 'shadow-[6px_6px_0_#4ecdc4]' : 'shadow-[4px_4px_0_#111]'} ${sizeClass}`}
     >
-      {activeProfile?.avatar
-        ? <img src={activeProfile.avatar} alt={`${displayName}的头像`} className="h-full w-full object-cover" />
+      {activeProfile?.avatar && !avatarLoadFailed
+        ? <img src={activeProfile.avatar} alt={`${displayName}的头像`} className="h-full w-full object-cover" onError={() => setAvatarLoadFailed(true)} />
         : <i className="fa-solid fa-star text-[#ff6b6b]" />}
     </span>
   )
