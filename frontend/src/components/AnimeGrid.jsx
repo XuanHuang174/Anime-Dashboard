@@ -41,7 +41,9 @@ function AnimeGrid({
         const scoreDisplay = item.score !== null ? item.score.toFixed(1) : '待定'
         const scoreColorClass = getGridScoreColorClass(item.score, isMemphis)
         const season = getSeasonDetails(item.period)
-        const topTags = item.tags.slice(0, 3)
+        // 海报卡片优先完整展示前两个标签，其余统一收进省略入口。
+        // 不让多个长标签相互挤压成“剧... / 真... / 校...”这样的缩写。
+        const topTags = item.tags.slice(0, 2)
 
         return (
           <div
@@ -139,7 +141,7 @@ function AnimeGrid({
                     <span
                       key={tag}
                       title={tag}
-                      className={`${isMemphis ? `memphis-sticker ${tagIndex % 2 ? 'rotate-2' : '-rotate-2'}` : ''} min-w-0 max-w-[5.25rem] flex-[0_1_auto] truncate px-1.5 py-0.5 rounded text-[10px] font-medium ${getTagClass(tag, item.tagColors?.[tag]).replace('shadow-sm', '')} bg-opacity-70`}
+                      className={`${isMemphis ? `memphis-sticker ${tagIndex % 2 ? 'rotate-2' : '-rotate-2'}` : ''} shrink-0 whitespace-nowrap px-1.5 py-0.5 rounded text-[10px] font-medium ${getTagClass(tag, item.tagColors?.[tag]).replace('shadow-sm', '')} bg-opacity-70`}
                     >
                       {tag}
                     </span>

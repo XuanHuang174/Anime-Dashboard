@@ -499,6 +499,18 @@ function DetailModal({
                       >
                         {field.value || field.placeholder || '--'}
                       </OverflowPingPongText>
+                    ) : field.id === 'modalScore' && !editable ? (
+                      selectedItem.score === null ? (
+                        <span className="inline-flex w-[7.5rem] max-w-full bg-white px-2 py-0.5 text-base font-black text-rose-700 shadow-[2px_2px_0_#111] sm:text-lg">
+                          <OverflowPingPongText className="w-full">
+                            {field.value}
+                          </OverflowPingPongText>
+                        </span>
+                      ) : (
+                        <span className="inline-flex max-w-full whitespace-nowrap bg-white px-2 py-0.5 text-base font-black text-rose-700 shadow-[2px_2px_0_#111] sm:text-lg">
+                          {field.value}
+                        </span>
+                      )
                     ) : (
                       <input
                         type={field.name && editable ? 'number' : 'text'}
@@ -510,7 +522,7 @@ function DetailModal({
                         readOnly={!field.name || !editable}
                         value={field.value}
                         onChange={field.name ? handleFieldChange : undefined}
-                        className={`border-0 text-base font-black outline-none sm:text-lg ${field.id === 'modalScore' ? 'min-w-[4.5rem] max-w-full bg-white px-2 py-0.5 shadow-[2px_2px_0_#111]' : 'w-full bg-transparent'} ${field.inputClass}${field.name && editable ? ' cursor-text' : ' cursor-not-allowed'}`}
+                        className={`border-0 text-base font-black outline-none sm:text-lg ${field.id === 'modalScore' ? 'w-[6rem] max-w-full bg-white px-2 py-0.5 shadow-[2px_2px_0_#111]' : 'w-full bg-transparent'} ${field.inputClass}${field.name && editable ? ' cursor-text' : ' cursor-not-allowed'}`}
                         style={field.id === 'modalScore'
                           ? { width: `${Math.max(4.5, String(field.value || '').length + 1)}ch` }
                           : undefined}
