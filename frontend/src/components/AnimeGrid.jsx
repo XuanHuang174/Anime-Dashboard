@@ -1,5 +1,6 @@
 import useScrollReveal from '../hooks/useScrollReveal.js'
 import { getCoverSrc, getSeasonDetails, getTagClass } from '../utils/animeDisplay.js'
+import { AddAnimeGridPlaceholder } from './AddAnimePlaceholder.jsx'
 
 function getGridScoreColorClass(score, isMemphis = false) {
   if (score >= 9.9) {
@@ -10,7 +11,14 @@ function getGridScoreColorClass(score, isMemphis = false) {
   return isMemphis ? 'text-slate-800' : 'text-white'
 }
 
-function AnimeGrid({ items, onOpenDetail, theme = 'default', editable = false }) {
+function AnimeGrid({
+  items,
+  onOpenDetail,
+  theme = 'default',
+  editable = false,
+  showAddPlaceholder = false,
+  onAddAnime,
+}) {
   const isMemphis = theme === 'memphis'
   const containerRef = useScrollReveal(items)
 
@@ -145,6 +153,7 @@ function AnimeGrid({ items, onOpenDetail, theme = 'default', editable = false })
           </div>
         )
       })}
+      {showAddPlaceholder && <AddAnimeGridPlaceholder onAddAnime={onAddAnime} />}
     </div>
   )
 }

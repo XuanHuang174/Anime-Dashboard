@@ -109,6 +109,11 @@ if DATABASE_URL:
             ssl_require=True,
         ),
     }
+    # Neon pooled connections use PgBouncer transaction pooling. Django's
+    # server-side cursors are connection-bound and can disappear when the pool
+    # hands the next statement to another PostgreSQL session, resulting in
+    # intermittent InvalidCursorName errors under concurrent Dashboard loads.
+    DATABASES['default']['DISABLE_SERVER_SIDE_CURSORS'] = True
 else:
     DATABASES = {
         'default': {

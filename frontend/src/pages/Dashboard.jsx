@@ -96,12 +96,11 @@ function Dashboard() {
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false)
   const [logoutDestination, setLogoutDestination] = useState('login')
   const [isPreviewMode, setIsPreviewMode] = useState(isSharedJournal)
+  const isEditMode = !isSharedJournal && !isPreviewMode
   const [sharedProfile, setSharedProfile] = useState(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState('all')
   const [recordsTotal, setRecordsTotal] = useState(null)
-  const [hasNextPage, setHasNextPage] = useState(false)
-  const [hasPreviousPage, setHasPreviousPage] = useState(false)
   const [recordsRefreshKey, setRecordsRefreshKey] = useState(0)
   const [statsData, setStatsData] = useState(null)
   const [filterOptions, setFilterOptions] = useState({ tags: [], years: [] })
@@ -110,6 +109,7 @@ function Dashboard() {
   const [featuredRefreshKey, setFeaturedRefreshKey] = useState(0)
   const [featuredConfirmAction, setFeaturedConfirmAction] = useState(null)
   const [isFeaturedActionProcessing, setIsFeaturedActionProcessing] = useState(false)
+  const [isSharedExporting, setIsSharedExporting] = useState(false)
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('')
   const [lastLoadedPage, setLastLoadedPage] = useState(0)
   const [isHeaderEntranceComplete, setIsHeaderEntranceComplete] = useState(
@@ -119,6 +119,7 @@ function Dashboard() {
     hasPlayedDashboardContentEntrance,
   )
   const shouldScrollAfterPageChange = useRef(false)
+  const recordsTotalRef = useRef(null)
   const paginatedFilterKey = pageSize === 'all'
     ? 'all'
     : JSON.stringify([
@@ -251,27 +252,54 @@ function Dashboard() {
         const filtersRequest = isSharedJournal
           ? Promise.resolve(null)
           : api.get('quick-filters/', { signal: controller.signal })
-        const [recordsResponse, filtersResponse, statsResponse, optionsResponse] = await Promise.all([
-          api.get(recordsEndpoint, {
-            params: requestParams,
-            signal: controller.signal,
-          }),
+        const numericPageSize = Number(pageSize)
+        const knownRecordsTotal = Number(recordsTotalRef.current)
+        const isVirtualPlaceholderPage = isEditMode
+          && pageSize !== 'all'
+          && Number.isFinite(numericPageSize)
+          && numericPageSize > 0
+          && knownRecordsTotal > 0
+          && (currentPage - 1) * numericPageSize >= knownRecordsTotal
+        const recordsRequest = isVirtualPlaceholderPage
+          ? Promise.resolve({
+              data: {
+                count: knownRecordsTotal,
+                next: null,
+                previous: currentPage > 1,
+                results: [],
+              },
+            })
+          : api.get(recordsEndpoint, {
+              params: requestParams,
+              signal: controller.signal,
+            })
+        const [recordsResult, filtersResult, statsResult, optionsResult] = await Promise.allSettled([
+          recordsRequest,
           filtersRequest,
           api.get(statsEndpoint, { signal: controller.signal }),
           api.get(optionsEndpoint, { signal: controller.signal }),
         ])
+        if (recordsResult.status === 'rejected') throw recordsResult.reason
+
+        const recordsResponse = recordsResult.value
+        const filtersResponse = filtersResult.status === 'fulfilled' ? filtersResult.value : null
+        const statsResponse = statsResult.status === 'fulfilled' ? statsResult.value : null
+        const optionsResponse = optionsResult.status === 'fulfilled' ? optionsResult.value : null
         const recordData = recordsResponse.data
-        const filterData = isSharedJournal
-          ? optionsResponse.data?.quick_filters ?? []
-          : filtersResponse?.data ?? []
         setRecords(Array.isArray(recordData) ? recordData : recordData.results ?? [])
-        setRecordsTotal(Array.isArray(recordData) ? recordData.length : recordData.count)
-        setHasNextPage(!Array.isArray(recordData) && Boolean(recordData.next))
-        setHasPreviousPage(!Array.isArray(recordData) && Boolean(recordData.previous))
+        const nextRecordsTotal = Array.isArray(recordData) ? recordData.length : recordData.count
+        recordsTotalRef.current = nextRecordsTotal
+        setRecordsTotal(nextRecordsTotal)
         setLastLoadedPage(currentPage)
-        setCustomQuickFilters(Array.isArray(filterData) ? filterData : filterData.results ?? [])
-        setStatsData(statsResponse.data)
-        setFilterOptions(optionsResponse.data)
+
+        const filterData = isSharedJournal
+          ? optionsResponse?.data?.quick_filters
+          : filtersResponse?.data
+        if (filterData) {
+          setCustomQuickFilters(Array.isArray(filterData) ? filterData : filterData.results ?? [])
+        }
+        if (statsResponse) setStatsData(statsResponse.data)
+        if (optionsResponse) setFilterOptions(optionsResponse.data)
       } catch (requestError) {
         if (requestError.code === 'ERR_CANCELED') return
 
@@ -500,14 +528,23 @@ function Dashboard() {
     (count, item) => count + (item.score === null ? 1 : 0),
     0,
   )
+  const hasLoadedRecords = recordsTotal !== null
+  const hasAnyRecords = Number(statsData?.total_count ?? recordsTotal ?? 0) > 0
+  const virtualItemCount = isEditMode && Number(recordsTotal) > 0 ? 1 : 0
   const totalPages = pageSize === 'all'
     ? 1
-    : Math.max(1, Math.ceil((recordsTotal ?? 0) / Number(pageSize)))
+    : Math.max(1, Math.ceil(((recordsTotal ?? 0) + virtualItemCount) / Number(pageSize)))
   const listStartIndex = pageSize === 'all'
     ? 0
     : (currentPage - 1) * Number(pageSize)
-  const hasLoadedRecords = recordsTotal !== null
-  const hasAnyRecords = Number(statsData?.total_count ?? recordsTotal ?? 0) > 0
+  const placeholderPage = pageSize === 'all'
+    ? 1
+    : Math.floor((recordsTotal ?? 0) / Number(pageSize)) + 1
+  const showAddPlaceholder = isEditMode
+    && hasLoadedRecords
+    && !isLoading
+    && Number(recordsTotal) > 0
+    && (pageSize === 'all' ? filteredAnime.length > 0 : currentPage === placeholderPage)
   const hasCompactResult = filteredAnime.length <= 1
 
   const handlePageSizeChange = (nextPageSize) => {
@@ -529,6 +566,50 @@ function Dashboard() {
   const handleReturnHome = () => {
     setLogoutDestination('home')
     setIsLogoutConfirmOpen(true)
+  }
+
+  const handleSharedJournalExport = async () => {
+    if (!isSharedJournal || isSharedExporting) return
+    setIsSharedExporting(true)
+    try {
+      const sharedBase = isAdminJournalReview
+        ? `admin/public-journals/${encodeURIComponent(sharedUsername)}`
+        : `public-journal/users/${encodeURIComponent(sharedUsername)}`
+      const response = await api.get(`${sharedBase}/records/`, {
+        params: { page_size: 'all' },
+      })
+      const exportedRecords = Array.isArray(response.data)
+        ? response.data
+        : response.data?.results ?? []
+      const payload = {
+        version: 1,
+        exported_at: new Date().toISOString(),
+        owner: {
+          username: sharedProfile?.username || sharedUsername,
+          nickname: sharedProfile?.nickname || '',
+          showcase_subtitle: sharedProfile?.showcase_subtitle || '',
+        },
+        records: exportedRecords,
+      }
+      const blob = new Blob([JSON.stringify(payload, null, 2)], {
+        type: 'application/json;charset=utf-8',
+      })
+      const blobUrl = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      const safeOwner = (sharedProfile?.nickname || sharedUsername || 'shared-journal')
+        .replace(/[\\/:*?"<>|]/g, '-')
+      link.href = blobUrl
+      link.download = `${safeOwner}-公开番剧手账-${new Date().toISOString().slice(0, 10)}.json`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(blobUrl)
+      showToast('公开手账数据已导出。', 'success')
+    } catch (requestError) {
+      showToast(requestError.response?.data?.detail || '公开手账导出失败，请稍后重试。', 'error')
+    } finally {
+      setIsSharedExporting(false)
+    }
   }
 
   const forceLogout = () => {
@@ -561,11 +642,13 @@ function Dashboard() {
   const handleRecordDeleted = (recordId) => {
     setRecords((current) => current.filter((record) => record.id !== recordId))
     setSelectedItem(null)
-    if (records.length === 1 && currentPage > 1) {
-      setCurrentPage((page) => page - 1)
-    } else {
-      setRecordsRefreshKey((key) => key + 1)
-    }
+    const remainingTotal = Math.max(0, Number(recordsTotal ?? 0) - 1)
+    recordsTotalRef.current = remainingTotal
+    const nextTotalPages = pageSize === 'all'
+      ? 1
+      : Math.max(1, Math.ceil((remainingTotal + (remainingTotal > 0 ? 1 : 0)) / Number(pageSize)))
+    if (currentPage > nextTotalPages) setCurrentPage(nextTotalPages)
+    setRecordsRefreshKey((key) => key + 1)
   }
 
   const handleRecordAdded = (newRecord) => {
@@ -670,6 +753,10 @@ function Dashboard() {
     if (isSharedJournal) return
     setSelectedItem(null)
     setIsQuickFilterEditorOpen(false)
+    if (!isPreviewMode && pageSize !== 'all') {
+      const realTotalPages = Math.max(1, Math.ceil(Number(recordsTotal ?? 0) / Number(pageSize)))
+      setCurrentPage((page) => Math.min(page, realTotalPages))
+    }
     if (isPreviewMode) {
       // Re-entering edit mode always reloads server-normalized metadata (for
       // example, a Bangumi poster that has just been persisted to R2).
@@ -797,6 +884,8 @@ function Dashboard() {
         onReturnToUniverse={() => navigate(
           isAdminJournalReview ? '/admin-dashboard/public-journals' : '/universe',
         )}
+        onExportSharedJournal={handleSharedJournalExport}
+        isSharedExporting={isSharedExporting}
         returnLabel={isAdminJournalReview ? '返回通行证审批' : '返回共创大厅'}
       />
 
@@ -878,7 +967,7 @@ function Dashboard() {
 
             <div className="dashboard-content-piece dashboard-entrance-piece mb-5 h-2 w-full border-2 border-black bg-[repeating-linear-gradient(135deg,#111_0,#111_8px,#ffe66d_8px,#ffe66d_16px)]" />
 
-            {isContentEntranceComplete && filteredAnime.length > 0 && view === 'list' && (
+            {isContentEntranceComplete && (filteredAnime.length > 0 || showAddPlaceholder) && view === 'list' && (
               <div className="dashboard-content-piece">
               <AnimeList
                 items={filteredAnime}
@@ -888,17 +977,21 @@ function Dashboard() {
                 startIndex={listStartIndex}
                 theme="memphis"
                 editable={!isPreviewMode}
+                showAddPlaceholder={showAddPlaceholder}
+                onAddAnime={() => setIsAddModalOpen(true)}
               />
               </div>
             )}
 
-            {isContentEntranceComplete && filteredAnime.length > 0 && view === 'grid' && (
+            {isContentEntranceComplete && (filteredAnime.length > 0 || showAddPlaceholder) && view === 'grid' && (
               <div className="dashboard-content-piece">
                 <AnimeGrid
                   items={filteredAnime}
                   onOpenDetail={setSelectedItem}
                   theme="memphis"
                   editable={!isPreviewMode}
+                  showAddPlaceholder={showAddPlaceholder}
+                  onAddAnime={() => setIsAddModalOpen(true)}
                 />
               </div>
             )}
@@ -932,7 +1025,7 @@ function Dashboard() {
               </div>
             )}
 
-            {isContentEntranceComplete && filteredAnime.length === 0 && hasAnyRecords && (
+            {isContentEntranceComplete && filteredAnime.length === 0 && hasAnyRecords && !showAddPlaceholder && (
               <div className="dashboard-content-piece relative overflow-hidden border-4 border-black bg-white px-5 py-14 text-center shadow-[9px_9px_0_#ff6b6b]">
                 <span className="absolute -left-7 -top-7 h-20 w-20 rotate-12 border-4 border-black bg-[#4ecdc4]" aria-hidden="true"></span>
                 <span className="absolute -bottom-8 -right-5 h-20 w-20 rounded-full border-4 border-black bg-[#ff8fab]" aria-hidden="true"></span>
@@ -950,8 +1043,8 @@ function Dashboard() {
               <PageNavigation
                 currentPage={currentPage}
                 totalPages={totalPages}
-                hasPrevious={hasPreviousPage}
-                hasNext={hasNextPage}
+                hasPrevious={currentPage > 1}
+                hasNext={currentPage < totalPages}
                 isLoading={isLoading}
                 onPageChange={handlePageChange}
               />

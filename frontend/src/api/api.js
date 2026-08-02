@@ -12,17 +12,23 @@ const BACKEND_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '')
 const API_BASE_URL = BACKEND_BASE_URL
   ? `${BACKEND_BASE_URL}/api/`
   : '/api/'
+const configuredTimeout = Number(import.meta.env.VITE_API_TIMEOUT_MS)
+const API_TIMEOUT_MS = Number.isFinite(configuredTimeout) && configuredTimeout > 0
+  ? configuredTimeout
+  : import.meta.env.DEV
+    ? 60000
+    : 30000
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: API_TIMEOUT_MS,
 })
 
 // A separate client prevents a failed refresh request from recursively entering
 // the response interceptor below.
 const refreshClient = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: API_TIMEOUT_MS,
 })
 
 let refreshPromise = null

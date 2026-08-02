@@ -20,6 +20,8 @@ function DashboardHeader({
   isSharedJournal = false,
   sharedProfile = null,
   onReturnToUniverse,
+  onExportSharedJournal,
+  isSharedExporting = false,
   returnLabel = '返回共创大厅',
 }) {
   const menuRef = useRef(null)
@@ -164,11 +166,20 @@ function DashboardHeader({
       }`}
     >
       {isSharedJournal ? (
-        <div className="flex justify-end">
+        <div className="flex flex-wrap items-center justify-end gap-4">
+          <button
+            type="button"
+            onClick={onExportSharedJournal}
+            disabled={isSharedExporting}
+            className="dashboard-shared-header-action inline-flex items-center gap-2 bg-[#4ecdc4] disabled:cursor-wait disabled:opacity-60"
+          >
+            <i className={`fa-solid ${isSharedExporting ? 'fa-spinner animate-spin' : 'fa-file-export'}`} />
+            {isSharedExporting ? '导出中' : '导出数据'}
+          </button>
           <button
             type="button"
             onClick={onReturnToUniverse}
-            className="dashboard-arcade-button inline-flex items-center gap-2 rounded-full bg-[#ffe66d] shadow-[5px_5px_0_#111]"
+            className="dashboard-shared-header-action inline-flex items-center gap-2 bg-[#ffe66d]"
           >
             <i className="fa-solid fa-arrow-left" />
             {returnLabel}

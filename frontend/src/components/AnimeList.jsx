@@ -1,5 +1,6 @@
 import useScrollReveal from '../hooks/useScrollReveal.js'
 import { getCoverSrc, getSeasonDetails, getTagClass } from '../utils/animeDisplay.js'
+import { AddAnimeListPlaceholder } from './AddAnimePlaceholder.jsx'
 
 function getScoreColorClass(score) {
   if (score >= 9.9) {
@@ -37,6 +38,8 @@ function AnimeList({
   startIndex = 0,
   theme = 'default',
   editable = false,
+  showAddPlaceholder = false,
+  onAddAnime,
 }) {
   const isMemphis = theme === 'memphis'
   const containerRef = useScrollReveal(items)
@@ -241,6 +244,7 @@ function AnimeList({
                   </tr>
                 )
               })}
+              {showAddPlaceholder && <AddAnimeListPlaceholder onAddAnime={onAddAnime} />}
             </tbody>
           </table>
         </div>
