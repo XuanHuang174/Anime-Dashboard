@@ -24,6 +24,7 @@ const emptyManualForm = {
 const inputClass = 'w-full border-2 border-black bg-white px-3 py-2.5 text-sm font-bold text-black shadow-[3px_3px_0_#111] outline-none transition-none placeholder:text-zinc-400 focus:translate-x-1 focus:translate-y-1 focus:bg-[#fff2a8] focus:shadow-none'
 const labelClass = 'mb-1.5 block text-xs font-black text-black'
 const arcadeButton = 'border-[3px] border-black px-4 py-2.5 text-sm font-black text-black shadow-[5px_5px_0_#111] transition-none active:translate-x-[5px] active:translate-y-[5px] active:shadow-none disabled:cursor-not-allowed disabled:opacity-50'
+const LIBRARY_PAGE_SIZE = 10
 
 function normalizeResults(data) {
   return Array.isArray(data) ? data : data.results ?? []
@@ -75,6 +76,45 @@ function formatBangumiChineseTitle(value) {
   return unwrappedTitle ? `《${unwrappedTitle}》` : ''
 }
 
+function OverflowPingPongText({ children, className = '' }) {
+  const viewportRef = useRef(null)
+  const textRef = useRef(null)
+  const [distance, setDistance] = useState(0)
+
+  useEffect(() => {
+    const measure = () => {
+      const viewport = viewportRef.current
+      const text = textRef.current
+      if (!viewport || !text) return
+      setDistance(Math.max(0, text.scrollWidth - viewport.clientWidth))
+    }
+
+    measure()
+    const observer = typeof ResizeObserver === 'undefined'
+      ? null
+      : new ResizeObserver(measure)
+    if (viewportRef.current) observer?.observe(viewportRef.current)
+    if (textRef.current) observer?.observe(textRef.current)
+    window.addEventListener('resize', measure)
+    return () => {
+      observer?.disconnect()
+      window.removeEventListener('resize', measure)
+    }
+  }, [children])
+
+  return (
+    <span ref={viewportRef} className={`magic-result-marquee ${className}`}>
+      <span
+        ref={textRef}
+        className={distance > 0 ? 'magic-result-marquee__track is-overflowing' : 'magic-result-marquee__track'}
+        style={{ '--magic-marquee-distance': `${distance}px` }}
+      >
+        {children}
+      </span>
+    </span>
+  )
+}
+
 function AddAnimeModal({
   isOpen,
   onClose,
@@ -93,11 +133,16 @@ function AddAnimeModal({
   const magicSearchRequestRef = useRef(null)
   const autofillRequestRef = useRef(null)
   const skipNextMagicSearchRef = useRef('')
-  const [activeTab, setActiveTab] = useState('search')
+  const [activeTab, setActiveTab] = useState('manual')
   const [query, setQuery] = useState('')
+  const [debouncedLibraryQuery, setDebouncedLibraryQuery] = useState('')
   const [results, setResults] = useState([])
   const [isSearching, setIsSearching] = useState(false)
   const [searchError, setSearchError] = useState('')
+  const [libraryPage, setLibraryPage] = useState(1)
+  const [libraryTotal, setLibraryTotal] = useState(0)
+  const [libraryHasNext, setLibraryHasNext] = useState(false)
+  const [libraryHasPrevious, setLibraryHasPrevious] = useState(false)
   const [addingAnimeIds, setAddingAnimeIds] = useState(() => new Set())
   const [manualForm, setManualForm] = useState(emptyManualForm)
   const [posterFile, setPosterFile] = useState(null)
@@ -262,10 +307,15 @@ function AddAnimeModal({
 
   useEffect(() => {
     if (!isOpen) {
-      setActiveTab('search')
+      setActiveTab('manual')
       setQuery('')
+      setDebouncedLibraryQuery('')
       setResults([])
       setSearchError('')
+      setLibraryPage(1)
+      setLibraryTotal(0)
+      setLibraryHasNext(false)
+      setLibraryHasPrevious(false)
       setAddingAnimeIds(new Set())
       setManualForm(emptyManualForm)
       setPosterFile(null)
@@ -304,36 +354,51 @@ function AddAnimeModal({
 
   useEffect(() => {
     if (!isOpen || activeTab !== 'search') return undefined
-    const keyword = query.trim()
-    if (!keyword) {
-      setResults([])
-      setSearchError('')
-      setIsSearching(false)
-      return undefined
-    }
-
-    const controller = new AbortController()
-    const timer = window.setTimeout(async () => {
-      setIsSearching(true)
-      setSearchError('')
-      try {
-        const response = await api.get('showcase/', {
-          params: { search: keyword, page_size: 'all', _fresh: Date.now() },
-          signal: controller.signal,
-        })
-        setResults(normalizeShowcaseResults(response.data))
-      } catch (requestError) {
-        if (requestError.code !== 'ERR_CANCELED') setSearchError('搜索失败，请稍后重试。')
-      } finally {
-        if (!controller.signal.aborted) setIsSearching(false)
-      }
+    setIsSearching(true)
+    const timer = window.setTimeout(() => {
+      setDebouncedLibraryQuery(query.trim())
+      setLibraryPage(1)
     }, 350)
-
-    return () => {
-      window.clearTimeout(timer)
-      controller.abort()
-    }
+    return () => window.clearTimeout(timer)
   }, [activeTab, isOpen, query])
+
+  useEffect(() => {
+    if (!isOpen || activeTab !== 'search') return undefined
+    const controller = new AbortController()
+    setIsSearching(true)
+    setSearchError('')
+
+    api.get('showcase/', {
+      params: {
+        search: debouncedLibraryQuery || undefined,
+        sort: 'date-desc',
+        page: libraryPage,
+        page_size: LIBRARY_PAGE_SIZE,
+        _fresh: Date.now(),
+      },
+      signal: controller.signal,
+    })
+      .then((response) => {
+        const payload = response.data
+        setResults(normalizeShowcaseResults(payload))
+        setLibraryTotal(Number(payload?.count ?? normalizeResults(payload).length))
+        setLibraryHasNext(Boolean(payload?.next))
+        setLibraryHasPrevious(Boolean(payload?.previous))
+      })
+      .catch((requestError) => {
+        if (requestError.code === 'ERR_CANCELED') return
+        setResults([])
+        setLibraryTotal(0)
+        setLibraryHasNext(false)
+        setLibraryHasPrevious(false)
+        setSearchError('搜索失败，请稍后重试。')
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setIsSearching(false)
+      })
+
+    return () => controller.abort()
+  }, [activeTab, debouncedLibraryQuery, isOpen, libraryPage])
 
   const performMagicSearch = useCallback(async (rawKeyword) => {
     const keyword = rawKeyword.trim()
@@ -638,7 +703,7 @@ function AddAnimeModal({
           <div>
             <span className="inline-block border-2 border-black bg-[#ffe66d] px-2 py-1 text-[10px] font-black uppercase tracking-[0.16em] shadow-[3px_3px_0_#111]">Add Anime</span>
             <h2 id="addAnimeModalTitle" className="mt-3 text-2xl font-black">添加番剧</h2>
-            <p className="mt-1 text-sm font-bold">关联公共资料，或亲手创建一部全新番剧。</p>
+            <p className="mt-1 text-sm font-bold">亲手创建一部全新番剧，或者快速添加。</p>
           </div>
           <button type="button" onClick={handleClose} disabled={busy} aria-label="关闭添加番剧弹窗" className="flex h-10 w-10 items-center justify-center border-[3px] border-black bg-white text-lg shadow-[4px_4px_0_#111] transition-none hover:bg-[#ff6b6b] active:translate-x-1 active:translate-y-1 active:shadow-none disabled:opacity-50">
             <i className="fa-solid fa-xmark"></i>
@@ -647,8 +712,8 @@ function AddAnimeModal({
 
         <div className="add-modal-piece mx-5 mt-4 grid shrink-0 grid-cols-2 border-4 border-black border-b-0 bg-zinc-300 shadow-[6px_6px_0_#111] sm:mx-6" role="tablist" aria-label="添加方式">
           {[
-            ['search', 'fa-magnifying-glass', '搜索轩皇的番剧库'],
             ['manual', 'fa-wand-magic-sparkles', '智能录入新番'],
+            ['search', 'fa-magnifying-glass', '搜索轩皇的番剧库'],
           ].map(([value, icon, label], index) => (
             <button key={value} type="button" role="tab" aria-selected={activeTab === value} onClick={() => setActiveTab(value)} className={`flex items-center justify-center gap-2 px-3 py-3 text-sm font-black transition-none ${index === 1 ? 'border-l-4 border-black' : ''} ${activeTab === value ? 'relative translate-y-1 bg-[#ffe66d]' : 'bg-zinc-300 text-zinc-600 hover:bg-white hover:text-black'}`}>
               <i className={`fa-solid ${icon}`}></i>{label}
@@ -663,29 +728,22 @@ function AddAnimeModal({
                 <label htmlFor="animeLibrarySearch" className={labelClass}>搜索中文名、日文名、制作公司或放送季度</label>
                 <div className="relative">
                   <i className="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-black"></i>
-                  <input id="animeLibrarySearch" autoFocus value={query} onChange={(event) => setQuery(event.target.value)} className={`${inputClass} py-3 pl-12 pr-12`} placeholder="例如：轻音少女、京都动画、2025-10..." />
+                  <input id="animeLibrarySearch" value={query} onChange={(event) => setQuery(event.target.value)} className={`${inputClass} py-3 pl-12 pr-12`} placeholder="例如：摇曳百合、京都动画、2022-10...（不能保证搜索到你想要的番剧）" />
                   {isSearching && <i className="fa-solid fa-spinner absolute right-4 top-1/2 -translate-y-1/2 animate-spin text-black"></i>}
                 </div>
               </div>
 
-              {!query.trim() && (
-                <div className="add-modal-piece relative my-5 overflow-hidden border-4 border-black bg-[#fff5ee] px-5 py-9 text-center shadow-[7px_7px_0_#ff8fab]">
-                  <span className="absolute -left-7 -top-7 h-20 w-20 rotate-12 border-4 border-black bg-[#4ecdc4]" aria-hidden="true"></span>
-                  <span className="absolute -bottom-8 -right-5 h-20 w-20 rounded-full border-4 border-black bg-[#ffe66d]" aria-hidden="true"></span>
-                  <span className="relative mx-auto flex h-20 w-20 -rotate-3 items-center justify-center border-4 border-black bg-[#ff8fab] text-3xl text-black shadow-[6px_6px_0_#111]">
-                    <i className="fa-solid fa-book-atlas"></i>
-                  </span>
-                  <span className="relative mt-6 inline-flex rotate-1 border-2 border-black bg-[#4ecdc4] px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] shadow-[3px_3px_0_#111]">
-                    LIBRARY SEARCH
-                  </span>
-                  <p className="relative mt-4 text-xl font-black">输入关键字开始搜索公共番剧库</p>
-                  <p className="relative mx-auto mt-3 max-w-lg border-l-[6px] border-black bg-white px-4 py-2 text-xs font-bold leading-6 text-zinc-600 shadow-[3px_3px_0_#4ecdc4]">
-                    支持中文名、日文名、制作公司，以及 2025-10 格式的放送季度。
-                  </p>
-                </div>
-              )}
+              <div className="add-modal-piece mt-5 flex flex-wrap items-center justify-between gap-3 border-[3px] border-black bg-[#ffe66d] px-4 py-3 shadow-[4px_4px_0_#ff8fab]">
+                <span className="text-xs font-black">
+                  <i className={`fa-solid ${query.trim() ? 'fa-filter' : 'fa-clock-rotate-left'} mr-2`} />
+                  {query.trim() ? `正在检索“${debouncedLibraryQuery || query.trim()}”` : '轩皇番剧库 · 最新收录'}
+                </span>
+                <span className="border-2 border-black bg-white px-2 py-1 text-[10px] font-black shadow-[2px_2px_0_#111]">
+                  共 {libraryTotal} 条 · 10 条/页
+                </span>
+              </div>
               {searchError && <p role="alert" className="mt-5 border-[3px] border-black bg-[#ff6b6b] px-4 py-3 text-sm font-black shadow-[4px_4px_0_#111]">{searchError}</p>}
-              {query.trim() && !isSearching && !searchError && results.length === 0 && (
+              {!isSearching && !searchError && results.length === 0 && (
                 <div className="add-modal-piece relative my-5 overflow-hidden border-4 border-black bg-[#fff5ee] px-5 py-10 text-center shadow-[7px_7px_0_#4ecdc4]">
                   <span className="absolute -left-8 -top-8 h-20 w-20 rotate-12 border-4 border-black bg-[#ff8fab]" aria-hidden="true"></span>
                   <span className="absolute -bottom-9 -right-6 h-24 w-24 rounded-full border-4 border-black bg-[#ffe66d]" aria-hidden="true"></span>
@@ -726,6 +784,26 @@ function AddAnimeModal({
                   )
                 })}
               </div>
+
+              {!searchError && libraryTotal > 0 && (
+                <div className="add-modal-piece mt-6 flex flex-wrap items-center justify-center gap-2 border-t-4 border-black pt-4">
+                  <button type="button" onClick={() => setLibraryPage(1)} disabled={!libraryHasPrevious || isSearching} className={`${arcadeButton} bg-white px-3 py-2`} aria-label="转到第一页">
+                    <i className="fa-solid fa-angles-left" />
+                  </button>
+                  <button type="button" onClick={() => setLibraryPage((page) => Math.max(1, page - 1))} disabled={!libraryHasPrevious || isSearching} className={`${arcadeButton} bg-[#4ecdc4] px-3 py-2`}>
+                    <i className="fa-solid fa-arrow-left mr-1.5" />上一页
+                  </button>
+                  <span className="border-[3px] border-black bg-[#ffe66d] px-4 py-2 text-xs font-black shadow-[4px_4px_0_#111]">
+                    第 {libraryPage} / {Math.max(1, Math.ceil(libraryTotal / LIBRARY_PAGE_SIZE))} 页
+                  </span>
+                  <button type="button" onClick={() => setLibraryPage((page) => page + 1)} disabled={!libraryHasNext || isSearching} className={`${arcadeButton} bg-[#ff8fab] px-3 py-2`}>
+                    下一页<i className="fa-solid fa-arrow-right ml-1.5" />
+                  </button>
+                  <button type="button" onClick={() => setLibraryPage(Math.max(1, Math.ceil(libraryTotal / LIBRARY_PAGE_SIZE)))} disabled={!libraryHasNext || isSearching} className={`${arcadeButton} bg-white px-3 py-2`} aria-label="转到最后一页">
+                    <i className="fa-solid fa-angles-right" />
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -857,13 +935,13 @@ function AddAnimeModal({
                                 <i className="fa-solid fa-image text-lg" />
                               )}
                             </span>
-                            <span className="min-w-0 flex-1">
-                              <strong className="block truncate text-sm font-black">
+                            <span className="min-w-0 flex-1 overflow-hidden">
+                              <OverflowPingPongText className="text-sm font-black">
                                 {anime.chinese_title || '未命名番剧'}
-                              </strong>
-                              <span className="mt-1 block truncate text-[11px] font-bold text-zinc-600">
+                              </OverflowPingPongText>
+                              <OverflowPingPongText className="mt-1 text-[11px] font-bold text-zinc-600">
                                 {anime.japanese_title || '暂无日文名'}
-                              </span>
+                              </OverflowPingPongText>
                             </span>
                             <i className="fa-solid fa-arrow-right shrink-0 group-hover:translate-x-1" />
                           </button>

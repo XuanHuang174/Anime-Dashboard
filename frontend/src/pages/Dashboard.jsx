@@ -94,6 +94,7 @@ function Dashboard() {
   const [activeCustomFilterId, setActiveCustomFilterId] = useState(null)
   const [isQuickFilterEditorOpen, setIsQuickFilterEditorOpen] = useState(false)
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false)
+  const [logoutDestination, setLogoutDestination] = useState('login')
   const [isPreviewMode, setIsPreviewMode] = useState(isSharedJournal)
   const [sharedProfile, setSharedProfile] = useState(null)
   const [currentPage, setCurrentPage] = useState(1)
@@ -521,6 +522,12 @@ function Dashboard() {
   }
 
   const handleLogout = () => {
+    setLogoutDestination('login')
+    setIsLogoutConfirmOpen(true)
+  }
+
+  const handleReturnHome = () => {
+    setLogoutDestination('home')
     setIsLogoutConfirmOpen(true)
   }
 
@@ -539,7 +546,8 @@ function Dashboard() {
 
   const confirmLogout = () => {
     setIsLogoutConfirmOpen(false)
-    forceLogout()
+    clearTokens()
+    navigate(logoutDestination === 'home' ? '/' : '/login', { replace: true })
   }
 
   const handleRecordUpdated = (updatedRecord) => {
@@ -778,6 +786,7 @@ function Dashboard() {
         isPreviewMode={isPreviewMode}
         onTogglePreview={togglePreviewMode}
         onAddAnime={() => setIsAddModalOpen(true)}
+        onReturnHome={handleReturnHome}
         onRecordsImported={handleRecordsImported}
         onLogout={handleLogout}
         onAccountDeleted={handleAccountDeleted}
@@ -1016,14 +1025,24 @@ function Dashboard() {
             </span>
             <div className="px-7 py-8 text-center">
               <span className="mx-auto flex h-20 w-20 -rotate-3 items-center justify-center border-4 border-black bg-[#ff6b6b] text-3xl text-black shadow-[6px_6px_0_#ffe66d]">
-                <i className="fa-solid fa-arrow-right-from-bracket"></i>
+                <i className={`fa-solid ${logoutDestination === 'home' ? 'fa-house' : 'fa-arrow-right-from-bracket'}`}></i>
               </span>
-              <span className="mt-6 inline-block border-2 border-black bg-[#ffe66d] px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] shadow-[3px_3px_0_#111]">Session Exit</span>
-              <h2 id="logoutConfirmTitle" className="mt-4 text-2xl font-black">确定退出登录吗？</h2>
-              <p className="mx-auto mt-3 max-w-xs border-l-[6px] border-black bg-white px-4 py-3 text-sm font-bold leading-6 text-zinc-600">退出后需要重新登录才能进入你的私人手账。</p>
+              <span className="mt-6 inline-block border-2 border-black bg-[#ffe66d] px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] shadow-[3px_3px_0_#111]">
+                {logoutDestination === 'home' ? 'Back To Showcase' : 'Session Exit'}
+              </span>
+              <h2 id="logoutConfirmTitle" className="mt-4 text-2xl font-black">
+                {logoutDestination === 'home' ? '确定回到主界面吗？' : '确定退出登录吗？'}
+              </h2>
+              <p className="mx-auto mt-3 max-w-xs border-l-[6px] border-black bg-white px-4 py-3 text-sm font-bold leading-6 text-zinc-600">
+                {logoutDestination === 'home'
+                  ? '返回展示主界面会登出当前账号，再次进入私人手账时需要重新登录。'
+                  : '退出后需要重新登录才能进入你的私人手账。'}
+              </p>
               <div className="mt-7 grid grid-cols-2 gap-4">
                 <button type="button" onClick={() => setIsLogoutConfirmOpen(false)} className="border-[3px] border-black bg-white px-4 py-3 text-sm font-black shadow-[5px_5px_0_#4ecdc4] transition-none active:translate-x-[5px] active:translate-y-[5px] active:shadow-none">继续整理</button>
-                <button type="button" onClick={confirmLogout} className="border-[3px] border-black bg-[#ff6b6b] px-4 py-3 text-sm font-black shadow-[5px_5px_0_#111] transition-none hover:bg-[#ff8fab] active:translate-x-[5px] active:translate-y-[5px] active:shadow-none">确认退出</button>
+                <button type="button" onClick={confirmLogout} className="border-[3px] border-black bg-[#ff6b6b] px-4 py-3 text-sm font-black shadow-[5px_5px_0_#111] transition-none hover:bg-[#ff8fab] active:translate-x-[5px] active:translate-y-[5px] active:shadow-none">
+                  {logoutDestination === 'home' ? '确认返回' : '确认退出'}
+                </button>
               </div>
             </div>
           </section>

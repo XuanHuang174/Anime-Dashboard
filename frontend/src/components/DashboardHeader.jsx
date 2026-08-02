@@ -11,6 +11,7 @@ function DashboardHeader({
   isPreviewMode,
   onTogglePreview,
   onAddAnime,
+  onReturnHome,
   onRecordsImported,
   onLogout,
   onAccountDeleted,
@@ -168,8 +169,16 @@ function DashboardHeader({
           </button>
         </div>
       ) : (
-        <>
-          <div className="flex flex-wrap items-center justify-end gap-2">
+        <div className={isPreviewMode ? 'dashboard-preview-actions' : ''}>
+          <div className={`flex flex-wrap items-center justify-end ${isPreviewMode ? 'gap-4' : 'gap-2'}`}>
+            <button
+              type="button"
+              onClick={onReturnHome}
+              className="dashboard-arcade-button dashboard-return-home-cta inline-flex items-center gap-2 bg-white"
+            >
+              <i className="fa-solid fa-arrow-left" />
+              返回主界面
+            </button>
             {!isPreviewMode && (
               <JournalDataTransfer
                 onImported={onRecordsImported}
@@ -186,29 +195,44 @@ function DashboardHeader({
               {isPreviewMode ? '编辑模式' : '预览模式'}
             </button>
             {!isPreviewMode && (
+              <PublicJournalShareButton
+                publicStatus={profile?.public_status}
+                onStatusChange={(nextStatus) => {
+                  setProfile((current) => ({ ...current, ...nextStatus }))
+                }}
+                showToast={showToast}
+              />
+            )}
+          </div>
+          {isPreviewMode ? (
+            <div className="mt-9 flex justify-end border-t-4 border-black pt-5">
+              <PublicJournalShareButton
+                publicStatus={profile?.public_status}
+                onStatusChange={(nextStatus) => {
+                  setProfile((current) => ({ ...current, ...nextStatus }))
+                }}
+                showToast={showToast}
+              />
+            </div>
+          ) : (
+            <div className="mt-6 flex justify-end pr-2">
               <button
                 type="button"
                 onClick={onAddAnime}
-                className="dashboard-arcade-button dashboard-add-anime-cta group inline-flex items-center gap-2 bg-[#4ecdc4]"
+                className="dashboard-arcade-button dashboard-add-anime-cta group inline-flex items-center gap-3 bg-[#4ecdc4]"
               >
-                <span className="flex h-6 w-6 items-center justify-center border-2 border-black bg-white text-xs group-hover:rotate-6">
+                <span className="flex h-8 w-8 items-center justify-center border-[3px] border-black bg-white text-sm shadow-[2px_2px_0_#ff6b6b] group-hover:rotate-6">
                   <i className="fa-solid fa-plus" />
                 </span>
-                添加番剧
-                <span className="border-2 border-black bg-[#ffe66d] px-1.5 py-0.5 text-[9px] font-black">ADD</span>
+                <span className="text-left leading-tight">
+                  <span className="block">添加番剧</span>
+                  <span className="block text-[9px] tracking-[0.12em]">EXPAND YOUR JOURNAL</span>
+                </span>
+                <span className="border-2 border-black bg-[#ffe66d] px-2 py-1 text-[9px] font-black shadow-[2px_2px_0_#111]">ADD</span>
               </button>
-            )}
-          </div>
-          <div className={`${isPreviewMode ? 'mt-5' : 'mt-4'} flex justify-end`}>
-            <PublicJournalShareButton
-              publicStatus={profile?.public_status}
-              onStatusChange={(nextStatus) => {
-                setProfile((current) => ({ ...current, ...nextStatus }))
-              }}
-              showToast={showToast}
-            />
-          </div>
-        </>
+            </div>
+          )}
+        </div>
       )}
     </div>
   )
