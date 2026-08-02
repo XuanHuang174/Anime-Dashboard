@@ -133,16 +133,19 @@ function AnimeGrid({
                   {item.japaneseTitle || ' '}
                 </p>
               </div>
-              <div className="flex flex-nowrap overflow-hidden gap-1 mt-auto relative pr-2">
-                {topTags.map((tag, tagIndex) => (
-                  <span
-                    key={tag}
-                    className={`${isMemphis ? `memphis-sticker ${tagIndex % 2 ? 'rotate-2' : '-rotate-2'}` : ''} shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium ${getTagClass(tag, item.tagColors?.[tag]).replace('shadow-sm', '')} bg-opacity-70`}
-                  >
-                    {tag}
-                  </span>
-                ))}
-                {item.tags.length > 3 && (
+              <div className="relative mt-auto flex min-w-0 items-center gap-1">
+                <div className="flex min-w-0 flex-1 flex-nowrap items-center gap-1 overflow-hidden">
+                  {topTags.map((tag, tagIndex) => (
+                    <span
+                      key={tag}
+                      title={tag}
+                      className={`${isMemphis ? `memphis-sticker ${tagIndex % 2 ? 'rotate-2' : '-rotate-2'}` : ''} min-w-0 max-w-[5.25rem] flex-[0_1_auto] truncate px-1.5 py-0.5 rounded text-[10px] font-medium ${getTagClass(tag, item.tagColors?.[tag]).replace('shadow-sm', '')} bg-opacity-70`}
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+                {item.tags.length > topTags.length && (
                   <span className="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-400">...</span>
                 )}
                 {!isMemphis && (

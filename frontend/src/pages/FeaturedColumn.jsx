@@ -466,7 +466,7 @@ function FeaturedColumn() {
                     </div>
 
                     <p
-                      className="mt-5 max-h-[232px] min-h-[150px] flex-1 overflow-y-auto border-l-[7px] border-black bg-[#fff5ee] px-4 py-3 text-sm font-bold leading-7 text-zinc-700 custom-scrollbar"
+                      className="mt-5 max-h-[232px] min-h-[150px] flex-1 whitespace-pre-wrap break-words overflow-y-auto border-l-[7px] border-black bg-[#fff5ee] px-4 py-3 text-sm font-bold leading-7 text-zinc-700 custom-scrollbar"
                       onClick={(event) => event.stopPropagation()}
                     >
                       {item.review || '这位主理人暂时没有留下长评。'}

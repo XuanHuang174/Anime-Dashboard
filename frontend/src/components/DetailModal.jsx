@@ -14,6 +14,45 @@ const infoCardClasses = [
   'bg-white shadow-[5px_5px_0_0_#ff6b6b]',
 ]
 
+function OverflowPingPongText({ children, className = '' }) {
+  const viewportRef = useRef(null)
+  const textRef = useRef(null)
+  const [distance, setDistance] = useState(0)
+
+  useEffect(() => {
+    const measure = () => {
+      const viewport = viewportRef.current
+      const text = textRef.current
+      if (!viewport || !text) return
+      setDistance(Math.max(0, text.scrollWidth - viewport.clientWidth))
+    }
+
+    measure()
+    const observer = typeof ResizeObserver === 'undefined'
+      ? null
+      : new ResizeObserver(measure)
+    observer?.observe(viewportRef.current)
+    observer?.observe(textRef.current)
+    window.addEventListener('resize', measure)
+    return () => {
+      observer?.disconnect()
+      window.removeEventListener('resize', measure)
+    }
+  }, [children])
+
+  return (
+    <span ref={viewportRef} className={`magic-result-marquee ${className}`}>
+      <span
+        ref={textRef}
+        className={distance > 0 ? 'magic-result-marquee__track is-overflowing' : 'magic-result-marquee__track'}
+        style={{ '--magic-marquee-distance': `${distance}px` }}
+      >
+        {children}
+      </span>
+    </span>
+  )
+}
+
 function DetailModal({
   selectedItem: activeItem,
   closeModal,
@@ -454,19 +493,30 @@ function DetailModal({
                     <span className="mb-0.5 block text-xs font-black uppercase tracking-wide text-black/70">
                       {field.label}
                     </span>
-                    <input
-                      type={field.name && editable ? 'number' : 'text'}
-                      id={field.id}
-                      name={field.name}
-                      min={field.name && editable ? '0' : undefined}
-                      max={field.name && editable ? '10' : undefined}
-                      step={field.name && editable ? '0.1' : undefined}
-                      readOnly={!field.name || !editable}
-                      value={field.value}
-                      onChange={field.name ? handleFieldChange : undefined}
-                      className={`border-0 text-base font-black outline-none sm:text-lg ${field.id === 'modalScore' ? 'w-[7rem] max-w-full bg-white px-2 py-0.5 shadow-[2px_2px_0_#111]' : 'w-full bg-transparent'} ${field.inputClass}${field.name && editable ? ' cursor-text' : ' cursor-not-allowed'}`}
-                      placeholder={field.placeholder || '--'}
-                    />
+                    {field.id === 'modalStudio' ? (
+                      <OverflowPingPongText
+                        className={`w-full text-base font-black sm:text-lg ${field.inputClass}`}
+                      >
+                        {field.value || field.placeholder || '--'}
+                      </OverflowPingPongText>
+                    ) : (
+                      <input
+                        type={field.name && editable ? 'number' : 'text'}
+                        id={field.id}
+                        name={field.name}
+                        min={field.name && editable ? '0' : undefined}
+                        max={field.name && editable ? '10' : undefined}
+                        step={field.name && editable ? '0.1' : undefined}
+                        readOnly={!field.name || !editable}
+                        value={field.value}
+                        onChange={field.name ? handleFieldChange : undefined}
+                        className={`border-0 text-base font-black outline-none sm:text-lg ${field.id === 'modalScore' ? 'min-w-[4.5rem] max-w-full bg-white px-2 py-0.5 shadow-[2px_2px_0_#111]' : 'w-full bg-transparent'} ${field.inputClass}${field.name && editable ? ' cursor-text' : ' cursor-not-allowed'}`}
+                        style={field.id === 'modalScore'
+                          ? { width: `${Math.max(4.5, String(field.value || '').length + 1)}ch` }
+                          : undefined}
+                        placeholder={field.placeholder || '--'}
+                      />
+                    )}
                   </div>
                 ))}
               </div>
