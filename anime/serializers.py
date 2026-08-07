@@ -457,6 +457,7 @@ class AnimeBasicSerializer(serializers.ModelSerializer):
         model = Anime
         fields = (
             "id",
+            "bgm_id",
             "chinese_title",
             "japanese_title",
             "airing_period",
@@ -483,6 +484,7 @@ class AnimeSerializer(serializers.ModelSerializer):
         model = Anime
         fields = (
             "id",
+            "bgm_id",
             "chinese_title",
             "japanese_title",
             "airing_period",
@@ -498,7 +500,7 @@ class AnimeSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         )
-        read_only_fields = ("id", "is_added", "created_at", "updated_at")
+        read_only_fields = ("id", "bgm_id", "is_added", "created_at", "updated_at")
 
     def get_is_added(self, anime):
         annotated_value = getattr(anime, "is_added", None)

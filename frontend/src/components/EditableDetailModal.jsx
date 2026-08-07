@@ -33,13 +33,19 @@ function isHttpUrl(value) {
 }
 
 function createForm(item) {
+  const editableTags = [
+    ...(Array.isArray(item.baseTags) ? item.baseTags : []),
+    ...(Array.isArray(item.customTags) ? item.customTags : []),
+  ]
   return {
     title: item.title ?? '',
     japaneseTitle: item.japaneseTitle ?? '',
     period: item.period ?? '',
     studio: item.studio ?? '',
     episodes: item.episodes ?? '',
-    tags: [...(item.baseTags ?? item.tags ?? [])],
+    tags: editableTags.length > 0
+      ? [...new Set(editableTags)]
+      : [...(item.tags ?? [])],
     tagColors: { ...(item.tagColors ?? {}) },
     // The persisted ImageField URL (R2 in production) is authoritative. The
     // original Bangumi proxy URL remains only as a fallback/display source.

@@ -11,6 +11,7 @@ function DashboardHeader({
   isPreviewMode,
   onTogglePreview,
   onAddAnime,
+  onImportBangumi,
   onReturnHome,
   onRecordsImported,
   onLogout,
@@ -202,6 +203,17 @@ function DashboardHeader({
                 showToast={showToast}
                 theme="memphis"
               />
+            )}
+            {!isPreviewMode && (
+              <button
+                type="button"
+                onClick={onImportBangumi}
+                className="dashboard-arcade-button inline-flex items-center gap-2 bg-[#ffe66d]"
+                title="通过 Bangumi UID 批量同步收藏"
+              >
+                <i className="fa-solid fa-cloud-arrow-down" />
+                Bangumi 导入
+              </button>
             )}
             <button
               type="button"

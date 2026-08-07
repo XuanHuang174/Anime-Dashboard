@@ -333,16 +333,25 @@ USER_ANIME_RECORD_LIMIT = env.int('USER_ANIME_RECORD_LIMIT', default=3000)
 # BANGUMI_PROXY_IMAGE=https://img-bgm.example.com
 BANGUMI_PROXY_API = env('BANGUMI_PROXY_API', default='').strip().rstrip('/')
 BANGUMI_PROXY_IMAGE = env('BANGUMI_PROXY_IMAGE', default='').strip().rstrip('/')
+BANGUMI_FALLBACK_API = env(
+    'BANGUMI_FALLBACK_API',
+    default='https://api.bangumi.lol',
+).strip().rstrip('/')
+BANGUMI_PREFER_FALLBACK = env.bool('BANGUMI_PREFER_FALLBACK', default=False)
 
-# The self-hosted API proxy is always tried first. The official public API
-# remains the final fallback when the proxy is empty or temporarily unavailable.
+# The self-hosted API proxy is always tried first. ``api.bangumi.lol`` mirrors
+# the same public v0 schema and is used only for unauthenticated public metadata
+# when the local network cannot reach workers.dev/api.bgm.tv. The official API
+# remains the final source of truth.
+BANGUMI_API_NODE_CANDIDATES = (
+    (BANGUMI_FALLBACK_API, BANGUMI_PROXY_API, 'https://api.bgm.tv')
+    if BANGUMI_PREFER_FALLBACK
+    else (BANGUMI_PROXY_API, BANGUMI_FALLBACK_API, 'https://api.bgm.tv')
+)
 BANGUMI_API_NODES = tuple(
     dict.fromkeys(
         node
-        for node in (
-            BANGUMI_PROXY_API,
-            'https://api.bgm.tv',
-        )
+        for node in BANGUMI_API_NODE_CANDIDATES
         if node
     )
 )

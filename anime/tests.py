@@ -3318,6 +3318,7 @@ class MetadataScraperTests(APITestCase):
     @override_settings(
         BANGUMI_PROXY_API="https://proxy-api.example.com",
         BANGUMI_API_NODES=("https://api.bgm.tv",),
+        BANGUMI_PREFER_FALLBACK=False,
     )
     @patch.object(MetadataScraper, "_request_json")
     def test_bangumi_proxy_falls_back_to_official_api(self, request_json):
@@ -3342,6 +3343,7 @@ class MetadataScraperTests(APITestCase):
     @override_settings(
         BANGUMI_PROXY_API="https://proxy-api.example.com",
         BANGUMI_API_NODES=("https://api.bgm.tv",),
+        BANGUMI_PREFER_FALLBACK=False,
     )
     @patch("anime.utils.scraper.requests.request")
     def test_bangumi_request_uses_identifying_ua_without_cookies(
@@ -3360,7 +3362,7 @@ class MetadataScraperTests(APITestCase):
         request_kwargs = request.call_args.kwargs
         self.assertEqual(
             request_kwargs["headers"]["User-Agent"],
-            "XHcode/AnimeJournal/1.0 (Web)",
+            "XuanHuang/xh-anime-db (https://xh-anime.com)",
         )
         self.assertNotIn("Cookie", request_kwargs["headers"])
         self.assertNotIn("cookies", request_kwargs)
@@ -3449,6 +3451,33 @@ class MetadataScraperTests(APITestCase):
             ),
         )
 
+    @override_settings(
+        BANGUMI_PROXY_API="https://proxy-api.example.com",
+        BANGUMI_FALLBACK_API="https://api.bangumi.lol",
+        BANGUMI_API_NODES=(
+            "https://api.bangumi.lol",
+            "https://proxy-api.example.com",
+            "https://api.bgm.tv",
+        ),
+        BANGUMI_PREFER_FALLBACK=True,
+    )
+    def test_local_environment_can_prefer_public_fallback_node(self):
+        self.assertEqual(
+            MetadataScraper._bangumi_api_nodes(),
+            (
+                "https://api.bangumi.lol",
+                "https://proxy-api.example.com",
+                "https://api.bgm.tv",
+            ),
+        )
+
+    @override_settings(BANGUMI_PROXY_IMAGE="https://img-bgm.example.com")
+    def test_public_mirror_image_is_not_rewritten_to_unreachable_proxy(self):
+        mirror_url = "https://lain.bangumi.lol/pic/cover/l/ab/cd/456.jpg"
+
+        self.assertEqual(MetadataScraper._proxy_image_url(mirror_url), mirror_url)
+        self.assertTrue(MetadataScraper._is_bangumi_image_url(mirror_url))
+
     @override_settings(BANGUMI_PROXY_IMAGE="https://img-bgm.example.com")
     @patch("anime.utils.scraper.requests.get")
     def test_download_bangumi_poster_returns_valid_content_file(self, get):
@@ -3507,6 +3536,130 @@ class MetadataScraperTests(APITestCase):
             result,
             "https://zh.moegirl.org.cn/%E6%91%87%E6%9B%B3%E9%9C%B2%E8%90%A5",
         )
+
+
+@override_settings(PUBLIC_SHOWCASE_USERNAME="XHcode", USER_ANIME_RECORD_LIMIT=3000)
+class BangumiCollectionImportApiTests(APITestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="rabbit",
+            password="test-password",
+        )
+        self.summary_url = reverse("anime_api:bangumi-collection-summary")
+        self.batch_url = reverse("anime_api:bangumi-collection-batch")
+
+    def test_summary_requires_authentication(self):
+        response = self.client.get(self.summary_url, {"uid": "rabbit-bgm"})
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    @patch.object(MetadataScraper, "get_user_anime_collections")
+    def test_summary_returns_twenty_item_page_count(self, collections):
+        collections.return_value = {
+            "total": 41,
+            "limit": 1,
+            "offset": 0,
+            "data": [],
+        }
+        self.client.force_authenticate(self.user)
+
+        response = self.client.get(self.summary_url, {"uid": "rabbit-bgm"})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["total"], 41)
+        self.assertEqual(response.data["page_size"], 20)
+        self.assertEqual(response.data["total_pages"], 3)
+        collections.assert_called_once_with("rabbit-bgm", offset=0, limit=1)
+
+    @patch.object(
+        MetadataScraper,
+        "get_moegirl_url",
+        return_value="https://zh.moegirl.org.cn/测试动画",
+    )
+    @patch.object(MetadataScraper, "get_bangumi_details")
+    @patch.object(MetadataScraper, "download_bangumi_poster", return_value=None)
+    @patch.object(MetadataScraper, "get_user_anime_collections")
+    def test_batch_is_idempotent_and_keeps_other_user_entry_private(
+        self,
+        collections,
+        _download,
+        details,
+        _moegirl,
+    ):
+        details.return_value = {
+            "bangumi_id": 12345,
+            "chinese_title": "测试动画",
+            "japanese_title": "テストアニメ",
+            "air_date": "2026-07-03",
+            "airing_period": "2026-7",
+            "studio": "Studio Test",
+            "episodes": "12",
+            "description": "完整剧情简介",
+            "poster_url": "https://lain.bgm.tv/pic/cover/l/test.jpg",
+            "tags": "公开标签,动画",
+        }
+        collections.return_value = {
+            "total": 1,
+            "limit": 20,
+            "offset": 0,
+            "data": [
+                {
+                    "subject_id": 12345,
+                    "type": 3,
+                    "rate": 8,
+                    "comment": "导入长评",
+                    "tags": ["日常", "治愈"],
+                    "subject": {
+                        "id": 12345,
+                        "name": "テストアニメ",
+                        "name_cn": "测试动画",
+                        "date": "2026-07-03",
+                        "eps": 12,
+                        "images": {
+                            "large": "https://lain.bgm.tv/pic/cover/l/test.jpg",
+                        },
+                    },
+                }
+            ],
+        }
+        self.client.force_authenticate(self.user)
+
+        first = self.client.post(
+            self.batch_url,
+            {"uid": "rabbit-bgm", "offset": 0, "limit": 20},
+            format="json",
+        )
+        second = self.client.post(
+            self.batch_url,
+            {"uid": "rabbit-bgm", "offset": 0, "limit": 20},
+            format="json",
+        )
+
+        self.assertEqual(first.status_code, status.HTTP_200_OK)
+        self.assertEqual(first.data["created"], 1)
+        self.assertEqual(second.status_code, status.HTTP_200_OK)
+        self.assertEqual(second.data["created"], 0)
+        self.assertEqual(second.data["updated"], 1)
+        self.assertEqual(Anime.objects.filter(bgm_id=12345).count(), 1)
+        self.assertEqual(UserAnimeRecord.objects.filter(user=self.user).count(), 1)
+        anime = Anime.objects.get(bgm_id=12345)
+        record = UserAnimeRecord.objects.get(user=self.user, anime=anime)
+        self.assertFalse(anime.is_active)
+        self.assertEqual(record.watch_status, UserAnimeRecord.WatchStatus.WATCHING)
+        self.assertEqual(record.personal_score, Decimal("8.0"))
+        self.assertEqual(record.custom_tags, [])
+        self.assertEqual(record.private_base_tags, ["日常", "治愈"])
+        self.assertEqual(record.private_airing_period, "2026-7")
+        self.assertEqual(record.private_studio, "Studio Test")
+        self.assertEqual(record.private_description, "完整剧情简介")
+        self.assertEqual(
+            record.private_baike_url,
+            "https://zh.moegirl.org.cn/测试动画",
+        )
+
+
+class MetadataScraperDetailTests(APITestCase):
+    def setUp(self):
+        cache.clear()
 
     @patch("anime.utils.scraper.requests.get")
     def test_moegirl_failure_falls_back_to_encoded_article_url(self, get):

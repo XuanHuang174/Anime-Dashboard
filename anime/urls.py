@@ -10,6 +10,8 @@ from .views import (
     AdminSessionView,
     AnimeViewSet,
     ChangePasswordView,
+    BangumiCollectionBatchImportView,
+    BangumiCollectionSummaryView,
     CurrentUserAccountView,
     CurrentUserProfileView,
     ExternalAnimeAutofillView,
@@ -118,6 +120,16 @@ urlpatterns = [
         "external/autofill/",
         ExternalAnimeAutofillView.as_view(),
         name="external-anime-autofill",
+    ),
+    path(
+        "external/bangumi-import/summary/",
+        BangumiCollectionSummaryView.as_view(),
+        name="bangumi-collection-summary",
+    ),
+    path(
+        "external/bangumi-import/batch/",
+        BangumiCollectionBatchImportView.as_view(),
+        name="bangumi-collection-batch",
     ),
     path(
         "public-journal/status/",

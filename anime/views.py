@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from urllib.parse import urlencode, urlsplit
 from uuid import uuid4
@@ -259,6 +260,367 @@ class ExternalAnimeAutofillView(ExternalMetadataAPIView):
                 "posterUrl": details["poster_url"],
                 "tags": details["tags"],
                 "baikeUrl": baike_url,
+            }
+        )
+
+
+class BangumiCollectionSummaryView(ExternalMetadataAPIView):
+    """Return the collection size without importing any records."""
+
+    PAGE_SIZE = 20
+
+    @method_decorator(
+        ratelimit(
+            group="bangumi-collection-summary",
+            key="user",
+            rate="10/m",
+            method="GET",
+            block=False,
+        )
+    )
+    def get(self, request):
+        if getattr(request, "limited", False):
+            return Response(
+                {"detail": "请求太频繁啦，请稍等一分钟再读取收藏。"},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+        uid = request.query_params.get("uid", "").strip()
+        try:
+            payload = MetadataScraper.get_user_anime_collections(
+                uid,
+                offset=0,
+                limit=1,
+            )
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except MetadataScraperError as exc:
+            logger.warning("Bangumi collection summary failed uid=%s: %s", uid, exc)
+            return Response(
+                {"detail": "无法读取该 Bangumi 用户的动画收藏，请确认 UID 和收藏可见性。"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        total = max(0, int(payload.get("total") or 0))
+        return Response(
+            {
+                "uid": uid,
+                "total": total,
+                "page_size": self.PAGE_SIZE,
+                "total_pages": (total + self.PAGE_SIZE - 1) // self.PAGE_SIZE,
+            }
+        )
+
+
+class BangumiCollectionBatchImportView(ExternalMetadataAPIView):
+    """Import at most 20 collection entries into the current user's journal."""
+
+    PAGE_SIZE = 20
+    STATUS_MAP = {
+        1: UserAnimeRecord.WatchStatus.PLAN_TO_WATCH,
+        2: UserAnimeRecord.WatchStatus.COMPLETED,
+        3: UserAnimeRecord.WatchStatus.WATCHING,
+        4: UserAnimeRecord.WatchStatus.ON_HOLD,
+        5: UserAnimeRecord.WatchStatus.ON_HOLD,
+    }
+
+    @staticmethod
+    def _clean_tags(value):
+        if not isinstance(value, list):
+            return []
+        return list(dict.fromkeys(
+            str(tag).strip()[:50]
+            for tag in value
+            if str(tag).strip()
+        ))[:8]
+
+    @staticmethod
+    def _score(value):
+        try:
+            score = Decimal(str(value))
+        except (InvalidOperation, TypeError, ValueError):
+            return None
+        return score if Decimal("0") < score <= Decimal("10") else None
+
+    @classmethod
+    def _subject_defaults(cls, subject, *, request_user, details=None, baike_url=""):
+        details = details if isinstance(details, dict) else {}
+        images = subject.get("images") if isinstance(subject.get("images"), dict) else {}
+        poster_url = MetadataScraper.proxy_bangumi_image_url(
+            details.get("poster_url")
+            or images.get("large")
+            or images.get("common")
+            or images.get("medium")
+            or images.get("small")
+            or ""
+        )
+        chinese_title = str(
+            details.get("chinese_title")
+            or subject.get("name_cn")
+            or subject.get("name")
+            or ""
+        ).strip()[:200]
+        if not chinese_title:
+            raise ValueError("收藏条目缺少番剧名称")
+        japanese_title = str(
+            details.get("japanese_title") or subject.get("name") or ""
+        ).strip()[:200]
+        air_date = str(details.get("air_date") or subject.get("date") or "").strip()
+        airing_period = (
+            details.get("airing_period")
+            or MetadataScraper._to_airing_period(air_date)
+            or "未定档"
+        )
+        episodes = (
+            details.get("episodes")
+            or subject.get("eps")
+            or subject.get("eps_count")
+            or ""
+        )
+        detail_tags = cls._clean_tags(
+            str(details.get("tags") or "").replace("，", ",").split(",")
+        )
+        return {
+            "chinese_title": chinese_title,
+            "japanese_title": japanese_title,
+            "airing_period": str(airing_period)[:32],
+            "studio": str(details.get("studio") or "").strip()[:200],
+            "episodes": str(episodes)[:50],
+            "description": str(details.get("description") or "").strip(),
+            "poster_url": poster_url,
+            "baike_url": str(baike_url or "").strip(),
+            "base_tags": detail_tags,
+            "is_active": request_user.username == settings.PUBLIC_SHOWCASE_USERNAME,
+        }
+
+    @staticmethod
+    def _fetch_subject_details(bgm_id, fallback_name):
+        """Fetch full metadata without making one failed item abort its batch."""
+
+        try:
+            details = MetadataScraper.get_bangumi_details(bgm_id)
+        except (MetadataScraperError, ValueError) as exc:
+            logger.warning(
+                "Bangumi details enrichment failed subject=%s: %s",
+                bgm_id,
+                exc,
+            )
+            details = {}
+
+        keyword = str(
+            details.get("chinese_title") or fallback_name or ""
+        ).strip()
+        try:
+            baike_url = MetadataScraper.get_moegirl_url(keyword)
+        except Exception as exc:
+            logger.warning(
+                "Moegirl URL enrichment failed subject=%s: %s",
+                bgm_id,
+                exc,
+            )
+            baike_url = ""
+        return details, baike_url
+
+    @classmethod
+    def _get_or_update_anime(cls, *, bgm_id, defaults):
+        """Attach legacy rows first, then use bgm_id as the stable identity."""
+
+        anime = Anime.objects.filter(bgm_id=bgm_id).first()
+        if anime is not None:
+            safe_updates = {
+                key: value
+                for key, value in defaults.items()
+                if value not in (None, "")
+                and key != "is_active"
+                and not getattr(anime, key, None)
+            }
+            for key, value in safe_updates.items():
+                setattr(anime, key, value)
+            if safe_updates:
+                anime.save(update_fields=[*safe_updates.keys(), "updated_at"])
+            return anime, False
+
+        legacy = Anime.objects.filter(
+            chinese_title=defaults["chinese_title"],
+            japanese_title=defaults["japanese_title"],
+            airing_period=defaults["airing_period"],
+            bgm_id__isnull=True,
+        ).first()
+        if legacy is not None:
+            legacy.bgm_id = bgm_id
+            legacy.save(update_fields=("bgm_id", "updated_at"))
+            return legacy, False
+
+        return Anime.objects.update_or_create(bgm_id=bgm_id, defaults=defaults)
+
+    @method_decorator(
+        ratelimit(
+            group="bangumi-collection-batch",
+            key="user",
+            rate="100/m",
+            method="POST",
+            block=False,
+        )
+    )
+    def post(self, request):
+        if getattr(request, "limited", False):
+            return Response(
+                {"detail": "批量导入速度太快啦，请稍等一分钟后继续。"},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+
+        uid = str(request.data.get("uid", "")).strip()
+        try:
+            offset = max(0, int(request.data.get("offset", 0)))
+            limit = max(1, min(self.PAGE_SIZE, int(request.data.get("limit", self.PAGE_SIZE))))
+            payload = MetadataScraper.get_user_anime_collections(
+                uid,
+                offset=offset,
+                limit=limit,
+            )
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except MetadataScraperError as exc:
+            logger.warning(
+                "Bangumi collection batch failed uid=%s offset=%s: %s",
+                uid,
+                request.data.get("offset"),
+                exc,
+            )
+            return Response(
+                {"detail": "这一批 Bangumi 收藏读取失败，请稍后重试。"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        collection_items = payload.get("data", [])
+        current_count = UserAnimeRecord.objects.filter(user=request.user).count()
+        created = updated = skipped = failed = 0
+        errors = []
+
+        for collection in collection_items:
+            if not isinstance(collection, dict):
+                failed += 1
+                continue
+            subject = collection.get("subject")
+            if not isinstance(subject, dict):
+                subject = {}
+            try:
+                bgm_id = int(collection.get("subject_id") or subject.get("id"))
+                if bgm_id <= 0:
+                    raise ValueError("缺少有效的 subject_id")
+
+                details, baike_url = self._fetch_subject_details(
+                    bgm_id,
+                    subject.get("name_cn") or subject.get("name"),
+                )
+
+                with transaction.atomic():
+                    defaults = self._subject_defaults(
+                        subject,
+                        request_user=request.user,
+                        details=details,
+                        baike_url=baike_url,
+                    )
+                    anime, anime_created = self._get_or_update_anime(
+                        bgm_id=bgm_id,
+                        defaults=defaults,
+                    )
+
+                    existing_record = UserAnimeRecord.objects.filter(
+                        user=request.user,
+                        anime=anime,
+                    ).first()
+                    if existing_record is None and current_count >= settings.USER_ANIME_RECORD_LIMIT:
+                        raise PermissionDenied("您的追番记录已达到容量上限")
+
+                    if defaults.get("poster_url") and not anime.poster_image:
+                        downloaded = MetadataScraper.download_bangumi_poster(
+                            defaults["poster_url"]
+                        )
+                        if downloaded is not None:
+                            try:
+                                anime.poster_image.save(
+                                    downloaded.name,
+                                    downloaded,
+                                    save=True,
+                                )
+                            except Exception:
+                                # 海报转存属于增强步骤。R2 或本地媒体存储暂时不可用时，
+                                # 仍保留 poster_url 并继续导入私人追番记录。
+                                logger.exception(
+                                    "Bangumi poster persistence failed subject=%s",
+                                    bgm_id,
+                                )
+
+                    collection_tags = self._clean_tags(collection.get("tags"))
+                    editable_tags = collection_tags or list(defaults.get("base_tags") or [])
+                    private_poster_name = (
+                        anime.poster_image.name if anime.poster_image else None
+                    )
+                    record_defaults = {
+                        "personal_score": self._score(collection.get("rate")),
+                        "watch_status": self.STATUS_MAP.get(
+                            int(collection.get("type") or 1),
+                            UserAnimeRecord.WatchStatus.PLAN_TO_WATCH,
+                        ),
+                        "review": str(collection.get("comment") or ""),
+                        # Bangumi collection tags belong to this user. Persist
+                        # them in the editable private snapshot rather than in
+                        # the shared Anime row or a list-only display field.
+                        "custom_tags": [],
+                        "metadata_initialized": True,
+                        "private_chinese_title": defaults["chinese_title"],
+                        "private_japanese_title": defaults["japanese_title"],
+                        "private_airing_period": defaults["airing_period"],
+                        "private_studio": defaults["studio"],
+                        "private_episodes": defaults["episodes"],
+                        "private_description": defaults["description"],
+                        "private_poster_url": defaults["poster_url"],
+                        "private_poster_image": private_poster_name,
+                        "private_baike_url": defaults["baike_url"],
+                        "private_base_tags": editable_tags,
+                    }
+                    record, record_created = UserAnimeRecord.objects.update_or_create(
+                        user=request.user,
+                        anime=anime,
+                        defaults=record_defaults,
+                    )
+                    initialize_record_tag_colors(record=record, user=request.user)
+                    if record_created:
+                        created += 1
+                        current_count += 1
+                    else:
+                        updated += 1
+            except PermissionDenied:
+                raise
+            except Exception as exc:
+                failed += 1
+                logger.exception(
+                    "Bangumi collection item import failed uid=%s subject=%s",
+                    uid,
+                    collection.get("subject_id"),
+                )
+                if len(errors) < 5:
+                    errors.append({
+                        "subject_id": collection.get("subject_id"),
+                        "detail": str(exc),
+                    })
+
+        fetched = len(collection_items)
+        total = max(0, int(payload.get("total") or fetched))
+        return Response(
+            {
+                "uid": uid,
+                "offset": offset,
+                "limit": limit,
+                "total": total,
+                "fetched": fetched,
+                "processed": created + updated + skipped + failed,
+                "created": created,
+                "updated": updated,
+                "skipped": skipped,
+                "failed": failed,
+                "errors": errors,
+                "next_offset": min(total, offset + fetched),
             }
         )
 

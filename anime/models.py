@@ -111,6 +111,13 @@ def validate_tag_color_map(value):
 class Anime(models.Model):
     """Shared, user-independent anime metadata."""
 
+    bgm_id = models.PositiveIntegerField(
+        "Bangumi 条目 ID",
+        null=True,
+        blank=True,
+        unique=True,
+        help_text="Bangumi subject ID；旧数据允许为空。",
+    )
     chinese_title = models.CharField("中文名", max_length=200, db_index=True)
     japanese_title = models.CharField(
         "日文名",

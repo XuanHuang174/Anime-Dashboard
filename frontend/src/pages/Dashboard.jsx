@@ -8,6 +8,7 @@ import AnimeGrid from '../components/AnimeGrid.jsx'
 import AnimeList from '../components/AnimeList.jsx'
 import AddAnimeModal from '../components/AddAnimeModal.jsx'
 import BackToTop from '../components/BackToTop.jsx'
+import BangumiImportModal from '../components/BangumiImportModal.jsx'
 import DashboardHeader from '../components/DashboardHeader.jsx'
 import DetailModal from '../components/DetailModal.jsx'
 import EditableDetailModal from '../components/EditableDetailModal.jsx'
@@ -82,6 +83,7 @@ function Dashboard() {
   const [error, setError] = useState('')
   const [selectedItem, setSelectedItem] = useState(null)
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+  const [isBangumiImportOpen, setIsBangumiImportOpen] = useState(false)
   const [toasts, setToasts] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
   const [tagFilter, setTagFilter] = useState('all')
@@ -873,6 +875,7 @@ function Dashboard() {
         isPreviewMode={isPreviewMode}
         onTogglePreview={togglePreviewMode}
         onAddAnime={() => setIsAddModalOpen(true)}
+        onImportBangumi={() => setIsBangumiImportOpen(true)}
         onReturnHome={handleReturnHome}
         onRecordsImported={handleRecordsImported}
         onLogout={handleLogout}
@@ -1088,6 +1091,12 @@ function Dashboard() {
             onRecordAdded={handleRecordAdded}
             showToast={showToast}
           />
+          <BangumiImportModal
+            isOpen={isBangumiImportOpen}
+            onClose={() => setIsBangumiImportOpen(false)}
+            onCompleted={handleRecordsImported}
+            showToast={showToast}
+          />
           {!isPreviewMode && (
             <QuickFilterEditorModal
               isOpen={isQuickFilterEditorOpen}
@@ -1143,7 +1152,7 @@ function Dashboard() {
       )}
       <BackToTop
         isModalOpen={Boolean(selectedItem) || (!isSharedJournal && (
-          isLogoutConfirmOpen || Boolean(featuredConfirmAction)
+          isLogoutConfirmOpen || isBangumiImportOpen || Boolean(featuredConfirmAction)
         ))}
         theme="memphis"
       />

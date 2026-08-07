@@ -35,7 +35,16 @@ class MetadataHTTPStatusError(MetadataScraperError):
 
 class MetadataScraper:
     BANGUMI_OFFICIAL_API = "https://api.bgm.tv"
-    BANGUMI_OFFICIAL_IMAGE_HOSTS = frozenset({"lain.bgm.tv"})
+    BANGUMI_IMAGE_PROXY_SOURCE_HOSTS = frozenset({"lain.bgm.tv"})
+    BANGUMI_OFFICIAL_IMAGE_HOSTS = frozenset(
+        {
+            "lain.bgm.tv",
+            # Public mirror paired with api.bangumi.lol. Requests never carry
+            # cookies or Bangumi access tokens; it is used for public artwork
+            # only when the configured/official CDN is unreachable locally.
+            "lain.bangumi.lol",
+        }
+    )
     MOEGIRL_API_URL = "https://zh.moegirl.org.cn/api.php"
     REQUEST_TIMEOUT = 8
     SEARCH_CACHE_SECONDS = 5 * 60
@@ -43,7 +52,7 @@ class MetadataScraper:
     MOEGIRL_CACHE_SECONDS = 6 * 60 * 60
     # Bangumi requires third-party clients to identify themselves instead of
     # using a library/default crawler User-Agent.
-    USER_AGENT = "XHcode/AnimeJournal/1.0 (Web)"
+    USER_AGENT = "XuanHuang/xh-anime-db (https://xh-anime.com)"
     BROWSER_USER_AGENT = (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -141,11 +150,11 @@ class MetadataScraper:
         if isinstance(configured_nodes, str):
             configured_nodes = (configured_nodes,)
 
-        candidates = (
-            getattr(settings, "BANGUMI_PROXY_API", ""),
-            *configured_nodes,
-            cls.BANGUMI_OFFICIAL_API,
-        )
+        proxy_node = getattr(settings, "BANGUMI_PROXY_API", "")
+        if getattr(settings, "BANGUMI_PREFER_FALLBACK", False):
+            candidates = (*configured_nodes, proxy_node, cls.BANGUMI_OFFICIAL_API)
+        else:
+            candidates = (proxy_node, *configured_nodes, cls.BANGUMI_OFFICIAL_API)
         nodes = []
         for candidate in candidates:
             node = cls._normalize_origin(candidate)
@@ -221,7 +230,7 @@ class MetadataScraper:
         source_host = (source.hostname or "").casefold()
         is_official_image = any(
             source_host == host or source_host.endswith(f".{host}")
-            for host in cls.BANGUMI_OFFICIAL_IMAGE_HOSTS
+            for host in cls.BANGUMI_IMAGE_PROXY_SOURCE_HOSTS
         )
         if not is_official_image:
             return original
@@ -494,6 +503,42 @@ class MetadataScraper:
 
         cache.set(cache_key, results, cls.SEARCH_CACHE_SECONDS)
         return results
+
+    @classmethod
+    def get_user_anime_collections(cls, uid, *, offset=0, limit=20):
+        """Return one official Bangumi anime-collection page.
+
+        The v0 endpoint already returns ``total / limit / offset / data``.
+        Keeping this method page-based prevents the Django request from ever
+        pulling a user's entire collection into memory.
+        """
+
+        uid = str(uid or "").strip()
+        if not uid or len(uid) > 64:
+            raise ValueError("请输入有效的 Bangumi UID。")
+        try:
+            offset = max(0, int(offset))
+            limit = max(1, min(20, int(limit)))
+        except (TypeError, ValueError) as exc:
+            raise ValueError("分页参数必须是整数。") from exc
+
+        payload = cls._safe_request(
+            f"users/{quote(uid, safe='')}/collections",
+            params={
+                "subject_type": 2,
+                "offset": offset,
+                "limit": limit,
+            },
+        )
+        if not isinstance(payload, dict) or not isinstance(payload.get("data"), list):
+            raise MetadataScraperError("Bangumi 收藏接口返回了异常的数据结构。")
+        return payload
+
+    @classmethod
+    def proxy_bangumi_image_url(cls, value):
+        """Public wrapper used by import views for collection thumbnails."""
+
+        return cls._proxy_image_url(value)
 
     @classmethod
     def get_bangumi_details(cls, subject_id):
