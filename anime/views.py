@@ -452,6 +452,79 @@ class BangumiCollectionBatchImportView(ExternalMetadataAPIView):
 
         return Anime.objects.update_or_create(bgm_id=bgm_id, defaults=defaults)
 
+    @staticmethod
+    def _poster_object_exists(anime):
+        """Return whether the FileField points at a real storage object."""
+
+        if not anime.poster_image or not anime.poster_image.name:
+            return False
+        try:
+            return anime.poster_image.storage.exists(anime.poster_image.name)
+        except Exception:
+            # A transient HEAD failure must not make us overwrite a valid image.
+            logger.exception(
+                "Bangumi poster existence check failed subject=%s key=%s",
+                anime.bgm_id,
+                anime.poster_image.name,
+            )
+            return True
+
+    @classmethod
+    def _ensure_poster_persisted(cls, *, anime, poster_url, bgm_id):
+        """Repair stale FileField keys and verify newly uploaded poster objects."""
+
+        if not poster_url or cls._poster_object_exists(anime):
+            return anime.poster_image.name if anime.poster_image else None
+
+        stale_name = anime.poster_image.name if anime.poster_image else ""
+        if stale_name:
+            logger.warning(
+                "Bangumi poster key is missing; re-uploading subject=%s key=%s",
+                bgm_id,
+                stale_name,
+            )
+            # Clear only the database reference. Never delete storage objects here.
+            anime.poster_image = None
+            anime.save(update_fields=("poster_image", "updated_at"))
+
+        for attempt in range(1, 3):
+            downloaded = MetadataScraper.download_bangumi_poster(poster_url)
+            if downloaded is None:
+                logger.warning(
+                    "Bangumi poster download returned no file subject=%s attempt=%s",
+                    bgm_id,
+                    attempt,
+                )
+                continue
+
+            try:
+                downloaded.seek(0)
+                anime.poster_image.save(downloaded.name, downloaded, save=True)
+                stored_name = anime.poster_image.name
+                if anime.poster_image.storage.exists(stored_name):
+                    return stored_name
+
+                logger.error(
+                    "Bangumi poster upload produced a missing object subject=%s "
+                    "attempt=%s key=%s",
+                    bgm_id,
+                    attempt,
+                    stored_name,
+                )
+            except Exception:
+                logger.exception(
+                    "Bangumi poster persistence failed subject=%s attempt=%s",
+                    bgm_id,
+                    attempt,
+                )
+
+            # Do not retain an R2-looking key when the object cannot be read.
+            # The remote poster_url remains available as the display fallback.
+            anime.poster_image = None
+            anime.save(update_fields=("poster_image", "updated_at"))
+
+        return None
+
     @method_decorator(
         ratelimit(
             group="bangumi-collection-batch",
@@ -532,30 +605,14 @@ class BangumiCollectionBatchImportView(ExternalMetadataAPIView):
                     if existing_record is None and current_count >= settings.USER_ANIME_RECORD_LIMIT:
                         raise PermissionDenied("您的追番记录已达到容量上限")
 
-                    if defaults.get("poster_url") and not anime.poster_image:
-                        downloaded = MetadataScraper.download_bangumi_poster(
-                            defaults["poster_url"]
-                        )
-                        if downloaded is not None:
-                            try:
-                                anime.poster_image.save(
-                                    downloaded.name,
-                                    downloaded,
-                                    save=True,
-                                )
-                            except Exception:
-                                # 海报转存属于增强步骤。R2 或本地媒体存储暂时不可用时，
-                                # 仍保留 poster_url 并继续导入私人追番记录。
-                                logger.exception(
-                                    "Bangumi poster persistence failed subject=%s",
-                                    bgm_id,
-                                )
+                    private_poster_name = self._ensure_poster_persisted(
+                        anime=anime,
+                        poster_url=defaults.get("poster_url"),
+                        bgm_id=bgm_id,
+                    )
 
                     collection_tags = self._clean_tags(collection.get("tags"))
                     editable_tags = collection_tags or list(defaults.get("base_tags") or [])
-                    private_poster_name = (
-                        anime.poster_image.name if anime.poster_image else None
-                    )
                     record_defaults = {
                         "personal_score": self._score(collection.get("rate")),
                         "watch_status": self.STATUS_MAP.get(

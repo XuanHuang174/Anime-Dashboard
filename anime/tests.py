@@ -34,7 +34,7 @@ from .models import (
     UserQuickFilter,
 )
 from .utils.scraper import MetadataScraper, MetadataScraperError
-from .views import AdminFeaturedSubmissionViewSet
+from .views import AdminFeaturedSubmissionViewSet, BangumiCollectionBatchImportView
 
 
 @override_settings(
@@ -3551,6 +3551,42 @@ class BangumiCollectionImportApiTests(APITestCase):
     def test_summary_requires_authentication(self):
         response = self.client.get(self.summary_url, {"uid": "rabbit-bgm"})
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    @patch.object(MetadataScraper, "download_bangumi_poster")
+    def test_batch_reuploads_stale_poster_key(self, download_bangumi_poster):
+        image_buffer = BytesIO()
+        Image.new("RGB", (2, 2), color="cyan").save(image_buffer, format="PNG")
+        download_bangumi_poster.return_value = ContentFile(
+            image_buffer.getvalue(),
+            name="bangumi-repaired.png",
+        )
+
+        with tempfile.TemporaryDirectory() as media_root, self.settings(
+            MEDIA_ROOT=media_root,
+        ):
+            anime = Anime.objects.create(
+                bgm_id=98765,
+                chinese_title="Stale poster key",
+                japanese_title="Stale poster key",
+                airing_period="2026-10",
+                poster_url="https://lain.bgm.tv/pic/cover/l/stale.jpg",
+                poster_image="anime/posters/2026/08/missing-object.jpg",
+            )
+
+            stored_name = BangumiCollectionBatchImportView._ensure_poster_persisted(
+                anime=anime,
+                poster_url=anime.poster_url,
+                bgm_id=anime.bgm_id,
+            )
+
+            anime.refresh_from_db()
+            self.assertNotEqual(
+                anime.poster_image.name,
+                "anime/posters/2026/08/missing-object.jpg",
+            )
+            self.assertEqual(stored_name, anime.poster_image.name)
+            self.assertTrue(anime.poster_image.storage.exists(stored_name))
+            download_bangumi_poster.assert_called_once_with(anime.poster_url)
 
     @patch.object(MetadataScraper, "get_user_anime_collections")
     def test_summary_returns_twenty_item_page_count(self, collections):
