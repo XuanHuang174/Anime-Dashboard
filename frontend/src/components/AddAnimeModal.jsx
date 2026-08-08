@@ -125,6 +125,7 @@ function AddAnimeModal({
 }) {
   const overlayRef = useRef(null)
   const modalRef = useRef(null)
+  const contentScrollRef = useRef(null)
   const closeHandlerRef = useRef(null)
   const posterInputRef = useRef(null)
   const magicSearchRef = useRef(null)
@@ -157,6 +158,16 @@ function AddAnimeModal({
     () => new Set(existingAnimeItems.map(getAnimeIdentityKey).filter(Boolean)),
     [existingAnimeItems],
   )
+
+  const changeLibraryPage = useCallback((nextPage) => {
+    setLibraryPage((currentPage) => (
+      typeof nextPage === 'function' ? nextPage(currentPage) : nextPage
+    ))
+
+    window.requestAnimationFrame(() => {
+      contentScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+    })
+  }, [])
 
   const posterPreview = useMemo(() => {
     if (posterFile) return URL.createObjectURL(posterFile)
@@ -721,7 +732,7 @@ function AddAnimeModal({
           ))}
         </div>
 
-        <div className="mx-5 mb-5 flex-1 overflow-y-auto border-4 border-black bg-white custom-scrollbar shadow-[6px_6px_0_#4ecdc4] sm:mx-6">
+        <div ref={contentScrollRef} className="mx-5 mb-5 flex-1 overflow-y-auto border-4 border-black bg-white custom-scrollbar shadow-[6px_6px_0_#4ecdc4] sm:mx-6">
           {activeTab === 'search' && (
             <div className="p-4 sm:p-5">
               <div className="add-modal-piece sticky top-0 z-10 border-[3px] border-black bg-[#4ecdc4] p-3 shadow-[5px_5px_0_#111]">
@@ -787,19 +798,19 @@ function AddAnimeModal({
 
               {!searchError && libraryTotal > 0 && (
                 <div className="add-modal-piece mt-6 flex flex-wrap items-center justify-center gap-2 border-t-4 border-black pt-4">
-                  <button type="button" onClick={() => setLibraryPage(1)} disabled={!libraryHasPrevious || isSearching} className={`${arcadeButton} bg-white px-3 py-2`} aria-label="转到第一页">
+                  <button type="button" onClick={() => changeLibraryPage(1)} disabled={!libraryHasPrevious || isSearching} className={`${arcadeButton} bg-white px-3 py-2`} aria-label="转到第一页">
                     <i className="fa-solid fa-angles-left" />
                   </button>
-                  <button type="button" onClick={() => setLibraryPage((page) => Math.max(1, page - 1))} disabled={!libraryHasPrevious || isSearching} className={`${arcadeButton} bg-[#4ecdc4] px-3 py-2`}>
+                  <button type="button" onClick={() => changeLibraryPage((page) => Math.max(1, page - 1))} disabled={!libraryHasPrevious || isSearching} className={`${arcadeButton} bg-[#4ecdc4] px-3 py-2`}>
                     <i className="fa-solid fa-arrow-left mr-1.5" />上一页
                   </button>
                   <span className="border-[3px] border-black bg-[#ffe66d] px-4 py-2 text-xs font-black shadow-[4px_4px_0_#111]">
                     第 {libraryPage} / {Math.max(1, Math.ceil(libraryTotal / LIBRARY_PAGE_SIZE))} 页
                   </span>
-                  <button type="button" onClick={() => setLibraryPage((page) => page + 1)} disabled={!libraryHasNext || isSearching} className={`${arcadeButton} bg-[#ff8fab] px-3 py-2`}>
+                  <button type="button" onClick={() => changeLibraryPage((page) => page + 1)} disabled={!libraryHasNext || isSearching} className={`${arcadeButton} bg-[#ff8fab] px-3 py-2`}>
                     下一页<i className="fa-solid fa-arrow-right ml-1.5" />
                   </button>
-                  <button type="button" onClick={() => setLibraryPage(Math.max(1, Math.ceil(libraryTotal / LIBRARY_PAGE_SIZE)))} disabled={!libraryHasNext || isSearching} className={`${arcadeButton} bg-white px-3 py-2`} aria-label="转到最后一页">
+                  <button type="button" onClick={() => changeLibraryPage(Math.max(1, Math.ceil(libraryTotal / LIBRARY_PAGE_SIZE)))} disabled={!libraryHasNext || isSearching} className={`${arcadeButton} bg-white px-3 py-2`} aria-label="转到最后一页">
                     <i className="fa-solid fa-angles-right" />
                   </button>
                 </div>

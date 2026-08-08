@@ -434,7 +434,7 @@ function FeaturedColumn() {
                           <i className="fa-solid fa-user-pen"></i>
                         </span>
                       )}
-                      <span>由 {item.authorName} 撰写</span>
+                      <span>由 <strong className="text-white">{item.authorName}</strong> 撰写</span>
                     </div>
 
                     <h2 className="text-2xl font-black leading-tight tracking-tight sm:text-3xl">

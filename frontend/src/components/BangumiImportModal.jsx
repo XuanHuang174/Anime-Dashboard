@@ -1,5 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useGSAP } from '@gsap/react'
+import gsap from 'gsap'
 import api from '../api/api.js'
+
+gsap.registerPlugin(useGSAP)
 
 // Keep each backend request short enough to report visible progress before the
 // global Axios timeout. Requests remain strictly serial with a pause between.
@@ -19,6 +23,8 @@ function getErrorMessage(error, fallback) {
 }
 
 function BangumiImportModal({ isOpen, onClose, onCompleted, showToast }) {
+  const overlayRef = useRef(null)
+  const modalRef = useRef(null)
   const [uid, setUid] = useState('')
   const [status, setStatus] = useState('idle')
   const [total, setTotal] = useState(0)
@@ -35,6 +41,46 @@ function BangumiImportModal({ isOpen, onClose, onCompleted, showToast }) {
     () => `已处理 ${Math.min(processed, total)}/${total} 部`,
     [processed, total],
   )
+
+  const { contextSafe } = useGSAP(() => {
+    if (!isOpen || !overlayRef.current || !modalRef.current) return undefined
+
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      gsap.set([overlayRef.current, modalRef.current], { clearProps: 'all' })
+      return undefined
+    }
+
+    const timeline = gsap.timeline()
+    timeline
+      .fromTo(overlayRef.current, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.16 })
+      .fromTo(
+        modalRef.current,
+        { autoAlpha: 0, y: -42, scale: 0.76, rotation: -2 },
+        { autoAlpha: 1, y: 0, scale: 1, rotation: 0, duration: 0.52, ease: 'back.out(1.7)' },
+        0.04,
+      )
+
+    return () => timeline.kill()
+  }, { scope: overlayRef, dependencies: [isOpen], revertOnUpdate: true })
+
+  const playExit = contextSafe((afterExit) => {
+    if (!overlayRef.current || !modalRef.current || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      afterExit()
+      return
+    }
+
+    gsap.killTweensOf([overlayRef.current, modalRef.current])
+    gsap.timeline({ onComplete: afterExit })
+      .to(modalRef.current, {
+        autoAlpha: 0,
+        y: 44,
+        scale: 0.88,
+        rotation: 1.5,
+        duration: 0.22,
+        ease: 'power3.in',
+      })
+      .to(overlayRef.current, { autoAlpha: 0, duration: 0.12 }, '<0.08')
+  })
 
   useEffect(() => {
     if (!isOpen) return undefined
@@ -62,7 +108,7 @@ function BangumiImportModal({ isOpen, onClose, onCompleted, showToast }) {
   if (!isOpen) return null
 
   const closeSafely = () => {
-    if (!isRunning) onClose()
+    if (!isRunning) playExit(onClose)
   }
 
   const startImport = async (event) => {
@@ -162,6 +208,7 @@ function BangumiImportModal({ isOpen, onClose, onCompleted, showToast }) {
 
   return (
     <div
+      ref={overlayRef}
       className="fixed inset-0 z-[180] flex items-center justify-center bg-zinc-950/80 p-4 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
@@ -170,7 +217,7 @@ function BangumiImportModal({ isOpen, onClose, onCompleted, showToast }) {
         if (event.target === event.currentTarget) closeSafely()
       }}
     >
-      <section className="relative w-full max-w-xl border-4 border-black bg-[#fff5ee] text-black shadow-[14px_14px_0_#4ecdc4]">
+      <section ref={modalRef} className="relative w-full max-w-xl border-4 border-black bg-[#fff5ee] text-black shadow-[14px_14px_0_#4ecdc4]">
         <div className="h-4 border-b-4 border-black bg-[repeating-linear-gradient(135deg,#ffe66d_0,#ffe66d_18px,#ff6b6b_18px,#ff6b6b_36px)]" />
         <button
           type="button"
@@ -190,7 +237,10 @@ function BangumiImportModal({ isOpen, onClose, onCompleted, showToast }) {
             从 Bangumi 一键导入
           </h2>
           <p className="mt-2 max-w-lg text-sm font-bold leading-6 text-zinc-700">
-            输入你的 Bangumi UID。系统每批处理 20 部，并在批次间主动休息，避免触发接口限流。
+            输入你的 Bangumi UID。系统每批处理 20 部，并在批次间主动休息，避免触发接口限流（该功能需要使用代理）。
+          </p>
+          <p className="mt-2 max-w-lg text-xs font-bold leading-5 text-zinc-600">
+            注意：第二次导入会更新已有的番剧信息，先前修改的数据会被替换。推荐首次大批量导入后，在私人空间进行个性化调整，后续想新增内容，可在智能录入模块补充
           </p>
 
           <label className="mt-6 block text-sm font-black" htmlFor="bangumiUid">
@@ -207,7 +257,7 @@ function BangumiImportModal({ isOpen, onClose, onCompleted, showToast }) {
               disabled={isRunning}
               maxLength={64}
               autoComplete="off"
-              placeholder="例如：你的 Bangumi 用户名或数字 UID"
+              placeholder="例如：你的 Bangumi 数字 UID"
               className="min-w-0 flex-1 bg-transparent px-4 py-3 font-black outline-none disabled:cursor-wait"
             />
           </div>

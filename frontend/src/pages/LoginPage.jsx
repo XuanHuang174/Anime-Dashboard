@@ -411,7 +411,7 @@ function LoginPage() {
                         value={email}
                         onChange={(event) => setEmail(event.target.value)}
                         className={inputClass}
-                        placeholder={isReset ? '请输入注册时使用的邮箱' : '请输入邮箱地址（支持 QQ / 网易 / 谷歌等主流邮箱）'}
+                        placeholder={isReset ? '请输入注册时使用的邮箱' : '请输入邮箱地址（支持 QQ / 网易 / 谷歌等）'}
                       />
                     </div>
                   </label>

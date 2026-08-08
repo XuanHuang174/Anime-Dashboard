@@ -16,7 +16,7 @@ export function PageSizeSelector({ pageSize, onChange, totalCount, isLoading, th
           <i className="fa-solid fa-table-list"></i>
         </span>
         <span>
-          展示数量
+          切换分页数量
           {Number.isFinite(totalCount) && (
             <span className="ml-2 text-slate-400">共 {totalCount} 条记录</span>
           )}
