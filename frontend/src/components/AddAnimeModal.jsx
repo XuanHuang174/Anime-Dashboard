@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 import api from '../api/api.js'
@@ -159,15 +159,25 @@ function AddAnimeModal({
     [existingAnimeItems],
   )
 
+  const resetLibraryScroll = useCallback(() => {
+    const scrollContainer = contentScrollRef.current
+    if (scrollContainer) scrollContainer.scrollTop = 0
+  }, [])
+
   const changeLibraryPage = useCallback((nextPage) => {
+    // Reset immediately so the old page cannot keep the scrollbar at its footer.
+    resetLibraryScroll()
     setLibraryPage((currentPage) => (
       typeof nextPage === 'function' ? nextPage(currentPage) : nextPage
     ))
+  }, [resetLibraryScroll])
 
-    window.requestAnimationFrame(() => {
-      contentScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
-    })
-  }, [])
+  // Run again after React commits the new page. Smooth scrolling here can be
+  // cancelled by the asynchronous result render, so use a synchronous reset.
+  useLayoutEffect(() => {
+    if (!isOpen || activeTab !== 'search') return
+    resetLibraryScroll()
+  }, [activeTab, isOpen, libraryPage, resetLibraryScroll])
 
   const posterPreview = useMemo(() => {
     if (posterFile) return URL.createObjectURL(posterFile)

@@ -10,6 +10,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.files.storage import default_storage
 from django.db.models import Count
 from rest_framework import serializers
+from rest_framework.validators import UniqueTogetherValidator
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from PIL import Image, UnidentifiedImageError
 
@@ -501,6 +502,13 @@ class AnimeSerializer(serializers.ModelSerializer):
             "updated_at",
         )
         read_only_fields = ("id", "bgm_id", "is_added", "created_at", "updated_at")
+        validators = (
+            UniqueTogetherValidator(
+                queryset=Anime.objects.all(),
+                fields=("chinese_title", "japanese_title", "airing_period"),
+                message="同一放送季度下已存在相同名称的番剧，请核对中文名、日文名或放送季度。",
+            ),
+        )
 
     def get_is_added(self, anime):
         annotated_value = getattr(anime, "is_added", None)
@@ -528,6 +536,13 @@ class AnimeSerializer(serializers.ModelSerializer):
                 }
             )
         return super().update(instance, validated_data)
+
+
+class PrivateAnimeMetadataSerializer(AnimeSerializer):
+    """Validate a user's isolated anime snapshot without public-library uniqueness."""
+
+    class Meta(AnimeSerializer.Meta):
+        validators = ()
 
 
 class JournalAnimeImportSerializer(serializers.Serializer):
@@ -1077,7 +1092,7 @@ class UserAnimeRecordAddSerializer(serializers.Serializer):
                         {"anime_data": "这部番剧已经在你的手账中。"}
                     )
 
-                private_metadata_serializer = AnimeSerializer(
+                private_metadata_serializer = PrivateAnimeMetadataSerializer(
                     matched_anime,
                     data=payload,
                     partial=True,

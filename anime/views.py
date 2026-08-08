@@ -74,6 +74,7 @@ from .serializers import (
     JournalRecordImportSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
+    PrivateAnimeMetadataSerializer,
     PublicFeaturedSubmissionSerializer,
     PublicJournalLobbySerializer,
     PublicJournalStatusSerializer,
@@ -2041,7 +2042,7 @@ class UserAnimeRecordViewSet(viewsets.ModelViewSet):
                 for key, value in request.data.items()
                 if key not in {"anime", "poster_image"}
             }
-        anime_serializer = AnimeSerializer(
+        anime_serializer = PrivateAnimeMetadataSerializer(
             record.anime,
             data=anime_payload,
             partial=True,

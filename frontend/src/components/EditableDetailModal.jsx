@@ -339,10 +339,12 @@ function EditableDetailModal({
       showToast('番剧资料和私人手账已同步保存。', 'success')
     } catch (requestError) {
       const detail = requestError.response?.data
-      const message = Object.values(detail ?? {}).flat(Infinity).join(' ')
-        || '保存失败，请检查 URL 和填写内容。'
+      const rawMessage = Object.values(detail ?? {}).flat(Infinity).join(' ')
+      const message = /chinese_title.*japanese_title.*airing_period|唯一集合|unique set/i.test(rawMessage)
+        ? '同一放送季度下已存在相同名称的番剧，请核对中文名、日文名或放送季度。'
+        : rawMessage || '保存失败，请检查 URL 和填写内容。'
       setError(message)
-      showToast('保存失败，请检查填写内容。', 'error')
+      showToast(message, 'error')
     } finally {
       setIsSaving(false)
     }
