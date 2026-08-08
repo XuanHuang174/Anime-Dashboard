@@ -327,9 +327,9 @@ function DashboardHeader({
           </div>
         </header>
       ) : (
-        <header className={`dashboard-memphis-console relative z-40 mx-4 overflow-visible border-4 border-black bg-[#ff8fab] text-black shadow-[8px_8px_0_#111] sm:mx-6 lg:mx-auto lg:max-w-7xl ${isModeTransitioning ? 'dashboard-mode-transition' : ''}`}>
+        <header className={`dashboard-memphis-console relative z-40 mx-4 mt-2 overflow-visible border-4 border-black bg-[#ff8fab] text-black shadow-[8px_8px_0_#111] sm:mx-6 lg:mx-auto lg:max-w-7xl ${isModeTransitioning ? 'dashboard-mode-transition' : ''}`}>
           <div className="dashboard-console-pattern pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true" />
-          <div className="pointer-events-none absolute -right-7 top-3 h-20 w-20 rotate-12 border-4 border-black bg-[#ffe66d] shadow-[5px_5px_0_#4ecdc4]" aria-hidden="true" />
+          <div className="pointer-events-none absolute -right-10 -top-10 h-20 w-20 rotate-12 border-4 border-black bg-[#ffe66d] shadow-[5px_5px_0_#4ecdc4]" aria-hidden="true" />
 
           <div className="relative z-10 flex flex-col justify-between gap-5 px-4 py-5 sm:px-6 lg:flex-row lg:items-center">
             <div className="min-w-0">
