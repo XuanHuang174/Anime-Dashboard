@@ -57,15 +57,17 @@ function compareScores(a, b, direction) {
   return direction === 'asc' ? a.score - b.score : b.score - a.score
 }
 
-function compareJournalPriority(a, b) {
+function compareRatedPriority(a, b) {
   const aIsRated = a.score !== null
   const bIsRated = b.score !== null
   if (aIsRated !== bIsRated) return aIsRated ? -1 : 1
+  return 0
+}
 
+function compareCompletedTieBreaker(a, b) {
   const aIsCompleted = a.status === 'completed'
   const bIsCompleted = b.status === 'completed'
   if (aIsCompleted !== bIsCompleted) return aIsCompleted ? -1 : 1
-
   return 0
 }
 
@@ -456,24 +458,32 @@ function Dashboard() {
     })
 
     return [...filtered].sort((a, b) => {
-      const priorityDifference = compareJournalPriority(a, b)
+      const priorityDifference = compareRatedPriority(a, b)
       if (priorityDifference !== 0) return priorityDifference
 
+      let primaryDifference = 0
       switch (sortOrder) {
         case 'date-asc':
-          return comparePeriod(a.period, b.period)
+          primaryDifference = comparePeriod(a.period, b.period)
+          break
         case 'score-desc':
-          return compareScores(a, b, 'desc')
+          primaryDifference = compareScores(a, b, 'desc')
+          break
         case 'score-asc':
-          return compareScores(a, b, 'asc')
+          primaryDifference = compareScores(a, b, 'asc')
+          break
         case 'updated-desc':
-          return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+          primaryDifference = new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+          break
         case 'updated-asc':
-          return new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime()
+          primaryDifference = new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime()
+          break
         case 'date-desc':
         default:
-          return comparePeriod(b.period, a.period)
+          primaryDifference = comparePeriod(b.period, a.period)
       }
+
+      return primaryDifference || compareCompletedTieBreaker(a, b)
     })
   }, [activeCustomFilter, db, pageSize, searchQuery, sortOrder, statusFilter, tagFilter, typeFilter, yearFilter])
 

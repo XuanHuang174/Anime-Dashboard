@@ -46,18 +46,40 @@ function BangumiImportModal({ isOpen, onClose, onCompleted, showToast }) {
     if (!isOpen || !overlayRef.current || !modalRef.current) return undefined
 
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      gsap.set([overlayRef.current, modalRef.current], { clearProps: 'all' })
+      gsap.set([overlayRef.current, modalRef.current, '.bangumi-import-piece'], { clearProps: 'all' })
       return undefined
     }
 
     const timeline = gsap.timeline()
     timeline
-      .fromTo(overlayRef.current, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.16 })
+      .fromTo(overlayRef.current, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.14 })
       .fromTo(
         modalRef.current,
-        { autoAlpha: 0, y: -42, scale: 0.76, rotation: -2 },
-        { autoAlpha: 1, y: 0, scale: 1, rotation: 0, duration: 0.52, ease: 'back.out(1.7)' },
-        0.04,
+        { autoAlpha: 0, scale: 0.7, y: -50, rotation: 2 },
+        {
+          autoAlpha: 1,
+          scale: 1,
+          y: 0,
+          rotation: 0,
+          duration: 0.62,
+          ease: 'back.out(1.5)',
+          clearProps: 'transform,opacity,visibility',
+        },
+        0,
+      )
+      .fromTo(
+        '.bangumi-import-piece',
+        { autoAlpha: 0, y: -16, scale: 0.96 },
+        {
+          autoAlpha: 1,
+          y: 0,
+          scale: 1,
+          duration: 0.3,
+          stagger: 0.04,
+          ease: 'back.out(1.5)',
+          clearProps: 'transform,opacity,visibility',
+        },
+        0.18,
       )
 
     return () => timeline.kill()
@@ -72,14 +94,14 @@ function BangumiImportModal({ isOpen, onClose, onCompleted, showToast }) {
     gsap.killTweensOf([overlayRef.current, modalRef.current])
     gsap.timeline({ onComplete: afterExit })
       .to(modalRef.current, {
+        y: 50,
+        scale: 0.82,
+        rotation: -2,
         autoAlpha: 0,
-        y: 44,
-        scale: 0.88,
-        rotation: 1.5,
-        duration: 0.22,
+        duration: 0.24,
         ease: 'power3.in',
       })
-      .to(overlayRef.current, { autoAlpha: 0, duration: 0.12 }, '<0.08')
+      .to(overlayRef.current, { autoAlpha: 0, duration: 0.12 }, '-=0.08')
   })
 
   useEffect(() => {
@@ -218,7 +240,7 @@ function BangumiImportModal({ isOpen, onClose, onCompleted, showToast }) {
       }}
     >
       <section ref={modalRef} className="relative w-full max-w-xl border-4 border-black bg-[#fff5ee] text-black shadow-[14px_14px_0_#4ecdc4]">
-        <div className="h-4 border-b-4 border-black bg-[repeating-linear-gradient(135deg,#ffe66d_0,#ffe66d_18px,#ff6b6b_18px,#ff6b6b_36px)]" />
+        <div className="bangumi-import-piece h-4 border-b-4 border-black bg-[repeating-linear-gradient(135deg,#ffe66d_0,#ffe66d_18px,#ff6b6b_18px,#ff6b6b_36px)]" />
         <button
           type="button"
           onClick={closeSafely}
@@ -229,7 +251,7 @@ function BangumiImportModal({ isOpen, onClose, onCompleted, showToast }) {
           <i className="fa-solid fa-xmark" />
         </button>
 
-        <form onSubmit={startImport} className="px-7 pb-8 pt-7">
+        <form onSubmit={startImport} className="bangumi-import-piece px-7 pb-8 pt-7">
           <span className="inline-flex -rotate-1 items-center border-2 border-black bg-[#ffe66d] px-3 py-1 text-[10px] font-black tracking-[0.18em] shadow-[3px_3px_0_#111]">
             BANGUMI COLLECTION SYNC
           </span>

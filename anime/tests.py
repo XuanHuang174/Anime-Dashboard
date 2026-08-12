@@ -1034,6 +1034,44 @@ class AnimeApiTests(APITestCase):
             ["旧标签一", "旧标签二", "旧标签三"],
         )
 
+    def test_add_endpoint_reuses_matching_inactive_anime_from_anime_data(self):
+        self.other_anime.is_active = False
+        self.other_anime.save(update_fields=("is_active",))
+        anime_count = Anime.objects.count()
+        self.client.force_authenticate(self.user)
+
+        response = self.client.post(
+            reverse("anime_api:user-anime-record-add"),
+            {
+                "anime_data": {
+                    "chinese_title": self.other_anime.chinese_title,
+                    "japanese_title": self.other_anime.japanese_title,
+                    "airing_period": self.other_anime.airing_period,
+                    "studio": "私人快照制作公司",
+                    "base_tags": ["智能录入", "隐藏条目复用"],
+                },
+                "watch_status": UserAnimeRecord.WatchStatus.COMPLETED,
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["anime"]["id"], self.other_anime.id)
+        self.assertEqual(Anime.objects.count(), anime_count)
+        self.other_anime.refresh_from_db()
+        self.assertFalse(self.other_anime.is_active)
+        record = UserAnimeRecord.objects.get(
+            user=self.user,
+            anime=self.other_anime,
+        )
+        self.assertTrue(record.metadata_initialized)
+        self.assertEqual(record.private_studio, "私人快照制作公司")
+        self.assertEqual(record.private_base_tags, ["智能录入", "隐藏条目复用"])
+        self.assertEqual(
+            record.watch_status,
+            UserAnimeRecord.WatchStatus.COMPLETED,
+        )
+
     def test_add_endpoint_rejects_duplicate_private_record_from_anime_data(self):
         self.client.force_authenticate(self.user)
 

@@ -16,7 +16,7 @@ const emptyManualForm = {
   description: '',
   posterUrl: '',
   baikeUrl: '',
-  watchStatus: 'plan',
+  watchStatus: 'completed',
   personalScore: '',
   review: '',
 }
@@ -981,7 +981,7 @@ function AddAnimeModal({
                   <div className="border-[3px] border-black bg-[#ffe66d] p-4 shadow-[6px_6px_0_#ff8fab]">
                     <h3 className="mb-3 text-sm font-black"><i className="fa-solid fa-bookmark mr-2"></i>初始私人手账信息</h3>
                     <div className="grid gap-4 sm:grid-cols-2">
-                      <label className="block"><span className={labelClass}>观看状态</span><select name="watchStatus" value={manualForm.watchStatus} onChange={updateManualField} className={inputClass}><option value="plan">想看</option><option value="watching">在看</option><option value="completed">看过</option><option value="on_hold">搁置</option></select></label>
+                      <label className="block"><span className={labelClass}>观看状态</span><select name="watchStatus" value={manualForm.watchStatus} onChange={updateManualField} className={inputClass}><option value="completed">看过</option><option value="watching">在看</option><option value="plan">想看</option><option value="on_hold">搁置</option></select></label>
                       <label className="block"><span className={labelClass}>主观评分</span><input name="personalScore" type="number" min="0" max="10" step="0.1" value={manualForm.personalScore} onChange={updateManualField} className={inputClass} placeholder="0.0 - 10.0" /></label>
                       <label className="block sm:col-span-2"><span className={labelClass}>个人评价</span><textarea name="review" value={manualForm.review} onChange={updateManualField} className={`${inputClass} min-h-[112px] resize-y leading-6`} /></label>
                     </div>

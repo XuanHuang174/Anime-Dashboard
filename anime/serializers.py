@@ -1054,27 +1054,21 @@ class UserAnimeRecordAddSerializer(serializers.Serializer):
                         {"anime_data": "这部番剧已经在你的手账中。"}
                     )
 
-                active_candidates = [
-                    anime for anime in candidates if anime.is_active
-                ]
-                if active_candidates:
+                if candidates:
+                    # Inactive rows include private-only Bangumi imports and
+                    # legacy rows retired from the public showcase. They are
+                    # still valid shared identities and can safely back a new
+                    # user's isolated private metadata snapshot.
                     matched_anime = max(
-                        active_candidates,
-                        key=lambda anime: (anime.record_count, -anime.pk),
+                        candidates,
+                        key=lambda anime: (
+                            anime.is_active,
+                            anime.record_count,
+                            -anime.pk,
+                        ),
                     )
-                elif candidates:
-                    matched_anime = candidates[0]
 
             if matched_anime is not None:
-                if not matched_anime.is_active:
-                    raise serializers.ValidationError(
-                        {
-                            "anime_data": (
-                                "公共番剧库中已有相同资料，但该条目目前已下架，"
-                                "请联系管理员恢复后再添加。"
-                            )
-                        }
-                    )
                 if poster_image:
                     raise serializers.ValidationError(
                         {
