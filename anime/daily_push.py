@@ -195,7 +195,7 @@ def send_daily_pushes(calendar_items):
                     getattr(settings, "RESEND_READ_TIMEOUT", 8.0),
                 ),
             )
-            if not response.ok:
+            if not response.ok or response.status_code not in (200, 201):
                 logger.error(
                     "Resend API rejected daily push: status=%s user_id=%s response=%s",
                     response.status_code,

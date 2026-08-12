@@ -747,6 +747,38 @@ class DailyPushCronApiTests(APITestCase):
         self.assertIsNone(self.user.profile.last_push_date)
         sleep.assert_called_once_with(1)
 
+    @patch("anime.daily_push.time.sleep")
+    @patch("anime.daily_push.requests.post")
+    @patch("anime.views.fetch_today_bangumi_items")
+    def test_redirect_response_is_not_treated_as_sent(
+        self,
+        fetch_calendar,
+        post,
+        sleep,
+    ):
+        anime = Anime.objects.create(
+            bgm_id=1000,
+            chinese_title="重定向不应成功",
+            airing_period="2026-7",
+        )
+        UserAnimeRecord.objects.create(
+            user=self.user,
+            anime=anime,
+            watch_status=UserAnimeRecord.WatchStatus.WATCHING,
+        )
+        fetch_calendar.return_value = [{"id": 1000, "name_cn": "重定向不应成功"}]
+        post.return_value = Mock(ok=True, status_code=302, text="redirected")
+
+        with self.assertLogs("anime.daily_push", level="ERROR"):
+            response = self.client.get(self.url, {"token": "test-cron-secret"})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["sent"], 0)
+        self.assertEqual(response.data["failed"], 1)
+        self.user.profile.refresh_from_db()
+        self.assertIsNone(self.user.profile.last_push_date)
+        sleep.assert_called_once_with(1)
+
 
 @override_settings(
     TRANSACTIONAL_EMAIL_PROVIDER="django",
