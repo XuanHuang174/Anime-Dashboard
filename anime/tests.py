@@ -613,8 +613,8 @@ class UserProfileApiTests(APITestCase):
 
 @override_settings(
     CRON_SECRET_KEY="test-cron-secret",
-    EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
-    DEFAULT_FROM_EMAIL="push@example.com",
+    RESEND_API_KEY="re_test_daily_push",
+    RESEND_FROM_EMAIL="Anime Dashboard <noreply@xh-anime.com>",
 )
 class DailyPushCronApiTests(APITestCase):
     def setUp(self):
@@ -647,10 +647,12 @@ class DailyPushCronApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     @patch("anime.daily_push.time.sleep")
+    @patch("anime.daily_push.resend.Emails.send", return_value={"id": "email-1"})
     @patch("anime.views.fetch_today_bangumi_items")
     def test_cron_aggregates_id_and_normalized_name_matches_into_one_email(
         self,
         fetch_calendar,
+        send_email,
         sleep,
     ):
         id_anime = Anime.objects.create(
@@ -686,20 +688,22 @@ class DailyPushCronApiTests(APITestCase):
         self.assertEqual(second.status_code, status.HTTP_200_OK)
         self.assertEqual(second.data["sent"], 0)
         self.assertEqual(second.data["skipped"], 1)
-        self.assertEqual(len(mail.outbox), 1)
-        self.assertEqual(mail.outbox[0].to, [self.user.email])
-        self.assertIn("ID 精确匹配", mail.outbox[0].body)
-        self.assertIn("名称 匹配", mail.outbox[0].body)
-        self.assertEqual(len(mail.outbox[0].alternatives), 1)
+        send_email.assert_called_once()
+        payload = send_email.call_args.args[0]
+        self.assertEqual(payload["from"], "Anime Dashboard <noreply@xh-anime.com>")
+        self.assertEqual(payload["to"], [self.user.email])
+        self.assertIn("ID 精确匹配", payload["text"])
+        self.assertIn("名称 匹配", payload["text"])
+        self.assertIn("ID 精确匹配", payload["html"])
         sleep.assert_called_once_with(1)
 
     @patch("anime.daily_push.time.sleep")
-    @patch("anime.daily_push.send_mail", side_effect=RuntimeError("smtp down"))
+    @patch("anime.daily_push.resend.Emails.send", side_effect=RuntimeError("resend down"))
     @patch("anime.views.fetch_today_bangumi_items")
     def test_failed_email_releases_daily_claim(
         self,
         fetch_calendar,
-        _send_mail,
+        _send_email,
         sleep,
     ):
         anime = Anime.objects.create(

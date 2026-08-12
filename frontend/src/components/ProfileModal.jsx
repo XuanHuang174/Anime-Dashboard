@@ -33,6 +33,10 @@ function ProfileModal({ isOpen, profile, onClose, onSaved, showToast }) {
   const navigate = useNavigate()
   const overlayRef = useRef(null)
   const modalRef = useRef(null)
+  const pushConfirmOverlayRef = useRef(null)
+  const pushConfirmModalRef = useRef(null)
+  const pushConfirmCloseRef = useRef(null)
+  const pendingPushStateRef = useRef(null)
   const fileInputRef = useRef(null)
   const closeHandlerRef = useRef(null)
   const [activeTab, setActiveTab] = useState('profile')
@@ -133,11 +137,100 @@ function ProfileModal({ isOpen, profile, onClose, onSaved, showToast }) {
       }, '-=0.08')
   })
 
+  const { contextSafe: pushConfirmContextSafe } = useGSAP(() => {
+    if (
+      pendingPushState === null
+      || !pushConfirmOverlayRef.current
+      || !pushConfirmModalRef.current
+    ) return undefined
+
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      gsap.set(
+        [pushConfirmOverlayRef.current, pushConfirmModalRef.current, '.push-confirm-piece'],
+        { clearProps: 'all' },
+      )
+      return undefined
+    }
+
+    const timeline = gsap.timeline()
+    timeline
+      .fromTo(
+        pushConfirmOverlayRef.current,
+        { autoAlpha: 0 },
+        { autoAlpha: 1, duration: 0.16, ease: 'power1.out' },
+      )
+      .fromTo(
+        pushConfirmModalRef.current,
+        { autoAlpha: 0, scale: 0.72, y: -42, rotation: pendingPushState ? -2 : 2 },
+        {
+          autoAlpha: 1,
+          scale: 1,
+          y: 0,
+          rotation: 0,
+          duration: 0.48,
+          ease: 'back.out(1.7)',
+          clearProps: 'transform,opacity,visibility',
+        },
+        0,
+      )
+      .fromTo(
+        '.push-confirm-piece',
+        { autoAlpha: 0, y: -14, scale: 0.95 },
+        {
+          autoAlpha: 1,
+          y: 0,
+          scale: 1,
+          duration: 0.28,
+          stagger: 0.05,
+          ease: 'back.out(1.5)',
+          clearProps: 'transform,opacity,visibility',
+        },
+        0.14,
+      )
+
+    return () => timeline.kill()
+  }, {
+    scope: pushConfirmOverlayRef,
+    dependencies: [pendingPushState],
+    revertOnUpdate: true,
+  })
+
+  const playPushConfirmExit = pushConfirmContextSafe(() => {
+    if (
+      !pushConfirmModalRef.current
+      || !pushConfirmOverlayRef.current
+      || window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ) {
+      setPendingPushState(null)
+      return
+    }
+
+    gsap.killTweensOf([pushConfirmModalRef.current, pushConfirmOverlayRef.current])
+    gsap.timeline({ onComplete: () => setPendingPushState(null) })
+      .to(pushConfirmModalRef.current, {
+        y: 38,
+        scale: 0.84,
+        rotation: pendingPushState ? 2 : -2,
+        autoAlpha: 0,
+        duration: 0.24,
+        ease: 'power3.in',
+      })
+      .to(pushConfirmOverlayRef.current, {
+        autoAlpha: 0,
+        duration: 0.12,
+        ease: 'power2.in',
+      }, '-=0.08')
+  })
+
   const isBusy = isSaving || isChangingPassword || isUpdatingPush
   const handleClose = () => {
     if (!isBusy) playExit(onClose)
   }
   closeHandlerRef.current = handleClose
+  pushConfirmCloseRef.current = () => {
+    if (!isUpdatingPush) playPushConfirmExit()
+  }
+  pendingPushStateRef.current = pendingPushState
 
   useEffect(() => {
     if (!isOpen) return undefined
@@ -159,7 +252,9 @@ function ProfileModal({ isOpen, profile, onClose, onSaved, showToast }) {
 
     const previousOverflow = document.body.style.overflow
     const handleKeyDown = (event) => {
-      if (event.key === 'Escape') closeHandlerRef.current?.()
+      if (event.key === 'Escape' && pendingPushStateRef.current === null) {
+        closeHandlerRef.current?.()
+      }
     }
     document.body.style.overflow = 'hidden'
     window.addEventListener('keydown', handleKeyDown)
@@ -168,6 +263,15 @@ function ProfileModal({ isOpen, profile, onClose, onSaved, showToast }) {
       window.removeEventListener('keydown', handleKeyDown)
     }
   }, [isOpen, profile])
+
+  useEffect(() => {
+    if (pendingPushState === null) return undefined
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') pushConfirmCloseRef.current?.()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [pendingPushState])
 
   useEffect(() => {
     if (!avatarFile) return undefined
@@ -258,7 +362,7 @@ function ProfileModal({ isOpen, profile, onClose, onSaved, showToast }) {
         pendingPushState ? '新番推送通知已开启。' : '新番推送通知已关闭。',
         'success',
       )
-      setPendingPushState(null)
+      playPushConfirmExit()
     } catch (requestError) {
       setPushError(getApiError(requestError, '推送设置更新失败，请稍后重试。'))
     } finally {
@@ -472,6 +576,7 @@ function ProfileModal({ isOpen, profile, onClose, onSaved, showToast }) {
 
       {pendingPushState !== null && (
         <div
+          ref={pushConfirmOverlayRef}
           className="fixed inset-0 z-[150] flex items-center justify-center bg-zinc-950/75 p-4"
           role="dialog"
           aria-modal="true"
@@ -479,27 +584,27 @@ function ProfileModal({ isOpen, profile, onClose, onSaved, showToast }) {
           onMouseDown={(event) => {
             event.stopPropagation()
             if (event.target === event.currentTarget && !isUpdatingPush) {
-              setPendingPushState(null)
+              playPushConfirmExit()
             }
           }}
         >
-          <section className="w-full max-w-md border-4 border-black bg-[#fff5ee] p-5 shadow-[10px_10px_0_#ff8fab]">
-            <span className="inline-flex border-2 border-black bg-[#4ecdc4] px-3 py-1 text-[10px] font-black tracking-[0.16em] shadow-[3px_3px_0_#111]">
+          <section ref={pushConfirmModalRef} className="w-full max-w-md border-4 border-black bg-[#fff5ee] p-5 shadow-[10px_10px_0_#ff8fab]">
+            <span className="push-confirm-piece inline-flex border-2 border-black bg-[#4ecdc4] px-3 py-1 text-[10px] font-black tracking-[0.16em] shadow-[3px_3px_0_#111]">
               DAILY PUSH
             </span>
-            <h3 id="pushConfirmTitle" className="mt-4 text-2xl font-black">
+            <h3 id="pushConfirmTitle" className="push-confirm-piece mt-4 text-2xl font-black">
               {pendingPushState ? '开启新番推送？' : '关闭新番推送？'}
             </h3>
-            <p className="mt-3 border-l-[7px] border-black bg-white px-4 py-3 text-sm font-bold leading-7 shadow-[4px_4px_0_#111]">
+            <p className="push-confirm-piece mt-3 border-l-[7px] border-black bg-white px-4 py-3 text-sm font-bold leading-7 shadow-[4px_4px_0_#111]">
               {pendingPushState
                 ? '开启后，标记为“在看”的新番，其当日更新信息将会在每晚 8 点推送到你的注册邮箱。是否确认开启？'
                 : '关闭后，你将不再接收新番更新的邮件推送。是否确认？'}
             </p>
-            <div className="mt-6 grid grid-cols-2 gap-4">
+            <div className="push-confirm-piece mt-6 grid grid-cols-2 gap-4">
               <button
                 type="button"
                 disabled={isUpdatingPush}
-                onClick={() => setPendingPushState(null)}
+                onClick={playPushConfirmExit}
                 className={secondaryButtonClass}
               >
                 取消

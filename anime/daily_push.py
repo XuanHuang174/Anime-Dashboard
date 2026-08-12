@@ -6,8 +6,8 @@ import unicodedata
 from collections import defaultdict
 
 import requests
+import resend
 from django.conf import settings
-from django.core.mail import send_mail
 from django.db import transaction
 from django.utils import timezone
 
@@ -169,14 +169,22 @@ def send_daily_pushes(calendar_items):
 
         plain_message, html_message = _build_email(titles)
         try:
-            send_mail(
-                subject=f"今晚有 {len(set(titles))} 部新番更新啦！",
-                message=plain_message,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[profile.user.email],
-                html_message=html_message,
-                fail_silently=False,
-            )
+            api_key = getattr(settings, "RESEND_API_KEY", "").strip()
+            from_email = getattr(settings, "RESEND_FROM_EMAIL", "").strip()
+            if not api_key or not from_email:
+                raise RuntimeError(
+                    "RESEND_API_KEY or RESEND_FROM_EMAIL is not configured."
+                )
+
+            resend.api_key = api_key
+            params: resend.Emails.SendParams = {
+                "from": from_email,
+                "to": [profile.user.email],
+                "subject": f"今晚有 {len(set(titles))} 部新番更新啦！",
+                "html": html_message,
+                "text": plain_message,
+            }
+            resend.Emails.send(params)
             result["sent"] += 1
         except Exception:
             _release_failed_claim(profile.pk, push_date)
