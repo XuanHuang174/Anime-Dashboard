@@ -68,6 +68,19 @@ class UserProfile(models.Model):
         db_index=True,
         help_text="仅管理员审核通过的手账可以进入番剧共创大厅。",
     )
+    is_push_enabled = models.BooleanField(
+        "新番推送通知",
+        default=False,
+        db_index=True,
+        help_text="每天晚上八点接收标记为在看的新番更新邮件。",
+    )
+    last_push_date = models.DateField(
+        "最后推送日期",
+        null=True,
+        blank=True,
+        editable=False,
+        help_text="用于阻止外部 Cron 在同一天重复发送。",
+    )
 
     class Meta:
         verbose_name = "用户资料"

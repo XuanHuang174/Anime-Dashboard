@@ -14,6 +14,7 @@ from .views import (
     BangumiCollectionSummaryView,
     CurrentUserAccountView,
     CurrentUserProfileView,
+    DailyPushCronView,
     ExternalAnimeAutofillView,
     ExternalAnimeSearchView,
     FeaturedSubmissionViewSet,
@@ -75,6 +76,11 @@ router.register(
 
 app_name = "anime_api"
 urlpatterns = [
+    path(
+        "cron/trigger-daily-push/",
+        DailyPushCronView.as_view(),
+        name="cron-trigger-daily-push",
+    ),
     path("admin/session/", AdminSessionView.as_view(), name="admin-session"),
     path(
         "admin/public-journals/<str:username>/records/",

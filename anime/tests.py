@@ -23,6 +23,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from .admin import AnimeAdmin
+from .daily_push import normalize_anime_name
 from .models import (
     Anime,
     FeaturedQuickFilter,
@@ -471,6 +472,7 @@ class UserProfileApiTests(APITestCase):
 
         self.assertEqual(profile.nickname, "")
         self.assertFalse(profile.avatar)
+        self.assertFalse(profile.is_push_enabled)
 
     def test_raw_fixture_user_save_does_not_create_related_defaults(self):
         from .signals import initialize_new_user
@@ -510,12 +512,27 @@ class UserProfileApiTests(APITestCase):
         self.assertEqual(get_response.data["email"], self.user.email)
         self.assertEqual(patch_response.status_code, status.HTTP_200_OK)
         self.assertEqual(patch_response.data["nickname"], "番剧旅人")
+        self.assertFalse(get_response.data["is_push_enabled"])
         self.user.profile.refresh_from_db()
         self.assertEqual(self.user.profile.nickname, "番剧旅人")
         self.assertEqual(
             self.user.profile.showcase_subtitle,
             "这是我的追番展示宣言。",
         )
+
+    def test_authenticated_user_can_toggle_daily_push(self):
+        self.client.force_authenticate(self.user)
+
+        response = self.client.patch(
+            reverse("anime_api:user-profile"),
+            {"is_push_enabled": True},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["is_push_enabled"])
+        self.user.profile.refresh_from_db()
+        self.assertTrue(self.user.profile.is_push_enabled)
 
     def test_profile_nickname_must_be_unique_but_owner_can_keep_it(self):
         other_user = get_user_model().objects.create_user(
@@ -592,6 +609,118 @@ class UserProfileApiTests(APITestCase):
             self.assertTrue(
                 (Path(media_root) / self.user.profile.avatar.name).is_file()
             )
+
+
+@override_settings(
+    CRON_SECRET_KEY="test-cron-secret",
+    EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+    DEFAULT_FROM_EMAIL="push@example.com",
+)
+class DailyPushCronApiTests(APITestCase):
+    def setUp(self):
+        self.url = reverse("anime_api:cron-trigger-daily-push")
+        self.user = get_user_model().objects.create_user(
+            username="push@example.com",
+            email="push@example.com",
+            password="Push-Test-2026!",
+        )
+        self.user.profile.is_push_enabled = True
+        self.user.profile.save(update_fields=("is_push_enabled",))
+
+    def test_normalize_anime_name_uses_nfkc_and_removes_symbols(self):
+        self.assertEqual(
+            normalize_anime_name(" 《我推の子》 第３季！ "),
+            "我推の子第3季",
+        )
+
+    def test_cron_rejects_missing_or_wrong_token(self):
+        missing = self.client.get(self.url)
+        wrong = self.client.get(self.url, {"token": "wrong"})
+
+        self.assertEqual(missing.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(wrong.status_code, status.HTTP_403_FORBIDDEN)
+
+    @override_settings(CRON_SECRET_KEY="")
+    def test_cron_stays_forbidden_when_secret_is_unconfigured(self):
+        response = self.client.get(self.url, {"token": ""})
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    @patch("anime.daily_push.time.sleep")
+    @patch("anime.views.fetch_today_bangumi_items")
+    def test_cron_aggregates_id_and_normalized_name_matches_into_one_email(
+        self,
+        fetch_calendar,
+        sleep,
+    ):
+        id_anime = Anime.objects.create(
+            bgm_id=12345,
+            chinese_title="ID 精确匹配",
+            airing_period="2026-7",
+        )
+        name_anime = Anime.objects.create(
+            chinese_title="《名称 匹配！》",
+            japanese_title="Ｎａｍｅ－Ｍａｔｃｈ",
+            airing_period="2026-7",
+        )
+        UserAnimeRecord.objects.create(
+            user=self.user,
+            anime=id_anime,
+            watch_status=UserAnimeRecord.WatchStatus.WATCHING,
+        )
+        UserAnimeRecord.objects.create(
+            user=self.user,
+            anime=name_anime,
+            watch_status=UserAnimeRecord.WatchStatus.WATCHING,
+        )
+        fetch_calendar.return_value = [
+            {"id": 12345, "name_cn": "Bangumi 上的其他名字", "name": "Other"},
+            {"id": 67890, "name_cn": "名称匹配", "name": "Name Match"},
+        ]
+
+        first = self.client.get(self.url, {"token": "test-cron-secret"})
+        second = self.client.get(self.url, {"token": "test-cron-secret"})
+
+        self.assertEqual(first.status_code, status.HTTP_200_OK)
+        self.assertEqual(first.data["sent"], 1)
+        self.assertEqual(second.status_code, status.HTTP_200_OK)
+        self.assertEqual(second.data["sent"], 0)
+        self.assertEqual(second.data["skipped"], 1)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, [self.user.email])
+        self.assertIn("ID 精确匹配", mail.outbox[0].body)
+        self.assertIn("名称 匹配", mail.outbox[0].body)
+        self.assertEqual(len(mail.outbox[0].alternatives), 1)
+        sleep.assert_called_once_with(1)
+
+    @patch("anime.daily_push.time.sleep")
+    @patch("anime.daily_push.send_mail", side_effect=RuntimeError("smtp down"))
+    @patch("anime.views.fetch_today_bangumi_items")
+    def test_failed_email_releases_daily_claim(
+        self,
+        fetch_calendar,
+        _send_mail,
+        sleep,
+    ):
+        anime = Anime.objects.create(
+            bgm_id=999,
+            chinese_title="失败后可重试",
+            airing_period="2026-7",
+        )
+        UserAnimeRecord.objects.create(
+            user=self.user,
+            anime=anime,
+            watch_status=UserAnimeRecord.WatchStatus.WATCHING,
+        )
+        fetch_calendar.return_value = [{"id": 999, "name_cn": "失败后可重试"}]
+
+        response = self.client.get(self.url, {"token": "test-cron-secret"})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["failed"], 1)
+        self.user.profile.refresh_from_db()
+        self.assertIsNone(self.user.profile.last_push_date)
+        sleep.assert_called_once_with(1)
 
 
 @override_settings(

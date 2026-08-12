@@ -399,6 +399,10 @@ RESEND_FROM_EMAIL = env(
 RESEND_CONNECT_TIMEOUT = env.float('RESEND_CONNECT_TIMEOUT', default=3.05)
 RESEND_READ_TIMEOUT = env.float('RESEND_READ_TIMEOUT', default=8.0)
 
+# Shared only with the external scheduler that calls the hidden daily-push API.
+# An empty value keeps the endpoint disabled instead of accepting a blank token.
+CRON_SECRET_KEY = env('CRON_SECRET_KEY', default='').strip()
+
 if TRANSACTIONAL_EMAIL_PROVIDER not in {'auto', 'django', 'resend'}:
     raise ImproperlyConfigured(
         'TRANSACTIONAL_EMAIL_PROVIDER must be auto, django, or resend.'

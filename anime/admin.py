@@ -21,12 +21,15 @@ class UserProfileAdmin(admin.ModelAdmin):
         "public_status",
         "is_public",
         "max_featured_limit",
+        "is_push_enabled",
+        "last_push_date",
         "showcase_subtitle",
         "avatar",
     )
-    list_filter = ("public_status", "is_public")
+    list_filter = ("public_status", "is_public", "is_push_enabled")
     search_fields = ("user__username", "user__email", "nickname", "showcase_subtitle")
     autocomplete_fields = ("user",)
+    readonly_fields = ("last_push_date",)
 
 
 @admin.register(Anime)

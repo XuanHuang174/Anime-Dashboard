@@ -224,6 +224,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "max_featured_limit",
             "public_status",
             "is_public",
+            "is_push_enabled",
         )
         read_only_fields = (
             "username",

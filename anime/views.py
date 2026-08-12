@@ -1,4 +1,5 @@
 import json
+import hmac
 import logging
 import re
 from decimal import Decimal, InvalidOperation
@@ -48,6 +49,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .email_service import EmailDeliveryError, send_transactional_email
+from .daily_push import fetch_today_bangumi_items, send_daily_pushes
 from .models import (
     Anime,
     FeaturedQuickFilter,
@@ -96,6 +98,49 @@ from .utils.scraper import MetadataScraper, MetadataScraperError
 
 
 logger = logging.getLogger(__name__)
+
+
+class DailyPushCronView(APIView):
+    """Hidden scheduler endpoint protected by a shared query-string secret."""
+
+    authentication_classes = ()
+    permission_classes = (permissions.AllowAny,)
+
+    def get(self, request):
+        configured_token = settings.CRON_SECRET_KEY
+        supplied_token = request.query_params.get("token", "")
+        if not configured_token:
+            logger.error("Daily push endpoint called without CRON_SECRET_KEY configured.")
+            return Response(
+                {"detail": "Forbidden"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if not supplied_token or not hmac.compare_digest(
+            supplied_token,
+            configured_token,
+        ):
+            return Response(
+                {"detail": "Forbidden"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        try:
+            calendar_items = fetch_today_bangumi_items()
+        except Exception:
+            logger.exception("Bangumi daily calendar fetch failed.")
+            return Response(
+                {"detail": "Bangumi 日历读取失败，本次未发送邮件。"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        result = send_daily_pushes(calendar_items)
+        return Response(
+            {
+                "detail": "每日新番推送任务执行完成。",
+                "calendar_items": len(calendar_items),
+                **result,
+            }
+        )
 
 
 def _is_stale_bangumi_proxy_url(value):

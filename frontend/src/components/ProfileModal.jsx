@@ -47,6 +47,10 @@ function ProfileModal({ isOpen, profile, onClose, onSaved, showToast }) {
   const [newPasswordConfirm, setNewPasswordConfirm] = useState('')
   const [passwordError, setPasswordError] = useState('')
   const [isChangingPassword, setIsChangingPassword] = useState(false)
+  const [isPushEnabled, setIsPushEnabled] = useState(false)
+  const [pendingPushState, setPendingPushState] = useState(null)
+  const [isUpdatingPush, setIsUpdatingPush] = useState(false)
+  const [pushError, setPushError] = useState('')
 
   const { contextSafe } = useGSAP(() => {
     if (!isOpen || !overlayRef.current || !modalRef.current) return undefined
@@ -129,7 +133,7 @@ function ProfileModal({ isOpen, profile, onClose, onSaved, showToast }) {
       }, '-=0.08')
   })
 
-  const isBusy = isSaving || isChangingPassword
+  const isBusy = isSaving || isChangingPassword || isUpdatingPush
   const handleClose = () => {
     if (!isBusy) playExit(onClose)
   }
@@ -147,6 +151,10 @@ function ProfileModal({ isOpen, profile, onClose, onSaved, showToast }) {
     setNewPassword('')
     setNewPasswordConfirm('')
     setPasswordError('')
+    setIsPushEnabled(Boolean(profile?.is_push_enabled))
+    setPendingPushState(null)
+    setIsUpdatingPush(false)
+    setPushError('')
     if (fileInputRef.current) fileInputRef.current.value = ''
 
     const previousOverflow = document.body.style.overflow
@@ -233,6 +241,28 @@ function ProfileModal({ isOpen, profile, onClose, onSaved, showToast }) {
       setPasswordError(getApiError(requestError, '密码修改失败，请检查当前密码后重试。'))
     } finally {
       setIsChangingPassword(false)
+    }
+  }
+
+  const confirmPushChange = async () => {
+    if (pendingPushState === null) return
+    setPushError('')
+    setIsUpdatingPush(true)
+    try {
+      const response = await api.patch('user/profile/', {
+        is_push_enabled: pendingPushState,
+      })
+      setIsPushEnabled(Boolean(response.data.is_push_enabled))
+      onSaved(response.data)
+      showToast?.(
+        pendingPushState ? '新番推送通知已开启。' : '新番推送通知已关闭。',
+        'success',
+      )
+      setPendingPushState(null)
+    } catch (requestError) {
+      setPushError(getApiError(requestError, '推送设置更新失败，请稍后重试。'))
+    } finally {
+      setIsUpdatingPush(false)
     }
   }
 
@@ -327,6 +357,41 @@ function ProfileModal({ isOpen, profile, onClose, onSaved, showToast }) {
               <span className="mt-1 block text-right text-[11px] font-black">{nickname.length}/50</span>
             </label>
 
+            <div className="profile-modal-piece border-[3px] border-black bg-[#ffe66d] p-4 shadow-[6px_6px_0_#4ecdc4]">
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <h3 className="text-sm font-black">
+                    <i className="fa-solid fa-bell mr-2 text-[#ff4f87]" />
+                    新番推送通知
+                  </h3>
+                  <p className="mt-1 text-xs font-bold leading-5 text-zinc-700">
+                    每晚 8 点汇总提醒今天更新的“在看”新番
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={isPushEnabled}
+                  aria-label="新番推送通知"
+                  disabled={isBusy}
+                  onClick={() => {
+                    setPushError('')
+                    setPendingPushState(!isPushEnabled)
+                  }}
+                  className={`relative h-9 w-16 shrink-0 border-[3px] border-black shadow-[4px_4px_0_#111] transition-none disabled:cursor-wait disabled:opacity-50 ${isPushEnabled ? 'bg-[#4ecdc4]' : 'bg-zinc-300'}`}
+                >
+                  <span className={`absolute top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center border-2 border-black bg-white text-[10px] transition-transform ${isPushEnabled ? 'translate-x-[33px]' : 'translate-x-1'}`}>
+                    <i className={`fa-solid ${isPushEnabled ? 'fa-bell' : 'fa-bell-slash'}`} />
+                  </span>
+                </button>
+              </div>
+              {pushError && (
+                <p role="alert" className="mt-3 border-2 border-black bg-[#ff6b6b] px-3 py-2 text-xs font-black">
+                  <i className="fa-solid fa-circle-exclamation mr-2" />{pushError}
+                </p>
+              )}
+            </div>
+
             <label className="profile-modal-piece block">
               <span className="mb-1 block text-sm font-black"><i className="fa-solid fa-quote-left mr-2 text-[#087f78]" />预览页副标题</span>
               <textarea
@@ -404,6 +469,54 @@ function ProfileModal({ isOpen, profile, onClose, onSaved, showToast }) {
           </form>
         )}
       </section>
+
+      {pendingPushState !== null && (
+        <div
+          className="fixed inset-0 z-[150] flex items-center justify-center bg-zinc-950/75 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="pushConfirmTitle"
+          onMouseDown={(event) => {
+            event.stopPropagation()
+            if (event.target === event.currentTarget && !isUpdatingPush) {
+              setPendingPushState(null)
+            }
+          }}
+        >
+          <section className="w-full max-w-md border-4 border-black bg-[#fff5ee] p-5 shadow-[10px_10px_0_#ff8fab]">
+            <span className="inline-flex border-2 border-black bg-[#4ecdc4] px-3 py-1 text-[10px] font-black tracking-[0.16em] shadow-[3px_3px_0_#111]">
+              DAILY PUSH
+            </span>
+            <h3 id="pushConfirmTitle" className="mt-4 text-2xl font-black">
+              {pendingPushState ? '开启新番推送？' : '关闭新番推送？'}
+            </h3>
+            <p className="mt-3 border-l-[7px] border-black bg-white px-4 py-3 text-sm font-bold leading-7 shadow-[4px_4px_0_#111]">
+              {pendingPushState
+                ? '开启后，标记为“在看”的新番，其当日更新信息将会在每晚 8 点推送到你的注册邮箱。是否确认开启？'
+                : '关闭后，你将不再接收新番更新的邮件推送。是否确认？'}
+            </p>
+            <div className="mt-6 grid grid-cols-2 gap-4">
+              <button
+                type="button"
+                disabled={isUpdatingPush}
+                onClick={() => setPendingPushState(null)}
+                className={secondaryButtonClass}
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                disabled={isUpdatingPush}
+                onClick={confirmPushChange}
+                className={primaryButtonClass}
+              >
+                <i className={`fa-solid ${isUpdatingPush ? 'fa-spinner animate-spin' : 'fa-check'} mr-2`} />
+                {isUpdatingPush ? '更新中...' : '确认'}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   )
 }
