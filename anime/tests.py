@@ -647,14 +647,15 @@ class DailyPushCronApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     @patch("anime.daily_push.time.sleep")
-    @patch("anime.daily_push.resend.Emails.send", return_value={"id": "email-1"})
+    @patch("anime.daily_push.requests.post")
     @patch("anime.views.fetch_today_bangumi_items")
     def test_cron_aggregates_id_and_normalized_name_matches_into_one_email(
         self,
         fetch_calendar,
-        send_email,
+        post,
         sleep,
     ):
+        post.return_value = Mock(ok=True, status_code=200, text='{"id":"email-1"}')
         id_anime = Anime.objects.create(
             bgm_id=12345,
             chinese_title="ID 精确匹配",
@@ -688,24 +689,39 @@ class DailyPushCronApiTests(APITestCase):
         self.assertEqual(second.status_code, status.HTTP_200_OK)
         self.assertEqual(second.data["sent"], 0)
         self.assertEqual(second.data["skipped"], 1)
-        send_email.assert_called_once()
-        payload = send_email.call_args.args[0]
+        post.assert_called_once()
+        request = post.call_args
+        self.assertEqual(request.args[0], "https://api.resend.com/emails")
+        self.assertEqual(
+            request.kwargs["headers"],
+            {
+                "Authorization": "Bearer re_test_daily_push",
+                "Content-Type": "application/json",
+            },
+        )
+        payload = request.kwargs["json"]
         self.assertEqual(payload["from"], "Anime Dashboard <noreply@xh-anime.com>")
         self.assertEqual(payload["to"], [self.user.email])
         self.assertIn("ID 精确匹配", payload["text"])
         self.assertIn("名称 匹配", payload["text"])
         self.assertIn("ID 精确匹配", payload["html"])
+        self.assertEqual(request.kwargs["timeout"], (3.05, 8.0))
         sleep.assert_called_once_with(1)
 
     @patch("anime.daily_push.time.sleep")
-    @patch("anime.daily_push.resend.Emails.send", side_effect=RuntimeError("resend down"))
+    @patch("anime.daily_push.requests.post")
     @patch("anime.views.fetch_today_bangumi_items")
     def test_failed_email_releases_daily_claim(
         self,
         fetch_calendar,
-        _send_email,
+        post,
         sleep,
     ):
+        post.return_value = Mock(
+            ok=False,
+            status_code=405,
+            text='{"message":"Method POST is not allowed for the requested path."}',
+        )
         anime = Anime.objects.create(
             bgm_id=999,
             chinese_title="失败后可重试",
@@ -718,10 +734,15 @@ class DailyPushCronApiTests(APITestCase):
         )
         fetch_calendar.return_value = [{"id": 999, "name_cn": "失败后可重试"}]
 
-        response = self.client.get(self.url, {"token": "test-cron-secret"})
+        with self.assertLogs("anime.daily_push", level="ERROR") as logs:
+            response = self.client.get(self.url, {"token": "test-cron-secret"})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["failed"], 1)
+        self.assertIn(
+            "Method POST is not allowed for the requested path.",
+            "\n".join(logs.output),
+        )
         self.user.profile.refresh_from_db()
         self.assertIsNone(self.user.profile.last_push_date)
         sleep.assert_called_once_with(1)

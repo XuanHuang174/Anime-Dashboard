@@ -6,7 +6,6 @@ import unicodedata
 from collections import defaultdict
 
 import requests
-import resend
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
@@ -16,6 +15,7 @@ from .models import UserAnimeRecord, UserProfile
 
 logger = logging.getLogger(__name__)
 BANGUMI_CALENDAR_URL = "https://api.bgm.tv/calendar"
+RESEND_EMAILS_URL = "https://api.resend.com/emails"
 NAME_NOISE_PATTERN = re.compile(r"[^\w\u4e00-\u9fff]", flags=re.UNICODE)
 
 
@@ -176,15 +176,35 @@ def send_daily_pushes(calendar_items):
                     "RESEND_API_KEY or RESEND_FROM_EMAIL is not configured."
                 )
 
-            resend.api_key = api_key
-            params: resend.Emails.SendParams = {
+            payload = {
                 "from": from_email,
                 "to": [profile.user.email],
                 "subject": f"今晚有 {len(set(titles))} 部新番更新啦！",
                 "html": html_message,
                 "text": plain_message,
             }
-            resend.Emails.send(params)
+            response = requests.post(
+                RESEND_EMAILS_URL,
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+                timeout=(
+                    getattr(settings, "RESEND_CONNECT_TIMEOUT", 3.05),
+                    getattr(settings, "RESEND_READ_TIMEOUT", 8.0),
+                ),
+            )
+            if not response.ok:
+                logger.error(
+                    "Resend API rejected daily push: status=%s user_id=%s response=%s",
+                    response.status_code,
+                    profile.user_id,
+                    response.text,
+                )
+                raise RuntimeError(
+                    f"Resend API returned HTTP {response.status_code}."
+                )
             result["sent"] += 1
         except Exception:
             _release_failed_claim(profile.pk, push_date)
