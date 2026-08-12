@@ -516,7 +516,7 @@ function AddAnimeModal({
     try {
       const response = await api.post('records/add/', {
         anime_id: anime.id,
-        watch_status: 'plan',
+        watch_status: 'completed',
       })
       setResults((current) => current.map((item) => (
         item.id === anime.id ? { ...item, is_added: true } : item

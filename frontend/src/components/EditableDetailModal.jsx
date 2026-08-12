@@ -18,6 +18,8 @@ const presetTags = [
   '真百', '轻百', '日常', '治愈', '萌系', '搞笑', '校园', '恋爱',
   '原创', '奇幻', '异世界', '战斗', '冒险', '剧场版', '泡面番',
   '魔法少女', '音乐', '悬疑', '职场', '游戏改',
+  '爱情', 'OVA', '小说改', '漫画改', 'Gal改', '喜剧', '催泪', '偶像',
+  '后宫', '运动', '热血', '龙傲天', '凤傲天', '黑暗', '致郁',
 ]
 
 const fieldClass = 'w-full border-2 border-black bg-white px-3 py-2 text-sm font-bold text-black shadow-[3px_3px_0_#111] outline-none transition-none placeholder:text-zinc-400 focus:translate-x-1 focus:translate-y-1 focus:bg-[#fff2a8] focus:shadow-none'

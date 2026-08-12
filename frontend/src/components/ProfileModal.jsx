@@ -461,6 +461,19 @@ function ProfileModal({ isOpen, profile, onClose, onSaved, showToast }) {
               <span className="mt-1 block text-right text-[11px] font-black">{nickname.length}/50</span>
             </label>
 
+            <label className="profile-modal-piece block">
+              <span className="mb-1 block text-sm font-black"><i className="fa-solid fa-quote-left mr-2 text-[#087f78]" />预览页副标题</span>
+              <textarea
+                value={showcaseSubtitle}
+                onChange={(event) => setShowcaseSubtitle(event.target.value)}
+                maxLength={200}
+                rows={2}
+                className={`${inputClass} resize-none leading-6`}
+                placeholder="写一句属于你的追番宣言吧"
+              />
+              <span className="mt-1 block text-right text-[11px] font-black">{showcaseSubtitle.length}/200</span>
+            </label>
+
             <div className="profile-modal-piece border-[3px] border-black bg-[#ffe66d] p-4 shadow-[6px_6px_0_#4ecdc4]">
               <div className="flex items-center justify-between gap-4">
                 <div className="min-w-0">
@@ -495,19 +508,6 @@ function ProfileModal({ isOpen, profile, onClose, onSaved, showToast }) {
                 </p>
               )}
             </div>
-
-            <label className="profile-modal-piece block">
-              <span className="mb-1 block text-sm font-black"><i className="fa-solid fa-quote-left mr-2 text-[#087f78]" />预览页副标题</span>
-              <textarea
-                value={showcaseSubtitle}
-                onChange={(event) => setShowcaseSubtitle(event.target.value)}
-                maxLength={200}
-                rows={2}
-                className={`${inputClass} resize-none leading-6`}
-                placeholder="写一句属于你的追番宣言吧"
-              />
-              <span className="mt-1 block text-right text-[11px] font-black">{showcaseSubtitle.length}/200</span>
-            </label>
 
             {error && (
               <p role="alert" className="profile-modal-piece border-[3px] border-black bg-[#ff6b6b] px-4 py-3 text-sm font-black shadow-[4px_4px_0_#111]">
