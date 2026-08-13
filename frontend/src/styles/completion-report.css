@@ -100,6 +100,10 @@
 .completion-report-title-block {
   position: relative;
   z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
   margin: 24px 0 34px;
   border: 6px solid #111;
   background: #ff6b6b;
@@ -175,6 +179,7 @@
 
 .completion-report-score-card {
   background: #ff8fab;
+  color: #111;
 }
 
 .completion-report-score-card span,
@@ -187,20 +192,39 @@
   letter-spacing: 1px;
 }
 
+.completion-report-score-value {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-height: 112px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+}
+
 .completion-report-score-card strong {
-  display: inline-block;
+  display: flex;
+  min-width: 176px;
+  min-height: 96px;
+  align-items: center;
+  justify-content: center;
   background: #fff;
-  padding: 0 12px;
+  padding: 8px 16px;
   font-size: 66px;
   font-weight: 1000;
-  line-height: 1.15;
+  line-height: 1;
+  text-align: center;
   box-shadow: 6px 6px 0 #ffe66d;
 }
 
 .completion-report-score-card small {
-  margin-left: 8px;
+  position: absolute;
+  right: 8px;
+  bottom: 10px;
   font-size: 22px;
   font-weight: 1000;
+  white-space: nowrap;
 }
 
 .completion-report-fact-card {
@@ -287,19 +311,21 @@
 .completion-report-footer {
   position: relative;
   z-index: 1;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 218px;
   align-items: center;
-  justify-content: center;
-  gap: 50px;
+  justify-content: stretch;
+  gap: 34px;
   min-height: 290px;
   margin-top: 72px;
   border-top: 7px solid #111;
-  padding: 42px 92px 10px;
+  padding: 42px 34px 10px 54px;
 }
 
 .completion-report-slogan {
   display: flex;
-  max-width: 390px;
+  width: 100%;
+  min-width: 0;
   flex-direction: column;
   align-items: flex-start;
   gap: 13px;
@@ -315,9 +341,12 @@
 }
 
 .completion-report-slogan strong {
-  font-size: 29px;
+  display: block;
+  width: 100%;
+  font-size: 25px;
   font-weight: 1000;
   line-height: 1.3;
+  white-space: nowrap;
 }
 
 .completion-report-qr {

@@ -4143,6 +4143,33 @@ class ImageProxyApiTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
+    @patch("anime.views.socket.getaddrinfo")
+    @patch("anime.views.requests.get")
+    def test_image_proxy_accepts_public_media_subdomain(
+        self,
+        request_get,
+        getaddrinfo,
+    ):
+        getaddrinfo.return_value = [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("104.21.12.34", 443))
+        ]
+        upstream = Mock()
+        upstream.status_code = status.HTTP_200_OK
+        upstream.headers = {
+            "Content-Length": "3",
+            "Content-Type": "image/webp",
+        }
+        upstream.iter_content.return_value = [b"r2!"]
+        request_get.return_value = upstream
+
+        response = self.client.get(
+            self.url,
+            {"url": "https://media.xh-anime.com/anime/posters/example.webp"},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["data_url"], "data:image/webp;base64,cjIh")
+
 
 class ExternalMetadataApiTests(APITestCase):
     def setUp(self):

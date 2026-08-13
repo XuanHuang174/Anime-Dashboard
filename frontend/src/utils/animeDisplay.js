@@ -77,6 +77,15 @@ export function getCoverSrc(item) {
   return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="120" height="160" viewBox="0 0 120 160"><rect width="100%" height="100%" fill="%23e2e8f0"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="'Noto Sans SC', sans-serif" font-weight="bold" font-size="12" fill="%2364748b">${initials}</text></svg>`
 }
 
+export function getScoreAccentColor(score) {
+  const numericScore = Number(score)
+  if (!Number.isFinite(numericScore)) return '#ff8fab'
+  if (numericScore >= 9.9) return '#a78bfa'
+  if (numericScore >= 9.5) return '#ff6b6b'
+  if (numericScore >= 9.0) return '#f59e0b'
+  return '#ff8fab'
+}
+
 export function getSeasonDetails(period) {
   const details = {
     periodStyle: 'bg-white text-slate-600 border-2 border-slate-400 shadow-[2px_2px_0_0_#94a3b8]',

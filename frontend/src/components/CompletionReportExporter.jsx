@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import api from '../api/api.js'
-import { getCoverSrc } from '../utils/animeDisplay.js'
+import { getCoverSrc, getScoreAccentColor } from '../utils/animeDisplay.js'
 import { formatAiringPeriod } from '../utils/featuredDisplay.js'
 import '../styles/completion-report.css'
 
@@ -13,17 +13,9 @@ function canUseCoverDirectly(source) {
 
   try {
     const parsed = new URL(source, window.location.origin)
-    const hostname = parsed.hostname.toLowerCase()
-    const configuredHosts = String(import.meta.env.VITE_TRUSTED_IMAGE_HOSTS || '')
-      .split(',')
-      .map((host) => host.trim().toLowerCase())
-      .filter(Boolean)
+    // Subdomains are different origins. Proxy media.xh-anime.com and every
+    // external/R2 URL so export never depends on a bucket's CORS response.
     return parsed.origin === window.location.origin
-      || hostname === 'xh-anime.com'
-      || hostname.endsWith('.xh-anime.com')
-      || hostname.endsWith('.r2.dev')
-      || hostname.endsWith('.r2.cloudflarestorage.com')
-      || configuredHosts.includes(hostname)
   } catch {
     return false
   }
@@ -44,37 +36,32 @@ async function resolveReportCover(source) {
   }
 }
 
-function waitForPosterImages(root) {
-  const images = Array.from(root.querySelectorAll('img'))
-  return Promise.all(images.map(async (image) => {
-    if (image.complete && image.naturalWidth > 0) return
+async function loadPosterImage(image, source) {
+  if (!image) throw new Error('海报画板尚未准备完成。')
 
-    if (typeof image.decode === 'function') {
-      try {
-        await image.decode()
-        return
-      } catch {
-        // Fall through to the load/error listeners for browsers with partial decode support.
-      }
+  image.crossOrigin = 'anonymous'
+  image.src = source
+  if (image.complete && image.naturalWidth > 0) {
+    if (typeof image.decode === 'function') await image.decode()
+    return
+  }
+
+  await new Promise((resolve, reject) => {
+    const timeoutId = window.setTimeout(
+      () => reject(new Error('番剧封面加载超时，请稍后重试。')),
+      12000,
+    )
+    const finish = (callback) => {
+      window.clearTimeout(timeoutId)
+      image.removeEventListener('load', handleLoad)
+      image.removeEventListener('error', handleError)
+      callback()
     }
-
-    await new Promise((resolve, reject) => {
-      const timeoutId = window.setTimeout(
-        () => reject(new Error('番剧封面加载超时，请稍后重试。')),
-        12000,
-      )
-      const finish = (callback) => {
-        window.clearTimeout(timeoutId)
-        image.removeEventListener('load', handleLoad)
-        image.removeEventListener('error', handleError)
-        callback()
-      }
-      const handleLoad = () => finish(resolve)
-      const handleError = () => finish(() => reject(new Error('番剧封面无法用于海报导出。')))
-      image.addEventListener('load', handleLoad, { once: true })
-      image.addEventListener('error', handleError, { once: true })
-    })
-  }))
+    const handleLoad = () => finish(resolve)
+    const handleError = () => finish(() => reject(new Error('番剧封面无法用于海报导出。')))
+    image.addEventListener('load', handleLoad, { once: true })
+    image.addEventListener('error', handleError, { once: true })
+  })
 }
 
 function sanitizeFilename(title) {
@@ -98,14 +85,12 @@ function CompletionReportExporter({ item, disabled = false, buttonClassName = ''
     try {
       const { default: html2canvas } = await import('html2canvas')
       const exportCover = await resolveReportCover(originalCover)
-      if (coverRef.current) coverRef.current.src = exportCover
       if (document.fonts?.ready) await document.fonts.ready
       try {
-        await waitForPosterImages(poster)
+        await loadPosterImage(coverRef.current, exportCover)
       } catch (imageError) {
         if (exportCover === PLACEHOLDER_COVER || !coverRef.current) throw imageError
-        coverRef.current.src = PLACEHOLDER_COVER
-        await waitForPosterImages(poster)
+        await loadPosterImage(coverRef.current, PLACEHOLDER_COVER)
       }
 
       const canvas = await html2canvas(poster, {
@@ -146,6 +131,7 @@ function CompletionReportExporter({ item, disabled = false, buttonClassName = ''
   const score = item.score === null || item.score === undefined
     ? '--'
     : Number(item.score).toFixed(1)
+  const scoreAccentColor = getScoreAccentColor(item.score)
 
   return (
     <>
@@ -190,10 +176,15 @@ function CompletionReportExporter({ item, disabled = false, buttonClassName = ''
             </div>
 
             <div className="completion-report-facts">
-              <div className="completion-report-score-card">
+              <div
+                className="completion-report-score-card"
+                style={{ backgroundColor: scoreAccentColor }}
+              >
                 <span>综合评分</span>
-                <strong>{score}</strong>
-                <small>/ 10</small>
+                <div className="completion-report-score-value">
+                  <strong>{score}</strong>
+                  <small>/ 10</small>
+                </div>
               </div>
               <div className="completion-report-fact-card">
                 <span>放送季度 / SEASON</span>
