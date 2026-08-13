@@ -353,6 +353,8 @@ function DetailModal({
       disabled: true,
     },
   }[featuredAction?.state || 'default']
+  const showCompletedActions = isPrivateJournal
+    && selectedItem.status === 'completed'
 
   return (
     <div
@@ -687,7 +689,7 @@ function DetailModal({
               <i className={`fa-solid ${isDeleting ? 'fa-spinner animate-spin' : 'fa-trash-can'} mr-2`}></i>
               {isDeleting ? '删除中...' : '删除记录'}
             </button>
-          ) : (featuredAction || isPrivateJournal) ? (
+          ) : showCompletedActions ? (
             <div className="flex flex-wrap items-center gap-2">
               {featuredAction && (
                 <button
@@ -702,14 +704,12 @@ function DetailModal({
                   {featuredAction.isProcessing ? '处理中…' : featuredButton.label}
                 </button>
               )}
-              {isPrivateJournal && (
-                <CompletionReportExporter
-                  item={selectedItem}
-                  disabled={isClosing}
-                  buttonClassName={`${arcadeButtonClass} bg-[#ffe66d] hover:bg-[#ff8fab]`}
-                  showToast={showToast}
-                />
-              )}
+              <CompletionReportExporter
+                item={selectedItem}
+                disabled={isClosing}
+                buttonClassName={`${arcadeButtonClass} bg-[#ffe66d] hover:bg-[#ff8fab]`}
+                showToast={showToast}
+              />
             </div>
           ) : <span />}
 

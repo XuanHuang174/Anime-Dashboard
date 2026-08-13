@@ -805,6 +805,27 @@ select {
   border-width: 3px;
 }
 
+.add-watch-status-select .searchable-select__trigger {
+  min-height: 45px;
+  border: 3px solid #111;
+  border-radius: 0;
+  background: #ffe66d;
+  padding: 9px 12px;
+  color: #111;
+  font-weight: 900;
+  box-shadow: 4px 4px 0 #111;
+}
+
+.add-watch-status-select .searchable-select__trigger[aria-expanded='true'] {
+  transform: translate(3px, 3px);
+  box-shadow: 1px 1px 0 #111;
+}
+
+.add-watch-status-select .searchable-select__panel {
+  z-index: 90;
+  border-width: 3px;
+}
+
 .staff-only-decoration {
   position: relative;
   z-index: 0;
