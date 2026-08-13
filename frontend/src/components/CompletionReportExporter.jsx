@@ -71,6 +71,14 @@ function sanitizeFilename(title) {
     .trim() || '番剧'
 }
 
+function waitForStableLayout() {
+  return new Promise((resolve) => {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(resolve)
+    })
+  })
+}
+
 function CompletionReportExporter({ item, disabled = false, buttonClassName = '', showToast }) {
   const posterRef = useRef(null)
   const coverRef = useRef(null)
@@ -92,6 +100,7 @@ function CompletionReportExporter({ item, disabled = false, buttonClassName = ''
         if (exportCover === PLACEHOLDER_COVER || !coverRef.current) throw imageError
         await loadPosterImage(coverRef.current, PLACEHOLDER_COVER)
       }
+      await waitForStableLayout()
 
       const canvas = await html2canvas(poster, {
         backgroundColor: '#fff5ee',
@@ -182,7 +191,23 @@ function CompletionReportExporter({ item, disabled = false, buttonClassName = ''
               >
                 <span>综合评分</span>
                 <div className="completion-report-score-value">
-                  <strong>{score}</strong>
+                  <strong>
+                    <svg
+                      viewBox="0 0 176 96"
+                      width="176"
+                      height="96"
+                      aria-label={`${score} 分`}
+                    >
+                      <text
+                        x="88"
+                        y="49"
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                      >
+                        {score}
+                      </text>
+                    </svg>
+                  </strong>
                   <small>/ 10</small>
                 </div>
               </div>
