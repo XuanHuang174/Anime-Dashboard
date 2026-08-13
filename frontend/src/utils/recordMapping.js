@@ -25,6 +25,8 @@ export function mapRecordToAnimeItem(record) {
     tagColors,
     status: record.watch_status,
     statusLabel: record.watch_status_display ?? record.watch_status,
+    watchedEps: Math.max(0, Number(record.watched_eps) || 0),
+    totalEps: Math.max(0, Number(record.total_eps) || 0),
     review: record.review ?? '',
     description: anime.description ?? anime.synopsis ?? '',
     studio: anime.studio ?? '',

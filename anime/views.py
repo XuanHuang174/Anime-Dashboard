@@ -585,6 +585,13 @@ class BangumiCollectionBatchImportView(ExternalMetadataAPIView):
             return None
         return score if Decimal("0") < score <= Decimal("10") else None
 
+    @staticmethod
+    def _nonnegative_int(value):
+        try:
+            return max(0, int(value or 0))
+        except (TypeError, ValueError):
+            return 0
+
     @classmethod
     def _subject_defaults(cls, subject, *, request_user, details=None, baike_url=""):
         details = details if isinstance(details, dict) else {}
@@ -863,6 +870,8 @@ class BangumiCollectionBatchImportView(ExternalMetadataAPIView):
                             int(collection.get("type") or 1),
                             UserAnimeRecord.WatchStatus.PLAN_TO_WATCH,
                         ),
+                        "watched_eps": self._nonnegative_int(collection.get("ep_status")),
+                        "total_eps": self._nonnegative_int(subject.get("eps")),
                         "review": str(collection.get("comment") or ""),
                         # Bangumi collection tags belong to this user. Persist
                         # them in the editable private snapshot rather than in
@@ -1803,6 +1812,8 @@ class UserJournalExportView(APIView):
                         else None
                     ),
                     "watch_status": record.watch_status,
+                    "watched_eps": record.watched_eps,
+                    "total_eps": record.total_eps,
                     "review": record.review,
                     "custom_tags": record.custom_tags,
                 }
@@ -1922,6 +1933,8 @@ class UserJournalImportView(APIView):
                             anime=anime,
                             personal_score=item["personal_score"],
                             watch_status=item["watch_status"],
+                            watched_eps=item["watched_eps"],
+                            total_eps=item["total_eps"],
                             review=item["review"],
                             custom_tags=item["custom_tags"],
                             metadata_initialized=True,
@@ -2161,6 +2174,48 @@ class UserAnimeRecordViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=("get",), url_path="filter-options")
     def filter_options(self, request):
         return Response(_build_filter_options(self._base_queryset()))
+
+    @action(detail=True, methods=("patch",), url_path="progress")
+    @transaction.atomic
+    def progress(self, request, pk=None):
+        """Atomically increment one private watching-progress value."""
+
+        record = generics.get_object_or_404(
+            self._base_queryset().select_for_update(),
+            pk=pk,
+        )
+        if record.watch_status != UserAnimeRecord.WatchStatus.WATCHING:
+            return Response(
+                {"detail": "只有标记为在看的番剧才能快捷更新进度。"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        increment = request.data.get("increment", 1)
+        try:
+            increment = int(increment)
+        except (TypeError, ValueError):
+            return Response(
+                {"increment": "increment 必须是整数。"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if increment != 1:
+            return Response(
+                {"increment": "快捷更新一次只能增加 1 集。"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if record.total_eps > 0 and record.watched_eps >= record.total_eps:
+            return Response(
+                {"detail": "观看进度已经达到总集数。"},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        record.watched_eps += 1
+        record.save(update_fields=("watched_eps", "updated_at"))
+        serialized = dict(self.get_serializer(record).data)
+        serialized["suggest_completed"] = (
+            record.total_eps > 0 and record.watched_eps == record.total_eps
+        )
+        return Response(serialized)
 
     def perform_create(self, serializer):
         record = serializer.save(user=self.request.user)

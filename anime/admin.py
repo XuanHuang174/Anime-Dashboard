@@ -114,7 +114,9 @@ class UserAnimeRecordAdmin(admin.ModelAdmin):
     list_per_page = 30
     fieldsets = (
         ("归属关系", {"fields": ("user", "anime")}),
-        ("追番信息", {"fields": ("watch_status", "personal_score", "custom_tags")}),
+        ("追番信息", {"fields": (
+            "watch_status", "watched_eps", "total_eps", "personal_score", "custom_tags",
+        )}),
         ("个人评价", {"fields": ("review",)}),
         ("系统信息", {"fields": ("created_at", "updated_at"), "classes": ("collapse",)}),
     )

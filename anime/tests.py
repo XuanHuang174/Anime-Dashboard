@@ -875,6 +875,8 @@ class AnimeApiTests(APITestCase):
             user=self.user,
             anime=self.anime,
             watch_status=UserAnimeRecord.WatchStatus.WATCHING,
+            watched_eps=3,
+            total_eps=12,
         )
         UserAnimeRecord.objects.create(
             user=self.other_user,
@@ -889,6 +891,57 @@ class AnimeApiTests(APITestCase):
         self.assertEqual(response.data["count"], 2)
         self.assertEqual(len(response.data["results"]), 2)
         self.assertIn("no-store", response.headers["Cache-Control"])
+
+    def test_watching_progress_increment_returns_completion_suggestion(self):
+        self.client.force_authenticate(self.user)
+        self.record.watched_eps = 11
+        self.record.save(update_fields=("watched_eps",))
+
+        response = self.client.patch(
+            reverse(
+                "anime_api:user-anime-record-progress",
+                kwargs={"pk": self.record.pk},
+            ),
+            {"increment": 1},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["watched_eps"], 12)
+        self.assertEqual(response.data["total_eps"], 12)
+        self.assertTrue(response.data["suggest_completed"])
+
+    def test_watching_progress_cannot_exceed_total(self):
+        self.client.force_authenticate(self.user)
+        self.record.watched_eps = 12
+        self.record.save(update_fields=("watched_eps",))
+
+        response = self.client.patch(
+            reverse(
+                "anime_api:user-anime-record-progress",
+                kwargs={"pk": self.record.pk},
+            ),
+            {"increment": 1},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.record.refresh_from_db()
+        self.assertEqual(self.record.watched_eps, 12)
+
+    def test_watching_progress_is_private_to_record_owner(self):
+        self.client.force_authenticate(self.other_user)
+
+        response = self.client.patch(
+            reverse(
+                "anime_api:user-anime-record-progress",
+                kwargs={"pk": self.record.pk},
+            ),
+            {"increment": 1},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_admin_public_library_only_lists_showcase_owner_records(self):
         request = RequestFactory().get("/admin/anime/anime/")
@@ -2301,6 +2354,8 @@ class JournalDataTransferApiTests(APITestCase):
             anime=self.old_anime,
             personal_score=Decimal("8.5"),
             watch_status=UserAnimeRecord.WatchStatus.COMPLETED,
+            watched_eps=12,
+            total_eps=12,
             review="原有评价",
             custom_tags=["收藏"],
         )
@@ -2337,6 +2392,8 @@ class JournalDataTransferApiTests(APITestCase):
                     },
                     "personal_score": "9.7",
                     "watch_status": UserAnimeRecord.WatchStatus.COMPLETED,
+                    "watched_eps": 13,
+                    "total_eps": 13,
                     "review": "导入后的评价",
                     "custom_tags": ["年度推荐"],
                 }
@@ -2367,6 +2424,8 @@ class JournalDataTransferApiTests(APITestCase):
             {"日常": "blue", "收藏": "rose"},
         )
         self.assertEqual(exported_record["personal_score"], "8.5")
+        self.assertEqual(exported_record["watched_eps"], 12)
+        self.assertEqual(exported_record["total_eps"], 12)
 
     def test_json_import_replaces_only_current_users_records(self):
         response = self.client.post(
@@ -2382,6 +2441,8 @@ class JournalDataTransferApiTests(APITestCase):
         imported = records.get()
         self.assertEqual(imported.anime.chinese_title, "导入番剧")
         self.assertEqual(imported.personal_score, Decimal("9.7"))
+        self.assertEqual(imported.watched_eps, 13)
+        self.assertEqual(imported.total_eps, 13)
         self.assertEqual(imported.custom_tags, ["年度推荐"])
         self.assertEqual(imported.anime.tag_colors, {})
         self.assertEqual(
@@ -3867,6 +3928,7 @@ class BangumiCollectionImportApiTests(APITestCase):
                 {
                     "subject_id": 12345,
                     "type": 3,
+                    "ep_status": 7,
                     "rate": 8,
                     "comment": "导入长评",
                     "tags": ["日常", "治愈"],
@@ -3907,6 +3969,8 @@ class BangumiCollectionImportApiTests(APITestCase):
         record = UserAnimeRecord.objects.get(user=self.user, anime=anime)
         self.assertFalse(anime.is_active)
         self.assertEqual(record.watch_status, UserAnimeRecord.WatchStatus.WATCHING)
+        self.assertEqual(record.watched_eps, 7)
+        self.assertEqual(record.total_eps, 12)
         self.assertEqual(record.personal_score, Decimal("8.0"))
         self.assertEqual(record.custom_tags, [])
         self.assertEqual(record.private_base_tags, ["日常", "治愈"])

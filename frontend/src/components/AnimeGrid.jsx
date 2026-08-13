@@ -1,6 +1,7 @@
 import useScrollReveal from '../hooks/useScrollReveal.js'
 import { getCoverSrc, getSeasonDetails, getTagClass } from '../utils/animeDisplay.js'
 import { AddAnimeGridPlaceholder } from './AddAnimePlaceholder.jsx'
+import WatchingProgress from './WatchingProgress.jsx'
 
 function getGridScoreColorClass(score, isMemphis = false) {
   if (score >= 9.9) {
@@ -18,6 +19,8 @@ function AnimeGrid({
   editable = false,
   showAddPlaceholder = false,
   onAddAnime,
+  onIncrementProgress,
+  progressUpdatingIds = new Set(),
 }) {
   const isMemphis = theme === 'memphis'
   const containerRef = useScrollReveal(items)
@@ -112,11 +115,18 @@ function AnimeGrid({
                   {season.icon && <i className={`${season.icon} ${season.gridIconClass}`}></i>}
                   {item.period}
                 </span>
-                {item.statusLabel && (
-                  <span className={`memphis-status memphis-status-${item.status} px-1.5 py-0.5 text-[9px] font-black`}>
-                    {item.statusLabel}
-                  </span>
-                )}
+                {item.status === 'watching' && onIncrementProgress ? (
+                  <WatchingProgress
+                    item={item}
+                    onIncrement={onIncrementProgress}
+                    disabled={progressUpdatingIds.has(item.id)}
+                    compact
+                  />
+                ) : item.statusLabel && (
+                    <span className={`memphis-status memphis-status-${item.status} px-1.5 py-0.5 text-[9px] font-black`}>
+                      {item.statusLabel}
+                    </span>
+                  )}
               </div>
             )}
 

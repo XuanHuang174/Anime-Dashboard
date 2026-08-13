@@ -66,7 +66,9 @@ function DetailModal({
   isPrivateJournal = false,
 }) {
   const [selectedItem, setSelectedItem] = useState(activeItem)
-  const [formData, setFormData] = useState({ score: '', status: 'plan', review: '' })
+  const [formData, setFormData] = useState({
+    score: '', status: 'plan', watchedEps: 0, totalEps: 0, review: '',
+  })
   const [isSaving, setIsSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isClosing, setIsClosing] = useState(false)
@@ -89,6 +91,8 @@ function DetailModal({
     setFormData({
       score: activeItem.score ?? '',
       status: activeItem.status ?? 'plan',
+      watchedEps: activeItem.watchedEps ?? 0,
+      totalEps: activeItem.totalEps ?? 0,
       review: activeItem.review ?? '',
     })
     setActionError('')
@@ -255,6 +259,16 @@ function DetailModal({
       setActionError('评分必须是 0 到 10 之间的数字。')
       return
     }
+    const watchedEps = Number(formData.watchedEps)
+    const totalEps = Number(formData.totalEps)
+    if (!Number.isInteger(watchedEps) || watchedEps < 0 || !Number.isInteger(totalEps) || totalEps < 0) {
+      setActionError('已观看集数和总集数必须是非负整数。')
+      return
+    }
+    if (totalEps > 0 && watchedEps > totalEps) {
+      setActionError('已观看集数不能超过总集数。')
+      return
+    }
 
     setIsSaving(true)
     setActionError('')
@@ -262,6 +276,8 @@ function DetailModal({
       const response = await api.patch(`records/${selectedItem.id}/`, {
         personal_score: score,
         watch_status: formData.status,
+        watched_eps: watchedEps,
+        total_eps: totalEps,
         review: formData.review,
       })
       onRecordUpdated?.(response.data)
@@ -487,6 +503,14 @@ function DetailModal({
                     placeholder: '未录入...',
                     inputClass: 'text-black',
                   },
+                  ...(isPrivateJournal ? [{
+                    label: '追番进度',
+                    id: 'modalProgress',
+                    value: editable
+                      ? `${formData.watchedEps}/${formData.totalEps || '?'}`
+                      : `${selectedItem.watchedEps}/${selectedItem.totalEps || '?'}`,
+                    inputClass: 'text-black',
+                  }] : []),
                 ].map((field, index) => (
                   <div
                     key={field.id}
@@ -568,6 +592,32 @@ function DetailModal({
                     <option value="completed">看过</option>
                     <option value="on_hold">搁置</option>
                   </select>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <label className="text-[11px] font-black text-black">
+                      已观看集数
+                      <input
+                        type="number"
+                        name="watchedEps"
+                        min="0"
+                        step="1"
+                        value={formData.watchedEps}
+                        onChange={handleFieldChange}
+                        className="mt-1 w-full border-[3px] border-black bg-white px-3 py-2 text-sm font-black shadow-[3px_3px_0_#111] outline-none"
+                      />
+                    </label>
+                    <label className="text-[11px] font-black text-black">
+                      总集数（未知填 0）
+                      <input
+                        type="number"
+                        name="totalEps"
+                        min="0"
+                        step="1"
+                        value={formData.totalEps}
+                        onChange={handleFieldChange}
+                        className="mt-1 w-full border-[3px] border-black bg-white px-3 py-2 text-sm font-black shadow-[3px_3px_0_#111] outline-none"
+                      />
+                    </label>
+                  </div>
                 </div>
               )}
 

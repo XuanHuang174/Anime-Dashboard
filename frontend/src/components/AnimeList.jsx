@@ -1,6 +1,7 @@
 import useScrollReveal from '../hooks/useScrollReveal.js'
 import { getCoverSrc, getSeasonDetails, getTagClass } from '../utils/animeDisplay.js'
 import { AddAnimeListPlaceholder } from './AddAnimePlaceholder.jsx'
+import WatchingProgress from './WatchingProgress.jsx'
 
 function getScoreColorClass(score) {
   if (score >= 9.9) {
@@ -40,6 +41,8 @@ function AnimeList({
   editable = false,
   showAddPlaceholder = false,
   onAddAnime,
+  onIncrementProgress,
+  progressUpdatingIds = new Set(),
 }) {
   const isMemphis = theme === 'memphis'
   const containerRef = useScrollReveal(items)
@@ -158,7 +161,14 @@ function AnimeList({
                         </span>
 
                         <div className="flex md:hidden flex-wrap gap-1.5 mt-2.5">
-                          {item.statusLabel && (
+                          {item.status === 'watching' && onIncrementProgress ? (
+                            <WatchingProgress
+                              item={item}
+                              onIncrement={onIncrementProgress}
+                              disabled={progressUpdatingIds.has(item.id)}
+                              compact
+                            />
+                          ) : item.statusLabel && (
                             <span className={`${isMemphis ? `memphis-status memphis-status-${item.status}` : 'border border-indigo-200 bg-indigo-50 text-indigo-600'} inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold`}>
                               {item.statusLabel}
                             </span>
@@ -191,7 +201,13 @@ function AnimeList({
 
                     <td className="hidden md:table-cell py-5 px-6">
                       <div className="flex flex-wrap gap-1.5 max-w-[220px]">
-                        {item.statusLabel && (
+                        {item.status === 'watching' && onIncrementProgress ? (
+                          <WatchingProgress
+                            item={item}
+                            onIncrement={onIncrementProgress}
+                            disabled={progressUpdatingIds.has(item.id)}
+                          />
+                        ) : item.statusLabel && (
                           <span className={`${isMemphis ? `memphis-status memphis-status-${item.status}` : 'border border-indigo-200 bg-indigo-50 text-indigo-600'} rounded-md px-2.5 py-1 text-xs font-bold`}>
                             {item.statusLabel}
                           </span>

@@ -56,6 +56,8 @@ function createForm(item) {
     baikeUrl: item.baikeUrl ?? '',
     score: item.score ?? '',
     status: item.status ?? 'plan',
+    watchedEps: item.watchedEps ?? 0,
+    totalEps: item.totalEps ?? 0,
     review: item.review ?? '',
   }
 }
@@ -290,6 +292,16 @@ function EditableDetailModal({
       setError('评分必须是 0 到 10 之间的数字。')
       return
     }
+    const watchedEps = Number(formData.watchedEps)
+    const totalEps = Number(formData.totalEps)
+    if (!Number.isInteger(watchedEps) || watchedEps < 0 || !Number.isInteger(totalEps) || totalEps < 0) {
+      setError('已观看集数和总集数必须是非负整数。')
+      return
+    }
+    if (totalEps > 0 && watchedEps > totalEps) {
+      setError('已观看集数不能超过总集数。')
+      return
+    }
 
     const normalizedTags = [...new Set(formData.tags.map((tag) => tag.trim()).filter(Boolean))]
     const normalizedTagColors = Object.fromEntries(normalizedTags.map((tag) => [
@@ -326,6 +338,8 @@ function EditableDetailModal({
     payload.append('record', JSON.stringify({
       personal_score: score,
       watch_status: formData.status,
+      watched_eps: watchedEps,
+      total_eps: totalEps,
       review: formData.review,
     }))
     if (posterFile) payload.append('poster_image', posterFile)
@@ -478,10 +492,12 @@ function EditableDetailModal({
                   ['studio', '制作公司', 'text', ''],
                   ['episodes', '话数情况', 'text', ''],
                   ['score', '主观评分', 'number', '0.0 - 10.0'],
+                  ['watchedEps', '已观看集数', 'number', '0'],
+                  ['totalEps', '总集数（未知填 0）', 'number', '0'],
                 ].map(([name, label, type, placeholder]) => (
                   <label key={name} className="block text-xs font-black">
                     {label}
-                    <input name={name} type={type} min={type === 'number' ? '0' : undefined} max={type === 'number' ? '10' : undefined} step={type === 'number' ? '0.1' : undefined} value={formData[name]} onChange={updateField} className={`${fieldClass} mt-1 ${name === 'score' ? '!text-red-600' : ''}`} placeholder={placeholder} />
+                    <input name={name} type={type} min={type === 'number' ? '0' : undefined} max={name === 'score' ? '10' : undefined} step={name === 'score' ? '0.1' : type === 'number' ? '1' : undefined} value={formData[name]} onChange={updateField} className={`${fieldClass} mt-1 ${name === 'score' ? '!text-red-600' : ''}`} placeholder={placeholder} />
                   </label>
                 ))}
                 <label className="block text-xs font-black">

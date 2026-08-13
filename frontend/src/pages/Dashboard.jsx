@@ -114,6 +114,8 @@ function Dashboard() {
   const [featuredConfirmAction, setFeaturedConfirmAction] = useState(null)
   const [isFeaturedActionProcessing, setIsFeaturedActionProcessing] = useState(false)
   const [isSharedExporting, setIsSharedExporting] = useState(false)
+  const [progressUpdatingIds, setProgressUpdatingIds] = useState(() => new Set())
+  const progressUpdatingIdsRef = useRef(new Set())
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('')
   const [lastLoadedPage, setLastLoadedPage] = useState(0)
   const [isHeaderEntranceComplete, setIsHeaderEntranceComplete] = useState(
@@ -651,6 +653,51 @@ function Dashboard() {
     setRecordsRefreshKey((key) => key + 1)
   }
 
+  const handleProgressIncrement = async (item) => {
+    if (isSharedJournal || item.status !== 'watching') return
+    if (progressUpdatingIdsRef.current.has(item.id)) return
+    if (item.totalEps > 0 && item.watchedEps >= item.totalEps) return
+
+    const previousRecord = records.find((record) => record.id === item.id)
+    if (!previousRecord) return
+    const optimisticRecord = {
+      ...previousRecord,
+      watched_eps: Number(previousRecord.watched_eps || 0) + 1,
+    }
+    progressUpdatingIdsRef.current.add(item.id)
+    setProgressUpdatingIds(new Set(progressUpdatingIdsRef.current))
+    setRecords((current) => current.map((record) => (
+      record.id === item.id ? optimisticRecord : record
+    )))
+    setSelectedItem((current) => (
+      current?.id === item.id ? mapRecordToAnimeItem(optimisticRecord) : current
+    ))
+
+    try {
+      const response = await api.patch(`records/${item.id}/progress/`, { increment: 1 })
+      setRecords((current) => current.map((record) => (
+        record.id === item.id ? response.data : record
+      )))
+      setSelectedItem((current) => (
+        current?.id === item.id ? mapRecordToAnimeItem(response.data) : current
+      ))
+      if (response.data.suggest_completed) {
+        showToast('已追至最后一集，可以将状态改为“看过”啦！', 'success')
+      }
+    } catch (requestError) {
+      setRecords((current) => current.map((record) => (
+        record.id === item.id ? previousRecord : record
+      )))
+      setSelectedItem((current) => (
+        current?.id === item.id ? mapRecordToAnimeItem(previousRecord) : current
+      ))
+      showToast(requestError.response?.data?.detail || '进度更新失败，请稍后重试。', 'error')
+    } finally {
+      progressUpdatingIdsRef.current.delete(item.id)
+      setProgressUpdatingIds(new Set(progressUpdatingIdsRef.current))
+    }
+  }
+
   const handleRecordDeleted = (recordId) => {
     setRecords((current) => current.filter((record) => record.id !== recordId))
     setSelectedItem(null)
@@ -992,6 +1039,8 @@ function Dashboard() {
                 editable={!isPreviewMode}
                 showAddPlaceholder={showAddPlaceholder}
                 onAddAnime={() => setIsAddModalOpen(true)}
+                onIncrementProgress={isSharedJournal ? undefined : handleProgressIncrement}
+                progressUpdatingIds={progressUpdatingIds}
               />
               </div>
             )}
@@ -1005,6 +1054,8 @@ function Dashboard() {
                   editable={!isPreviewMode}
                   showAddPlaceholder={showAddPlaceholder}
                   onAddAnime={() => setIsAddModalOpen(true)}
+                  onIncrementProgress={isSharedJournal ? undefined : handleProgressIncrement}
+                  progressUpdatingIds={progressUpdatingIds}
                 />
               </div>
             )}

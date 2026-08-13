@@ -628,6 +628,8 @@ class JournalRecordImportSerializer(serializers.Serializer):
         choices=UserAnimeRecord.WatchStatus.choices,
         default=UserAnimeRecord.WatchStatus.PLAN_TO_WATCH,
     )
+    watched_eps = serializers.IntegerField(min_value=0, required=False, default=0)
+    total_eps = serializers.IntegerField(min_value=0, required=False, default=0)
     review = serializers.CharField(required=False, allow_blank=True, default="")
     custom_tags = serializers.ListField(
         child=serializers.CharField(max_length=50, allow_blank=False),
@@ -663,6 +665,8 @@ class UserAnimeRecordSerializer(serializers.ModelSerializer):
             "personal_score",
             "watch_status",
             "watch_status_display",
+            "watched_eps",
+            "total_eps",
             "review",
             "custom_tags",
             "created_at",
@@ -671,6 +675,18 @@ class UserAnimeRecordSerializer(serializers.ModelSerializer):
         read_only_fields = ("id", "user", "anime", "created_at", "updated_at")
 
     def validate(self, attrs):
+        watched_eps = attrs.get(
+            "watched_eps",
+            self.instance.watched_eps if self.instance is not None else 0,
+        )
+        total_eps = attrs.get(
+            "total_eps",
+            self.instance.total_eps if self.instance is not None else 0,
+        )
+        if total_eps > 0 and watched_eps > total_eps:
+            raise serializers.ValidationError(
+                {"watched_eps": "已观看集数不能超过总集数。"},
+            )
         request = self.context.get("request")
         if request is None or not request.user.is_authenticated:
             return attrs
@@ -978,6 +994,8 @@ class UserAnimeRecordAddSerializer(serializers.Serializer):
         choices=UserAnimeRecord.WatchStatus.choices,
         default=UserAnimeRecord.WatchStatus.PLAN_TO_WATCH,
     )
+    watched_eps = serializers.IntegerField(min_value=0, required=False, default=0)
+    total_eps = serializers.IntegerField(min_value=0, required=False, default=0)
     review = serializers.CharField(required=False, allow_blank=True, default="")
     custom_tags = serializers.ListField(
         child=serializers.CharField(allow_blank=False),
@@ -992,6 +1010,13 @@ class UserAnimeRecordAddSerializer(serializers.Serializer):
         existing_anime = attrs.get("existing_anime")
         anime_data = attrs.get("anime_data")
         poster_image = attrs.get("poster_image")
+
+        watched_eps = attrs.get("watched_eps", 0)
+        total_eps = attrs.get("total_eps", 0)
+        if total_eps > 0 and watched_eps > total_eps:
+            raise serializers.ValidationError(
+                {"watched_eps": "已观看集数不能超过总集数。"},
+            )
 
         if bool(existing_anime) == bool(anime_data):
             raise serializers.ValidationError(

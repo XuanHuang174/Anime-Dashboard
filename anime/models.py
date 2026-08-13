@@ -310,6 +310,8 @@ class UserAnimeRecord(models.Model):
         default=WatchStatus.PLAN_TO_WATCH,
         db_index=True,
     )
+    watched_eps = models.PositiveIntegerField("已观看集数", default=0)
+    total_eps = models.PositiveIntegerField("总集数", default=0)
     review = models.TextField("个人长评", blank=True)
     custom_tags = models.JSONField(
         "自定义标签",
