@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 import api from '../api/api.js'
+import SearchableSelect from './SearchableSelect.jsx'
 import {
   getCoverSrc,
   getDefaultTagColor,
@@ -486,29 +487,48 @@ function EditableDetailModal({
             </aside>
 
             <div className="flex min-h-0 flex-col gap-3">
-              <div className="edit-modal-piece grid shrink-0 gap-2.5 border-[3px] border-black bg-white p-3 shadow-[6px_6px_0_#ffe66d] sm:grid-cols-2 lg:grid-cols-3">
+              <div className="edit-modal-piece grid shrink-0 gap-2.5 border-[3px] border-black bg-white p-3 shadow-[6px_6px_0_#ffe66d] sm:grid-cols-2 lg:grid-cols-12">
                 {[
-                  ['period', '放送季度', 'text', '2026-1'],
-                  ['studio', '制作公司', 'text', ''],
-                  ['episodes', '话数情况', 'text', ''],
-                  ['score', '主观评分', 'number', '0.0 - 10.0'],
-                  ['watchedEps', '已观看集数', 'number', '0'],
-                  ['totalEps', '总集数（未知填 0）', 'number', '0'],
-                ].map(([name, label, type, placeholder]) => (
-                  <label key={name} className="block text-xs font-black">
+                  ['period', '放送季度', 'text', '2026-1', 'lg:col-span-4'],
+                  ['studio', '制作公司', 'text', '', 'lg:col-span-4'],
+                  ['episodes', '话数情况', 'text', '', 'lg:col-span-4'],
+                ].map(([name, label, type, placeholder, gridClass]) => (
+                  <label key={name} className={`block text-xs font-black ${gridClass}`}>
                     {label}
-                    <input name={name} type={type} min={type === 'number' ? '0' : undefined} max={name === 'score' ? '10' : undefined} step={name === 'score' ? '0.1' : type === 'number' ? '1' : undefined} value={formData[name]} onChange={updateField} className={`${fieldClass} mt-1 ${name === 'score' ? '!text-red-600' : ''}`} placeholder={placeholder} />
+                    <input name={name} type={type} value={formData[name]} onChange={updateField} className={`${fieldClass} mt-1`} placeholder={placeholder} />
                   </label>
                 ))}
-                <label className="block text-xs font-black">
-                  观看状态
-                  <select name="status" value={formData.status} onChange={updateField} className={`${fieldClass} mt-1 !text-[#ff2f87]`}>
-                    <option value="plan">想看</option>
-                    <option value="watching">在看</option>
-                    <option value="completed">看过</option>
-                    <option value="on_hold">搁置</option>
-                  </select>
+                <label className={`${formData.status === 'watching' ? 'lg:col-span-3' : 'lg:col-span-6'} block text-xs font-black`}>
+                  主观评分
+                  <input name="score" type="number" min="0" max="10" step="0.1" value={formData.score} onChange={updateField} className={`${fieldClass} mt-1 !text-red-600`} placeholder="0.0 - 10.0" />
                 </label>
+                <div className={`${formData.status === 'watching' ? 'lg:col-span-3' : 'lg:col-span-6'} edit-watch-status-select min-w-0 text-xs font-black`}>
+                  <span className="block">观看状态</span>
+                  <SearchableSelect
+                    id="editWatchStatus"
+                    value={formData.status}
+                    onChange={(value) => setFormData((current) => ({ ...current, status: value }))}
+                    options={[
+                      { value: 'watching', label: '在看' },
+                      { value: 'completed', label: '看过' },
+                      { value: 'on_hold', label: '搁置' },
+                    ]}
+                    allOption={{ value: 'plan', label: '想看' }}
+                    searchable={false}
+                  />
+                </div>
+                {formData.status === 'watching' && (
+                  <>
+                    <label className="block text-xs font-black lg:col-span-3">
+                      已观看集数
+                      <input name="watchedEps" type="number" min="0" step="1" value={formData.watchedEps} onChange={updateField} className={`${fieldClass} mt-1`} placeholder="0" />
+                    </label>
+                    <label className="block text-xs font-black lg:col-span-3">
+                      总集数（未知填 0）
+                      <input name="totalEps" type="number" min="0" step="1" value={formData.totalEps} onChange={updateField} className={`${fieldClass} mt-1`} placeholder="0" />
+                    </label>
+                  </>
+                )}
               </div>
 
               <section className="edit-modal-piece min-h-0 flex-1">

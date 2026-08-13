@@ -779,6 +779,32 @@ select {
   border-width: 3px;
 }
 
+.edit-watch-status-select .searchable-select {
+  margin-top: 4px;
+}
+
+.edit-watch-status-select .searchable-select__trigger {
+  min-height: 41px;
+  border: 2px solid #111;
+  border-radius: 0;
+  background: #fff;
+  padding: 8px 12px;
+  color: #ff2f87;
+  font-weight: 900;
+  box-shadow: 3px 3px 0 #111;
+}
+
+.edit-watch-status-select .searchable-select__trigger[aria-expanded='true'] {
+  transform: translate(3px, 3px);
+  background: #ffe66d;
+  box-shadow: none;
+}
+
+.edit-watch-status-select .searchable-select__panel {
+  z-index: 80;
+  border-width: 3px;
+}
+
 .staff-only-decoration {
   position: relative;
   z-index: 0;

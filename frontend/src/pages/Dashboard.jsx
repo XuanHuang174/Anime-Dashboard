@@ -1039,7 +1039,7 @@ function Dashboard() {
                 editable={!isPreviewMode}
                 showAddPlaceholder={showAddPlaceholder}
                 onAddAnime={() => setIsAddModalOpen(true)}
-                onIncrementProgress={isSharedJournal ? undefined : handleProgressIncrement}
+                onIncrementProgress={isEditMode ? handleProgressIncrement : undefined}
                 progressUpdatingIds={progressUpdatingIds}
               />
               </div>
@@ -1054,7 +1054,7 @@ function Dashboard() {
                   editable={!isPreviewMode}
                   showAddPlaceholder={showAddPlaceholder}
                   onAddAnime={() => setIsAddModalOpen(true)}
-                  onIncrementProgress={isSharedJournal ? undefined : handleProgressIncrement}
+                  onIncrementProgress={isEditMode ? handleProgressIncrement : undefined}
                   progressUpdatingIds={progressUpdatingIds}
                 />
               </div>

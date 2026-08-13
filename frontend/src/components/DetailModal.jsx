@@ -13,6 +13,7 @@ const infoCardClasses = [
   'bg-[#ff8fab] shadow-[5px_5px_0_0_#4ecdc4]',
   'bg-[#4ecdc4] shadow-[5px_5px_0_0_#ffe66d]',
   'bg-white shadow-[5px_5px_0_0_#ff6b6b]',
+  'bg-[#fff5ee] shadow-[5px_5px_0_0_#4ecdc4]',
 ]
 
 function OverflowPingPongText({ children, className = '' }) {
@@ -470,13 +471,14 @@ function DetailModal({
             </div>
 
             <div className="flex min-h-0 min-w-0 flex-col gap-3">
-              <div className="grid shrink-0 grid-cols-2 gap-2.5 text-sm">
+              <div className="grid shrink-0 grid-cols-2 gap-2.5 text-sm lg:grid-cols-12">
                 {[
                   {
                     label: '放送季度',
                     id: 'modalPeriod',
                     value: formatAiringPeriod(selectedItem.period),
                     inputClass: 'text-black',
+                    gridClass: 'lg:col-span-6',
                   },
                   {
                     label: '综合评分',
@@ -488,6 +490,7 @@ function DetailModal({
                         ? `${selectedItem.score.toFixed(1)} / 10`
                         : '期待开播/待定',
                     inputClass: 'text-rose-700',
+                    gridClass: 'lg:col-span-6',
                   },
                   {
                     label: '制作公司',
@@ -495,6 +498,7 @@ function DetailModal({
                     value: selectedItem.studio || '',
                     placeholder: '未录入...',
                     inputClass: 'text-black',
+                    gridClass: 'lg:col-span-6',
                   },
                   {
                     label: '话数情况',
@@ -502,19 +506,23 @@ function DetailModal({
                     value: selectedItem.episodes || '',
                     placeholder: '未录入...',
                     inputClass: 'text-black',
+                    gridClass: selectedItem.status === 'watching' && isPrivateJournal
+                      ? 'lg:col-span-3'
+                      : 'lg:col-span-6',
                   },
-                  ...(isPrivateJournal ? [{
+                  ...(isPrivateJournal && selectedItem.status === 'watching' ? [{
                     label: '追番进度',
                     id: 'modalProgress',
                     value: editable
                       ? `${formData.watchedEps}/${formData.totalEps || '?'}`
                       : `${selectedItem.watchedEps}/${selectedItem.totalEps || '?'}`,
                     inputClass: 'text-black',
+                    gridClass: 'lg:col-span-3',
                   }] : []),
                 ].map((field, index) => (
                   <div
                     key={field.id}
-                    className={`memphis-modal-piece min-w-0 border-2 border-black p-2.5 ${infoCardClasses[index]}`}
+                    className={`memphis-modal-piece min-w-0 border-2 border-black p-2.5 ${field.gridClass} ${infoCardClasses[index]}`}
                   >
                     <span className="mb-0.5 block text-xs font-black uppercase tracking-wide text-black/70">
                       {field.label}
@@ -592,7 +600,7 @@ function DetailModal({
                     <option value="completed">看过</option>
                     <option value="on_hold">搁置</option>
                   </select>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
+                  {formData.status === 'watching' && <div className="mt-3 grid grid-cols-2 gap-2">
                     <label className="text-[11px] font-black text-black">
                       已观看集数
                       <input
@@ -617,7 +625,7 @@ function DetailModal({
                         className="mt-1 w-full border-[3px] border-black bg-white px-3 py-2 text-sm font-black shadow-[3px_3px_0_#111] outline-none"
                       />
                     </label>
-                  </div>
+                  </div>}
                 </div>
               )}
 
