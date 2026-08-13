@@ -8,6 +8,7 @@ function SearchableSelect({
   allOption,
   searchPlaceholder,
   emptyText = '没有匹配选项',
+  searchable = true,
 }) {
   const rootRef = useRef(null)
   const searchRef = useRef(null)
@@ -51,8 +52,10 @@ function SearchableSelect({
     if (!isOpen) return
     setQuery('')
     setActiveIndex(0)
-    window.requestAnimationFrame(() => searchRef.current?.focus())
-  }, [isOpen])
+    if (searchable) {
+      window.requestAnimationFrame(() => searchRef.current?.focus())
+    }
+  }, [isOpen, searchable])
 
   useEffect(() => {
     setActiveIndex(0)
@@ -103,22 +106,24 @@ function SearchableSelect({
 
       {isOpen && (
         <div className="searchable-select__panel">
-          <div className="searchable-select__search-wrap">
-            <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />
-            <input
-              ref={searchRef}
-              type="search"
-              className="searchable-select__search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              onKeyDown={handleSearchKeyDown}
-              placeholder={searchPlaceholder}
-              aria-label={searchPlaceholder}
-              aria-controls={`${id}-options`}
-              aria-activedescendant={filteredOptions[activeIndex] ? `${id}-option-${activeIndex}` : undefined}
-              autoComplete="off"
-            />
-          </div>
+          {searchable && (
+            <div className="searchable-select__search-wrap">
+              <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />
+              <input
+                ref={searchRef}
+                type="search"
+                className="searchable-select__search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                onKeyDown={handleSearchKeyDown}
+                placeholder={searchPlaceholder}
+                aria-label={searchPlaceholder}
+                aria-controls={`${id}-options`}
+                aria-activedescendant={filteredOptions[activeIndex] ? `${id}-option-${activeIndex}` : undefined}
+                autoComplete="off"
+              />
+            </div>
+          )}
           <div id={`${id}-options`} className="searchable-select__options" role="listbox">
             {filteredOptions.length ? filteredOptions.map((option, index) => {
               const isSelected = String(option.value) === String(value)

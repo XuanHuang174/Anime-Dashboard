@@ -165,18 +165,19 @@ function FilterBar({
               >
                 观看状态
               </label>
-              <select
+              <SearchableSelect
                 id="statusSelect"
                 value={statusFilter}
-                onChange={(event) => setStatusFilter(event.target.value)}
-                className="w-full px-3 py-2 bg-white border border-slate-200 border-b-[3px] border-b-slate-300 rounded-xl focus:outline-none focus:border-indigo-400 focus:border-b-[1px] focus:translate-y-[2px] focus:shadow-inner focus:ring-2 focus:ring-indigo-100 transition-all text-sm shadow-sm hover:shadow-md hover:-translate-y-0.5 cursor-pointer"
-              >
-                <option value="all">全部状态</option>
-                <option value="plan">想看</option>
-                <option value="watching">在看</option>
-                <option value="completed">看过</option>
-                <option value="on_hold">搁置</option>
-              </select>
+                onChange={setStatusFilter}
+                options={[
+                  { value: 'plan', label: '想看' },
+                  { value: 'watching', label: '在看' },
+                  { value: 'completed', label: '看过' },
+                  { value: 'on_hold', label: '搁置' },
+                ]}
+                allOption={{ value: 'all', label: '全部状态' }}
+                searchable={false}
+              />
             </div>
           )}
 
@@ -215,23 +216,22 @@ function FilterBar({
                 恢复默认
               </button>
             </div>
-            <select
+            <SearchableSelect
               id="sortSelect"
               value={sortOrder}
-              onChange={(event) => setSortOrder(event.target.value)}
-              className="w-full px-3 py-2 bg-white border border-slate-200 border-b-[3px] border-b-slate-300 rounded-xl focus:outline-none focus:border-indigo-400 focus:border-b-[1px] focus:translate-y-[2px] focus:shadow-inner focus:ring-2 focus:ring-indigo-100 transition-all text-sm shadow-sm hover:shadow-md hover:-translate-y-0.5 cursor-pointer"
-            >
-              <option value="date-desc">开播时间 (新 → 旧) [推荐]</option>
-              <option value="date-asc">开播时间 (旧 → 新)</option>
-              <option value="score-desc">评分 (高 → 低)</option>
-              <option value="score-asc">评分 (低 → 高)</option>
-              {showRecordTimeSort && (
-                <>
-                  <option value="updated-desc">记录更新 (新 → 旧)</option>
-                  <option value="updated-asc">记录更新 (旧 → 新)</option>
-                </>
-              )}
-            </select>
+              onChange={setSortOrder}
+              options={[
+                { value: 'date-asc', label: '开播时间 (旧 → 新)' },
+                { value: 'score-desc', label: '评分 (高 → 低)' },
+                { value: 'score-asc', label: '评分 (低 → 高)' },
+                ...(showRecordTimeSort ? [
+                  { value: 'updated-desc', label: '记录更新 (新 → 旧)' },
+                  { value: 'updated-asc', label: '记录更新 (旧 → 新)' },
+                ] : []),
+              ]}
+              allOption={{ value: 'date-desc', label: '开播时间 (新 → 旧) [推荐]' }}
+              searchable={false}
+            />
           </div>
         </div>
 

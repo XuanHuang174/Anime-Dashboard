@@ -517,8 +517,8 @@ function LoginPage() {
                 <span><i className="fa-solid fa-lock mr-1.5" />安全连接</span>
                 <div className="staff-only-decoration" aria-hidden="true">
                   <span className="staff-only-decoration__line" />
-                  <span className="staff-only-decoration__text">STAFF</span>
-                  <span className="staff-only-decoration__text staff-only-decoration__text--offset">ONLY</span>
+                  <span className="staff-only-decoration__text">MEMPHIS</span>
+                  <span className="staff-only-decoration__text staff-only-decoration__text--offset">DESIGN</span>
                   <span className="staff-only-decoration__dot" />
                 </div>
               </div>
