@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import SearchableSelect from './SearchableSelect.jsx'
 
 const quickFilters = [
   { value: 'all', label: '全部' },
@@ -146,19 +147,14 @@ function FilterBar({
             >
               标签过滤
             </label>
-            <select
+            <SearchableSelect
               id="tagSelect"
               value={tagFilter}
-              onChange={(event) => setTagFilter(event.target.value)}
-              className="w-full px-3 py-2 bg-white border border-slate-200 border-b-[3px] border-b-slate-300 rounded-xl focus:outline-none focus:border-indigo-400 focus:border-b-[1px] focus:translate-y-[2px] focus:shadow-inner focus:ring-2 focus:ring-indigo-100 transition-all text-sm shadow-sm hover:shadow-md hover:-translate-y-0.5 cursor-pointer"
-            >
-              <option value="all">全部标签</option>
-              {tags.map((tag) => (
-                <option key={tag} value={tag}>
-                  {tag}
-                </option>
-              ))}
-            </select>
+              onChange={setTagFilter}
+              options={tags.map((tag) => ({ value: tag, label: tag }))}
+              allOption={{ value: 'all', label: '全部标签' }}
+              searchPlaceholder="搜索标签..."
+            />
           </div>
 
           {setStatusFilter && (
@@ -191,19 +187,14 @@ function FilterBar({
             >
               年份区间
             </label>
-            <select
+            <SearchableSelect
               id="yearSelect"
               value={yearFilter}
-              onChange={(event) => setYearFilter(event.target.value)}
-              className="w-full px-3 py-2 bg-white border border-slate-200 border-b-[3px] border-b-slate-300 rounded-xl focus:outline-none focus:border-indigo-400 focus:border-b-[1px] focus:translate-y-[2px] focus:shadow-inner focus:ring-2 focus:ring-indigo-100 transition-all text-sm shadow-sm hover:shadow-md hover:-translate-y-0.5 cursor-pointer"
-            >
-              <option value="all">全部年份</option>
-              {years.map((year) => (
-                <option key={year} value={year}>
-                  {year} 年
-                </option>
-              ))}
-            </select>
+              onChange={setYearFilter}
+              options={years.map((year) => ({ value: String(year), label: `${year} 年` }))}
+              allOption={{ value: 'all', label: '全部年份' }}
+              searchPlaceholder="搜索年份..."
+            />
           </div>
 
           <div className="group">

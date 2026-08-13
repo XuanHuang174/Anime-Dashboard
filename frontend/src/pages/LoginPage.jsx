@@ -515,13 +515,12 @@ function LoginPage() {
 
               <div className="login-piece mt-5 flex items-center justify-between border-t-4 border-black pt-3 text-[10px] font-black uppercase tracking-[0.12em]">
                 <span><i className="fa-solid fa-lock mr-1.5" />安全连接</span>
-                <Link
-                  to="/admin-login"
-                  className="-rotate-2 border-2 border-black bg-[var(--memphis-yellow)] px-3 py-1.5 text-black shadow-[3px_3px_0_#111] hover:rotate-0 hover:bg-[var(--memphis-teal)] active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
-                >
-                  <i className="fa-solid fa-user-shield mr-1.5" />
-                  STAFF ONLY
-                </Link>
+                <div className="staff-only-decoration" aria-hidden="true">
+                  <span className="staff-only-decoration__line" />
+                  <span className="staff-only-decoration__text">STAFF</span>
+                  <span className="staff-only-decoration__text staff-only-decoration__text--offset">ONLY</span>
+                  <span className="staff-only-decoration__dot" />
+                </div>
               </div>
             </div>
           </div>
