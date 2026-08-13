@@ -258,17 +258,18 @@
 }
 
 .completion-report-tag {
-  border: 3px solid #111;
-  border-radius: 999px;
-  padding: 6px 12px;
-  font-size: 15px;
-  line-height: 1.2;
+  display: block;
+  flex: 0 0 auto;
+  height: 36px;
+  overflow: visible;
 }
 
-.completion-report-tag--0 { background: #ffe66d; }
-.completion-report-tag--1 { background: #ff8fab; }
-.completion-report-tag--2 { background: #4ecdc4; }
-.completion-report-tag--3 { background: #fff; }
+.completion-report-tag text {
+  fill: #111;
+  font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+  font-size: 15px;
+  font-weight: 900;
+}
 
 .completion-report-review {
   position: relative;
