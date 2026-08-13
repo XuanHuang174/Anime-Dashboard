@@ -28,7 +28,7 @@ async function resolveReportCover(source) {
   try {
     const response = await api.get('utils/image-proxy/', {
       params: { url: source },
-      timeout: 8000,
+      timeout: 15000,
     })
     return response.data?.data_url || PLACEHOLDER_COVER
   } catch (error) {

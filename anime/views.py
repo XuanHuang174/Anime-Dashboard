@@ -6,11 +6,13 @@ import logging
 import re
 import socket
 from decimal import Decimal, InvalidOperation
+from io import BytesIO
 from pathlib import Path
 from urllib.parse import urlencode, urlsplit
 from uuid import uuid4
 
 import requests
+from PIL import Image, ImageOps, UnidentifiedImageError
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
@@ -105,6 +107,9 @@ logger = logging.getLogger(__name__)
 
 
 IMAGE_PROXY_MAX_BYTES = 3_000_000
+IMAGE_PROXY_MAX_SOURCE_BYTES = 12_000_000
+IMAGE_PROXY_MAX_PIXELS = 24_000_000
+IMAGE_PROXY_MAX_DIMENSION = 2400
 IMAGE_PROXY_CHUNK_SIZE = 64 * 1024
 IMAGE_PROXY_ALLOWED_TYPES = {
     "image/avif",
@@ -113,6 +118,48 @@ IMAGE_PROXY_ALLOWED_TYPES = {
     "image/png",
     "image/webp",
 }
+
+
+def _compress_proxy_image(image_data):
+    """Return a canvas-safe JPEG that remains below the proxy response limit."""
+
+    try:
+        with Image.open(BytesIO(image_data)) as source:
+            width, height = source.size
+            if width <= 0 or height <= 0 or width * height > IMAGE_PROXY_MAX_PIXELS:
+                raise ValueError("远程图片像素尺寸过大。")
+
+            frame = ImageOps.exif_transpose(source)
+            frame.thumbnail(
+                (IMAGE_PROXY_MAX_DIMENSION, IMAGE_PROXY_MAX_DIMENSION),
+                Image.Resampling.LANCZOS,
+            )
+            if frame.mode in {"RGBA", "LA"} or (
+                frame.mode == "P" and "transparency" in frame.info
+            ):
+                rgba_frame = frame.convert("RGBA")
+                flattened = Image.new("RGB", rgba_frame.size, "white")
+                flattened.paste(rgba_frame, mask=rgba_frame.getchannel("A"))
+                frame = flattened
+            else:
+                frame = frame.convert("RGB")
+
+            for quality in (86, 78, 70, 62):
+                output = BytesIO()
+                frame.save(
+                    output,
+                    format="JPEG",
+                    quality=quality,
+                    optimize=True,
+                    progressive=True,
+                )
+                compressed = output.getvalue()
+                if len(compressed) <= IMAGE_PROXY_MAX_BYTES:
+                    return compressed, "image/jpeg"
+    except (Image.DecompressionBombError, UnidentifiedImageError, OSError) as error:
+        raise ValueError("远程图片内容无效或无法安全处理。") from error
+
+    raise ValueError("远程图片压缩后仍超过 3MB。")
 
 
 def _validate_public_image_url(value):
@@ -198,9 +245,9 @@ class ImageProxyView(APIView):
                         {"detail": "远程图片大小信息无效。"},
                         status=status.HTTP_502_BAD_GATEWAY,
                     )
-                if declared_size > IMAGE_PROXY_MAX_BYTES:
+                if declared_size > IMAGE_PROXY_MAX_SOURCE_BYTES:
                     return Response(
-                        {"detail": "图片大小不能超过 3MB。"},
+                        {"detail": "远程图片源文件不能超过 12MB。"},
                         status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
                     )
 
@@ -217,9 +264,9 @@ class ImageProxyView(APIView):
                 if not chunk:
                     continue
                 image_data.extend(chunk)
-                if len(image_data) > IMAGE_PROXY_MAX_BYTES:
+                if len(image_data) > IMAGE_PROXY_MAX_SOURCE_BYTES:
                     return Response(
-                        {"detail": "图片大小不能超过 3MB。"},
+                        {"detail": "远程图片源文件不能超过 12MB。"},
                         status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
                     )
 
@@ -228,6 +275,15 @@ class ImageProxyView(APIView):
                     {"detail": "远程图片内容为空。"},
                     status=status.HTTP_502_BAD_GATEWAY,
                 )
+
+            if len(image_data) > IMAGE_PROXY_MAX_BYTES:
+                try:
+                    image_data, mime_type = _compress_proxy_image(image_data)
+                except ValueError as error:
+                    return Response(
+                        {"detail": str(error)},
+                        status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    )
 
             encoded = base64.b64encode(image_data).decode("ascii")
             return Response({"data_url": f"data:{mime_type};base64,{encoded}"})
