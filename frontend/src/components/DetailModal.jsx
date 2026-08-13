@@ -4,6 +4,7 @@ import gsap from 'gsap'
 import api from '../api/api.js'
 import { getCoverSrc, getTagClass } from '../utils/animeDisplay.js'
 import { formatAiringPeriod } from '../utils/featuredDisplay.js'
+import CompletionReportExporter from './CompletionReportExporter.jsx'
 
 gsap.registerPlugin(useGSAP)
 
@@ -62,6 +63,7 @@ function DetailModal({
   showToast,
   featuredAction = null,
   onFeaturedAction = null,
+  isPrivateJournal = false,
 }) {
   const [selectedItem, setSelectedItem] = useState(activeItem)
   const [formData, setFormData] = useState({ score: '', status: 'plan', review: '' })
@@ -627,18 +629,30 @@ function DetailModal({
               <i className={`fa-solid ${isDeleting ? 'fa-spinner animate-spin' : 'fa-trash-can'} mr-2`}></i>
               {isDeleting ? '删除中...' : '删除记录'}
             </button>
-          ) : featuredAction ? (
-            <button
-              type="button"
-              onClick={() => onFeaturedAction?.(featuredAction)}
-              disabled={featuredButton.disabled || featuredAction.isProcessing || isClosing}
-              className={`${arcadeButtonClass} ${featuredButton.className}`}
-            >
-              <i className={`fa-solid ${
-                featuredAction.isProcessing ? 'fa-spinner animate-spin' : featuredButton.icon
-              } mr-2`}></i>
-              {featuredAction.isProcessing ? '处理中…' : featuredButton.label}
-            </button>
+          ) : (featuredAction || isPrivateJournal) ? (
+            <div className="flex flex-wrap items-center gap-2">
+              {featuredAction && (
+                <button
+                  type="button"
+                  onClick={() => onFeaturedAction?.(featuredAction)}
+                  disabled={featuredButton.disabled || featuredAction.isProcessing || isClosing}
+                  className={`${arcadeButtonClass} ${featuredButton.className}`}
+                >
+                  <i className={`fa-solid ${
+                    featuredAction.isProcessing ? 'fa-spinner animate-spin' : featuredButton.icon
+                  } mr-2`}></i>
+                  {featuredAction.isProcessing ? '处理中…' : featuredButton.label}
+                </button>
+              )}
+              {isPrivateJournal && (
+                <CompletionReportExporter
+                  item={selectedItem}
+                  disabled={isClosing}
+                  buttonClassName={`${arcadeButtonClass} bg-[#ffe66d] hover:bg-[#ff8fab]`}
+                  showToast={showToast}
+                />
+              )}
+            </div>
           ) : <span />}
 
           <div className="ml-auto flex gap-2">

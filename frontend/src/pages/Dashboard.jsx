@@ -1070,6 +1070,8 @@ function Dashboard() {
         <DetailModal
           selectedItem={selectedItem}
           closeModal={() => setSelectedItem(null)}
+          isPrivateJournal={!isSharedJournal}
+          showToast={showToast}
           featuredAction={featuredAction ? {
             ...featuredAction,
             isProcessing: isFeaturedActionProcessing,
