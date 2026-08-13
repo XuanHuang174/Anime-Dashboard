@@ -19,6 +19,7 @@ from .views import (
     ExternalAnimeSearchView,
     FeaturedSubmissionViewSet,
     FeaturedQuickFilterViewSet,
+    ImageProxyView,
     PasswordResetConfirmView,
     PasswordResetRequestView,
     PublicFeaturedSubmissionViewSet,
@@ -76,6 +77,7 @@ router.register(
 
 app_name = "anime_api"
 urlpatterns = [
+    path("utils/image-proxy/", ImageProxyView.as_view(), name="image-proxy"),
     path(
         "cron/trigger-daily-push/",
         DailyPushCronView.as_view(),

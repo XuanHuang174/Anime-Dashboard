@@ -1,12 +1,16 @@
+import base64
 import json
 import hmac
+import ipaddress
 import logging
 import re
+import socket
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from urllib.parse import urlencode, urlsplit
 from uuid import uuid4
 
+import requests
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
@@ -98,6 +102,144 @@ from .utils.scraper import MetadataScraper, MetadataScraperError
 
 
 logger = logging.getLogger(__name__)
+
+
+IMAGE_PROXY_MAX_BYTES = 3_000_000
+IMAGE_PROXY_CHUNK_SIZE = 64 * 1024
+IMAGE_PROXY_ALLOWED_TYPES = {
+    "image/avif",
+    "image/gif",
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+}
+
+
+def _validate_public_image_url(value):
+    """Reject malformed and non-public targets before making an HTTP request."""
+
+    parsed = urlsplit(str(value or "").strip())
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        raise ValueError("仅支持有效的 HTTP(S) 图片地址。")
+    if parsed.username or parsed.password:
+        raise ValueError("图片地址不能包含用户凭据。")
+
+    try:
+        address_info = socket.getaddrinfo(
+            parsed.hostname,
+            parsed.port or (443 if parsed.scheme == "https" else 80),
+            type=socket.SOCK_STREAM,
+        )
+    except socket.gaierror as error:
+        raise ValueError("图片域名无法解析。") from error
+
+    addresses = {entry[4][0] for entry in address_info}
+    if not addresses:
+        raise ValueError("图片域名无法解析。")
+    for address in addresses:
+        ip = ipaddress.ip_address(address)
+        if not ip.is_global:
+            raise ValueError("不允许访问内网或本机图片地址。")
+
+    return parsed.geturl()
+
+
+class ImageProxyView(APIView):
+    """Return a small public image as a Base64 data URL for canvas export."""
+
+    permission_classes = (permissions.IsAuthenticated,)
+
+    @method_decorator(
+        ratelimit(
+            group="image-proxy",
+            key="user",
+            rate="30/m",
+            method="GET",
+            block=False,
+        )
+    )
+    def get(self, request):
+        if getattr(request, "limited", False):
+            return Response(
+                {"detail": "图片代理请求过于频繁，请稍后再试。"},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+
+        try:
+            image_url = _validate_public_image_url(
+                request.query_params.get("url", "")
+            )
+        except ValueError as error:
+            return Response(
+                {"detail": str(error)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        response = None
+        try:
+            response = requests.get(
+                image_url,
+                stream=True,
+                timeout=5,
+                allow_redirects=False,
+            )
+            if response.status_code != status.HTTP_200_OK:
+                return Response(
+                    {"detail": "远程图片读取失败。"},
+                    status=status.HTTP_502_BAD_GATEWAY,
+                )
+
+            content_length = response.headers.get("Content-Length")
+            if content_length:
+                try:
+                    declared_size = int(content_length)
+                except (TypeError, ValueError):
+                    return Response(
+                        {"detail": "远程图片大小信息无效。"},
+                        status=status.HTTP_502_BAD_GATEWAY,
+                    )
+                if declared_size > IMAGE_PROXY_MAX_BYTES:
+                    return Response(
+                        {"detail": "图片大小不能超过 3MB。"},
+                        status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                    )
+
+            content_type = response.headers.get("Content-Type", "")
+            mime_type = content_type.split(";", 1)[0].strip().lower()
+            if mime_type not in IMAGE_PROXY_ALLOWED_TYPES:
+                return Response(
+                    {"detail": "远程地址返回的不是受支持的图片格式。"},
+                    status=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                )
+
+            image_data = bytearray()
+            for chunk in response.iter_content(chunk_size=IMAGE_PROXY_CHUNK_SIZE):
+                if not chunk:
+                    continue
+                image_data.extend(chunk)
+                if len(image_data) > IMAGE_PROXY_MAX_BYTES:
+                    return Response(
+                        {"detail": "图片大小不能超过 3MB。"},
+                        status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                    )
+
+            if not image_data:
+                return Response(
+                    {"detail": "远程图片内容为空。"},
+                    status=status.HTTP_502_BAD_GATEWAY,
+                )
+
+            encoded = base64.b64encode(image_data).decode("ascii")
+            return Response({"data_url": f"data:{mime_type};base64,{encoded}"})
+        except requests.RequestException:
+            logger.warning("Image proxy upstream request failed.", exc_info=True)
+            return Response(
+                {"detail": "远程图片请求超时或连接失败。"},
+                status=status.HTTP_504_GATEWAY_TIMEOUT,
+            )
+        finally:
+            if response is not None:
+                response.close()
 
 
 class DailyPushCronView(APIView):

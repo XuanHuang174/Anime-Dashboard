@@ -1,10 +1,48 @@
 import { useRef, useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
+import api from '../api/api.js'
 import { getCoverSrc } from '../utils/animeDisplay.js'
 import { formatAiringPeriod } from '../utils/featuredDisplay.js'
 import '../styles/completion-report.css'
 
 const REPORT_URL = 'https://xh-anime.com'
+const PLACEHOLDER_COVER = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MDAiIGhlaWdodD0iODAwIiB2aWV3Qm94PSIwIDAgNjAwIDgwMCI+PHJlY3Qgd2lkdGg9IjYwMCIgaGVpZ2h0PSI4MDAiIGZpbGw9IiNmZmU2NmQiLz48cGF0aCBkPSJNMCAwaDYwMHY4MDBIMHoiIGZpbGw9InVybCgjYSkiLz48ZGVmcz48cGF0dGVybiBpZD0iYSIgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBwYXR0ZXJuVW5pdHM9InVzZXJTcGFjZU9uVXNlIj48Y2lyY2xlIGN4PSI0IiBjeT0iNCIgcj0iMyIgZmlsbD0iI2Q3YzA1OCIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3QgeD0iNjAiIHk9IjEwMCIgd2lkdGg9IjQ4MCIgaGVpZ2h0PSI2MDAiIGZpbGw9IiNmZmY1ZWUiIHN0cm9rZT0iIzExMSIgc3Ryb2tlLXdpZHRoPSIxMiIvPjxjaXJjbGUgY3g9IjMwMCIgY3k9IjMyMCIgcj0iMTAwIiBmaWxsPSIjNGVjZGM0IiBzdHJva2U9IiMxMTEiIHN0cm9rZS13aWR0aD0iMTIiLz48cGF0aCBkPSJNMjMwIDMzMGwxNDAgMCAwIDEyMC0xNDAgMHoiIGZpbGw9IiNmZjhmYWIiIHN0cm9rZT0iIzExMSIgc3Ryb2tlLXdpZHRoPSIxMiIvPjx0ZXh0IHg9IjMwMCIgeT0iNTUwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMzYiIGZvbnQtd2VpZ2h0PSI5MDAiIGZpbGw9IiMxMTEiPk5PIElNQUdFPC90ZXh0Pjx0ZXh0IHg9IjMwMCIgeT0iNjEwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjgiIGZvbnQtd2VpZ2h0PSI5MDAiIGZpbGw9IiMxMTEiPuaguuaXoOWbvueJhzwvdGV4dD48L3N2Zz4='
+
+function canUseCoverDirectly(source) {
+  if (!source || /^(data:|blob:)/i.test(source)) return true
+
+  try {
+    const parsed = new URL(source, window.location.origin)
+    const hostname = parsed.hostname.toLowerCase()
+    const configuredHosts = String(import.meta.env.VITE_TRUSTED_IMAGE_HOSTS || '')
+      .split(',')
+      .map((host) => host.trim().toLowerCase())
+      .filter(Boolean)
+    return parsed.origin === window.location.origin
+      || hostname === 'xh-anime.com'
+      || hostname.endsWith('.xh-anime.com')
+      || hostname.endsWith('.r2.dev')
+      || hostname.endsWith('.r2.cloudflarestorage.com')
+      || configuredHosts.includes(hostname)
+  } catch {
+    return false
+  }
+}
+
+async function resolveReportCover(source) {
+  if (canUseCoverDirectly(source)) return source
+
+  try {
+    const response = await api.get('utils/image-proxy/', {
+      params: { url: source },
+      timeout: 8000,
+    })
+    return response.data?.data_url || PLACEHOLDER_COVER
+  } catch (error) {
+    console.warn('Report cover proxy failed; using placeholder.', error)
+    return PLACEHOLDER_COVER
+  }
+}
 
 function waitForPosterImages(root) {
   const images = Array.from(root.querySelectorAll('img'))
@@ -48,6 +86,7 @@ function sanitizeFilename(title) {
 
 function CompletionReportExporter({ item, disabled = false, buttonClassName = '', showToast }) {
   const posterRef = useRef(null)
+  const coverRef = useRef(null)
   const [isGenerating, setIsGenerating] = useState(false)
 
   const handleGenerate = async () => {
@@ -55,10 +94,19 @@ function CompletionReportExporter({ item, disabled = false, buttonClassName = ''
     if (!poster || isGenerating) return
 
     setIsGenerating(true)
+    const originalCover = getCoverSrc(item)
     try {
       const { default: html2canvas } = await import('html2canvas')
+      const exportCover = await resolveReportCover(originalCover)
+      if (coverRef.current) coverRef.current.src = exportCover
       if (document.fonts?.ready) await document.fonts.ready
-      await waitForPosterImages(poster)
+      try {
+        await waitForPosterImages(poster)
+      } catch (imageError) {
+        if (exportCover === PLACEHOLDER_COVER || !coverRef.current) throw imageError
+        coverRef.current.src = PLACEHOLDER_COVER
+        await waitForPosterImages(poster)
+      }
 
       const canvas = await html2canvas(poster, {
         backgroundColor: '#fff5ee',
@@ -88,6 +136,7 @@ function CompletionReportExporter({ item, disabled = false, buttonClassName = ''
       console.error('Completion report generation failed:', error)
       showToast?.(error.message || '结案报告生成失败，请稍后重试。', 'error')
     } finally {
+      if (coverRef.current) coverRef.current.src = originalCover
       setIsGenerating(false)
     }
   }
@@ -131,6 +180,7 @@ function CompletionReportExporter({ item, disabled = false, buttonClassName = ''
           <section className="completion-report-main">
             <div className="completion-report-cover-frame">
               <img
+                ref={coverRef}
                 src={getCoverSrc(item)}
                 alt=""
                 crossOrigin="anonymous"

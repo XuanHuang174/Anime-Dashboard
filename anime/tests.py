@@ -1,4 +1,5 @@
 import json
+import socket
 import tempfile
 from decimal import Decimal
 from io import BytesIO
@@ -4003,6 +4004,144 @@ class MetadataScraperDetailTests(APITestCase):
 
         self.assertEqual(details["studio"], "测试动画公司")
         self.assertEqual(request_json.call_count, 2)
+
+
+class ImageProxyApiTests(APITestCase):
+    def setUp(self):
+        cache.clear()
+        self.user = get_user_model().objects.create_user(
+            username="image-proxy-user",
+            email="image-proxy@example.com",
+            password="Image-Proxy-2026!",
+        )
+        self.client.force_authenticate(user=self.user)
+        self.url = reverse("anime_api:image-proxy")
+
+    @patch("anime.views.socket.getaddrinfo")
+    @patch("anime.views.requests.get")
+    def test_image_proxy_returns_base64_data_url(self, request_get, getaddrinfo):
+        getaddrinfo.return_value = [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 443))
+        ]
+        upstream = Mock()
+        upstream.status_code = status.HTTP_200_OK
+        upstream.headers = {
+            "Content-Length": "4",
+            "Content-Type": "image/jpeg; charset=binary",
+        }
+        upstream.iter_content.return_value = [b"test"]
+        request_get.return_value = upstream
+
+        response = self.client.get(
+            self.url,
+            {"url": "https://images.example.com/poster.jpg"},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["data_url"], "data:image/jpeg;base64,dGVzdA==")
+        request_get.assert_called_once_with(
+            "https://images.example.com/poster.jpg",
+            stream=True,
+            timeout=5,
+            allow_redirects=False,
+        )
+        upstream.close.assert_called_once()
+
+    @patch("anime.views.socket.getaddrinfo")
+    @patch("anime.views.requests.get")
+    def test_image_proxy_rejects_declared_file_over_three_mb(
+        self,
+        request_get,
+        getaddrinfo,
+    ):
+        getaddrinfo.return_value = [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 443))
+        ]
+        upstream = Mock()
+        upstream.status_code = status.HTTP_200_OK
+        upstream.headers = {
+            "Content-Length": "3000001",
+            "Content-Type": "image/png",
+        }
+        request_get.return_value = upstream
+
+        response = self.client.get(
+            self.url,
+            {"url": "https://images.example.com/huge.png"},
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+        )
+        upstream.iter_content.assert_not_called()
+        upstream.close.assert_called_once()
+
+    @patch("anime.views.socket.getaddrinfo")
+    @patch("anime.views.requests.get")
+    def test_image_proxy_enforces_streamed_size_without_content_length(
+        self,
+        request_get,
+        getaddrinfo,
+    ):
+        getaddrinfo.return_value = [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 443))
+        ]
+        upstream = Mock()
+        upstream.status_code = status.HTTP_200_OK
+        upstream.headers = {"Content-Type": "image/webp"}
+        upstream.iter_content.return_value = [b"a" * 2_000_000, b"b" * 1_000_001]
+        request_get.return_value = upstream
+
+        response = self.client.get(
+            self.url,
+            {"url": "https://images.example.com/stream.webp"},
+        )
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+        )
+        upstream.close.assert_called_once()
+
+    @patch("anime.views.socket.getaddrinfo")
+    def test_image_proxy_rejects_private_network_target(self, getaddrinfo):
+        getaddrinfo.return_value = [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("127.0.0.1", 80))
+        ]
+
+        response = self.client.get(
+            self.url,
+            {"url": "http://localhost/private.png"},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("内网", response.data["detail"])
+
+    @patch("anime.views.socket.getaddrinfo")
+    @patch("anime.views.requests.get")
+    def test_image_proxy_returns_timeout_error(self, request_get, getaddrinfo):
+        getaddrinfo.return_value = [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 443))
+        ]
+        request_get.side_effect = requests.Timeout("timed out")
+
+        response = self.client.get(
+            self.url,
+            {"url": "https://images.example.com/slow.jpg"},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_504_GATEWAY_TIMEOUT)
+
+    def test_image_proxy_requires_login(self):
+        self.client.force_authenticate(user=None)
+
+        response = self.client.get(
+            self.url,
+            {"url": "https://images.example.com/poster.jpg"},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
 
 class ExternalMetadataApiTests(APITestCase):
