@@ -1,5 +1,6 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
+from .resource_search import AnimeResourceSearchView
 
 from .views import (
     AdminFeaturedSubmissionViewSet,
@@ -77,6 +78,7 @@ router.register(
 
 app_name = "anime_api"
 urlpatterns = [
+    path("utils/anime-search/", AnimeResourceSearchView.as_view(), name="anime-resource-search"),
     path("utils/image-proxy/", ImageProxyView.as_view(), name="image-proxy"),
     path(
         "cron/trigger-daily-push/",

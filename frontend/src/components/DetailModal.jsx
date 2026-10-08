@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 import api from '../api/api.js'
 import { getCoverSrc, getTagClass } from '../utils/animeDisplay.js'
 import { formatAiringPeriod } from '../utils/featuredDisplay.js'
 import CompletionReportExporter from './CompletionReportExporter.jsx'
+import AnimeResourceDrawer from './AnimeResourceDrawer.jsx'
 
 gsap.registerPlugin(useGSAP)
 
@@ -75,10 +76,19 @@ function DetailModal({
   const [isClosing, setIsClosing] = useState(false)
   const [actionError, setActionError] = useState('')
   const [activeTextPanel, setActiveTextPanel] = useState('description')
+  const [resourceOpen, setResourceOpen] = useState(false)
+  const resourceTriggerRef = useRef(null)
   const modalRootRef = useRef(null)
   const backdropRef = useRef(null)
   const modalPanelRef = useRef(null)
   const closingRef = useRef(false)
+
+  useEffect(() => { setResourceOpen(false) }, [activeItem?.id])
+
+  const closeResourceDrawer = useCallback(() => {
+    setResourceOpen(false)
+    resourceTriggerRef.current?.focus({ preventScroll: true })
+  }, [])
 
   useEffect(() => {
     if (!activeItem) {
@@ -179,6 +189,7 @@ function DetailModal({
     if (!selectedItem || closingRef.current) return
 
     closingRef.current = true
+    setResourceOpen(false)
     setIsClosing(true)
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
@@ -232,7 +243,9 @@ function DetailModal({
     document.body.style.overflow = 'hidden'
 
     const handleKeyDown = (event) => {
-      if (event.key === 'Escape') handleClose()
+      if (event.key !== 'Escape') return
+      if (resourceOpen) closeResourceDrawer()
+      else handleClose()
     }
 
     window.addEventListener('keydown', handleKeyDown)
@@ -241,7 +254,7 @@ function DetailModal({
       document.body.style.paddingRight = previousPaddingRight
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [handleClose, selectedItem])
+  }, [handleClose, selectedItem, resourceOpen, closeResourceDrawer])
 
   if (!selectedItem) return null
 
@@ -374,6 +387,7 @@ function DetailModal({
         aria-hidden="true"
       />
 
+      <div className={`detail-resource-stage${resourceOpen ? ' is-resource-open' : ''}`}>
       <div
         ref={modalPanelRef}
         className="relative flex h-[calc(100dvh-1rem)] max-h-[860px] w-full max-w-4xl flex-col overflow-hidden border-4 border-black bg-[#fff5ee] shadow-[12px_12px_0_0_rgba(0,0,0,1)] sm:h-[calc(100dvh-2rem)]"
@@ -679,6 +693,12 @@ function DetailModal({
         </div>
 
         <div className="mx-3 mb-3 flex shrink-0 flex-wrap justify-between gap-2 border-[3px] border-black bg-[#4ecdc4] px-3 py-2 shadow-[4px_4px_0_#111] sm:mx-4">
+          <div className="flex flex-wrap items-center gap-2">
+          <button ref={resourceTriggerRef} type="button" aria-expanded={resourceOpen} aria-controls="animeResourceDrawer"
+            disabled={isClosing} onClick={() => setResourceOpen((current) => !current)}
+            className={`${arcadeButtonClass} bg-[#ffe66d] hover:bg-[#ff8fab]`}>
+            🧲 寻找资源
+          </button>
           {editable ? (
             <button
               type="button"
@@ -712,6 +732,7 @@ function DetailModal({
               />
             </div>
           ) : <span />}
+          </div>
 
           <div className="ml-auto flex gap-2">
             <button
@@ -735,6 +756,9 @@ function DetailModal({
             )}
           </div>
         </div>
+      </div>
+      <AnimeResourceDrawer key={selectedItem.id} open={resourceOpen && !isClosing}
+        title={selectedItem.title} onClose={closeResourceDrawer} showToast={showToast} />
       </div>
     </div>
   )

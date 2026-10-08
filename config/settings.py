@@ -26,6 +26,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
 environ.Env.read_env(BASE_DIR / '.env', overwrite=False)
 
+# Internal resource search credentials must never be exposed through VITE_*.
+ANIME_SEARCH_API_URL = env('ANIME_SEARCH_API_URL', default='')
+ANIME_SEARCH_API_KEY = env('ANIME_SEARCH_API_KEY', default='')
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
