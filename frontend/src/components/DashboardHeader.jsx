@@ -207,7 +207,7 @@ function DashboardHeader({
                 onClick={onAddAnime}
                 className="dashboard-arcade-button dashboard-add-anime-cta group inline-flex items-center gap-3 bg-[#4ecdc4]"
               >
-                <span className="flex h-8 w-8 items-center justify-center border-[3px] border-black bg-white text-sm shadow-[2px_2px_0_#ff6b6b] group-hover:rotate-6">
+                <span className="flex h-8 w-8 items-center justify-center border-[3px] border-black bg-white text-sm shadow-[2px_2px_0_#111] group-hover:rotate-6">
                   <i className="fa-solid fa-plus" />
                 </span>
                 <span className="text-left leading-tight">

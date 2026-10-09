@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { countJournalStatuses } from '../utils/journalStats'
 
 function StatsSummary({ db = [], statsData = null, theme = 'default' }) {
   const calculatedStats = useMemo(() => {
@@ -19,15 +20,14 @@ function StatsSummary({ db = [], statsData = null, theme = 'default' }) {
       masterpieceCount: db.filter(
         (item) => item.score !== null && item.score >= 9.5,
       ).length,
-      pendingCount: db.filter(
-        (item) => item.score === null || item.period.includes('待定') || item.period === '未定档',
-      ).length,
+      ...countJournalStatuses(db),
     }
   }, [db])
 
   const stats = statsData
     ? {
         completedCount: statsData.completed_count ?? 0,
+        watchingCount: statsData.watching_count ?? calculatedStats.watchingCount,
         avg: statsData.average_score ?? 'N/A',
         movieCount: statsData.movie_count ?? 0,
         ovaCount: statsData.ova_count ?? 0,
@@ -41,7 +41,7 @@ function StatsSummary({ db = [], statsData = null, theme = 'default' }) {
     {
       label: '追完的番剧数量',
       value: stats.completedCount,
-      note: `${stats.pendingCount} 部计划 / 待定`,
+      note: `${stats.watchingCount} 部在看 / ${stats.pendingCount} 部待定`,
       icon: 'fa-circle-check',
       color: 'bg-[#ffe66d]',
       valueClass: 'text-black',

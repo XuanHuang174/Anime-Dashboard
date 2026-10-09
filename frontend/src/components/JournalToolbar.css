@@ -48,13 +48,13 @@
   background: #ffe066;
   color: #1a1a1a !important;
   border: 2px solid #1a1a1a !important;
-  box-shadow: 2px 2px 0 #1a1a1a !important;
+  box-shadow: 4px 4px 0 var(--memphis-ink, #111) !important;
   font-size: 13px;
   letter-spacing: normal;
   transition: transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease;
 }
-.journal-toolbar__items--preview .journal-preview-edit-button:hover { filter: none; background: #ffd166; transform: translate(-1px, -1px); box-shadow: 3px 3px 0 #1a1a1a !important; }
-.journal-toolbar__items--preview .journal-preview-edit-button:active { transform: translate(1px, 1px) !important; box-shadow: 1px 1px 0 #1a1a1a !important; }
+.journal-toolbar__items--preview .journal-preview-edit-button:hover { filter: none; background: #ffd166; transform: translate(-1px, -1px); box-shadow: 5px 5px 0 var(--memphis-ink, #111) !important; }
+.journal-toolbar__items--preview .journal-preview-edit-button:active { transform: translate(3px, 3px) !important; box-shadow: 1px 1px 0 var(--memphis-ink, #111) !important; }
 .journal-preview-edit-button:focus-visible { outline: 3px solid #673ab7; outline-offset: 4px; }
 
 .journal-recommendation-banner {

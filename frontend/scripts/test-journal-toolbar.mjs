@@ -37,7 +37,7 @@ await context.route('**/*', async (route) => {
       data = url.searchParams.get('page_size') === 'all' ? filtered : { count: filtered.length, results: filtered.slice(0, 12) }
     }
     else if (path.endsWith('filter-options/')) data = { tags: ['日常', '音乐'], years: ['2026'] }
-    else if (path.endsWith('stats/')) data = {}
+    else if (path.endsWith('stats/')) data = { watching_count: 5, pending_count: 4 }
     else if (path === 'featured-submissions/state/') data = { submissions: [], max_featured_limit: 3 }
     else if (path === 'utils/anime-search/') {
       searches.push(url.searchParams.get('keyword'))
@@ -65,6 +65,28 @@ try {
   await page.waitForFunction(() => getComputedStyle(document.querySelector('header')).borderTopWidth === '4px')
   await button('📦 数据管理▾').waitFor()
   await page.locator('#animeTableBody tr').first().waitFor()
+  const returnHome = page.locator('.dashboard-return-home-cta')
+  assert.equal(await returnHome.evaluate((el) => getComputedStyle(el).boxShadow), 'rgb(17, 17, 17) 4px 4px 0px 0px')
+  const addAnime = page.locator('.dashboard-add-anime-cta')
+  assert.equal(await addAnime.evaluate((el) => getComputedStyle(el).boxShadow), 'rgb(17, 17, 17) 4px 4px 0px 0px')
+  assert.equal(await addAnime.evaluate((el) => getComputedStyle(el, '::after').content), 'none')
+  await addAnime.hover()
+  await page.waitForTimeout(170)
+  assert.equal(await addAnime.evaluate((el) => getComputedStyle(el).borderTopColor), 'rgb(17, 17, 17)')
+  assert.ok((await addAnime.evaluate((el) => getComputedStyle(el).boxShadow)).includes('5px 5px'))
+  await addAnime.click()
+  const watchStatus = page.locator('#addAnimeWatchStatus')
+  await watchStatus.waitFor({ state: 'visible' })
+  assert.equal(await watchStatus.evaluate((el) => getComputedStyle(el).backgroundColor), 'rgb(255, 255, 255)')
+  const scoreInput = page.locator('input[name="personalScore"]')
+  assert.equal(await watchStatus.evaluate((el) => el.offsetHeight), await scoreInput.evaluate((el) => el.offsetHeight))
+  await watchStatus.click()
+  assert.equal(await watchStatus.evaluate((el) => getComputedStyle(el).backgroundColor), 'rgb(255, 242, 168)')
+  await page.getByRole('option', { name: '在看', exact: true }).click()
+  assert.equal(await watchStatus.evaluate((el) => getComputedStyle(el).backgroundColor), 'rgb(255, 255, 255)')
+  if (process.env.QA_ARTIFACT_DIR) await page.screenshot({ path: path.join(process.env.QA_ARTIFACT_DIR, 'journal-add-status.png') })
+  await button('取消').click()
+  await watchStatus.waitFor({ state: 'detached' })
   await button('📦 数据管理▾').click()
   assert.equal(await page.locator('.journal-dropdown-panel:visible').evaluate((el) => getComputedStyle(el).zIndex), '9999')
   await page.getByText('本地界面测试', { exact: true }).click()
@@ -74,6 +96,13 @@ try {
   await page.locator('#journalResourceDrawer-keyword').waitFor({ state: 'visible' })
   assert.equal(await page.locator('#journalResourceDrawer-keyword').inputValue(), '')
   assert.equal(searches.length, 0, 'Global launch must not request API')
+  await page.locator('#journalResourceDrawer-keyword').focus()
+  const searchStyle = await page.locator('#journalResourceDrawer-keyword').evaluate((el) => {
+    const style = getComputedStyle(el)
+    return { background: style.backgroundColor, outline: style.outlineStyle, border: style.borderTopColor }
+  })
+  assert.deepEqual(searchStyle, { background: 'rgb(255, 242, 168)', outline: 'none', border: 'rgb(0, 0, 0)' })
+  if (process.env.QA_ARTIFACT_DIR) await page.screenshot({ path: path.join(process.env.QA_ARTIFACT_DIR, 'journal-resource-focus.png') })
   await page.locator('#journalResourceDrawer-keyword').fill('手动关键字')
   await page.locator('#journalResourceDrawer-keyword').press('Enter')
   await page.getByRole('heading', { name: '资源 手动关键字' }).waitFor()
@@ -154,6 +183,8 @@ try {
 
   await button('👁 预览模式').click()
   await button('🛠 更多工具▾').waitFor()
+  await page.getByText('5 部在看 / 4 部待定', { exact: true }).waitFor()
+  assert.equal(await returnHome.evaluate((el) => getComputedStyle(el).boxShadow), 'rgb(17, 17, 17) 4px 4px 0px 0px')
   assert.equal(await page.locator('.dashboard-preview-actions').count(), 0, 'No empty full-width control frame')
   assert.equal(await page.locator('.journal-recommendation-banner').count(), 1, 'Private preview teaser is present')
   const editButton = button('📝 编辑模式')
@@ -165,10 +196,10 @@ try {
   assert.equal(editStyle.border, '2px')
   assert.equal(editStyle.height, 42)
   assert.equal(editStyle.background, 'rgb(255, 224, 102)')
-  assert.ok(editStyle.shadow.includes('2px 2px'))
+  assert.equal(editStyle.shadow, await button('🧲 寻找资源').evaluate((el) => getComputedStyle(el).boxShadow))
   await editButton.hover()
   await page.waitForTimeout(170)
-  assert.ok((await editButton.evaluate((el) => getComputedStyle(el).boxShadow)).includes('3px 3px'))
+  assert.ok((await editButton.evaluate((el) => getComputedStyle(el).boxShadow)).includes('5px 5px'))
   await page.mouse.down()
   await page.waitForTimeout(170)
   assert.ok((await editButton.evaluate((el) => getComputedStyle(el).boxShadow)).includes('1px 1px'))

@@ -206,7 +206,7 @@ select {
 }
 
 .dashboard-add-anime-cta {
-  box-shadow: 5px 5px 0 var(--memphis-yellow) !important;
+  box-shadow: 4px 4px 0 var(--memphis-ink) !important;
 }
 
 .dashboard-add-anime-cta:active {
@@ -223,7 +223,7 @@ select {
 }
 
 .dashboard-return-home-cta {
-  box-shadow: 4px 4px 0 var(--memphis-coral) !important;
+  box-shadow: 4px 4px 0 var(--memphis-ink) !important;
 }
 
 .dashboard-shared-header-action {
@@ -374,16 +374,15 @@ select {
   padding: 10px 18px;
   font-size: 14px;
   letter-spacing: 0.03em;
-  box-shadow: 8px 8px 0 var(--memphis-yellow) !important;
+  box-shadow: 4px 4px 0 var(--memphis-ink) !important;
+  transition: transform 140ms ease, box-shadow 140ms ease, background-color 140ms ease;
 }
 
-.dashboard-add-anime-cta::after {
-  content: '';
-  position: absolute;
-  inset: -8px;
-  z-index: -1;
-  border: 3px solid var(--memphis-coral);
-  pointer-events: none;
+.dashboard-add-anime-cta:hover {
+  filter: none;
+  background: #70ddd3;
+  transform: translate(-1px, -1px);
+  box-shadow: 5px 5px 0 var(--memphis-ink) !important;
 }
 
 .dashboard-preview-actions {
@@ -806,19 +805,21 @@ select {
 }
 
 .add-watch-status-select .searchable-select__trigger {
-  min-height: 45px;
-  border: 3px solid #111;
+  min-height: 44px;
+  line-height: 20px;
+  border: 2px solid #000;
   border-radius: 0;
-  background: #ffe66d;
-  padding: 9px 12px;
+  background: #fff;
+  padding: 10px 12px;
   color: #111;
   font-weight: 900;
-  box-shadow: 4px 4px 0 #111;
+  box-shadow: 3px 3px 0 #111;
 }
 
 .add-watch-status-select .searchable-select__trigger[aria-expanded='true'] {
+  background: #fff2a8;
   transform: translate(3px, 3px);
-  box-shadow: 1px 1px 0 #111;
+  box-shadow: none;
 }
 
 .add-watch-status-select .searchable-select__panel {

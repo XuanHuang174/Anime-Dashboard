@@ -1596,6 +1596,37 @@ class AnimeApiTests(APITestCase):
         self.assertEqual(response.data["completed_count"], 1)
         self.assertEqual(response.data["average_score"], "8.80")
 
+    def test_record_stats_count_watching_and_pending_union_not_unrated(self):
+        # Existing watching record is unscored and dated: not pending.
+        cases = [
+            ("watching", "未定档", Decimal("9.0")),
+            ("plan", "2026-10", Decimal("8.0")),
+            ("plan", "2027-待定", None),
+            ("completed", "2026-4", None),
+            ("on_hold", "2026-4", None),
+            ("completed", "未定档", Decimal("7.0")),
+        ]
+        for index, (watch_status, period, score) in enumerate(cases):
+            anime = Anime.objects.create(
+                chinese_title=f"状态统计测试{index}", airing_period="2026-1",
+            )
+            record = UserAnimeRecord.objects.create(
+                user=self.user, anime=anime, watch_status=watch_status,
+                personal_score=score,
+            )
+            # Statistics must respect private metadata, not public airing dates.
+            record.private_airing_period = period
+            record.metadata_initialized = True
+            record.save(update_fields=("private_airing_period", "metadata_initialized"))
+
+        self.client.force_authenticate(self.user)
+        response = self.client.get(reverse("anime_api:user-anime-record-stats"))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["total_count"], 7)
+        self.assertEqual(response.data["watching_count"], 2)
+        self.assertEqual(response.data["pending_count"], 4)
+        self.assertEqual(response.data["completed_count"], 2)
+
     def test_private_records_support_bounded_all_page_size(self):
         extra_anime = [
             Anime.objects.create(

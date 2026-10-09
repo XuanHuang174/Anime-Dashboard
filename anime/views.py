@@ -1216,6 +1216,7 @@ def _build_record_stats(queryset):
     """Calculate summary cards from the complete record queryset."""
 
     completed_count = 0
+    watching_count = 0
     scored_count = 0
     score_total = 0
     movie_count = 0
@@ -1252,6 +1253,8 @@ def _build_record_stats(queryset):
 
         if record["watch_status"] == UserAnimeRecord.WatchStatus.COMPLETED:
             completed_count += 1
+        if record["watch_status"] == UserAnimeRecord.WatchStatus.WATCHING:
+            watching_count += 1
         if score is not None:
             scored_count += 1
             score_total += score
@@ -1263,7 +1266,12 @@ def _build_record_stats(queryset):
             ova_count += 1
         if "泡面番" in tags:
             short_count += 1
-        if score is None or "待定" in period or period == "未定档":
+        # Count the union once; an absent score is not a pending watch status.
+        if (
+            record["watch_status"] == UserAnimeRecord.WatchStatus.PLAN_TO_WATCH
+            or "待定" in period
+            or "未定档" in period
+        ):
             pending_count += 1
 
     average_score = (
@@ -1274,6 +1282,7 @@ def _build_record_stats(queryset):
     return {
         "total_count": queryset.count(),
         "completed_count": completed_count,
+        "watching_count": watching_count,
         "average_score": average_score,
         "movie_count": movie_count,
         "ova_count": ova_count,
