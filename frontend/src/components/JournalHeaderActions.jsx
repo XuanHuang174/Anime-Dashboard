@@ -24,7 +24,7 @@ export default function JournalHeaderActions({ isPreviewMode, onReturnHome, onTo
     renderActions={({ onExport, onImport, isExporting, isImporting }) => (
       <PublicJournalShareButton publicStatus={publicStatus} onStatusChange={onStatusChange} showToast={showToast}
         renderTrigger={(shareButton) => {
-          const actions = <div className="journal-toolbar__items">
+          const actions = <div className={`journal-toolbar__items${isPreviewMode ? ' journal-toolbar__items--preview' : ''}`}>
             <button type="button" className="dashboard-arcade-button dashboard-return-home-cta bg-white"
               onClick={run(onReturnHome)}>← 返回主界面</button>
             {!isPreviewMode && <MemphisDropdown label="📦 数据管理" className="bg-[#ffe66d]"
@@ -42,7 +42,7 @@ export default function JournalHeaderActions({ isPreviewMode, onReturnHome, onTo
               open={activeMenu === 'tools'} onOpenChange={(value) => setActiveMenu(value ? 'tools' : '')} owner={owner}>
               {csvButton}<div onClick={close}>{shareButton}</div>
             </MemphisDropdown>}
-            <button type="button" className={`dashboard-arcade-button ${isPreviewMode ? 'dashboard-edit-mode-cta bg-[#ffe66d]' : 'bg-white'}`}
+            <button type="button" className={`dashboard-arcade-button ${isPreviewMode ? 'journal-preview-edit-button' : 'bg-white'}`}
               onClick={run(onTogglePreview)}>{isPreviewMode ? '📝 编辑模式' : '👁 预览模式'}</button>
             {!isPreviewMode && <div onClick={close}>{shareButton}</div>}
           </div>

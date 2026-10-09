@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import api from '../api/api.js'
 import AccountDeletionModal from './AccountDeletionModal.jsx'
 import JournalHeaderActions from './JournalHeaderActions.jsx'
+import JournalRecommendationBanner from './JournalRecommendationBanner.jsx'
 import ProfileModal from './ProfileModal.jsx'
 
 const DEFAULT_SUBTITLE = '记录每一次与动画相遇，也珍藏属于自己的追番时光。'
@@ -167,7 +168,7 @@ function DashboardHeader({
         isPreviewMode
           ? 'md:min-w-[360px] md:max-w-[48%]'
           : 'lg:w-[62%] lg:max-w-[760px]'
-      }` : 'journal-actions-area'}
+      }` : `journal-actions-area${isPreviewMode ? ' journal-preview-controls' : ''}`}
     >
       {isSharedJournal ? (
         <div className="flex flex-wrap items-center justify-end gap-4">
@@ -190,7 +191,7 @@ function DashboardHeader({
           </button>
         </div>
       ) : (
-        <div className={isPreviewMode ? 'dashboard-preview-actions' : ''}>
+        <div className={isPreviewMode ? 'journal-preview-actions' : ''}>
           <JournalHeaderActions isPreviewMode={isPreviewMode} onReturnHome={onReturnHome}
             onTogglePreview={onTogglePreview} onImportBangumi={onImportBangumi}
             onRecordsImported={onRecordsImported} onFindResources={onFindResources}
@@ -198,6 +199,7 @@ function DashboardHeader({
             publicStatus={profile?.public_status} onStatusChange={(nextStatus) => {
               setProfile((current) => ({ ...current, ...nextStatus }))
             }} showToast={showToast} />
+          {isPreviewMode && <JournalRecommendationBanner />}
           {!isPreviewMode && (
             <div className="mt-6 flex justify-end pr-2">
               <button
@@ -239,7 +241,7 @@ function DashboardHeader({
 
           <div className="relative z-10 mx-auto max-w-7xl px-4 pb-12 pt-9 sm:px-6 lg:px-8">
             <div className={`flex flex-col gap-7 md:flex-row md:items-center md:justify-between ${!isSharedJournal ? 'journal-personal-preview-layout' : ''}`}>
-              <div className="max-w-3xl">
+              <div className={isSharedJournal ? 'max-w-3xl' : 'journal-preview-identity'}>
                 <span className="inline-flex -rotate-1 items-center border-[3px] border-black bg-[#ffe66d] px-3 py-1.5 text-xs font-black uppercase tracking-[0.16em] shadow-[4px_4px_0_#111]">
                   <i className="fa-solid fa-heart mr-2"></i>
                   个人手账 / 追番记录

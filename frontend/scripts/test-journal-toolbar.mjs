@@ -154,6 +154,27 @@ try {
 
   await button('👁 预览模式').click()
   await button('🛠 更多工具▾').waitFor()
+  assert.equal(await page.locator('.dashboard-preview-actions').count(), 0, 'No empty full-width control frame')
+  assert.equal(await page.locator('.journal-recommendation-banner').count(), 1, 'Private preview teaser is present')
+  const editButton = button('📝 编辑模式')
+  const editStyle = await editButton.evaluate((el) => {
+    const style = getComputedStyle(el)
+    return { border: style.borderTopWidth, height: el.getBoundingClientRect().height,
+      background: style.backgroundColor, shadow: style.boxShadow }
+  })
+  assert.equal(editStyle.border, '2px')
+  assert.equal(editStyle.height, 42)
+  assert.equal(editStyle.background, 'rgb(255, 224, 102)')
+  assert.ok(editStyle.shadow.includes('2px 2px'))
+  await editButton.hover()
+  await page.waitForTimeout(170)
+  assert.ok((await editButton.evaluate((el) => getComputedStyle(el).boxShadow)).includes('3px 3px'))
+  await page.mouse.down()
+  await page.waitForTimeout(170)
+  assert.ok((await editButton.evaluate((el) => getComputedStyle(el).boxShadow)).includes('1px 1px'))
+  await page.mouse.move(0, 0)
+  await page.mouse.up()
+  if (process.env.QA_ARTIFACT_DIR) await page.screenshot({ path: path.join(process.env.QA_ARTIFACT_DIR, 'journal-preview-desktop.png') })
   assert.equal(await button('📦 数据管理▾').count(), 0)
   await button('🛠 更多工具▾').click()
   await button('取消分享').click()
@@ -169,9 +190,17 @@ try {
   await page.keyboard.press('Escape')
   await page.locator('.detail-resource-stage').waitFor({ state: 'detached' })
 
-  for (const width of [320, 375, 767, 768, 1024, 1280, 1440]) {
+  for (const width of [320, 375, 767, 768, 1024, 1100, 1280, 1440]) {
     await page.setViewportSize({ width, height: 900 })
     await page.waitForTimeout(100)
+    const bannerBox = await page.locator('.journal-recommendation-banner').boundingBox()
+    assert.ok(bannerBox.x >= 0 && bannerBox.x + bannerBox.width <= width, `Teaser fits ${width}`)
+    if (width >= 1100) {
+      const identityBox = await page.locator('.journal-preview-identity').boundingBox()
+      const controlsBox = await page.locator('.journal-preview-controls').boundingBox()
+      assert.ok(Math.abs(identityBox.y - controlsBox.y) < 1, 'Desktop columns align at the top')
+      assert.ok(identityBox.x + identityBox.width <= controlsBox.x, 'Header columns do not overlap')
+    }
     if (width < 768) {
       await button('☰ 菜单▾').click()
       await button('🧲 寻找资源').waitFor({ state: 'visible' })
@@ -185,9 +214,12 @@ try {
       }))
       assert.ok(boxes.every((box) => box.left >= 0 && box.right <= width), `Toolbar fits ${width}`)
       assert.ok(Math.max(...boxes.map((b) => b.top)) - Math.min(...boxes.map((b) => b.top)) < 8, 'Single-row toolbar')
+      const heights = await page.locator('.journal-toolbar__items > button').evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height))
+      assert.ok(heights.every((height) => height === 42), 'Preview navigation heights match')
     }
   }
   await page.setViewportSize({ width: 375, height: 900 })
+  if (process.env.QA_ARTIFACT_DIR) await page.screenshot({ path: path.join(process.env.QA_ARTIFACT_DIR, 'journal-preview-mobile.png') })
   await button('☰ 菜单▾').click()
   await button('📝 编辑模式').click()
   await button('☰ 菜单▾').click()
@@ -199,6 +231,7 @@ try {
   await page.goto(`${base}/shared/QA`)
   await page.getByText('返回共创大厅', { exact: true }).waitFor()
   assert.equal(await page.locator('.journal-toolbar').count(), 0, 'Shared journals keep existing header')
+  assert.equal(await page.locator('.journal-recommendation-banner').count(), 0, 'Teaser stays private')
   assert.equal(await page.locator('.journal-row-resource-button').count(), 0, 'Shared records have no private shortcut')
   console.log('PASS: dropdown/outside/CSV/JSON/import cancellation/share confirmation/global-row state isolation/responsive 320–1440px')
 } catch (error) {
