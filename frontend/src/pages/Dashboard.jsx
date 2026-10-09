@@ -10,6 +10,8 @@ import AddAnimeModal from '../components/AddAnimeModal.jsx'
 import BackToTop from '../components/BackToTop.jsx'
 import BangumiImportModal from '../components/BangumiImportModal.jsx'
 import DashboardHeader from '../components/DashboardHeader.jsx'
+import JournalResourceSearch from '../components/JournalResourceSearch.jsx'
+import { downloadJournalCsv } from '../utils/journalCsv.js'
 import DetailModal from '../components/DetailModal.jsx'
 import EditableDetailModal from '../components/EditableDetailModal.jsx'
 import FeaturedActionConfirmModal from '../components/FeaturedActionConfirmModal.jsx'
@@ -86,6 +88,11 @@ function Dashboard() {
   const [selectedItem, setSelectedItem] = useState(null)
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [isBangumiImportOpen, setIsBangumiImportOpen] = useState(false)
+  const [resourceSearch, setResourceSearch] = useState(null)
+  const closeResourceSearch = useCallback(() => setResourceSearch(null), [])
+  const openResourceSearch = (item) => setResourceSearch({
+    key: `${Date.now()}-${Math.random()}`, title: item?.title || '', autoSearch: Boolean(item?.title),
+  })
   const [toasts, setToasts] = useState([])
   const [searchQuery, setSearchQuery] = useState('')
   const [tagFilter, setTagFilter] = useState('all')
@@ -935,6 +942,16 @@ function Dashboard() {
         onImportBangumi={() => setIsBangumiImportOpen(true)}
         onReturnHome={handleReturnHome}
         onRecordsImported={handleRecordsImported}
+        onFindResources={() => openResourceSearch()}
+        onExportCsv={() => {
+          try {
+            downloadJournalCsv(filteredAnime)
+            showToast(`已导出当前筛选列表的 ${filteredAnime.length} 条记录${pageSize !== 'all' ? '（当前页）' : ''}。`)
+          } catch { showToast('CSV 导出失败，请稍后重试。', 'error') }
+        }}
+        csvCount={filteredAnime.length}
+        csvDisabled={isLoading || Boolean(error) || !hasLoadedRecords
+          || (pageSize !== 'all' && (lastLoadedPage !== currentPage || searchQuery.trim() !== debouncedSearchQuery))}
         onLogout={handleLogout}
         onAccountDeleted={handleAccountDeleted}
         onUnauthorized={forceLogout}
@@ -1041,6 +1058,7 @@ function Dashboard() {
                 onAddAnime={() => setIsAddModalOpen(true)}
                 onIncrementProgress={isEditMode ? handleProgressIncrement : undefined}
                 progressUpdatingIds={progressUpdatingIds}
+                onFindResources={isSharedJournal ? undefined : openResourceSearch}
               />
               </div>
             )}
@@ -1213,9 +1231,12 @@ function Dashboard() {
           </section>
         </div>
       )}
+      {!isSharedJournal && resourceSearch && <JournalResourceSearch key={resourceSearch.key}
+        title={resourceSearch.title} autoSearch={resourceSearch.autoSearch}
+        onClose={closeResourceSearch} showToast={showToast} />}
       <BackToTop
         isModalOpen={Boolean(selectedItem) || (!isSharedJournal && (
-          isLogoutConfirmOpen || isBangumiImportOpen || Boolean(featuredConfirmAction)
+          isLogoutConfirmOpen || isBangumiImportOpen || Boolean(featuredConfirmAction) || Boolean(resourceSearch)
         ))}
         theme="memphis"
       />

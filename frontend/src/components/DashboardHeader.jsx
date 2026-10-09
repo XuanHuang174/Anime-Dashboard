@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import api from '../api/api.js'
 import AccountDeletionModal from './AccountDeletionModal.jsx'
-import JournalDataTransfer from './JournalDataTransfer.jsx'
+import JournalHeaderActions from './JournalHeaderActions.jsx'
 import ProfileModal from './ProfileModal.jsx'
-import PublicJournalShareButton from './PublicJournalShareButton.jsx'
 
 const DEFAULT_SUBTITLE = '记录每一次与动画相遇，也珍藏属于自己的追番时光。'
 
@@ -14,6 +13,10 @@ function DashboardHeader({
   onImportBangumi,
   onReturnHome,
   onRecordsImported,
+  onFindResources,
+  onExportCsv,
+  csvDisabled,
+  csvCount = 0,
   onLogout,
   onAccountDeleted,
   onUnauthorized,
@@ -160,11 +163,11 @@ function DashboardHeader({
 
   const actions = (
     <div
-      className={`w-full shrink-0 self-stretch md:w-auto md:self-auto ${
+      className={isSharedJournal ? `w-full shrink-0 self-stretch md:w-auto md:self-auto ${
         isPreviewMode
           ? 'md:min-w-[360px] md:max-w-[48%]'
           : 'lg:w-[62%] lg:max-w-[760px]'
-      }`}
+      }` : 'journal-actions-area'}
     >
       {isSharedJournal ? (
         <div className="flex flex-wrap items-center justify-end gap-4">
@@ -188,62 +191,14 @@ function DashboardHeader({
         </div>
       ) : (
         <div className={isPreviewMode ? 'dashboard-preview-actions' : ''}>
-          <div className={`flex flex-wrap items-center justify-end ${isPreviewMode ? 'gap-4' : 'gap-2'}`}>
-            <button
-              type="button"
-              onClick={onReturnHome}
-              className="dashboard-arcade-button dashboard-return-home-cta inline-flex items-center gap-2 bg-white"
-            >
-              <i className="fa-solid fa-arrow-left" />
-              返回主界面
-            </button>
-            {!isPreviewMode && (
-              <JournalDataTransfer
-                onImported={onRecordsImported}
-                showToast={showToast}
-                theme="memphis"
-              />
-            )}
-            {!isPreviewMode && (
-              <button
-                type="button"
-                onClick={onImportBangumi}
-                className="dashboard-arcade-button inline-flex items-center gap-2 bg-[#ffe66d]"
-                title="通过 Bangumi UID 批量同步收藏"
-              >
-                <i className="fa-solid fa-cloud-arrow-down" />
-                Bangumi 导入
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={onTogglePreview}
-              className={`dashboard-arcade-button inline-flex items-center gap-2 ${isPreviewMode ? 'dashboard-edit-mode-cta bg-[#ffe66d]' : 'bg-white'}`}
-            >
-              <i className={`fa-solid ${isPreviewMode ? 'fa-pen-to-square' : 'fa-eye'}`} />
-              {isPreviewMode ? '编辑模式' : '预览模式'}
-            </button>
-            {!isPreviewMode && (
-              <PublicJournalShareButton
-                publicStatus={profile?.public_status}
-                onStatusChange={(nextStatus) => {
-                  setProfile((current) => ({ ...current, ...nextStatus }))
-                }}
-                showToast={showToast}
-              />
-            )}
-          </div>
-          {isPreviewMode ? (
-            <div className="mt-9 flex justify-end border-t-4 border-black pt-5">
-              <PublicJournalShareButton
-                publicStatus={profile?.public_status}
-                onStatusChange={(nextStatus) => {
-                  setProfile((current) => ({ ...current, ...nextStatus }))
-                }}
-                showToast={showToast}
-              />
-            </div>
-          ) : (
+          <JournalHeaderActions isPreviewMode={isPreviewMode} onReturnHome={onReturnHome}
+            onTogglePreview={onTogglePreview} onImportBangumi={onImportBangumi}
+            onRecordsImported={onRecordsImported} onFindResources={onFindResources}
+            onExportCsv={onExportCsv} csvDisabled={csvDisabled} csvCount={csvCount}
+            publicStatus={profile?.public_status} onStatusChange={(nextStatus) => {
+              setProfile((current) => ({ ...current, ...nextStatus }))
+            }} showToast={showToast} />
+          {!isPreviewMode && (
             <div className="mt-6 flex justify-end pr-2">
               <button
                 type="button"
@@ -283,7 +238,7 @@ function DashboardHeader({
           </div>
 
           <div className="relative z-10 mx-auto max-w-7xl px-4 pb-12 pt-9 sm:px-6 lg:px-8">
-            <div className="flex flex-col gap-7 md:flex-row md:items-center md:justify-between">
+            <div className={`flex flex-col gap-7 md:flex-row md:items-center md:justify-between ${!isSharedJournal ? 'journal-personal-preview-layout' : ''}`}>
               <div className="max-w-3xl">
                 <span className="inline-flex -rotate-1 items-center border-[3px] border-black bg-[#ffe66d] px-3 py-1.5 text-xs font-black uppercase tracking-[0.16em] shadow-[4px_4px_0_#111]">
                   <i className="fa-solid fa-heart mr-2"></i>
@@ -331,7 +286,7 @@ function DashboardHeader({
           <div className="dashboard-console-pattern pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true" />
           <div className="pointer-events-none absolute -right-10 -top-10 h-20 w-20 rotate-12 border-4 border-black bg-[#ffe66d] shadow-[5px_5px_0_#4ecdc4]" aria-hidden="true" />
 
-          <div className="relative z-10 flex flex-col justify-between gap-5 px-4 py-5 sm:px-6 lg:flex-row lg:items-center">
+          <div className="journal-personal-edit-layout relative z-10 flex flex-col justify-between gap-5 px-4 py-5 sm:px-6 lg:flex-row lg:items-center">
             <div className="min-w-0">
               <span className="inline-flex -rotate-1 items-center border-2 border-black bg-[#ffe66d] px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] shadow-[3px_3px_0_#111]">
                 <i className="fa-solid fa-bolt mr-2" />

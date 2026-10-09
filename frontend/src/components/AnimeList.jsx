@@ -42,6 +42,7 @@ function AnimeList({
   showAddPlaceholder = false,
   onAddAnime,
   onIncrementProgress,
+  onFindResources,
   progressUpdatingIds = new Set(),
 }) {
   const isMemphis = theme === 'memphis'
@@ -159,6 +160,8 @@ function AnimeList({
                         <span className="text-[10px] md:text-xs text-slate-400 mt-1 font-medium tracking-normal transition-all duration-500 ease-out group-hover:translate-x-3.5 group-hover:tracking-[0.05em] opacity-90 group-hover:opacity-100 line-clamp-1">
                           {item.japaneseTitle || ' '}
                         </span>
+                        {onFindResources && <button type="button" className="journal-row-resource-button md:!hidden"
+                          aria-label={`寻找${item.title}的资源`} onClick={(event) => { event.stopPropagation(); onFindResources(item) }}>🧲</button>}
 
                         <div className="flex md:hidden flex-wrap gap-1.5 mt-2.5">
                           {item.status === 'watching' && onIncrementProgress ? (
@@ -256,6 +259,9 @@ function AnimeList({
                         <i className={`fa-solid ${editable ? 'fa-pen-to-square' : 'fa-layer-group'}`}></i>
                         {editable ? '修改' : '详情'}
                       </button>
+                      {onFindResources && <button type="button" className="journal-row-resource-button"
+                        title="寻找资源" aria-label={`寻找${item.title}的资源`}
+                        onClick={(event) => { event.stopPropagation(); onFindResources(item) }}>🧲</button>}
                     </td>
                   </tr>
                 )

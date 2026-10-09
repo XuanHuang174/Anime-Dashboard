@@ -24,6 +24,7 @@ function PublicJournalShareButton({
   publicStatus = 'private',
   onStatusChange,
   showToast,
+  renderTrigger,
 }) {
   const [confirmAction, setConfirmAction] = useState(null)
   const [isProcessing, setIsProcessing] = useState(false)
@@ -88,17 +89,19 @@ function PublicJournalShareButton({
     setConfirmAction('share')
   }
 
-  return (
-    <>
-      <button
+  const trigger = <button
         type="button"
         onClick={handleClick}
         disabled={isProcessing || publicStatus === 'pending'}
         className={`dashboard-arcade-button inline-flex items-center gap-2 rounded-full ${buttonState.className}`}
       >
-        <i className={`fa-solid ${isProcessing ? 'fa-spinner animate-spin' : buttonState.icon}`} />
+        <i aria-hidden="true" className={`fa-solid ${isProcessing ? 'fa-spinner animate-spin' : buttonState.icon}`} />
         {isProcessing ? '处理中…' : buttonState.label}
       </button>
+
+  return (
+    <>
+      {renderTrigger ? renderTrigger(trigger) : trigger}
 
       {isConfirmOpen && createPortal(
         <div

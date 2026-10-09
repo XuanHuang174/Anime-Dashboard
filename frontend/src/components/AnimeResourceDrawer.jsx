@@ -3,7 +3,7 @@ import api from '../api/api.js'
 import { cleanResourceKeyword, dmhySearchUrl, hasResourceSearchSession, isSafeMagnet } from '../utils/resourceSearch.js'
 import './AnimeResourceDrawer.css'
 
-export default function AnimeResourceDrawer({ open, title, onClose, showToast }) {
+export default function AnimeResourceDrawer({ open, title = '', autoSearch = true, id = 'animeResourceDrawer', onClose, showToast }) {
   const [keyword, setKeyword] = useState('')
   const [searchedKeyword, setSearchedKeyword] = useState('')
   const [results, setResults] = useState([])
@@ -26,6 +26,7 @@ export default function AnimeResourceDrawer({ open, title, onClose, showToast })
     setCopiedMagnet('')
     setResults([])
     setError('')
+    setNeedsLogin(false)
     setLoading(false)
     if (!trimmed) {
       setError('请输入搜索关键词。')
@@ -64,7 +65,14 @@ export default function AnimeResourceDrawer({ open, title, onClose, showToast })
     if (!open) return undefined
     const initialKeyword = cleanResourceKeyword(title)
     setKeyword(initialKeyword)
-    search(initialKeyword)
+    setSearchedKeyword('')
+    setResults([])
+    setError('')
+    setLoading(false)
+    setNeedsLogin(false)
+    setCopyFallback('')
+    setCopiedMagnet('')
+    if (autoSearch && initialKeyword) search(initialKeyword)
     // Focus after the opening frame, once the formerly hidden drawer is visible.
     const focusFrame = requestAnimationFrame(() => inputRef.current?.focus({ preventScroll: true }))
     return () => {
@@ -72,7 +80,7 @@ export default function AnimeResourceDrawer({ open, title, onClose, showToast })
       ++sequenceRef.current
       requestRef.current?.abort()
     }
-  }, [open, title])
+  }, [open, title, autoSearch])
 
   async function copyMagnet(magnet) {
     if (!isSafeMagnet(magnet)) return
@@ -103,7 +111,7 @@ export default function AnimeResourceDrawer({ open, title, onClose, showToast })
 
   const fallbackKeyword = keyword.trim() || searchedKeyword
   return (
-    <aside ref={drawerRef} id="animeResourceDrawer" className={`anime-resource-drawer${open ? ' is-open' : ''}`}
+    <aside ref={drawerRef} id={id} className={`anime-resource-drawer${open ? ' is-open' : ''}`}
       aria-label="番剧资源搜索" aria-hidden={!open} inert={!open}
       onKeyDown={keepFocusInDrawer}>
       <div className="anime-resource-drawer__header">
@@ -116,10 +124,10 @@ export default function AnimeResourceDrawer({ open, title, onClose, showToast })
           event.preventDefault()
           search(keyword)
         }}>
-          <label htmlFor="resourceSearchKeyword">搜索关键词</label>
+          <label htmlFor={`${id}-keyword`}>搜索关键词</label>
           <div>
-            <input ref={inputRef} id="resourceSearchKeyword" value={keyword} maxLength={200}
-              onChange={(event) => setKeyword(event.target.value)} placeholder="试试核心番剧名…" />
+            <input ref={inputRef} id={`${id}-keyword`} value={keyword} maxLength={200}
+              onChange={(event) => setKeyword(event.target.value)} placeholder="输入番剧名称…快速寻找 Magnet 资源" />
             <button type="submit" className="resource-button">搜索</button>
           </div>
         </form>
@@ -132,6 +140,9 @@ export default function AnimeResourceDrawer({ open, title, onClose, showToast })
               <span /><span /><span />
             </div>)}
           </div>
+        ) : !searchedKeyword && !error ? (
+          <div className="resource-empty" role="status"><span className="resource-empty__icon">🧲</span>
+            <p>输入番剧名称，快速寻找 Magnet 资源。按回车或点击搜索开始。</p></div>
         ) : error || results.length === 0 ? (
           <div className="resource-empty" role="status">
             <span className="resource-empty__icon">{error ? '!' : '?'}</span>

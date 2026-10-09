@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import api from '../api/api.js'
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024
@@ -8,7 +9,7 @@ function getDownloadFilename(contentDisposition) {
   return match?.[1] || `anime-journal-${new Date().toISOString().slice(0, 10)}.json`
 }
 
-function JournalDataTransfer({ onImported, showToast, theme = 'default' }) {
+function JournalDataTransfer({ onImported, showToast, theme = 'default', renderActions }) {
   const isMemphis = theme === 'memphis'
   const fileInputRef = useRef(null)
   const [selectedFile, setSelectedFile] = useState(null)
@@ -118,7 +119,7 @@ function JournalDataTransfer({ onImported, showToast, theme = 'default' }) {
 
   return (
     <>
-      <div className="flex items-center gap-2">
+      {renderActions ? renderActions({ onExport: handleExport, onImport: () => fileInputRef.current?.click(), isExporting, isImporting }) : <div className="flex items-center gap-2">
         <button
           type="button"
           onClick={handleExport}
@@ -143,6 +144,7 @@ function JournalDataTransfer({ onImported, showToast, theme = 'default' }) {
           <i className="fa-solid fa-file-import" />
           <span className={isMemphis ? '' : 'hidden xl:inline'}>导入模板</span>
         </button>
+      </div>}
         <input
           ref={fileInputRef}
           type="file"
@@ -150,11 +152,11 @@ function JournalDataTransfer({ onImported, showToast, theme = 'default' }) {
           onChange={handleFileChange}
           className="hidden"
         />
-      </div>
 
-      {isConfirmOpen && (
+      {isConfirmOpen && createPortal(
         <div
           className={`fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-[viewFadeIn_0.2s_ease-out_both] ${isMemphis ? 'memphis-modal-backdrop bg-zinc-900/80' : 'bg-slate-950/65'}`}
+          style={isMemphis ? { '--memphis-ink': '#111', '--memphis-coral': '#ff6b6b', '--memphis-teal': '#4ecdc4', '--memphis-yellow': '#ffe66d' } : undefined}
           role="dialog"
           aria-modal="true"
           aria-labelledby="importConfirmTitle"
@@ -215,7 +217,7 @@ function JournalDataTransfer({ onImported, showToast, theme = 'default' }) {
             </div>
           </section>
         </div>
-      )}
+      , document.body)}
     </>
   )
 }
