@@ -63,9 +63,10 @@ def artifact_writer(path, overwrite=False, binary=False):
         temporary.unlink(missing_ok=True)
 
 
-def make_http_client():
+def make_http_client(proxy=None):
     return httpx.Client(
         timeout=httpx.Timeout(15, connect=5, pool=5), trust_env=False,
+        proxy=proxy,
         follow_redirects=False, headers={'User-Agent': USER_AGENT, 'Accept-Encoding': 'identity'},
     )
 

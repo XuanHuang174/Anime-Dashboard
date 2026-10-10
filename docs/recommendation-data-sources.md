@@ -67,6 +67,22 @@ $env:PYTHONIOENCODING = 'utf-8'
 
 固定请求官方 API，不使用非官方镜像；可选认证仅从当前进程环境变量 `BANGUMI_ACCESS_TOKEN` 获取。**不读取 `.env` 中的 token**，不接受 token 命令行参数，不将它写进缓存、报告或日志。需要认证时请自行在安全终端/任务环境注入，不要把密钥发到聊天中。单个 `Bearer ` 前缀可兼容。
 
+### Windows 本地代理与旧“添加番剧”的区别
+
+旧的添加番剧使用 `MetadataScraper.get_bangumi_details` → `_safe_request`，依次尝试 Django 中配置的反向代理、备用节点和官方 API，并通过 `requests` 使用系统/环境代理。它还可以重写图片 CDN 域名。推荐准备脚本有意不导入这个 Django 模块，避免误加载生产数据库配置和业务副作用。
+
+补齐 CLI 默认 `trust_env=False`，不会自动启用系统代理。因此切换 Windows 代理节点不会影响默认的直连模式。需要明确选择传输代理：
+
+```powershell
+# 使用 Windows 已启用的手工代理或 HTTP(S)_PROXY 环境配置
+.venv/Scripts/python.exe -m recommendations.prepare_data enrich --input data/recommendations/anime_sample.jsonl --output data/recommendations/anime_sample_proxy.jsonl --report data/recommendations/sample_proxy_report.json --limit 20 --system-proxy
+
+# 或明确指定本机代理地址（二选一；端口以实际配置为准）
+.venv/Scripts/python.exe -m recommendations.prepare_data enrich --input data/recommendations/anime_sample.jsonl --output data/recommendations/anime_sample_proxy2.jsonl --report data/recommendations/sample_proxy2_report.json --limit 20 --proxy http://127.0.0.1:7890
+```
+
+这里仅改变 HTTPS 请求的传输方式，目的地仍为 `https://api.bgm.tv`，证书校验保持开启，不把 Bangumi token 转发给镜像 API。代理地址不接受用户名/密码，不支持隐式 PAC/SOCKS，不输出代理地址到报告。所有数据准备仍不读取 `.env`。
+
 默认限速 1 次/秒，连接超时 5 秒、读超时 10 秒；429/5xx/网络失败最多重试 2 次并退避，Retry-After 最多等待 60 秒。连续 5 条服务/网络失败会熔断，401/403 立即停止后续请求。404 可能代表不存在或受限，**不删除条目，也不绕过访问控制**。
 
 成功元数据缓存到 `data/recommendations/api_cache.sqlite3`，默认有效 7 天。失败不缓存为永久失败。重跑从成功缓存恢复；缓存命中不消耗 `--limit`，这个限额约束尝试的新条目数，重试还会增加实际 HTTP 次数。
@@ -81,7 +97,37 @@ $env:PYTHONIOENCODING = 'utf-8'
 .venv/Scripts/python.exe -m recommendations.prepare_data enrich --input data/recommendations/anime.jsonl --output data/recommendations/anime_enriched.jsonl --report data/recommendations/enrichment_report.json --limit 0 --rate-limit 1
 ```
 
-本次没有执行上述全量 API 请求。需要恢复时选新输出路径，或停掉旧任务再使用 `--overwrite`；不要同时写同一个缓存/输出。
+首轮交付没有执行全量 API 请求；代理重试后已启动下述后台任务。需要恢复时选新输出路径，或停掉旧任务再使用 `--overwrite`；不要同时写同一个缓存/输出。
+
+### 当前全量后台任务与进度
+
+2026-10-11 已在显式系统代理下启动全量补齐（**只补齐封面 URL，不下载图片，不上传 R2**）。因为原本地 `anime.jsonl` 在重试时未通过 UTF-8 解码，从 SHA256 匹配的原始 ZIP 重新生成了 `anime_utf8.jsonl`，原文件保留未覆盖；新文件 31104 条通过全量字段校验。
+
+后台任务等价命令（已有任务运行时不要再次执行）：
+
+```powershell
+.venv/Scripts/python.exe -u -m recommendations.prepare_data enrich --input data/recommendations/anime_utf8.jsonl --output data/recommendations/anime_enriched.jsonl --report data/recommendations/enrichment_report.json --limit 0 --rate-limit 1 --system-proxy --progress data/recommendations/enrichment_progress.json --stop-file data/recommendations/enrichment.stop
+```
+
+- 进度：`data/recommendations/enrichment_progress.json`，约每 20 秒更新；`phase` 为 `running` 时仍未完成，`pid` 是实际 Python 进程。缓存逐条提交。
+- 当前任务日志：`data/recommendations/full_enrichment_20261011_utf8.stdout.log` 与 `.stderr.log`。
+- 完成后才原子发布 `anime_enriched.jsonl` 和 `enrichment_report.json`，不要把隐藏的 `.tmp` 文件拿去入库。
+- 每秒 1 次，3 万条理论下限约 9 小时；延迟/重试会增加耗时。电脑、代理和网络需保持在线。Codex 聊天结束不表示任务已完成，请查看实时进度；关机、代理失效或鉴权失败可能中断/停止任务。
+- `completed`：全部处理且有封面；`completed_partial`：处理结束但有缺图；`stopped_for_outage`/`stopped_for_authorization`：熔断/鉴权停止；`stopped_by_user`：停止标记生效；`interrupted_or_error`：任务异常。进度文件只是快照，若长时间未更新须同时检查进程和 stderr，不把旧的 `running` 当作成功。
+
+安全停止：
+
+```powershell
+New-Item -ItemType File -Path data/recommendations/enrichment.stop
+```
+
+任务会在当前请求结束后停止新请求，仍合并缓存并写出完整的部分补齐数据。确认进度已停止后，恢复前只删除这个单一标记文件：
+
+```powershell
+Remove-Item -LiteralPath data/recommendations/enrichment.stop
+```
+
+随后重新运行等价命令并显式加 `--overwrite`（前提是旧任务已退出）；缓存命中不会重复请求。没有缓存的 404 条目仍可能缺少访问权限，保留条目、不绕过保护，需要自行配置有权访问的官方 token 后重新验证。
 
 ## 6. 隔离数据库测试（可交给助手操作）
 
@@ -127,3 +173,10 @@ Remove-Item Env:RECOMMENDATION_SAMPLE_PATH
 - 20 条真实样本在 SQLite 内存测试库导入、重复导入通过，成人标记保持；后端共 231 项测试通过。
 - 官方 API 20 条实测因当前网络连接超时，0 条成功；输出仍保留 20 条，失败报告在 `sample_enrichment_report.json`。**尚未验证真实封面补齐成功，更没有上传 R2**。API 成功/失败、缓存恢复、鉴权、限流及熔断通过模拟网络测试；需在连通官方 API 的环境继续真实验证。
 - 未执行生产迁移或 Neon 导入，未修改 `.env`。
+
+### 代理重试验证
+
+- 显式使用当前 Windows 本地系统代理后，官方 API 样本 20 条中 19 条成功获得真实封面 URL，1 条成人标记样本 HTTP 404（可能受限或不存在）；不删除条目、不绕过访问控制。
+- 20 条补齐样本在隔离内存数据库的导入与重复导入通过。
+- 代理修复后的现有后端回归 235 项通过；新增编码失败保护后，推荐模块 62 项测试再次全部通过，Django 检查与迁移一致性检查通过。
+- 上方的全量任务是后续长期操作，完成数量以 `enrichment_progress.json`/最终报告为准，不能将样本成功率写成全量成功率。

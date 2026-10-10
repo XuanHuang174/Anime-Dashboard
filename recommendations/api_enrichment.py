@@ -6,10 +6,12 @@ redirects, mirrors, image downloads, production DB connections or R2 writes.
 
 import json
 import math
+import os
 import random
 import sqlite3
 import time
 from collections import Counter
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -118,7 +120,7 @@ def fetch_subject(client, identity, limiter, headers, retries=2, sleep=time.slee
                             or parsed.path.endswith('/no_icon_subject.png')):
                         normalized.pop('cover_url', None)
                 return normalized
-        except (httpx.TimeoutException, httpx.NetworkError, httpx.RemoteProtocolError):
+        except (httpx.TimeoutException, httpx.NetworkError, httpx.RemoteProtocolError, httpx.ProxyError):
             failure = RetryableSourceError('官方 API 请求超时或网络中断')
         except RetryableSourceError as exc:
             failure = exc
@@ -144,7 +146,8 @@ def merge_metadata(row, api, refresh=False):
 
 def enrich_file(source, output, cache_path, report, *, limit=20, rate=1, retries=2,
                 token='', ttl_hours=168, refresh_metadata=False, refresh_cache=False,
-                overwrite=False, log=print, client=None, limiter=None, sleep=time.sleep):
+                overwrite=False, log=print, client=None, limiter=None, sleep=time.sleep,
+                proxy=None, progress_path=None, stop_file=None):
     """limit counts candidate attempts (cache hits do NOT consume API budget).
 
 Zero limit explicitly means full enrichment. All unprocessed/failed records
@@ -153,8 +156,9 @@ remain in the output. Successful cache hits allow resuming without refetching.
     if limit < 0 or not 0 <= retries <= 5:
         raise SourceError('limit 不得为负数，retries 必须为 0-5')
     paths = [Path(path).resolve() for path in (source, output, cache_path, report)]
-    if len(set(paths)) != 4:
-        raise SourceError('输入、输出、缓存和报告必须是不同文件')
+    extra_paths = [Path(path).resolve() for path in (progress_path, stop_file) if path is not None]
+    if len(set(paths + extra_paths)) != len(paths + extra_paths):
+        raise SourceError('输入、输出、缓存、报告、进度及停止标记必须是不同文件')
     for path in (paths[1], paths[3]):
         if path.exists() and not overwrite:
             raise SourceError(f'输出已存在：{path.name}；请换名或明确使用 --overwrite')
@@ -162,10 +166,32 @@ remain in the output. Successful cache hits allow resuming without refetching.
     limiter = limiter or RequestLimiter(rate)
     cache = ApiCache(paths[2], ttl_hours)
     own_client = client is None
-    client = client or make_http_client()
+    client = client or make_http_client(proxy=proxy)
     stats, failures, stopped, seen = Counter(), [], False, set()
-    outage, consecutive_failures = False, 0
+    outage, consecutive_failures, user_stopped = False, 0, False
+    started_at, last_progress = time.time(), 0
+
+    def publish_progress(phase='running', force=False):
+        nonlocal last_progress
+        if progress_path is None or (not force and time.monotonic() - last_progress < 20):
+            return
+        snapshot = {'phase': phase, 'started_at': started_at, 'updated_at': time.time(),
+                    'updated_at_utc': datetime.now(timezone.utc).isoformat(), 'pid': os.getpid(),
+                    'source': str(paths[0]), 'output': str(paths[1]),
+                    'counts': dict(stats), 'rate': rate, 'explicit_proxy': bool(proxy),
+                    'note': '只补齐本地元数据/封面URL，不写Neon、不下载图片、不上传R2'}
+        try:
+            with artifact_writer(progress_path, overwrite=True) as destination:
+                json.dump(snapshot, destination, ensure_ascii=False, indent=2)
+            last_progress = time.monotonic()
+        except OSError:
+            # Windows readers can briefly lock the old status file. A display
+            # failure must not destroy the successful API cache or data task.
+            last_progress = time.monotonic()
+            log('进度文件暂时无法更新；补齐和逐条缓存仍继续')
+
     try:
+        publish_progress(force=True)
         with paths[0].open(encoding='utf-8-sig') as incoming, artifact_writer(paths[1], overwrite) as destination:
             for line_number, row in iter_jsonlines(incoming):
                 if not isinstance(row, dict):
@@ -178,6 +204,8 @@ remain in the output. Successful cache hits allow resuming without refetching.
                     raise SourceError(f'标准输入第 {line_number} 行 ID 重复')
                 seen.add(identity)
                 stats['rows'] += 1
+                if stop_file is not None and Path(stop_file).exists():
+                    stopped = user_stopped = True
                 api = None
                 needs_api = refresh_metadata or any(not row.get(key) for key in ('cover_url', 'tags', 'season', 'synopsis'))
                 if needs_api:
@@ -216,16 +244,25 @@ remain in the output. Successful cache hits allow resuming without refetching.
                 if clean_nsfw(row.get('nsfw')) is True:
                     stats['nsfw'] += 1
                 destination.write(json.dumps(row, ensure_ascii=False) + '\n')
+                publish_progress()
         summary = {'source': str(paths[0]), 'api_origin': API_ORIGIN,
                    'policy': {'include_nsfw': True, 'limit': limit, 'rate': rate,
-                              'refresh_metadata': refresh_metadata, 'authenticated': bool(headers)},
-                   'counts': dict(stats), 'stopped_for_authorization': stopped and not outage,
+                              'refresh_metadata': refresh_metadata, 'authenticated': bool(headers),
+                              'explicit_proxy': bool(proxy)},
+                   'counts': dict(stats), 'stopped_for_authorization': stopped and not outage and not user_stopped,
                    'stopped_for_outage': outage,
+                   'stopped_by_user': user_stopped,
                    'failures_first_100': failures}
         with artifact_writer(paths[3], overwrite) as destination:
             json.dump(summary, destination, ensure_ascii=False, indent=2)
+        phase = ('stopped_by_user' if user_stopped else 'stopped_for_outage' if outage else
+                 'stopped_for_authorization' if stopped else 'completed_partial' if stats['missing_cover_url'] else 'completed')
+        publish_progress(phase=phase, force=True)
         log(f'补齐完成（失败或未处理条目均保留）：{dict(stats)}')
         return summary
+    except (SourceError, OSError, sqlite3.Error, httpx.HTTPError, UnicodeError, KeyboardInterrupt):
+        publish_progress(phase='interrupted_or_error', force=True)
+        raise
     finally:
         cache.close()
         if own_client:

@@ -19,6 +19,7 @@ from recommendations.source_pipeline import (
     MANIFEST_URL, SourceError, artifact_writer, checked_url,
     convert_archive, download_archive, iter_jsonlines, normalize_subject,
 )
+from recommendations.prepare_data import resolve_proxy
 
 
 def write_rows(path, rows):
@@ -156,6 +157,75 @@ class ApiTests(unittest.TestCase):
         for token in ('line\nbreak', '中文', 'Bearer Bearer double'):
             with self.assertRaises(SourceError):
                 authorization_header(token)
+
+    def test_proxy_is_opt_in_and_url_not_credentials(self):
+        with patch('recommendations.prepare_data.getproxies', return_value={'https': 'http://127.0.0.1:7890'}) as getproxies:
+            self.assertIsNone(resolve_proxy())
+            getproxies.assert_not_called()
+            self.assertEqual(resolve_proxy(system=True), 'http://127.0.0.1:7890')
+            self.assertEqual(resolve_proxy('https://localhost:7890'), 'https://localhost:7890')
+        for address in ('http://user:pass@localhost:7890', 'socks5://localhost:7890', 'http://localhost:7890/private', 'http://localhost'):
+            with self.assertRaises(SourceError):
+                resolve_proxy(address)
+        with patch('recommendations.prepare_data.getproxies', return_value={}):
+            with self.assertRaises(SourceError):
+                resolve_proxy(system=True)
+
+    def test_explicit_proxy_reaches_client_not_api_origin_or_report_secrets(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_rows(root / 'source', [{'bangumi_id': 42, 'nsfw': True}])
+            observed = []
+            def handler(request):
+                observed.append(request.url.host)
+                return httpx.Response(200, json={'id': 42, 'type': 2, 'images': {'large': 'https://lain.bgm.tv/42.jpg'}})
+            with patch('recommendations.api_enrichment.make_http_client', return_value=httpx.Client(transport=httpx.MockTransport(handler))) as factory:
+                result = enrich_file(root / 'source', root / 'out', root / 'cache', root / 'report',
+                                     proxy='http://127.0.0.1:7890', limiter=self.limiter, log=lambda _: None,
+                                     progress_path=root / 'progress')
+            factory.assert_called_once_with(proxy='http://127.0.0.1:7890')
+            self.assertEqual(observed, ['api.bgm.tv'])
+            self.assertTrue(result['policy']['explicit_proxy'])
+            self.assertEqual(json.loads((root / 'progress').read_text(encoding='utf-8'))['phase'], 'completed')
+            self.assertNotIn('127.0.0.1', (root / 'report').read_text(encoding='utf-8'))
+
+    def test_proxy_error_is_retried_and_safely_reported(self):
+        def handler(request):
+            raise httpx.ProxyError('sensitive-proxy-detail', request=request)
+        with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+            with self.assertRaises(SourceError) as failure:
+                fetch_subject(client, 42, self.limiter, {}, retries=0)
+            self.assertNotIn('sensitive', str(failure.exception))
+
+    def test_stop_marker_prevents_new_requests_and_keeps_full_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_rows(root / 'source', [{'bangumi_id': number} for number in range(1, 4)])
+            (root / 'stop').touch()
+            def handler(request):
+                self.fail('No network request allowed after stop marker')
+            with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+                result = enrich_file(root / 'source', root / 'out', root / 'cache', root / 'report',
+                                     client=client, limiter=self.limiter, log=lambda _: None,
+                                     progress_path=root / 'progress', stop_file=root / 'stop')
+            self.assertTrue(result['stopped_by_user'])
+            self.assertFalse(result['stopped_for_authorization'])
+            self.assertEqual(result['counts']['deferred'], 3)
+            self.assertEqual(json.loads((root / 'progress').read_text(encoding='utf-8'))['phase'], 'stopped_by_user')
+            self.assertEqual(len((root / 'out').read_text(encoding='utf-8').splitlines()), 3)
+
+    def test_invalid_utf8_updates_error_state_without_overwriting_previous_output(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'source').write_bytes(b'{"bangumi_id":42,"title_zh":"\xff"}\n')
+            (root / 'out').write_text('previous-completed-file', encoding='utf-8')
+            with httpx.Client(transport=httpx.MockTransport(lambda _: self.fail('Invalid UTF-8 must not request API'))) as client:
+                with self.assertRaises(UnicodeError):
+                    enrich_file(root / 'source', root / 'out', root / 'cache', root / 'report',
+                                overwrite=True, client=client, limiter=self.limiter, log=lambda _: None,
+                                progress_path=root / 'progress')
+            self.assertEqual((root / 'out').read_text(encoding='utf-8'), 'previous-completed-file')
+            self.assertEqual(json.loads((root / 'progress').read_text(encoding='utf-8'))['phase'], 'interrupted_or_error')
 
     def test_auth_goes_only_to_official_api_and_no_follow_redirect(self):
         seen = []
