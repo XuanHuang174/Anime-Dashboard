@@ -1,8 +1,6 @@
 """Pure source normalization plus a transactional, idempotent catalog upsert."""
 
 import html
-import math
-import re
 from urllib.parse import urlsplit
 
 from django.conf import settings
@@ -10,6 +8,7 @@ from django.db import transaction
 from django.utils.html import strip_tags
 
 from .models import RecommendationAnime
+from .normalization import clean_id, clean_nsfw, clean_score, clean_season, clean_tags, text
 
 
 FIELD_ALIASES = {
@@ -21,60 +20,8 @@ FIELD_ALIASES = {
     'season': ('season', 'date', 'air_date'),
     'status_type': ('status_type', 'format'),
     'synopsis': ('synopsis', 'summary', 'description'),
+    'nsfw': ('nsfw',),
 }
-
-
-def text(value):
-    return value.strip() if isinstance(value, str) else ''
-
-
-def clean_id(value):
-    # Do not silently truncate floats, accept booleans, or upsert NULL IDs.
-    if isinstance(value, bool) or not re.fullmatch(r'[1-9][0-9]*', str(value).strip()):
-        raise ValueError('缺失或非法 Bangumi ID（必须是正整数）')
-    result = int(value)
-    if result > 2_147_483_647:
-        raise ValueError('Bangumi ID 超出 IntegerField 范围')
-    return result
-
-
-def clean_score(value):
-    if isinstance(value, dict):
-        value = value.get('score', 0)
-    try:
-        result = float(value) if not isinstance(value, bool) else 0.0
-    except (ValueError, TypeError, OverflowError):
-        return 0.0
-    return result if math.isfinite(result) and 0 <= result <= 10 else 0.0
-
-
-def clean_tags(value):
-    if isinstance(value, str):
-        value = re.split(r'[,，]', value)
-    if not isinstance(value, list):
-        return ''
-    result = []
-    for item in value:
-        item = item.get('name', '') if isinstance(item, dict) else item
-        # A list member containing commas is normalized just like a string.
-        for name in re.split(r'[,，]', text(item)):
-            name = name.strip()
-            if name and name not in result:
-                result.append(name)
-    return ','.join(result)
-
-
-def clean_season(value, row):
-    value = text(value)
-    months = {'WINTER': '01', 'SPRING': '04', 'SUMMER': '07', 'FALL': '10', 'AUTUMN': '10'}
-    year = row.get('seasonYear')
-    if value.upper() in months and str(year).isdigit() and 1900 <= int(year) <= 2200:
-        return f'{year}-{months[value.upper()]}'
-    match = re.fullmatch(r'(\d{4})[-/](\d{1,2})(?:[-/]\d{1,2})?', value)
-    if match and 1 <= int(match[2]) <= 12:
-        quarter = ((int(match[2]) - 1) // 3) * 3 + 1
-        return f'{match[1]}-{quarter:02d}'
-    return value
 
 
 def is_hosted_cover(url):
@@ -117,6 +64,8 @@ def normalize_row(row, id_field=None):
                 raise ValueError('简介超过 200000 字符')
         elif field == 'status_type':
             values[field] = {'MOVIE': '剧场版', 'TV_SHORT': 'TV短篇'}.get(text(value).upper(), text(value))
+        elif field == 'nsfw':
+            values[field] = clean_nsfw(value)
         else:
             values[field] = text(value)
     # Validate lengths/URLs before touching the database; never silently truncate.

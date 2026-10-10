@@ -24,6 +24,7 @@ class RecommendationAnime(models.Model):
     season = models.CharField('放送季度', max_length=32, blank=True, default='', db_index=True)
     status_type = models.CharField('作品类型', max_length=32, blank=True, default='')
     synopsis = models.TextField('简介', blank=True, default='')
+    nsfw = models.BooleanField('成人内容标记', null=True, blank=True, default=None, db_index=True)
     created_at = models.DateTimeField('入库时间', auto_now_add=True)
     updated_at = models.DateTimeField('更新时间', auto_now=True)
 

@@ -2,6 +2,8 @@
 
 本阶段只新增独立 Django app `recommendations`。不修改 `Anime`、私人手账记录、Bangumi 收藏导入接口或前端页面，也不在启动时自动导入/下载。本阶段交付的是数据管线，不包含推荐算法、推荐 API 或新的推荐页面。
 
+> 当前本地 `.env` 指向 Neon 正式库。以下普通 Django 导入/迁移/R2 命令均属于后续生产操作，需要确认备份和授权，**本次不执行**。官方真实数据准备与安全验证请先使用 [官方数据接入指南](recommendation-data-sources.md)，其中的独立 CLI 不读取 `.env`，Django 测试强制使用内存库。
+
 ## 1. 文件与模型
 
 - `recommendations/models.py`：`RecommendationAnime` 独立推荐库。
@@ -14,6 +16,8 @@
 - `recommendations/tests/`：完全使用临时数据和模拟网络/R2 的自动化测试。
 
 模型保留所要求的 `bangumi_id`、`title_zh`、`title_jp`、`score`、`tags`、`cover_url`、`season`、`status_type`、`synopsis`，并增加 `source_cover_url`、`created_at`、`updated_at`。`source_cover_url` 是增量同步的来源锚点：同一来源重新导入时保留已托管直链；来源变化时重新排队托管。`status_type` 是作品类型，不是“在看/看过”等用户状态。`score` 是 0–10 的源站综合评分，不是用户个人评分或推荐排序分。
+
+官方接入增加了可空、带索引的 `nsfw` 成人内容标记（迁移 `0002`）。默认导入保留成人条目；未知标记保持 `null`，不自动当作安全内容。后续公开推荐展示应单独设计用户选择与内容分级。
 
 `bangumi_id` 为可空的唯一 IntegerField（满足建模要求），但导入命令只接受非空正整数 ID。缺失 ID 的数据必须先补齐来源映射，不能通过 `update_or_create(bangumi_id=None)` 合并，也不能靠标题猜测身份。正数 ID 和评分范围有数据库检查约束。
 
@@ -37,7 +41,7 @@
 
 ## 3. 准备可信的本地源数据
 
-本项目未捆绑 13000+ 数据集：需要你提供有权使用的源数据文件。不要把私密文件、封面缓存或大型数据集提交到 Git。建议存放在已忽略的 `data/recommendations/`。
+真实数据采用 Bangumi 官方 Archive + 官方 API 补齐，执行方法见 [官方数据接入指南](recommendation-data-sources.md)。数据不捆绑进 Git，不要提交私密文件、封面缓存或大型数据集；存放在已忽略的 `data/recommendations/`。
 
 标准 JSON 示例（ID/标题仅作格式说明）：
 
