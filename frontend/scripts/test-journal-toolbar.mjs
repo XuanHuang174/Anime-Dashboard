@@ -102,11 +102,21 @@ const checkMobileSubmenu = async (label, width, height) => {
 }
 const checkDetailResourcePosition = async () => {
   const footer = page.locator('.detail-modal-actions')
-  const resource = footer.getByRole('button', { name: '🧲 寻找资源', exact: true })
-  assert.equal(await footer.locator('button').last().textContent().then((text) => text.trim()), '🧲 寻找资源')
-  const right = await resource.boundingBox()
-  const edges = await footer.locator('button').evaluateAll((els) => els.map((el) => el.getBoundingClientRect().right))
-  assert.ok(edges.every((edge) => edge <= right.x + right.width + 1), 'Resource action is rightmost')
+  const left = footer.locator('.detail-modal-actions__left')
+  const resource = left.getByRole('button', { name: '🧲 寻找资源', exact: true })
+  assert.equal(await left.locator('button').last().textContent().then((text) => text.trim()), '🧲 寻找资源')
+  assert.equal(await footer.locator('.detail-modal-actions__right button').last().textContent().then((text) => text.trim()), '关闭')
+  const report = left.locator('button').filter({ hasText: '生成结案报告' })
+  if (await report.count()) {
+    const labels = await left.locator('button').allTextContents()
+    assert.ok(labels.at(-2).includes('生成结案报告'), 'Resource immediately follows report in the left action group')
+    if (page.viewportSize().width >= 768) {
+      const reportBox = await report.boundingBox()
+      const resourceBox = await resource.boundingBox()
+      assert.ok(Math.abs(resourceBox.y - reportBox.y) < 1, 'Report and resource share the same row')
+      assert.ok(Math.abs(resourceBox.x - reportBox.x - reportBox.width - 8) < 1, 'Only the normal 8px gap separates them')
+    }
+  }
 }
 try {
   await page.goto(`${base}/dashboard`)
@@ -283,6 +293,7 @@ try {
   for (const width of [1440, 375]) {
     await page.setViewportSize({ width, height: 900 })
     await checkDetailResourcePosition()
+    if (process.env.QA_ARTIFACT_DIR) await page.screenshot({ path: path.join(process.env.QA_ARTIFACT_DIR, `journal-completed-actions-${width}.png`) })
   }
   await page.keyboard.press('Escape')
   await page.locator('.detail-resource-stage').waitFor({ state: 'detached' })

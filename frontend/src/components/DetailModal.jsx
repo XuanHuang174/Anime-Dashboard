@@ -693,7 +693,7 @@ function DetailModal({
         </div>
 
         <div className="detail-modal-actions mx-3 mb-3 flex shrink-0 flex-wrap justify-between gap-2 border-[3px] border-black bg-[#4ecdc4] px-3 py-2 shadow-[4px_4px_0_#111] sm:mx-4">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="detail-modal-actions__left flex flex-wrap items-center gap-2">
           {editable ? (
             <button
               type="button"
@@ -705,7 +705,7 @@ function DetailModal({
               {isDeleting ? '删除中...' : '删除记录'}
             </button>
           ) : showCompletedActions ? (
-            <div className="flex flex-wrap items-center gap-2">
+            <>
               {featuredAction && (
                 <button
                   type="button"
@@ -725,8 +725,13 @@ function DetailModal({
                 buttonClassName={`${arcadeButtonClass} bg-[#ffe66d] hover:bg-[#ff8fab]`}
                 showToast={showToast}
               />
-            </div>
+            </>
           ) : <span />}
+            <button ref={resourceTriggerRef} type="button" aria-expanded={resourceOpen} aria-controls="animeResourceDrawer"
+              disabled={isClosing} onClick={() => setResourceOpen((current) => !current)}
+              className={`${arcadeButtonClass} bg-[#ffe66d] hover:bg-[#ff8fab]`}>
+              🧲 寻找资源
+            </button>
           </div>
 
           <div className="detail-modal-actions__right ml-auto flex flex-wrap items-center justify-end gap-2">
@@ -749,11 +754,6 @@ function DetailModal({
                 {isSaving ? '保存中...' : '保存修改'}
               </button>
             )}
-            <button ref={resourceTriggerRef} type="button" aria-expanded={resourceOpen} aria-controls="animeResourceDrawer"
-              disabled={isClosing} onClick={() => setResourceOpen((current) => !current)}
-              className={`${arcadeButtonClass} bg-[#ffe66d] hover:bg-[#ff8fab]`}>
-              🧲 寻找资源
-            </button>
           </div>
         </div>
       </div>
