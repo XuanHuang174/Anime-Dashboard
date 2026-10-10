@@ -28,7 +28,7 @@ export default function JournalHeaderActions({ isPreviewMode, onReturnHome, onTo
             <button type="button" className="dashboard-arcade-button dashboard-return-home-cta bg-white"
               onClick={run(onReturnHome)}>← 返回主界面</button>
             {!isPreviewMode && <MemphisDropdown label="📦 数据管理" className="bg-[#ffe66d]"
-              open={activeMenu === 'data'} onOpenChange={(value) => setActiveMenu(value ? 'data' : '')} owner={owner}>
+              open={activeMenu === 'data'} onOpenChange={(value) => setActiveMenu(value ? 'data' : '')} owner={owner} inline={mobile}>
               <button type="button" className="journal-menu-item" disabled={isExporting || isImporting}
                 onClick={run(onExport)}>{isExporting ? '正在导出…' : '📤 导出数据 (JSON)'}</button>
               <button type="button" className="journal-menu-item journal-menu-item--pink" disabled={isExporting || isImporting}
@@ -39,7 +39,7 @@ export default function JournalHeaderActions({ isPreviewMode, onReturnHome, onTo
             <button type="button" className="dashboard-arcade-button bg-[#4ecdc4]"
               onClick={run(onFindResources)}>🧲 寻找资源</button>
             {isPreviewMode && <MemphisDropdown label="🛠 更多工具" className="bg-[#ff8fab]"
-              open={activeMenu === 'tools'} onOpenChange={(value) => setActiveMenu(value ? 'tools' : '')} owner={owner}>
+              open={activeMenu === 'tools'} onOpenChange={(value) => setActiveMenu(value ? 'tools' : '')} owner={owner} inline={mobile}>
               {csvButton}<div onClick={close}>{shareButton}</div>
             </MemphisDropdown>}
             <button type="button" className={`dashboard-arcade-button ${isPreviewMode ? 'journal-preview-edit-button' : 'bg-white'}`}

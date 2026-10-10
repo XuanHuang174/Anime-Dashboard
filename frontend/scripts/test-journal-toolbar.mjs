@@ -60,6 +60,54 @@ const closeDrawer = async () => {
   await page.getByRole('button', { name: '关闭资源抽屉', exact: true }).click()
   await page.locator('.journal-resource-overlay').waitFor({ state: 'detached' })
 }
+const checkMobileSubmenu = async (label, width, height) => {
+  await page.setViewportSize({ width, height })
+  await button('☰ 菜单▾').click()
+  await button(label).click()
+  const submenu = page.locator('.journal-dropdown-panel--inline:visible')
+  await submenu.waitFor()
+  assert.equal(await submenu.evaluate((el) => getComputedStyle(el).position), 'static')
+  assert.equal(await submenu.evaluate((el) => el.parentElement.closest('.journal-dropdown-panel') !== null), true)
+  // Visibility alone did not catch the old overlap. Check the actual hit target.
+  for (const entry of await submenu.locator('button').all()) {
+    await entry.scrollIntoViewIfNeeded()
+    assert.equal(await entry.evaluate((el) => {
+      const rect = el.getBoundingClientRect()
+      return el.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2))
+    }), true, `${label} item is not covered at ${width}x${height}`)
+  }
+  const parent = page.locator('.journal-dropdown-panel:visible:not(.journal-dropdown-panel--inline)')
+  const box = await parent.boundingBox()
+  assert.ok(box.x >= 0 && box.y >= 0 && box.x + box.width <= width && box.y + box.height <= height,
+    `Scrollable mobile menu fits ${width}x${height}`)
+  if (process.env.QA_ARTIFACT_DIR && width === 375 && height === 812) {
+    await parent.evaluate((el) => { el.scrollTop = 0 })
+    await page.screenshot({ path: path.join(process.env.QA_ARTIFACT_DIR, label.includes('数据') ? 'journal-mobile-data-submenu.png' : 'journal-mobile-tools-submenu.png') })
+  }
+  await page.keyboard.press('Escape')
+  assert.equal(await submenu.count(), 0, 'Escape closes submenu first')
+  assert.equal(await parent.count(), 1, 'Main menu remains open')
+  await page.keyboard.press('Escape')
+  assert.equal(await page.locator('.journal-dropdown-panel:visible').count(), 0)
+  await button('☰ 菜单▾').click()
+  await button(label).press('ArrowDown')
+  await submenu.waitFor()
+  assert.equal(await submenu.locator('button').first().evaluate((el) => document.activeElement === el), true)
+  await submenu.locator('button').first().press('ArrowDown')
+  assert.equal(await submenu.locator('button').nth(1).evaluate((el) => document.activeElement === el), true,
+    'Nested keyboard navigation moves once, not twice')
+  await page.mouse.click(1, 1)
+  await parent.waitFor({ state: 'hidden' })
+  assert.equal(await page.locator('.journal-dropdown-panel:visible').count(), 0, 'Outside click closes both menus')
+}
+const checkDetailResourcePosition = async () => {
+  const footer = page.locator('.detail-modal-actions')
+  const resource = footer.getByRole('button', { name: '🧲 寻找资源', exact: true })
+  assert.equal(await footer.locator('button').last().textContent().then((text) => text.trim()), '🧲 寻找资源')
+  const right = await resource.boundingBox()
+  const edges = await footer.locator('button').evaluateAll((els) => els.map((el) => el.getBoundingClientRect().right))
+  assert.ok(edges.every((edge) => edge <= right.x + right.width + 1), 'Resource action is rightmost')
+}
 try {
   await page.goto(`${base}/dashboard`)
   await page.waitForFunction(() => getComputedStyle(document.querySelector('header')).borderTopWidth === '4px')
@@ -170,6 +218,10 @@ try {
   await page.getByRole('combobox', { name: '选择每页显示数量' }).selectOption('all')
   await page.getByPlaceholder('输入番剧中文或日文名...').fill('孤独')
 
+  for (const [width, height] of [[320, 640], [375, 812], [767, 900], [375, 360]]) {
+    await checkMobileSubmenu('📦 数据管理▾', width, height)
+  }
+  await page.setViewportSize({ width: 1440, height: 1000 })
   for (const width of [768, 1024, 1280, 1440]) {
     await page.setViewportSize({ width, height: 1000 })
     await page.waitForTimeout(100)
@@ -214,6 +266,8 @@ try {
   assert.equal(await page.locator('.journal-dropdown-panel:visible').count(), 0)
   await page.getByRole('button', { name: /详情/ }).first().click()
   await page.locator('.detail-resource-stage').waitFor({ state: 'visible' })
+  await checkDetailResourcePosition()
+  if (process.env.QA_ARTIFACT_DIR) await page.screenshot({ path: path.join(process.env.QA_ARTIFACT_DIR, 'journal-detail-resource-right.png') })
   await page.locator('.detail-resource-stage').getByRole('button', { name: '🧲 寻找资源', exact: true }).click()
   await page.locator('#animeResourceDrawer .resource-card').waitFor({ state: 'visible' })
   assert.equal(await page.locator('#animeResourceDrawer-keyword').inputValue(), '孤独摇滚')
@@ -221,6 +275,22 @@ try {
   await page.keyboard.press('Escape')
   await page.locator('.detail-resource-stage').waitFor({ state: 'detached' })
 
+  await page.getByPlaceholder('输入番剧中文或日文名...').fill('')
+  await page.locator('#animeTableBody tr').nth(1).waitFor()
+  await page.getByRole('button', { name: /详情/ }).last().click()
+  await page.locator('.detail-resource-stage').waitFor({ state: 'visible' })
+  await page.locator('.detail-modal-actions button').filter({ hasText: '生成结案报告' }).waitFor()
+  for (const width of [1440, 375]) {
+    await page.setViewportSize({ width, height: 900 })
+    await checkDetailResourcePosition()
+  }
+  await page.keyboard.press('Escape')
+  await page.locator('.detail-resource-stage').waitFor({ state: 'detached' })
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.getByPlaceholder('输入番剧中文或日文名...').fill('孤独')
+  for (const [width, height] of [[320, 640], [375, 812], [767, 900], [375, 360]]) {
+    await checkMobileSubmenu('🛠 更多工具▾', width, height)
+  }
   for (const width of [320, 375, 767, 768, 1024, 1100, 1280, 1440]) {
     await page.setViewportSize({ width, height: 900 })
     await page.waitForTimeout(100)

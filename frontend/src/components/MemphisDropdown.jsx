@@ -2,13 +2,15 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import './JournalToolbar.css'
 
-export default function MemphisDropdown({ label, children, open, onOpenChange, className = '', owner }) {
+export default function MemphisDropdown({ label, children, open, onOpenChange, className = '', owner, inline = false }) {
   const triggerRef = useRef(null)
   const panelRef = useRef(null)
+  const onOpenChangeRef = useRef(onOpenChange)
+  onOpenChangeRef.current = onOpenChange
   const id = useId()
   const [position, setPosition] = useState({ top: 0, left: 0, maxHeight: 400 })
   useLayoutEffect(() => {
-    if (!open) return undefined
+    if (!open || inline) return undefined
     const place = () => {
       const box = triggerRef.current.getBoundingClientRect()
       const width = Math.min(300, window.innerWidth - 24)
@@ -23,49 +25,60 @@ export default function MemphisDropdown({ label, children, open, onOpenChange, c
       })
     }
     place()
+    // Inline submenu expansion changes the parent panel size, not the viewport.
+    const observer = new ResizeObserver(place)
+    observer.observe(panelRef.current)
     window.addEventListener('resize', place)
     window.addEventListener('scroll', place, true)
     return () => {
       window.removeEventListener('resize', place)
       window.removeEventListener('scroll', place, true)
+      observer.disconnect()
     }
-  }, [open])
+  }, [open, inline])
   useEffect(() => {
     if (!open) return undefined
     const outside = (event) => {
       if (!triggerRef.current?.contains(event.target) && !panelRef.current?.contains(event.target)
-        && !(owner && event.target.closest?.('[data-menu-owner]')?.dataset.menuOwner === owner)) onOpenChange(false)
+        && !(owner && event.target.closest?.('[data-menu-owner]')?.dataset.menuOwner === owner)) onOpenChangeRef.current(false)
     }
     const keyboard = (event) => {
       if (event.key === 'Escape' && !event.defaultPrevented) {
+        // Close the deepest menu first, regardless of effect registration order.
+        if (panelRef.current?.querySelector('.journal-dropdown-panel--inline:not([hidden])')) return
         event.preventDefault()
-        onOpenChange(false)
+        onOpenChangeRef.current(false)
         triggerRef.current?.focus()
       }
     }
-    document.addEventListener('mousedown', outside)
+    document.addEventListener('pointerdown', outside)
     document.addEventListener('keydown', keyboard)
     return () => {
-      document.removeEventListener('mousedown', outside)
+      document.removeEventListener('pointerdown', outside)
       document.removeEventListener('keydown', keyboard)
     }
-  }, [open, onOpenChange, owner])
+  }, [open, owner])
   const focusFirst = () => requestAnimationFrame(() => panelRef.current?.querySelector('button:not(:disabled)')?.focus())
+  const panel = <div ref={panelRef} id={id}
+    className={`journal-dropdown-panel${inline ? ' journal-dropdown-panel--inline' : ''}`}
+    style={inline ? undefined : position}
+    hidden={!open} inert={!open} data-menu-owner={owner} aria-label={typeof label === 'string' ? label : undefined}
+    onKeyDown={(event) => {
+      if (event.defaultPrevented || !['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
+      const buttons = [...panelRef.current.querySelectorAll('button:not(:disabled)')]
+        .filter((button) => button.getClientRects().length > 0)
+      if (!buttons.length) return
+      const current = buttons.indexOf(document.activeElement)
+      const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1
+        : (current + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length
+      event.preventDefault(); buttons[next]?.focus()
+    }}>{children}</div>
   return <>
     <button ref={triggerRef} type="button" className={`dashboard-arcade-button journal-dropdown-trigger ${className}`}
       aria-expanded={open} aria-controls={id} aria-haspopup="true"
       onClick={() => onOpenChange(!open)} onKeyDown={(event) => {
         if (event.key === 'ArrowDown') { event.preventDefault(); onOpenChange(true); focusFirst() }
       }}>{label}<span aria-hidden="true">{open ? '▴' : '▾'}</span></button>
-    {createPortal(<div ref={panelRef} id={id} className="journal-dropdown-panel" style={position}
-      hidden={!open} inert={!open} data-menu-owner={owner} aria-label={typeof label === 'string' ? label : undefined}
-      onKeyDown={(event) => {
-        if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
-        const buttons = [...panelRef.current.querySelectorAll('button:not(:disabled)')]
-        const current = buttons.indexOf(document.activeElement)
-        const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1
-          : (current + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length
-        event.preventDefault(); buttons[next]?.focus()
-      }}>{children}</div>, document.body)}
+    {inline ? panel : createPortal(panel, document.body)}
   </>
 }
