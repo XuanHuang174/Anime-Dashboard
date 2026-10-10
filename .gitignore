@@ -29,6 +29,7 @@ db.sqlite3-journal
 media/
 staticfiles/
 local_settings.py
+/data/recommendations/
 
 # Local images used for manual avatar/upload testing
 /XuanHuang.png

@@ -30,6 +30,13 @@ environ.Env.read_env(BASE_DIR / '.env', overwrite=False)
 ANIME_SEARCH_API_URL = env('ANIME_SEARCH_API_URL', default='')
 ANIME_SEARCH_API_KEY = env('ANIME_SEARCH_API_KEY', default='')
 
+# Exact, trusted image hosts only. Redirect destinations are checked as well.
+RECOMMENDATION_COVER_ALLOWED_HOSTS = env.list(
+    'RECOMMENDATION_COVER_ALLOWED_HOSTS',
+    default=['lain.bgm.tv', 'lain.bangumi.tv', 'lain.bangumi.lol',
+             'storage.moegirl.org.cn', 's4.anilist.co'],
+)
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
@@ -54,6 +61,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'storages',
     'anime.apps.AnimeConfig',
+    'recommendations.apps.RecommendationsConfig',
     'rest_framework',
     'rest_framework_simplejwt.token_blacklist',
     'django.contrib.admin',
