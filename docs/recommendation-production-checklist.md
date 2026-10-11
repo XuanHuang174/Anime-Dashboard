@@ -67,3 +67,37 @@
 增量仍以 `bangumi_id` 更新；已托管且源地址未变的非成人封面保留永久链接。成人文字继续更新，公开封面字段保持空值；新的成人条目不会被转存。未能补齐的非成人封面保留来源或空值，后续公开 UI 必须支持占位图。
 
 参考：[Neon 分支](https://neon.com/docs/manage/branches)、[Cloudflare S3 凭证](https://developers.cloudflare.com/r2/get-started/s3/)、[R2 CORS](https://developers.cloudflare.com/r2/buckets/cors/)。
+
+## 2026-10-11 最终验收与正式小批实测
+
+本节是后续执行记录，上文“尚未上传/等待确认”均为前期检查历史，不代表当前状态。
+
+- 用户已确认保护分支 `2026-10-11 backup`，父分支为 `production`；未执行恢复或修改备份分支。
+- 主站及两个本地开发来源的公开图片请求均实测 200，并返回对应 `Access-Control-Allow-Origin`；OPTIONS 204。管理配置接口 403 不影响对象域名 CORS 验证，不扩大凭证权限。
+- 全量补齐于北京时间 13:28:17 结束，状态 `completed_partial`：全部 31104 条处理完毕，但并非全部齐图。
+- 最终记录 ID 与源文件集合完全相同，无遗漏、无重复；31104 条均通过 SQLite 内存库下的 Django 字段校验。
+- 非成人 28636 条，其中有封面 URL 27171 条、缺图 1465 条；成人标记 2468 条，其中 7 条有来源 URL，但均不得托管。总缺图 3926 条。
+- API 失败 2461 次，完整日志中均为 `missing_or_restricted`；保留数据、不绕过官方访问控制。
+- 最终文件 SHA256：`7de81d27bc2a420917e3eb695cdb4e8c41b12160ea1480d053aa26b31220437f`。
+
+新增独立本地验收工具，无 Django/网络/数据库/R2 操作：
+
+```powershell
+.venv/Scripts/python.exe -m recommendations.audit_catalog --source data/recommendations/anime_utf8.jsonl --enriched data/recommendations/anime_enriched.jsonl --enrichment-report data/recommendations/enrichment_report.json --report data/recommendations/final_audit_20261011.json --pilot data/recommendations/production_pilot_20261011.jsonl --log data/recommendations/full_enrichment_20261011_utf8.stdout.log
+```
+
+工具拒绝路径冲突、ID 丢失/重复、评分异常、成人标记降级、提前停止的报告及统计不一致；已有输出默认不覆盖，重生成须明确 `--overwrite`。它不负责迁移、入库或转存。
+
+正式试运行已完成（不再是仅模拟）：
+
+1. 从最终文件选择 20 条：17 条非成人有图、1 条非成人缺图、1 条成人有来源 URL、1 条成人缺图。
+2. 正式推荐表从 0 条增至 20 条；成人 2 条文字保留，公开 `cover_url` 均为空；非成人缺图 1 条保留。
+3. 转存前 `covers/` 命名空间为空；17 个候选 DNS 校验通过，17 张均成功上传，无失败。
+4. 对全部 17 张实测公开 GET、JPEG 解码、文件大小上限、S3 SHA256 元数据、URL 版本与主站 CORS，全部通过。R2 精确对象集合为这 17 个非成人对象，无成人对象。
+5. 重复导入显示 `updated: 20`、无新增；重跑转存显示 `already_hosted: 17`，无重复上传。
+6. 私人手账相关表在小批前后计数一致；本次入库/转存代码只写独立推荐表。
+7. 后端 249 项测试通过，包含真实小批样本的隔离导入及重复导入；Django 检查及迁移一致性检查通过。
+
+Neon 池化连接不接受通过 `PGOPTIONS` 注入 `statement_timeout` 等启动参数。首次连接因此在写入前失败，未产生数据改动；去除进程内参数后正常执行，不修改 `.env`。如需超时保护，应在事务内使用 `SET LOCAL`，而不是向池化启动包添加不支持的参数。
+
+完整源数据、20 条样本和验收 JSON 都位于被 Git 忽略的 `data/recommendations/`。已生成 `final_audit_20261011.json` 与 `production_pilot_verification_20261011.json`，不提交数据文件或密钥。**当前正式库仅有小批 20 条，R2 仅有推荐封面 17 张；尚未执行全量入库/全量图片转存。**
