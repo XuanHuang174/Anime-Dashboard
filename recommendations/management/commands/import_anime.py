@@ -50,6 +50,7 @@ class Command(BaseCommand):
         parser.add_argument('--id-field', help='仅在确定该字段确实是 Bangumi ID 时指定，例如 --id-field id')
         parser.add_argument('--dry-run', action='store_true', help='只清洗和校验，不写入数据库')
         parser.add_argument('--skip-invalid', action='store_true', help='有跳过项时仍返回退出码 0；默认非零提醒')
+        parser.add_argument('--stop-file', type=Path, help='检测到该文件时在下一批事务开始前安全停止')
 
     def handle(self, *args, **options):
         path = options['json_path'].resolve()
@@ -64,6 +65,8 @@ class Command(BaseCommand):
             rows = iter(read_rows(path))
             batch_number = 0
             while batch := list(islice(rows, size)):
+                if options.get('stop_file') and options['stop_file'].exists():
+                    raise CommandError('检测到停止文件；已提交批次保留，未开始下一批，可幂等重跑。')
                 batch_number += 1
                 # A savepoint per row inside each bounded transaction permits
                 # bad records to fail without rolling back their valid peers.

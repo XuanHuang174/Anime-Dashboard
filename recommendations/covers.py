@@ -211,12 +211,20 @@ def get_batch(after_pk, size):
         close_old_connections()
 
 
-async def sync_covers(*, concurrency, rate_limit, retries, batch_size, limit, dry_run, log, proxy=None):
+async def sync_covers(*, concurrency, rate_limit, retries, batch_size, limit, dry_run, log, proxy=None,
+                      should_stop=None, max_consecutive_failures=10):
     semaphore = asyncio.Semaphore(concurrency)
     limiter = RateLimiter(rate_limit)
     hosts = {host.strip().lower() for host in settings.RECOMMENDATION_COVER_ALLOWED_HOSTS}
     stats = Counter()
     aborted = asyncio.Event()
+    consecutive_failures = 0
+
+    def stopping():
+        if should_stop is not None and should_stop():
+            stats['stopped'] = 1
+            aborted.set()
+        return aborted.is_set()
     r2 = None if dry_run else make_r2_client(concurrency, proxy=proxy)
     after_pk = 0
     try:
@@ -229,7 +237,7 @@ async def sync_covers(*, concurrency, rate_limit, retries, batch_size, limit, dr
         ) as client:
             async def process(snapshot):
                 async with semaphore:
-                    if aborted.is_set():
+                    if stopping():
                         return 'blocked'
                     try:
                         if dry_run:
@@ -247,7 +255,7 @@ async def sync_covers(*, concurrency, rate_limit, retries, batch_size, limit, dr
                                 stats['retries'] += 1
                                 await asyncio.sleep(min(2 ** attempt, 8) + random.uniform(0, 0.5))
                         jpeg = await asyncio.to_thread(encode_jpeg, data)
-                        if aborted.is_set():
+                        if stopping():
                             return 'blocked'
                         # SDK upload and synchronous transactions never block
                         # the event loop. Each thread has its own DB connection.
@@ -256,6 +264,7 @@ async def sync_covers(*, concurrency, rate_limit, retries, batch_size, limit, dr
                         log(f'Bangumi {snapshot["bangumi_id"]}：{exc}')
                         return 'failed'
                     except (DatabaseError, NoCredentialsError, EndpointConnectionError) as exc:
+                        stats['aborted'] = 1
                         aborted.set()
                         log(f'基础设施故障，停止新增任务：{type(exc).__name__}')
                         return 'failed'
@@ -263,6 +272,7 @@ async def sync_covers(*, concurrency, rate_limit, retries, batch_size, limit, dr
                         error_code = exc.response.get('Error', {}).get('Code', '')
                         status = exc.response.get('ResponseMetadata', {}).get('HTTPStatusCode')
                         if error_code in {'AccessDenied', 'InvalidAccessKeyId', 'SignatureDoesNotMatch', 'NoSuchBucket', 'InvalidToken'} or status in (401, 403):
+                            stats['aborted'] = 1
                             aborted.set()
                             log('R2 鉴权/存储桶配置错误，停止新增任务')
                         else:
@@ -273,7 +283,19 @@ async def sync_covers(*, concurrency, rate_limit, retries, batch_size, limit, dr
                         log(f'Bangumi {snapshot["bangumi_id"]}：{type(exc).__name__}')
                         return 'failed'
 
-            while True:
+            async def tracked_process(snapshot):
+                nonlocal consecutive_failures
+                result = await process(snapshot)
+                if result == 'failed':
+                    consecutive_failures += 1
+                    if consecutive_failures >= max_consecutive_failures:
+                        stats['circuit_open'] = 1
+                        aborted.set()
+                elif result != 'blocked':
+                    consecutive_failures = 0
+                return result
+
+            while not stopping():
                 batch = await sync_to_async(get_batch, thread_sensitive=False)(after_pk, batch_size)
                 if not batch:
                     break
@@ -291,10 +313,10 @@ async def sync_covers(*, concurrency, rate_limit, retries, batch_size, limit, dr
                         pending.append(snapshot)
                 # At most batch_size tasks exist; at most concurrency images are
                 # downloaded/decoded in memory, not 13000 simultaneous tasks.
-                for result in await asyncio.gather(*(process(row) for row in pending)):
+                for result in await asyncio.gather(*(tracked_process(row) for row in pending)):
                     stats[result] += 1
                 log(f'封面进度（扫描至 PK {after_pk}）：{dict(stats)}')
-                if aborted.is_set() or (limit and stats['attempted'] >= limit):
+                if stopping() or (limit and stats['attempted'] >= limit):
                     break
     finally:
         if r2 is not None:

@@ -195,6 +195,24 @@ class PublishTests(TransactionTestCase):
         self.assertEqual((stats['uploaded'], stats['retries']), (1, 1))
         client.close.assert_called_once()
 
+    def test_stop_before_download_and_failure_circuit(self):
+        client = Mock()
+        download = AsyncMock(side_effect=CoverError('损坏图片'))
+        with patch('recommendations.covers.make_r2_client', return_value=client), \
+                patch('recommendations.covers.download_image', download):
+            stats = asyncio.run(sync_covers(concurrency=1, rate_limit=2, retries=0, batch_size=20,
+                                           limit=0, dry_run=False, log=lambda msg: None,
+                                           should_stop=lambda: True))
+            self.assertEqual(stats['stopped'], 1)
+            download.assert_not_awaited()
+            RecommendationAnime.objects.create(bangumi_id=43, title_zh='第二张', nsfw=False,
+                                               cover_url='https://lain.bgm.tv/43.jpg')
+            stats = asyncio.run(sync_covers(concurrency=1, rate_limit=2, retries=0, batch_size=20,
+                                           limit=0, dry_run=False, log=lambda msg: None,
+                                           max_consecutive_failures=1))
+        self.assertEqual((stats['failed'], stats['circuit_open'], stats['blocked']), (1, 1, 1))
+        client.put_object.assert_not_called()
+
     def test_limit_skips_hosted_and_only_attempts_one_external(self):
         RecommendationAnime.objects.create(bangumi_id=43, title_zh='已托管', nsfw=False, cover_url='https://media.xh-anime.com/covers/43.jpg')
         RecommendationAnime.objects.create(bangumi_id=44, title_zh='另一个', nsfw=False, cover_url='https://lain.bgm.tv/c.png')

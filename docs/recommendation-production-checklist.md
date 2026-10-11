@@ -101,3 +101,39 @@
 Neon 池化连接不接受通过 `PGOPTIONS` 注入 `statement_timeout` 等启动参数。首次连接因此在写入前失败，未产生数据改动；去除进程内参数后正常执行，不修改 `.env`。如需超时保护，应在事务内使用 `SET LOCAL`，而不是向池化启动包添加不支持的参数。
 
 完整源数据、20 条样本和验收 JSON 都位于被 Git 忽略的 `data/recommendations/`。已生成 `final_audit_20261011.json` 与 `production_pilot_verification_20261011.json`，不提交数据文件或密钥。**当前正式库仅有小批 20 条，R2 仅有推荐封面 17 张；尚未执行全量入库/全量图片转存。**
+
+## 2026-10-11 全量生产任务启动记录
+
+本节更新上一节的小批状态；这是运行中的任务记录，**不是全量完成证明**。
+
+- 用户明确授权执行全量入库及非成人封面转存。
+- 启动前再次核验最终文件 SHA256 与 31104 条记录；正式推荐库仍为小批 20 条、成人 2 条、已托管 17 张、外链 0 条。私人番剧与记录表分别为 3665 / 7868 条，本任务不写这些表。
+- 北京时间 14:54:48 启动隐藏后台任务，工作进程 PID 17004，启动进程 PID 16932。
+- 运行目录：`data/recommendations/full_production_20261011_145447/`。截至 14:57:42，已提交前 300 条，新增 283 条、更新 17 条；尚在入库阶段，未开始全量图片转存。
+- 生产推荐库使用每批 100 条事务，保留既有 `update_or_create` 幂等更新。缩小生产批次用于降低长事务与安全停止的等待时间；原独立导入命令默认每批 500 条不变。
+- 先核验 SHA256、完整字段、唯一 ID 与已托管对象集合；全量导入后再次逐字段核验 ID、分类、来源及保留的 R2 链接，全部通过才允许图片转存。
+- 转存每批 20 张、2 worker、1 HTTP 请求/秒，包含下载重试与重定向限流。仅处理 `nsfw=False`；成人公开封面保持空值，未知分类不下载不上传。源数据中 2468 条成人文字保留，1465 条非成人缺图保留空封面。
+- 图片权限/基础设施异常立即停止新任务，连续 10 个失败触发熔断，不提高权限、不绕过 DNS 或站点限制。
+- 后端回归 256 项中 255 项通过，1 项真实样本测试因未提供样本跳过；随后单独指定安全配置与 20 条真实样本补跑该项通过。迁移一致性检查通过。
+
+新增显式生产命令（**当前任务已经在运行，禁止重复启动下方命令**）：
+
+```powershell
+$env:PYTHONIOENCODING='utf-8'
+$env:PGCONNECT_TIMEOUT='5'
+.venv/Scripts/python.exe -u manage.py run_recommendation_pipeline data/recommendations/anime_enriched.jsonl --expected-sha256 7de81d27bc2a420917e3eb695cdb4e8c41b12160ea1480d053aa26b31220437f --expected-rows 31104 --run-dir data/recommendations/full_production_20261011_145447 --confirm-production --system-proxy
+```
+
+后台任务通过 `Start-Process -WindowStyle Hidden` 启动，标准输出/错误分别保存到同名 `.stdout.log` / `.stderr.log`。进度报告在每个已提交的入库批次、封面批次及阶段变更时原子更新，不含密钥。只读查看：
+
+```powershell
+Get-Content data/recommendations/full_production_20261011_145447/progress.json
+Get-Content data/recommendations/full_production_20261011_145447.stdout.log -Tail 5
+Get-Content data/recommendations/full_production_20261011_145447.stderr.log -Tail 5
+```
+
+需要安全停止时，在该运行目录创建 `STOP` 文件：导入在下一批事务开始前停止，封面任务停止新增下载/上传，已经进入的数据库/R2 操作允许完成。请勿强制结束正在提交的事务。电脑休眠、网络/代理关闭会影响此本地进程；它不属于 Render 后台任务，也不是定时自动重启任务。
+
+同级 `production_pipeline.lock` 防止重复运行。发生进程崩溃后锁可能保留，必须先核验对应 PID 已结束再人工处理这一个锁文件；不自动删除他人任务的锁。续跑须使用全新的运行目录，数据源指纹不变，已提交记录幂等更新，已托管封面不重复上传。
+
+最终 `completed` 表示本次转存候选外链已处理完，不表示缺图作品凭空有图；`completed_partial` 表示尚有失败/外链，必须查日志另行验收；`failed` / `stopped` 不自动重启。最终验收须读取报告并复核正式库、成人隔离与 R2 公开图片，不能仅以后台进程已启动作为完成依据。
