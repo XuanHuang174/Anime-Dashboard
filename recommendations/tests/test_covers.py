@@ -108,7 +108,7 @@ class DownloadTests(SimpleTestCase):
 class PublishTests(TransactionTestCase):
     def setUp(self):
         self.anime = RecommendationAnime.objects.create(
-            bangumi_id=42, title_zh='测试', cover_url='https://lain.bgm.tv/a.png', source_cover_url='https://lain.bgm.tv/a.png',
+            bangumi_id=42, title_zh='测试', nsfw=False, cover_url='https://lain.bgm.tv/a.png', source_cover_url='https://lain.bgm.tv/a.png',
         )
         self.snapshot = {field: getattr(self.anime, field) for field in ('pk', 'bangumi_id', 'cover_url', 'source_cover_url')}
 
@@ -130,6 +130,53 @@ class PublishTests(TransactionTestCase):
         self.assertEqual(publish_cover(self.snapshot, b'old', client), 'stale')
         client.put_object.assert_not_called()
 
+    def test_classification_changed_after_snapshot_blocks_publication(self):
+        for marker, expected in ((True, 'skipped_adult'), (None, 'skipped_unknown')):
+            RecommendationAnime.objects.filter(pk=self.anime.pk).update(nsfw=marker)
+            client = Mock()
+            self.assertEqual(publish_cover(self.snapshot, png_bytes(), client), expected)
+            client.put_object.assert_not_called()
+
+    def test_adult_and_unknown_never_download_and_do_not_consume_limit(self):
+        self.anime.nsfw = True
+        self.anime.save(update_fields=['nsfw'])
+        RecommendationAnime.objects.create(bangumi_id=43, title_zh='未知', cover_url='https://lain.bgm.tv/b.png')
+        RecommendationAnime.objects.create(bangumi_id=44, title_zh='普通', nsfw=False, cover_url='https://lain.bgm.tv/c.png')
+        client = Mock()
+        download = AsyncMock(return_value=png_bytes())
+        with patch('recommendations.covers.make_r2_client', return_value=client), \
+                patch('recommendations.covers.download_image', download):
+            stats = asyncio.run(sync_covers(concurrency=1, rate_limit=2, retries=0, batch_size=1, limit=1, dry_run=False, log=lambda msg: None))
+        self.assertEqual((stats['skipped_adult'], stats['skipped_unknown'], stats['uploaded']), (1, 1, 1))
+        self.assertEqual(stats['attempted'], 1)
+        self.assertEqual(download.await_count, 1)
+        self.assertEqual(client.put_object.call_args.kwargs['Key'], 'covers/44.jpg')
+
+    def test_explicit_proxy_forwarded_without_implicit_environment_proxy(self):
+        client = Mock()
+        with patch('recommendations.covers.make_r2_client', return_value=client) as make, \
+                patch('recommendations.covers.download_image', new=AsyncMock(return_value=png_bytes())), \
+                patch('recommendations.covers.httpx.AsyncClient', wraps=httpx.AsyncClient) as transport:
+            asyncio.run(sync_covers(concurrency=1, rate_limit=2, retries=0, batch_size=1, limit=1, dry_run=False,
+                                   log=lambda msg: None, proxy='http://127.0.0.1:7890'))
+        make.assert_called_once_with(1, proxy='http://127.0.0.1:7890')
+        self.assertEqual(transport.call_args.kwargs['proxy'], 'http://127.0.0.1:7890')
+        self.assertFalse(transport.call_args.kwargs['trust_env'])
+
+    def test_dry_run_also_skips_adult_and_unknown_without_dns(self):
+        RecommendationAnime.objects.filter(pk=self.anime.pk).update(nsfw=True)
+        RecommendationAnime.objects.create(bangumi_id=43, title_zh='未知', cover_url='https://lain.bgm.tv/b.png')
+        with patch('recommendations.covers.validate_download_url', new_callable=AsyncMock) as validate:
+            stats = asyncio.run(sync_covers(concurrency=1, rate_limit=2, retries=0, batch_size=1, limit=20, dry_run=True, log=lambda msg: None))
+        self.assertEqual((stats['skipped_adult'], stats['skipped_unknown'], stats['attempted']), (1, 1, 0))
+        validate.assert_not_called()
+
+    def test_cli_rejects_proxy_with_credentials_before_scan(self):
+        with patch('recommendations.management.commands.sync_recommendation_covers.sync_covers') as sync:
+            with self.assertRaises(CommandError):
+                call_command('sync_recommendation_covers', proxy='http://secret:password@localhost:7890', dry_run=True, stdout=io.StringIO())
+        sync.assert_not_called()
+
     def test_failed_upload_preserves_original_database(self):
         client = Mock()
         client.put_object.side_effect = RuntimeError('SDK failed')
@@ -149,8 +196,8 @@ class PublishTests(TransactionTestCase):
         client.close.assert_called_once()
 
     def test_limit_skips_hosted_and_only_attempts_one_external(self):
-        RecommendationAnime.objects.create(bangumi_id=43, title_zh='已托管', cover_url='https://media.xh-anime.com/covers/43.jpg')
-        RecommendationAnime.objects.create(bangumi_id=44, title_zh='另一个', cover_url='https://lain.bgm.tv/c.png')
+        RecommendationAnime.objects.create(bangumi_id=43, title_zh='已托管', nsfw=False, cover_url='https://media.xh-anime.com/covers/43.jpg')
+        RecommendationAnime.objects.create(bangumi_id=44, title_zh='另一个', nsfw=False, cover_url='https://lain.bgm.tv/c.png')
         with patch('recommendations.covers.validate_download_url', new_callable=AsyncMock):
             stats = asyncio.run(sync_covers(concurrency=1, rate_limit=2, retries=1, batch_size=500, limit=1, dry_run=True, log=lambda msg: None))
         self.assertEqual((stats['attempted'], stats['already_hosted'], stats['eligible']), (1, 1, 1))
@@ -167,7 +214,7 @@ class PublishTests(TransactionTestCase):
         self.assertEqual(self.anime.cover_url, self.snapshot['cover_url'])
 
     def test_invalid_r2_credentials_stop_remaining_work(self):
-        RecommendationAnime.objects.create(bangumi_id=43, title_zh='第二个', cover_url='https://lain.bgm.tv/b.png')
+        RecommendationAnime.objects.create(bangumi_id=43, title_zh='第二个', nsfw=False, cover_url='https://lain.bgm.tv/b.png')
         client = Mock()
         client.put_object.side_effect = ClientError(
             {'Error': {'Code': 'AccessDenied'}, 'ResponseMetadata': {'HTTPStatusCode': 403}}, 'PutObject',

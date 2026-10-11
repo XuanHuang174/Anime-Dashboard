@@ -40,5 +40,5 @@ class RealSourceTests(TestCase):
         for row in rows:
             stored = RecommendationAnime.objects.get(bangumi_id=row['bangumi_id'])
             self.assertEqual(stored.nsfw, row.get('nsfw'))
-            self.assertEqual(stored.cover_url, row.get('cover_url', ''))
+            self.assertEqual(stored.cover_url, '' if stored.nsfw is True else row.get('cover_url', ''))
         print(f'真实样本导入及重复导入通过：{len(rows)} 条，仅 SQLite 内存测试库')

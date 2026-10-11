@@ -72,6 +72,29 @@ class ImportTests(TestCase):
         anime.refresh_from_db()
         self.assertEqual((anime.cover_url, anime.source_cover_url), (new_source, new_source))
 
+    def test_adult_text_retained_without_public_cover_on_reimports(self):
+        source = 'https://lain.bgm.tv/cover/adult.png'
+        self.run_import([{'bangumi_id': 42, 'title_zh': '文字数据', 'synopsis': '保留简介',
+                          'nsfw': True, 'cover_url': source}])
+        self.run_import([{'bangumi_id': 42, 'score': 8.5, 'cover_url': source}])
+        self.run_import([{'bangumi_id': 42, 'nsfw': None, 'cover_url': source}])
+        anime = RecommendationAnime.objects.get()
+        self.assertTrue(anime.nsfw)
+        self.assertEqual((anime.title_zh, anime.synopsis, anime.score), ('文字数据', '保留简介', 8.5))
+        self.assertEqual((anime.cover_url, anime.source_cover_url), ('', source))
+
+    def test_marking_existing_hosted_record_adult_clears_link_not_object(self):
+        anime = RecommendationAnime.objects.create(
+            bangumi_id=42, title_zh='保留文字', nsfw=False,
+            cover_url='https://media.xh-anime.com/covers/42.jpg',
+            source_cover_url='https://lain.bgm.tv/a.png',
+        )
+        self.run_import([{'bangumi_id': 42, 'nsfw': True}])
+        anime.refresh_from_db()
+        self.assertEqual(anime.cover_url, '')
+        self.assertEqual(anime.title_zh, '保留文字')
+        self.assertEqual(anime.source_cover_url, 'https://lain.bgm.tv/a.png')
+
     def test_missing_title_and_bad_score_have_safe_defaults(self):
         self.run_import([{'bangumi_id': 1, 'score': 'oops'}, {'bangumi_id': 2, 'title_zh': '', 'name': '原名'}])
         self.assertEqual(RecommendationAnime.objects.get(bangumi_id=1).title_zh, '未命名番剧 1')

@@ -7,10 +7,12 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import connection
 
 from recommendations.covers import sync_covers
+from recommendations.prepare_data import resolve_proxy
+from recommendations.source_pipeline import SourceError
 
 
 class Command(BaseCommand):
-    help = '后台异步转存推荐库外部封面到 R2，可重跑续传，不在 Web 请求中执行。'
+    help = '后台转存明确非成人的推荐封面到 R2；成人/未知标记不下载、不上传，可重跑续传。'
 
     def add_arguments(self, parser):
         parser.add_argument('--concurrency', type=int, default=4)
@@ -19,8 +21,15 @@ class Command(BaseCommand):
         parser.add_argument('--batch-size', type=int, default=500)
         parser.add_argument('--limit', type=int, default=0, help='最多处理多少张外部封面，0 表示不限制')
         parser.add_argument('--dry-run', action='store_true', help='只扫描并校验地址/DNS，不下载、不上传、不更新数据库')
+        transport = parser.add_mutually_exclusive_group()
+        transport.add_argument('--proxy', help='可信 HTTP(S) 传输代理（带端口、不能含凭证）；用于图片下载及 R2 上传')
+        transport.add_argument('--system-proxy', action='store_true', help='明确使用 Windows 手工系统代理/HTTP(S)_PROXY')
 
     def handle(self, *args, **options):
+        try:
+            proxy = resolve_proxy(options['proxy'], options['system_proxy'])
+        except SourceError as exc:
+            raise CommandError(str(exc)) from exc
         if not 1 <= options['concurrency'] <= 8:
             raise CommandError('concurrency 必须在 1–8 之间。')
         if not math.isfinite(options['rate_limit']) or not 0.1 <= options['rate_limit'] <= 20:
@@ -42,6 +51,7 @@ class Command(BaseCommand):
             stats = asyncio.run(sync_covers(
                 **{key: options[key] for key in ('concurrency', 'rate_limit', 'retries', 'batch_size', 'limit', 'dry_run')},
                 log=self.stdout.write,
+                proxy=proxy,
             ))
         except KeyboardInterrupt as exc:
             raise CommandError('已中断。成功转存的数据保留，重跑可继续处理外链。') from exc

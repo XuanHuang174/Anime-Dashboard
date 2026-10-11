@@ -146,7 +146,7 @@ def encode_jpeg(data):
         raise CoverError('图片损坏或解码失败') from exc
 
 
-def make_r2_client(concurrency):
+def make_r2_client(concurrency, proxy=None):
     return boto3.client(
         's3', endpoint_url=settings.AWS_S3_ENDPOINT_URL,
         aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
@@ -156,6 +156,7 @@ def make_r2_client(concurrency):
             signature_version='s3v4', connect_timeout=5, read_timeout=10,
             retries={'mode': 'standard', 'total_max_attempts': 3},
             max_pool_connections=concurrency,
+            proxies={'http': proxy, 'https': proxy} if proxy else {},
         ),
     )
 
@@ -172,6 +173,10 @@ def publish_cover(snapshot, data, client):
     try:
         with transaction.atomic():
             anime = RecommendationAnime.objects.select_for_update().filter(pk=snapshot['pk']).first()
+            # Recheck under the row lock: classification may have changed
+            # since a worker took its snapshot or started downloading.
+            if anime is not None and anime.nsfw is not False:
+                return 'skipped_adult' if anime.nsfw is True else 'skipped_unknown'
             if (anime is None or anime.bangumi_id != snapshot['bangumi_id']
                     or anime.cover_url != snapshot['cover_url']
                     or anime.source_cover_url != snapshot['source_cover_url']
@@ -200,25 +205,26 @@ def get_batch(after_pk, size):
         return list(RecommendationAnime.objects.filter(
             pk__gt=after_pk, bangumi_id__isnull=False,
         ).exclude(cover_url='').order_by('pk').values(
-            'pk', 'bangumi_id', 'cover_url', 'source_cover_url',
+            'pk', 'bangumi_id', 'cover_url', 'source_cover_url', 'nsfw',
         )[:size])
     finally:
         close_old_connections()
 
 
-async def sync_covers(*, concurrency, rate_limit, retries, batch_size, limit, dry_run, log):
+async def sync_covers(*, concurrency, rate_limit, retries, batch_size, limit, dry_run, log, proxy=None):
     semaphore = asyncio.Semaphore(concurrency)
     limiter = RateLimiter(rate_limit)
     hosts = {host.strip().lower() for host in settings.RECOMMENDATION_COVER_ALLOWED_HOSTS}
     stats = Counter()
     aborted = asyncio.Event()
-    r2 = None if dry_run else make_r2_client(concurrency)
+    r2 = None if dry_run else make_r2_client(concurrency, proxy=proxy)
     after_pk = 0
     try:
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(10, connect=5, pool=5),
             limits=httpx.Limits(max_connections=concurrency, max_keepalive_connections=concurrency),
             follow_redirects=False, trust_env=False,
+            proxy=proxy,
             headers={'User-Agent': 'AnimeDashboard-CoverSync/1.0', 'Accept-Encoding': 'identity'},
         ) as client:
             async def process(snapshot):
@@ -274,7 +280,11 @@ async def sync_covers(*, concurrency, rate_limit, retries, batch_size, limit, dr
                 after_pk = batch[-1]['pk']
                 pending = []
                 for snapshot in batch:
-                    if is_hosted_cover(snapshot['cover_url']):
+                    # Fail closed for missing classifications too; neither
+                    # excluded category consumes the pilot's image limit.
+                    if snapshot['nsfw'] is not False:
+                        stats['skipped_adult' if snapshot['nsfw'] is True else 'skipped_unknown'] += 1
+                    elif is_hosted_cover(snapshot['cover_url']):
                         stats['already_hosted'] += 1
                     elif not limit or stats['attempted'] < limit:
                         stats['attempted'] += 1

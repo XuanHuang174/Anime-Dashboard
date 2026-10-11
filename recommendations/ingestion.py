@@ -78,6 +78,10 @@ def normalize_row(row, id_field=None):
 @transaction.atomic
 def upsert_anime(bangumi_id, values):
     values = values.copy()
+    # An unknown incremental classification must not downgrade an existing
+    # adult/non-adult decision. New records still get the model's None default.
+    if values.get('nsfw', False) is None:
+        values.pop('nsfw')
     source_cover = values.pop('cover_url', None)
     # update_or_create locks the existing row; this also serializes the final
     # R2 upload against imports, avoiding stale uploads to the fixed object key.
@@ -93,4 +97,10 @@ def upsert_anime(bangumi_id, values):
             anime.cover_url = source_cover
         anime.source_cover_url = source_cover
         anime.save(update_fields=['cover_url', 'source_cover_url', 'updated_at'])
+    # Adult records remain searchable as text-only catalog entries. Keeping
+    # their public image field empty also prevents future UI from loading the
+    # external cover directly. The internal source metadata is not published.
+    if anime.nsfw is True and anime.cover_url:
+        anime.cover_url = ''
+        anime.save(update_fields=['cover_url', 'updated_at'])
     return created
