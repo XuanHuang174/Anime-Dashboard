@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import RecommendationDialog from './RecommendationDialog.jsx'
 import { createLatestRequestGate, recommendationError, validateIdentityReview } from '../../utils/recommendations.js'
 
-export default function RecommendationIdentityReview({ client, onClose, onChanged }) {
+export default function RecommendationIdentityReview({ client, onClose, onChanged, scope = 'high-score' }) {
   const [page, setPage] = useState(1)
   const [revision, setRevision] = useState(0)
   const [state, setState] = useState({ status: 'loading' })
@@ -17,7 +17,7 @@ export default function RecommendationIdentityReview({ client, onClose, onChange
   useEffect(() => {
     const request = readGate.current.begin()
     setState({ status: 'loading' }); setSelection({}); setConfirmed({})
-    client.identities({ page, page_size: 5 }, request.signal).then((raw) => {
+    client.identities({ page, page_size: 5, scope }, request.signal).then((raw) => {
       const data = validateIdentityReview(raw)
       if (request.isCurrent()) {
         if (!data.results.length && page > 1) setPage(page - 1)
@@ -25,7 +25,7 @@ export default function RecommendationIdentityReview({ client, onClose, onChange
       }
     }).catch((failure) => { if (request.isCurrent()) setState({ status: 'error', message: recommendationError(failure) }) })
     return () => readGate.current.cancel()
-  }, [page, revision, client])
+  }, [page, revision, client, scope])
   useEffect(() => () => writeGate.current.cancel(), [])
 
   const search = async (item) => {
@@ -33,7 +33,7 @@ export default function RecommendationIdentityReview({ client, onClose, onChange
     busyRef.current = true; setBusy(true); setError('')
     const request = writeGate.current.begin()
     try {
-      const data = validateIdentityReview(await client.identities({ record_id: item.record_id, keyword: keywords[item.record_id] || item.title.slice(0,100), page: 1 }, request.signal))
+      const data = validateIdentityReview(await client.identities({ scope, record_id: item.record_id, keyword: keywords[item.record_id] || item.title.slice(0,100), page: 1 }, request.signal))
       if (request.isCurrent()) {
         const updated = data.results[0]
         setState((current) => ({ ...current, data: { ...current.data,
@@ -57,12 +57,12 @@ export default function RecommendationIdentityReview({ client, onClose, onChange
     finally { if (request.isCurrent()) { busyRef.current = false; setBusy(false) } }
   }
   return <RecommendationDialog kind="identity" title="核对旧作品身份" busy={busy} onClose={onClose}>
-    <p className="rec-muted">仅关联你自己的高分旧记录。请核对原名、季度及作品类型，尤其注意不同季、OVA 和剧场版。评分、长评和观看状态不会修改。</p>
+    <p className="rec-muted">仅关联你自己的{scope === 'all' ? '旧记录（全部观看状态）' : '高分旧记录'}。请核对原名、季度及作品类型，尤其注意不同季、OVA 和剧场版。评分、长评和观看状态不会修改。</p>
     {error && <p className="rec-inline-error" role="alert">{error}</p>}
     {state.status === 'loading' ? <p role="status">正在读取待关联作品…</p> : state.status === 'error'
       ? <div role="alert"><p>{state.message}</p><button type="button" className="rec-button" onClick={() => setRevision((n) => n + 1)}>重试读取</button></div>
-      : <><p className="rec-muted">{state.data.count} 条高分记录待核对</p>
-        {!state.data.results.length && <p role="status">目前没有可核对的高分旧记录。</p>}
+      : <><p className="rec-muted">{state.data.count} 条{scope === 'all' ? '旧' : '高分'}记录待核对</p>
+        {!state.data.results.length && <p role="status">目前没有可核对的{scope === 'all' ? '' : '高分'}旧记录。</p>}
         {state.data.results.map((item) => <section className="rec-identity-row" key={item.record_id}>
           <h3>{item.title}</h3><p className="rec-muted">{item.original_title || '原名未填写'} · {item.season || '季度未知'}</p>
           {item.status === 'needs_admin_review' ? <p>已有权威身份发生冲突，请联系管理员核对。</p> : <>

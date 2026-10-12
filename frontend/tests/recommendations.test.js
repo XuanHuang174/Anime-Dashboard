@@ -72,5 +72,6 @@ test('request layer forwards abort and snapshot on fixed paths, no journal write
   await assert.rejects(client.detail('../../users/1', signal))
   await client.savePreferences({ tags: ['音乐'], expected_version: 2 }, signal)
   assert.equal(calls[2][0], 'recommendations/preferences/')
-  assert.equal(Object.keys(client).some((k) => /want|journal|add/i.test(k)), false)
+  assert.equal(typeof client.want, 'function')
+  assert.equal(Object.keys(client).some((k) => /journal/i.test(k)), false)
 })

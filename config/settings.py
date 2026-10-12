@@ -265,6 +265,7 @@ REST_FRAMEWORK = {
         'sensitive_auth': '3/minute',
         'recommendation_read': '60/minute',
         'recommendation_identity': '30/minute',
+        'recommendation_write': '30/minute',
     },
     # Count the direct TCP source address and ignore spoofable proxy headers.
     # Set this to the exact trusted proxy count only when deploying behind a

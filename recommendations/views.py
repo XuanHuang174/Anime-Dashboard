@@ -22,6 +22,8 @@ from .taxonomy import TAXONOMY_VERSION
 from .serializers import IdentityReviewQuerySerializer, IdentityConfirmationSerializer
 from .binding import bind_record
 from .review import review_contract
+from .want import add_want, WantConflict
+from .serializers import RecommendationWantSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +57,27 @@ class RecommendationProfileView(OwnRecommendationAPIView):
     def get(self, request):
         self.check_query_contract(request)
         return Response(RecommendationProfileSerializer(profile_contract(request.user)).data)
+
+
+class RecommendationWantView(OwnRecommendationAPIView):
+    throttle_classes = (UserRateThrottle, ScopedRateThrottle)
+    throttle_scope = 'recommendation_write'
+
+    def handle_exception(self, exc):
+        if isinstance(exc, WantConflict):
+            # APIException coerces nested bool/int details into strings. Preserve
+            # this endpoint's explicit typed flags instead of returning "True".
+            response = Response(exc.payload, status=exc.status_code)
+            response.exception = True
+            return response
+        return super().handle_exception(exc)
+
+    def post(self, request, bangumi_id):
+        self.check_query_contract(request)
+        if not isinstance(request.data, dict) or request.data:
+            raise ValidationError('本接口只接受空 JSON 对象，不接受用户 ID、记录 ID、评分或长评。')
+        result = add_want(user=request.user, bangumi_id=bangumi_id)
+        return Response(RecommendationWantSerializer(result).data, status=201 if result['created'] else 200)
 
 
 class RecommendationPreferenceView(OwnRecommendationAPIView):

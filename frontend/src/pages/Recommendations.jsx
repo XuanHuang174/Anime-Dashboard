@@ -6,6 +6,7 @@ import RecommendationIdentityReview from '../components/recommendations/Recommen
 import { RecommendationEmptyState, RecommendationSkeleton } from '../components/recommendations/RecommendationStates.jsx'
 import recommendationApi from '../api/recommendations.js'
 import useRecommendations from '../hooks/useRecommendations.js'
+import useRecommendationWant from '../hooks/useRecommendationWant.js'
 import { createLatestRequestGate, DEFAULT_REC_FILTERS, mapRecommendationItem, recommendationError, REC_CATEGORIES, identitySummary } from '../utils/recommendations.js'
 import '../styles/recommendations.css'
 
@@ -25,6 +26,7 @@ export default function Recommendations({ client = recommendationApi }) {
   const saveGate = useRef(createLatestRequestGate())
   const saveBusy = useRef(false)
   const state = useRecommendations(category, filters, client)
+  const want = useRecommendationWant(client)
   const activeFilters = Number(filters.type !== 'all') + Number(filters.minScore !== '0') + Number(filters.hideRecorded)
   const detailId = panel?.kind === 'detail' ? panel.item.bangumiId : null
 
@@ -71,7 +73,15 @@ export default function Recommendations({ client = recommendationApi }) {
       if (request.isCurrent()) { setSaving(false); saveBusy.current = false }
     }
   }
-  const cardProps = (item) => ({ item, onDetail: (chosen) => { setDetail({ status: 'loading' }); setPanel({ kind: 'detail', item: chosen }) } })
+  const addWant = async (item) => {
+    const result = await want.add(item)
+    if (!result) return
+    state.recordChanged(result.bangumi_id, result.watch_status)
+    setNotice(result.created ? '已加入想看，评分和长评留空。' : '手账已有这部作品，已保留原有状态、评分和长评。')
+  }
+  const openWantIdentity = () => setPanel({ kind: 'identity', scope: 'all' })
+  const cardProps = (item) => ({ item, onWant: addWant, operation: want.operations[item.bangumiId], onIdentity: openWantIdentity,
+    onDetail: (chosen) => { setDetail({ status: 'loading' }); setPanel({ kind: 'detail', item: chosen }) } })
   const profile = state.profile
   const pending = profile?.diagnostics?.pending_identity_count || 0
 
@@ -100,7 +110,7 @@ export default function Recommendations({ client = recommendationApi }) {
       <section className="rec-demo-note" aria-label="推荐依据"><span className="rec-demo-dot" aria-hidden="true" />
         <p>{state.data?.mode === 'preference_based' ? '当前依据你明确选择的题材推荐，尚未形成高分作品画像。'
           : `参考已看过且个人评分 ≥ ${profile?.sample_policy.minimum_score ?? '8.5'} 的作品；只展示已有数据支持的推荐理由。`}
-          {' '}手账加入功能将在下一阶段开放。</p></section>
+          {' '}加入想看不会覆盖已有评分、长评或观看状态。</p></section>
       <section className="rec-controls" aria-label="推荐类别与筛选">
         <div className="rec-categories" role="group" aria-label="推荐类别">{REC_CATEGORIES.map((option) =>
           <button type="button" key={option.id} aria-pressed={category === option.id} className={`rec-category ${category === option.id ? 'is-selected' : ''}`}
@@ -124,13 +134,14 @@ export default function Recommendations({ client = recommendationApi }) {
               <div className="rec-grid">{state.items.slice(1).map((item) => <RecommendationCard key={item.id} {...cardProps(item)} />)}</div></>}
             {state.moreError && <p className="rec-inline-error" role="alert">{state.moreError}</p>}
             {state.data.next_page && <div className="rec-pagination"><button type="button" className="rec-button rec-button--primary"
-              disabled={state.moreLoading} onClick={state.loadMore}>{state.moreLoading ? '正在加载…' : state.moreError ? '重试加载下一页' : '再翻一页 →'}</button>
+              disabled={state.moreLoading} onClick={state.loadMore}>{state.moreLoading ? '正在加载…' : state.snapshotDirty ? '更新推荐结果 →' : state.moreError ? '重试加载下一页' : '再翻一页 →'}</button>
               <span>已展示 {state.items.length} / {state.data.count}</span></div>}</>}
       </section>
       <footer className="rec-footer"><span>给每一次喜欢，一个值得停留的位置。</span><span>DISCOVERY JOURNAL / CONTENT V1</span></footer>
     </div>
     <div className="rec-toast" role="status" aria-live="polite">{notice && <p>{notice}</p>}</div>
-    {panel?.kind === 'identity' && <RecommendationIdentityReview client={client} onClose={() => setPanel(null)} onChanged={state.retry} />}
+    {panel?.kind === 'identity' && <RecommendationIdentityReview client={client} scope={panel.scope || 'high-score'} onClose={() => setPanel(null)}
+      onChanged={() => { want.resetFailures(); state.retry() }} />}
     {panel && panel.kind !== 'identity' && <RecommendationDialog kind={panel.kind} busy={saving} title={panel.kind === 'filters' ? '给心动留一点范围' : panel.kind === 'preferences' ? '我的口味' : panel.item.title}
       onClose={() => setPanel(null)}>
       {panel.kind === 'filters' ? <form onSubmit={(event) => { event.preventDefault(); setFilters({ ...draftFilters }); setPanel(null) }}>
@@ -156,7 +167,8 @@ export default function Recommendations({ client = recommendationApi }) {
             <div><p className="rec-original-title">{detail.item.originalTitle}</p><RecommendationMeta item={detail.item} />
               <h3>推荐依据</h3><p>{detail.item.reason || '当前没有足够的共有题材证据。'}</p>
               <h3>故事简介</h3><p>{detail.item.synopsis || '暂未收录简介。'}</p>
-              <RecommendationActions item={detail.item} detailLabel="关闭详情" onDetail={() => setPanel(null)} />
+              <RecommendationActions item={detail.item} detailLabel="关闭详情" onDetail={() => setPanel(null)}
+                onWant={addWant} operation={want.operations[detail.item.bangumiId]} onIdentity={openWantIdentity} />
             </div></div>}
     </RecommendationDialog>}
   </main>

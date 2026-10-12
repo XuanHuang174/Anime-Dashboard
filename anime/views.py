@@ -838,6 +838,8 @@ class BangumiCollectionBatchImportView(ExternalMetadataAPIView):
                 )
 
                 with transaction.atomic():
+                    # Share the same capacity lock as journal add and recommendation want.
+                    get_user_model().objects.select_for_update().get(pk=request.user.pk)
                     defaults = self._subject_defaults(
                         subject,
                         request_user=request.user,
@@ -853,7 +855,7 @@ class BangumiCollectionBatchImportView(ExternalMetadataAPIView):
                         user=request.user,
                         anime=anime,
                     ).first()
-                    if existing_record is None and current_count >= settings.USER_ANIME_RECORD_LIMIT:
+                    if existing_record is None and UserAnimeRecord.objects.filter(user=request.user).count() >= settings.USER_ANIME_RECORD_LIMIT:
                         raise PermissionDenied("您的追番记录已达到容量上限")
 
                     private_poster_name = self._ensure_poster_persisted(

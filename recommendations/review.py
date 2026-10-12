@@ -18,8 +18,9 @@ def review_contract(user, options):
         if not rows or rows[0]['identity_state'] in ('unsafe_or_unknown', 'not_in_catalog'):
             raise NotFound('该记录无法进行推荐身份关联。')
     pending = [row for row in rows if row['identity_state'] in ('unlinked', 'stale_link', 'identity_conflict')
-               and row['watch_status'] == 'completed' and row['personal_score'] is not None
-               and row['personal_score'] >= Decimal(str(settings.RECOMMENDATION_PROFILE_SCORE_THRESHOLD))]
+               and (options.get('scope') == 'all' or
+                    (row['watch_status'] == 'completed' and row['personal_score'] is not None
+                     and row['personal_score'] >= Decimal(str(settings.RECOMMENDATION_PROFILE_SCORE_THRESHOLD))))]
     if 'record_id' in options and not pending:
         raise NotFound('该记录不在待核对列表中。')
     start = (options['page'] - 1) * options['page_size']

@@ -52,16 +52,20 @@ def normalized_title(value):
     return re.sub(r'\s+', '', value.removeprefix('《').removesuffix('》')).casefold()
 
 
-def has_possible_legacy_record(*, user, anime):
-    expected = {normalized_title(name) for name in (anime.title_zh, anime.title_jp) if name}
-    rows = UserAnimeRecord.objects.filter(user=user, anime__bgm_id__isnull=True).order_by().values(
-        'metadata_initialized', 'private_chinese_title', 'private_japanese_title',
-        'anime__chinese_title', 'anime__japanese_title',
-    )
+def has_possible_legacy_record(*, user, anime, records=None):
+    from .matching import lookup_title
+    expected = {lookup_title(name) for name in (anime.title_zh, anime.title_jp) if name}
+    expected.discard('')
+    from .resolution import resolved_records
+    rows = records if records is not None else resolved_records(user)
     for row in rows:
-        names = (row['private_chinese_title'], row['private_japanese_title']) if row['metadata_initialized'] else (
-            row['anime__chinese_title'], row['anime__japanese_title'])
-        if any(normalized_title(name) in expected for name in names if name):
+        if (row['identity_state'] != 'linked' and
+                row.get('recommendation_identity__catalog_anime__bangumi_id') == anime.bangumi_id):
+            return True  # Stale/revoked aliases require confirmation, not a duplicate.
+        if row['anime__bgm_id'] or row['identity_state'] == 'linked':
+            continue  # A valid alias for another season is not an unresolved identity.
+        names = (row['metadata']['title_zh'], row['metadata']['title_jp'])
+        if any(lookup_title(name) in expected for name in names if name):
             return True  # Confirmation only, NEVER a fuzzy automatic mapping.
     return False
 
@@ -83,11 +87,13 @@ def recommendation_identity(*, user, bangumi_id):
         raise NotFound('该作品不可用于推荐。')
     shared = Anime.objects.filter(bgm_id=identity).only('pk').first()
     from .resolution import resolved_records
-    aligned = [row for row in resolved_records(user) if row['resolved_bangumi_id'] == identity]
-    owned = aligned[0] if aligned else None
+    records = resolved_records(user)
+    aligned = [row for row in records if row['resolved_bangumi_id'] == identity]
+    priority = {'completed': 4, 'watching': 3, 'plan': 2, 'on_hold': 1}
+    owned = max(aligned, key=lambda row: (priority.get(row['watch_status'], 0), -row['pk']), default=None)
     # This deliberately conservative collision signal does not guess the
     # Japanese title/quarter or alter an old shared identity on a GET operation.
-    possible_legacy = has_possible_legacy_record(user=user, anime=anime)
+    possible_legacy = has_possible_legacy_record(user=user, anime=anime, records=records)
     # Protect the existing unique release identity without changing a row that
     # carries a different/absent authoritative Bangumi ID.
     quarter = re.fullmatch(r'(\d{4})-(0?[147]|10)', anime.season)
@@ -106,6 +112,8 @@ def recommendation_identity(*, user, bangumi_id):
         'watch_status': owned['watch_status'] if owned else None,
         'mapping_status': 'aligned_alias' if owned and owned['anime__bgm_id'] != identity else 'identity_conflict' if release_conflict else 'aligned' if shared else 'unlinked',
         'requires_identity_confirmation': False if owned else possible_legacy or release_conflict,
+        'possible_legacy_record': possible_legacy,
+        'identity_service_ready': records.schema_available,
         'journal_compatible': not conflicts,
         'field_conflicts': conflicts,
     }

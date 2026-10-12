@@ -1,6 +1,7 @@
 """Explicit, audited writes to private aliases only. No Anime/journal metadata mutation."""
 import logging
 from django.core import signing
+from django.contrib.auth import get_user_model
 from django.db import DatabaseError, transaction
 from rest_framework.exceptions import APIException, NotFound
 
@@ -34,6 +35,11 @@ def candidate_ticket(row, target):
 
 @transaction.atomic
 def bind_record(*, record_id, user_id, target_id, source, expected_version=None, ticket=None, batch_id=None, expected_catalog_fp=None):
+    # Use the same owner lock as want/create/import before record/catalog locks.
+    # Explicit identity confirmation and journal creation cannot run an unowned
+    # lookup concurrently for this account.
+    if get_user_model().objects.select_for_update().filter(pk=user_id).first() is None:
+        raise NotFound('记录不存在。')
     record = UserAnimeRecord.objects.select_for_update().filter(pk=record_id, user_id=user_id).first()
     if record is None:
         raise NotFound('记录不存在。')
@@ -87,6 +93,7 @@ def auto_link(record, *, matcher=None, batch_id=None):
     if record.anime.bgm_id:
         return {'status': 'authoritative'}
     with transaction.atomic():
+        get_user_model().objects.select_for_update().get(pk=record.user_id)
         locked = UserAnimeRecord.objects.select_for_update().get(pk=record.pk)
         if RecommendationRecordIdentity.objects.filter(record=locked).exists():
             return {'status': 'existing_link'}  # Never rebind stale, revoked or user-confirmed aliases.

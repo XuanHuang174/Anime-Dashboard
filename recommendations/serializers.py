@@ -111,6 +111,17 @@ class RecommendationPublicAnimeSerializer(serializers.ModelSerializer):
         return canonical_tags(instance.tags.split(','))
 
 
+class RecommendationWantSerializer(serializers.Serializer):
+    contract_version = serializers.CharField(read_only=True)
+    bangumi_id = serializers.IntegerField(read_only=True)
+    anime_id = serializers.IntegerField(read_only=True)
+    record_id = serializers.IntegerField(read_only=True)
+    watch_status = serializers.CharField(read_only=True)
+    created = serializers.BooleanField(read_only=True)
+    outcome = serializers.CharField(read_only=True)
+    content_rating = serializers.CharField(read_only=True)
+
+
 class RecommendationQuerySerializer(serializers.Serializer):
     category = serializers.ChoiceField(choices=('all', 'familiar', 'explore'), default='all')
     type = serializers.ChoiceField(choices=('all', 'TV', 'OVA', '剧场版', 'WEB', '短片', '动态漫画'), default='all')
@@ -138,6 +149,7 @@ class RecommendationListAnimeSerializer(RecommendationPublicAnimeSerializer):
 
 
 class IdentityReviewQuerySerializer(serializers.Serializer):
+    scope = serializers.ChoiceField(choices=('high-score', 'all'), default='high-score')
     page = serializers.IntegerField(min_value=1, max_value=1000, default=1)
     page_size = serializers.IntegerField(min_value=1, max_value=10, default=5)
     record_id = serializers.IntegerField(min_value=1, required=False)

@@ -171,6 +171,7 @@
 .memphis-rec-container .rec-pagination { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 16px; padding-top: 32px; }
 .memphis-rec-container .rec-pagination span { color: #555; font-size: 13px; }
 .memphis-rec-container .rec-inline-error { padding: 14px; border: 2px solid var(--rec-ink); background: #fff2cc; overflow-wrap: anywhere; }
+.memphis-rec-container .rec-want-error { font-size: 12px; line-height: 1.8; margin-bottom: 0; }
 .memphis-rec-container .rec-identity-notice { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; border: 2px solid var(--rec-ink); background: #fff2cc; padding: 16px; margin-bottom: 18px; }
 .memphis-rec-container .rec-identity-notice p { flex: 1 1 250px; margin: 0; font-size: 13px; line-height: 1.8; }
 .memphis-rec-container .rec-identity-row { border: 2px solid var(--rec-ink); background: white; padding: 16px; margin: 16px 0; }

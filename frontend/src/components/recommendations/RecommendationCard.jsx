@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getRecommendationCover } from '../../utils/recommendations.js'
+import { wantButtonState } from '../../utils/recommendationWant.js'
 
 export function RecommendationCover({ item, priority = false }) {
   const safeSrc = getRecommendationCover(item.coverUrl)
@@ -23,19 +24,20 @@ export function RecommendationMeta({ item }) {
     <span>Bangumi <b>{Number.isFinite(item.score) ? item.score.toFixed(1) : '暂无评分'}</b></span></p>
 }
 
-export function RecommendationActions({ item, onDetail, detailLabel = '查看详情' }) {
-  const labels = { plan: '已在想看', completed: '已看过', watching: '在看中', on_hold: '已搁置' }
-  return <div className="rec-card-actions">
+export function RecommendationActions({ item, onDetail, detailLabel = '查看详情', onWant, operation, onIdentity }) {
+  const button = wantButtonState(item, operation)
+  return <><div className="rec-card-actions">
     <button type="button" className="rec-button rec-button--primary" onClick={() => onDetail(item)}
       aria-label={detailLabel === '查看详情' ? `查看${item.title}详情` : detailLabel}>{detailLabel} <span aria-hidden="true">↗</span></button>
-    <button type="button" className="rec-button" disabled title="手账加入功能将在下一阶段开放；不会更改现有记录"
-      aria-label={`${item.title}${labels[item.watchStatus] || '加入想看尚未开放'}`}>
-      {labels[item.watchStatus] || '+ 加入想看 · 待开放'}
+    <button type="button" className="rec-button" disabled={button.disabled || (!onWant && !button.confirm)}
+      onClick={() => button.confirm ? onIdentity?.() : onWant?.(item)}
+      aria-label={`${item.title}：${button.label}`}>
+      {button.label}
     </button>
-  </div>
+  </div>{operation?.error && <p className="rec-inline-error rec-want-error" role="alert">{operation.error.message}</p>}</>
 }
 
-export default function RecommendationCard({ item, hero = false, onDetail }) {
+export default function RecommendationCard({ item, hero = false, onDetail, onWant, operation, onIdentity }) {
   return <article className={`rec-card ${hero ? 'rec-card--hero' : ''}`}>
     <RecommendationCover item={item} priority={hero} />
     <div className="rec-card-body">
@@ -45,7 +47,7 @@ export default function RecommendationCard({ item, hero = false, onDetail }) {
       <p className="rec-card-reason" title={item.reason}><span aria-hidden="true">✧ </span>{item.reason}</p>
       {hero && <p className="rec-hero-synopsis">{item.synopsis}</p>}
       <div className="rec-card-tags" aria-label="作品标签">{item.tags?.slice(0, 2).map((tag) => <span key={tag}>{tag}</span>)}</div>
-      <RecommendationActions item={item} onDetail={onDetail} />
+      <RecommendationActions item={item} onDetail={onDetail} onWant={onWant} operation={operation} onIdentity={onIdentity} />
     </div>
   </article>
 }

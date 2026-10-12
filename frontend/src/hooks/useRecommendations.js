@@ -33,8 +33,14 @@ export default function useRecommendations(category, filters, client = recommend
   }, [key, client])
 
   const retry = () => setRevision((value) => value + 1)
+  const recordChanged = (identity, watchStatus) => {
+    more.current.cancel(); moreBusy.current = false
+    setState((current) => ({ ...current, snapshotDirty: true, moreLoading: false, moreError: '',
+      items: current.items.map((item) => item.bangumiId === identity ? { ...item, watchStatus } : item) }))
+  }
   const loadMore = async () => {
     if (state.key !== key || !state.data?.next_page || moreBusy.current) return
+    if (state.snapshotDirty) { retry(); return }
     moreBusy.current = true
     const request = more.current.begin()
     const captured = state.data.state_token
@@ -51,5 +57,5 @@ export default function useRecommendations(category, filters, client = recommend
       }
     } finally { if (request.isCurrent()) moreBusy.current = false }
   }
-  return { ...(state.key === key ? state : { status: 'loading', items: [] }), retry, loadMore }
+  return { ...(state.key === key ? state : { status: 'loading', items: [] }), retry, loadMore, recordChanged }
 }
