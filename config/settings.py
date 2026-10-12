@@ -337,6 +337,10 @@ PUBLIC_SHOWCASE_USERNAME = 'XHcode'
 # Per-account storage quota for private anime journal records.
 USER_ANIME_RECORD_LIMIT = env.int('USER_ANIME_RECORD_LIMIT', default=3000)
 
+# Recommendation 3A sample policy; independent of Bangumi's public score.
+RECOMMENDATION_PROFILE_SCORE_THRESHOLD = 8.5
+RECOMMENDATION_PROFILE_MIN_SAMPLES = 3
+
 # Bangumi metadata proxy
 #
 # Fill these with the origins of your own reverse proxies, without a trailing

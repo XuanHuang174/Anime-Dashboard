@@ -1,5 +1,8 @@
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.conf import settings
+
+from .taxonomy import validate_preference_tags
 
 
 class RecommendationAnime(models.Model):
@@ -45,3 +48,24 @@ class RecommendationAnime(models.Model):
 
     def __str__(self):
         return f'{self.title_zh} (Bangumi: {self.bangumi_id or "未关联"})'
+
+
+class RecommendationPreference(models.Model):
+    """Explicit choices only. No journal copies, inferred scores or NSFW switch."""
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name='recommendation_preference', verbose_name='所属用户',
+    )
+    tags = models.JSONField('明确选择的题材', default=list, blank=True,
+                            validators=[validate_preference_tags])
+    version = models.PositiveIntegerField('偏好版本', default=0)
+    created_at = models.DateTimeField('创建时间', auto_now_add=True)
+    updated_at = models.DateTimeField('更新时间', auto_now=True)
+
+    class Meta:
+        verbose_name = '用户推荐偏好'
+        verbose_name_plural = '用户推荐偏好'
+
+    def __str__(self):
+        return f'用户 {self.user_id} 的推荐偏好（版本 {self.version}）'
