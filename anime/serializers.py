@@ -550,6 +550,16 @@ class JournalAnimeImportSerializer(serializers.Serializer):
     """Portable anime metadata accepted by the journal import endpoint."""
 
     chinese_title = serializers.CharField(max_length=200)
+    identity_reference = serializers.DictField(required=False, allow_null=True, default=None)
+
+    def validate_identity_reference(self, value):
+        if value is None:
+            return None
+        if (set(value) != {'bangumi_id', 'proof'} or type(value['bangumi_id']) is not int
+            or not 1 <= value['bangumi_id'] <= 2_147_483_647 or not isinstance(value['proof'], str)
+            or not 1 <= len(value['proof']) <= 2048):
+            raise serializers.ValidationError('作品身份引用格式不合法。')
+        return value
     japanese_title = serializers.CharField(
         max_length=200,
         required=False,

@@ -74,6 +74,8 @@ class RecommendationProfileSerializer(serializers.Serializer):
     readiness = serializers.CharField(read_only=True)
     tag_summary = ProfileTagSerializer(many=True, read_only=True)
     sample_policy = ProfilePolicySerializer(read_only=True)
+    diagnostics = serializers.DictField(child=serializers.IntegerField(min_value=0), read_only=True)
+    identity_service_ready = serializers.BooleanField(read_only=True)
 
 
 class RecommendationIdentitySerializer(serializers.Serializer):
@@ -133,3 +135,38 @@ class RecommendationListAnimeSerializer(RecommendationPublicAnimeSerializer):
     class Meta(RecommendationPublicAnimeSerializer.Meta):
         fields = tuple(field for field in RecommendationPublicAnimeSerializer.Meta.fields if field != 'synopsis')
         read_only_fields = fields
+
+
+class IdentityReviewQuerySerializer(serializers.Serializer):
+    page = serializers.IntegerField(min_value=1, max_value=1000, default=1)
+    page_size = serializers.IntegerField(min_value=1, max_value=10, default=5)
+    record_id = serializers.IntegerField(min_value=1, required=False)
+    keyword = serializers.CharField(min_length=2, max_length=100, required=False)
+
+    def to_internal_value(self, data):
+        if set(data) - set(self.fields) or any(len(data.getlist(key)) != 1 for key in data if hasattr(data, 'getlist')):
+            raise serializers.ValidationError({'non_field_errors': ['不支持的查询参数。']})
+        return super().to_internal_value(data)
+
+    def validate(self, attrs):
+        if 'keyword' in attrs and 'record_id' not in attrs:
+            raise serializers.ValidationError('搜索候选须指定自己的 record_id。')
+        return attrs
+
+
+class IdentityConfirmationSerializer(serializers.Serializer):
+    record_id = serializers.IntegerField(min_value=1)
+    bangumi_id = serializers.IntegerField(min_value=1, max_value=2_147_483_647)
+    expected_version = serializers.IntegerField(min_value=0, max_value=2_147_483_647)
+    ticket = serializers.CharField(max_length=2048)
+    confirmed = serializers.BooleanField()
+
+    def to_internal_value(self, data):
+        if isinstance(data, Mapping) and set(data) - set(self.fields):
+            raise serializers.ValidationError({'non_field_errors': ['不支持的字段。']})
+        return super().to_internal_value(data)
+
+    def validate_confirmed(self, value):
+        if value is not True:
+            raise serializers.ValidationError('须明确确认作品身份。')
+        return value

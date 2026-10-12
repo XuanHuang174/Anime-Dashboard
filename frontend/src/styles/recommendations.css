@@ -171,4 +171,18 @@
 .memphis-rec-container .rec-pagination { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 16px; padding-top: 32px; }
 .memphis-rec-container .rec-pagination span { color: #555; font-size: 13px; }
 .memphis-rec-container .rec-inline-error { padding: 14px; border: 2px solid var(--rec-ink); background: #fff2cc; overflow-wrap: anywhere; }
+.memphis-rec-container .rec-identity-notice { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; border: 2px solid var(--rec-ink); background: #fff2cc; padding: 16px; margin-bottom: 18px; }
+.memphis-rec-container .rec-identity-notice p { flex: 1 1 250px; margin: 0; font-size: 13px; line-height: 1.8; }
+.memphis-rec-container .rec-identity-row { border: 2px solid var(--rec-ink); background: white; padding: 16px; margin: 16px 0; }
+.memphis-rec-container .rec-identity-row h3 { margin: 0; overflow-wrap: anywhere; }
+.memphis-rec-container .rec-identity-search { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.memphis-rec-container .rec-identity-search .rec-field { flex: 1 1 220px; }
+.memphis-rec-container .rec-identity-search input { width: 100%; min-width: 0; border: 2px solid var(--rec-ink); padding: 10px; background: white; font: inherit; }
+.memphis-rec-container .rec-identity-search input:focus { background: #fff2cc; outline: 2px solid #222; outline-offset: 2px; }
+.memphis-rec-container .rec-identity-search button { margin-bottom: 18px; }
+.memphis-rec-container .rec-identity-candidates { border: 0; margin: 14px 0; padding: 0; min-width: 0; }
+.memphis-rec-container .rec-identity-candidate { display: flex; align-items: start; gap: 10px; padding: 12px; border: 2px solid #222; margin-top: 10px; cursor: pointer; overflow-wrap: anywhere; }
+.memphis-rec-container .rec-identity-candidate span { min-width: 0; }
+.memphis-rec-container .rec-identity-candidate small { display: block; color: #555; line-height: 1.7; margin-top: 6px; }
+.memphis-rec-container .rec-identity-candidate:has(input:checked) { background: #fff2cc; }
 .memphis-rec-container .rec-button:disabled, .memphis-rec-container .rec-text-button:disabled { cursor: not-allowed; opacity: .65; transform: none; }

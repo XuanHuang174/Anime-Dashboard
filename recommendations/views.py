@@ -19,6 +19,9 @@ from .engine import (ALGORITHM_VERSION, CONTRACT_VERSION, FEATURE_VERSION, Recom
 from .identity import safe_catalog
 from .serializers import RecommendationPublicAnimeSerializer, RecommendationListAnimeSerializer, RecommendationQuerySerializer
 from .taxonomy import TAXONOMY_VERSION
+from .serializers import IdentityReviewQuerySerializer, IdentityConfirmationSerializer
+from .binding import bind_record
+from .review import review_contract
 
 logger = logging.getLogger(__name__)
 
@@ -114,3 +117,22 @@ class RecommendationDetailView(OwnRecommendationAPIView):
         data.update(content_rating='non_adult', reason=reason, evidence=evidence,
                     watch_status=context['owned'].get(anime.bangumi_id))
         return Response(data)
+
+
+class RecommendationIdentityReviewView(OwnRecommendationAPIView):
+    throttle_classes = (UserRateThrottle, ScopedRateThrottle)
+    throttle_scope = 'recommendation_identity'
+
+    def get(self, request):
+        serializer = IdentityReviewQuerySerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        return Response(review_contract(request.user, serializer.validated_data))
+
+    def patch(self, request):
+        self.check_query_contract(request)
+        serializer = IdentityConfirmationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        result = bind_record(record_id=data['record_id'], user_id=request.user.pk, target_id=data['bangumi_id'],
+                             source='user_confirmed', expected_version=data['expected_version'], ticket=data['ticket'])
+        return Response(result)

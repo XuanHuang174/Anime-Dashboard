@@ -67,7 +67,7 @@ def has_possible_legacy_record(*, user, anime):
 
 
 def recommendation_identity(*, user, bangumi_id):
-    """Only authoritative bgm_id aligns namespaces; all outputs are safe/owned.
+    """Authoritative IDs or validated private aliases align namespaces.
 
     A catalog ID is NOT an Anime PK or record PK. Legacy title matches can only
     signal a possible conflict; their metadata/IDs are never exposed or linked.
@@ -82,7 +82,9 @@ def recommendation_identity(*, user, bangumi_id):
     if anime is None:
         raise NotFound('该作品不可用于推荐。')
     shared = Anime.objects.filter(bgm_id=identity).only('pk').first()
-    owned = UserAnimeRecord.objects.filter(user=user, anime=shared).values('pk', 'watch_status').first() if shared else None
+    from .resolution import resolved_records
+    aligned = [row for row in resolved_records(user) if row['resolved_bangumi_id'] == identity]
+    owned = aligned[0] if aligned else None
     # This deliberately conservative collision signal does not guess the
     # Japanese title/quarter or alter an old shared identity on a GET operation.
     possible_legacy = has_possible_legacy_record(user=user, anime=anime)
@@ -99,11 +101,11 @@ def recommendation_identity(*, user, bangumi_id):
     conflicts = journal_field_conflicts(anime)
     return {
         'bangumi_id': identity,
-        'anime_id': shared.pk if shared else None,
+        'anime_id': owned['anime_id'] if owned else shared.pk if shared else None,
         'record_id': owned['pk'] if owned else None,
         'watch_status': owned['watch_status'] if owned else None,
-        'mapping_status': 'identity_conflict' if release_conflict else 'aligned' if shared else 'unlinked',
-        'requires_identity_confirmation': possible_legacy or release_conflict,
+        'mapping_status': 'aligned_alias' if owned and owned['anime__bgm_id'] != identity else 'identity_conflict' if release_conflict else 'aligned' if shared else 'unlinked',
+        'requires_identity_confirmation': False if owned else possible_legacy or release_conflict,
         'journal_compatible': not conflicts,
         'field_conflicts': conflicts,
     }

@@ -42,7 +42,7 @@ class ProfileAPITests(ContractFixtures, APITestCase):
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(set(response.data), {'contract_version', 'taxonomy_version', 'eligible_sample_count',
-                         'cold_start', 'has_usable_tags', 'readiness', 'tag_summary', 'sample_policy'})
+                         'cold_start', 'has_usable_tags', 'readiness', 'tag_summary', 'sample_policy', 'diagnostics', 'identity_service_ready'})
         self.assertEqual(response.data['eligible_sample_count'], 0)
         self.assertTrue(response.data['cold_start'])
         self.assertEqual(response.data['tag_summary'], [])
@@ -122,7 +122,7 @@ class ProfileAPITests(ContractFixtures, APITestCase):
     def test_multi_user_isolation_and_query_bound(self):
         self.seed(5101, tags=['日常'])
         self.seed(5102, user=self.other, tags=['机战'])
-        with self.assertNumQueries(1):
+        with self.assertNumQueries(4):
             own = profile_contract(self.user)
         self.assertEqual(own['tag_summary'], [{'tag': '日常', 'sample_count': 1}])
         self.client.force_authenticate(self.other)

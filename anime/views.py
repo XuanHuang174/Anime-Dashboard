@@ -17,7 +17,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.core.files.base import ContentFile
-from django.db import IntegrityError, transaction
+from django.db import DatabaseError, IntegrityError, transaction
 from django.db.models import (
     Avg,
     BooleanField,
@@ -1791,6 +1791,14 @@ class UserJournalExportView(APIView):
             .order_by("pk")
         )
         exported_records = []
+        from recommendations.resolution import resolved_records
+        from recommendations.binding import export_reference
+        try:
+            with transaction.atomic():
+                identity_rows = {row['pk']: row for row in resolved_records(request.user)}
+        except DatabaseError:
+            logger.warning('Optional identity references unavailable during export')
+            identity_rows = {}
         for record in records:
             serialized_record = UserAnimeRecordSerializer(
                 record,
@@ -1804,6 +1812,7 @@ class UserJournalExportView(APIView):
             exported_records.append(
                 {
                     "anime": {
+                        "identity_reference": export_reference(request.user, identity_rows.get(record.pk)),
                         "chinese_title": anime_data["chinese_title"],
                         "japanese_title": anime_data["japanese_title"],
                         "airing_period": anime_data["airing_period"],
@@ -1922,9 +1931,11 @@ class UserJournalImportView(APIView):
             with transaction.atomic():
                 get_user_model().objects.select_for_update().get(pk=request.user.pk)
                 replacement_records = []
+                identity_references = []
                 private_colors_by_anime_id = {}
                 for item in validated_records:
                     anime_data = dict(item["anime"])
+                    identity_references.append(anime_data.pop('identity_reference', None))
                     private_tag_colors = anime_data.pop("tag_colors", {})
                     lookup = {
                         "chinese_title": anime_data.pop("chinese_title"),
@@ -1973,7 +1984,11 @@ class UserJournalImportView(APIView):
                         record__user=request.user,
                     ).delete()
                     UserAnimeRecord.objects.filter(user=request.user).delete()
-                UserAnimeRecord.objects.bulk_create(replacement_records)
+                    UserAnimeRecord.objects.bulk_create(replacement_records)
+                    # Validate signed references, otherwise use conservative local matching.
+                    # No arbitrary client-provided ID is copied into the public library.
+                    from recommendations.binding import import_links_best_effort
+                    import_links_best_effort(request.user, replacement_records, identity_references)
                 created_records = UserAnimeRecord.objects.filter(
                     user=request.user,
                     anime_id__in=private_colors_by_anime_id,
@@ -2232,6 +2247,8 @@ class UserAnimeRecordViewSet(viewsets.ModelViewSet):
             record=record,
             user=self.request.user,
         )
+        from recommendations.binding import try_auto_link
+        try_auto_link(record)
 
     @transaction.atomic
     def perform_destroy(self, instance):
@@ -2391,6 +2408,8 @@ class UserAnimeRecordViewSet(viewsets.ModelViewSet):
                 colors=private_tag_colors,
             )
         record.refresh_from_db()
+        from recommendations.binding import try_auto_link
+        try_auto_link(record)
         return Response(self.get_serializer(record).data)
 
 

@@ -5,11 +5,11 @@ from decimal import Decimal
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
-from django.db.models import Subquery
 from rest_framework.exceptions import APIException
 
 from anime.models import UserAnimeRecord
-from .identity import safe_catalog
+from .features import feature_tags
+from .resolution import resolved_records
 from .models import RecommendationPreference
 from .taxonomy import AVAILABLE_TAGS, MAX_PREFERENCE_TAGS, TAXONOMY_VERSION, canonical_tags
 
@@ -33,33 +33,57 @@ def preference_contract(user):
     }
 
 
-def profile_contract(user):
+def profile_data(user):
     threshold = Decimal(str(settings.RECOMMENDATION_PROFILE_SCORE_THRESHOLD))
     minimum = settings.RECOMMENDATION_PROFILE_MIN_SAMPLES
-    records = UserAnimeRecord.objects.filter(
-        user=user, watch_status=UserAnimeRecord.WatchStatus.COMPLETED,
-        personal_score__gte=threshold,
-        anime__bgm_id__in=Subquery(safe_catalog().order_by().values('bangumi_id')),
-    ).order_by().values('anime__bgm_id', 'metadata_initialized', 'private_base_tags', 'anime__base_tags')
-    seen, summary = set(), Counter()
-    for row in records:
-        if row['anime__bgm_id'] in seen:
-            continue
-        seen.add(row['anime__bgm_id'])
-        tags = row['private_base_tags'] if row['metadata_initialized'] else row['anime__base_tags']
-        summary.update(canonical_tags(tags))
-    count = len(seen)
+    records = resolved_records(user)
+    high = [row for row in records if row['watch_status'] == UserAnimeRecord.WatchStatus.COMPLETED
+            and row['personal_score'] is not None and row['personal_score'] >= threshold]
+    diagnostics = {'high_score_record_count': len(high), 'linked_high_score_record_count': 0,
+                   'pending_identity_count': 0, 'unavailable_identity_count': 0,
+                   'stale_identity_count': 0, 'conflict_identity_count': 0}
+    selected = {}
+    for row in high:
+        state = row['identity_state']
+        if state == 'linked':
+            diagnostics['linked_high_score_record_count'] += 1
+            identity = row['resolved_bangumi_id']
+            previous = selected.get(identity)
+            if previous is None or row['personal_score'] > previous['personal_score']:
+                selected[identity] = row
+        elif state in ('unlinked', 'stale_link', 'identity_conflict'):
+            diagnostics['pending_identity_count'] += 1
+            diagnostics['stale_identity_count'] += int(state == 'stale_link')
+            diagnostics['conflict_identity_count'] += int(state == 'identity_conflict')
+        else:
+            diagnostics['unavailable_identity_count'] += 1
+    summary, seeds = Counter(), []
+    for identity, row in sorted(selected.items()):
+        source = row['catalog']
+        tags = feature_tags(row['metadata']['tags'], (source['title_zh'], source['title_jp']))
+        summary.update(tags)
+        if tags:
+            seeds.append({'bangumi_id': identity, 'title': source['title_zh'] or source['title_jp'],
+                          'score': float(row['personal_score']), 'tags': tags})
+    count = len(selected)
+    readiness = ('needs_identity' if count < minimum and diagnostics['pending_identity_count']
+                 else 'needs_more_samples' if count < minimum else 'needs_tags' if not summary else 'ready')
     # Counts and genre labels only: never serialize seed IDs, titles or reviews.
-    return {
+    contract = {
         'contract_version': CONTRACT_VERSION, 'taxonomy_version': TAXONOMY_VERSION,
         'eligible_sample_count': count, 'cold_start': count < minimum,
         'has_usable_tags': bool(summary),
-        'readiness': 'needs_more_samples' if count < minimum else 'needs_tags' if not summary else 'ready',
+        'readiness': readiness, 'diagnostics': diagnostics, 'identity_service_ready': records.schema_available,
         'tag_summary': [{'tag': tag, 'sample_count': number} for tag, number in
                         sorted(summary.items(), key=lambda pair: (-pair[1], AVAILABLE_TAGS.index(pair[0])))],
         'sample_policy': {'watch_status': 'completed', 'minimum_score': threshold,
                           'minimum_samples': minimum, 'requires_safe_bangumi_identity': True},
     }
+    return contract, records, seeds
+
+
+def profile_contract(user):
+    return profile_data(user)[0]
 
 
 @transaction.atomic

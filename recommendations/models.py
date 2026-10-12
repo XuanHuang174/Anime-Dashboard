@@ -69,3 +69,43 @@ class RecommendationPreference(models.Model):
 
     def __str__(self):
         return f'用户 {self.user_id} 的推荐偏好（版本 {self.version}）'
+
+
+class RecommendationRecordIdentity(models.Model):
+    """Private alias: many legacy records may reference one canonical work."""
+    record = models.OneToOneField('anime.UserAnimeRecord', on_delete=models.CASCADE,
+                                  related_name='recommendation_identity')
+    catalog_anime = models.ForeignKey(RecommendationAnime, on_delete=models.PROTECT,
+                                      related_name='record_identities')
+    source = models.CharField(max_length=24, choices=(('auto_strict', '严格匹配'),
+                             ('user_confirmed', '用户确认'), ('import_verified', '已验证备份')))
+    record_fingerprint = models.CharField(max_length=64)
+    catalog_fingerprint = models.CharField(max_length=64)
+    matching_version = models.CharField(max_length=48)
+    active = models.BooleanField(default=True)
+    version = models.PositiveIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = '私人番剧身份关联'
+        verbose_name_plural = verbose_name
+
+    def __str__(self):
+        return f'记录 {self.record_id} → 目录 {self.catalog_anime_id}'
+
+
+class RecommendationIdentityEvent(models.Model):
+    """No titles, ratings or reviews in audit payload; rollback never deletes rows."""
+    record = models.ForeignKey('anime.UserAnimeRecord', on_delete=models.CASCADE,
+                               related_name='recommendation_identity_events')
+    batch_id = models.UUIDField(null=True, blank=True, db_index=True)
+    action = models.CharField(max_length=16, choices=(('linked', '关联'), ('rollback', '撤销')))
+    previous = models.JSONField(default=dict)
+    applied_version = models.PositiveIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ('created_at', 'pk')
+        verbose_name = '番剧身份关联审计'
+        verbose_name_plural = verbose_name

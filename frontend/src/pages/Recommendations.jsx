@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import RecommendationCard, { RecommendationActions, RecommendationCover, RecommendationMeta } from '../components/recommendations/RecommendationCard.jsx'
 import RecommendationDialog from '../components/recommendations/RecommendationDialog.jsx'
+import RecommendationIdentityReview from '../components/recommendations/RecommendationIdentityReview.jsx'
 import { RecommendationEmptyState, RecommendationSkeleton } from '../components/recommendations/RecommendationStates.jsx'
 import recommendationApi from '../api/recommendations.js'
 import useRecommendations from '../hooks/useRecommendations.js'
-import { createLatestRequestGate, DEFAULT_REC_FILTERS, mapRecommendationItem, recommendationError, REC_CATEGORIES } from '../utils/recommendations.js'
+import { createLatestRequestGate, DEFAULT_REC_FILTERS, mapRecommendationItem, recommendationError, REC_CATEGORIES, identitySummary } from '../utils/recommendations.js'
 import '../styles/recommendations.css'
 
 export default function Recommendations({ client = recommendationApi }) {
@@ -72,6 +73,7 @@ export default function Recommendations({ client = recommendationApi }) {
   }
   const cardProps = (item) => ({ item, onDetail: (chosen) => { setDetail({ status: 'loading' }); setPanel({ kind: 'detail', item: chosen }) } })
   const profile = state.profile
+  const pending = profile?.diagnostics?.pending_identity_count || 0
 
   return <main className="memphis-rec-container">
     <a className="rec-skip-link" href="#rec-results">跳到推荐内容</a>
@@ -84,11 +86,17 @@ export default function Recommendations({ client = recommendationApi }) {
           <p>从喜欢的故事出发，把下一次心动写进手账。</p></div>
         <aside className="rec-taste-note" aria-labelledby="rec-taste-title"><span className="rec-eyebrow">A NOTE ABOUT YOUR TASTE</span>
           <h2 id="rec-taste-title">我的口味 <span aria-hidden="true">↗</span></h2>
-          <p className="rec-taste-summary"><b>{profile?.tag_summary.length ?? '—'}</b> 个喜好标签 · <b>{profile?.eligible_sample_count ?? '—'}</b> 部高分样本</p>
+          <p className="rec-taste-summary">{pending && !profile?.eligible_sample_count ? '高分作品待关联，画像标签待生成'
+            : <><b>{profile?.tag_summary.length ?? '—'}</b> 个画像标签 · <b>{profile?.eligible_sample_count ?? '—'}</b> 部已关联样本</>}</p>
+          <p className="rec-muted">手动偏好 {state.preferences?.tags.length ?? '—'} 个{pending ? ` · 待关联 ${pending} 条` : ''}</p>
           <div className="rec-card-tags">{profile?.tag_summary.slice(0, 3).map(({ tag }) => <span key={tag}>{tag}</span>)}</div>
           <button type="button" className="rec-text-button" disabled={!state.preferences} onClick={openPreferences}>调整明确喜好 →</button>
         </aside>
       </header>
+      {pending > 0 && <section className="rec-identity-notice" aria-label="旧数据关联提示"><p>{identitySummary(profile)}</p>
+        <button type="button" className="rec-button rec-button--primary" disabled={profile.identity_service_ready === false} onClick={() => setPanel({ kind: 'identity' })}>核对旧作品 →</button></section>}
+      {profile?.identity_service_ready === false && <p className="rec-muted">关联工具尚待完成部署。旧手账记录仍完整保留，当前不会自动修改数据。</p>}
+      {profile?.diagnostics?.unavailable_identity_count > 0 && <p className="rec-muted">另有 {profile.diagnostics.unavailable_identity_count} 条高分记录因未收录或分级限制未计入推荐画像。</p>}
       <section className="rec-demo-note" aria-label="推荐依据"><span className="rec-demo-dot" aria-hidden="true" />
         <p>{state.data?.mode === 'preference_based' ? '当前依据你明确选择的题材推荐，尚未形成高分作品画像。'
           : `参考已看过且个人评分 ≥ ${profile?.sample_policy.minimum_score ?? '8.5'} 的作品；只展示已有数据支持的推荐理由。`}
@@ -109,6 +117,7 @@ export default function Recommendations({ client = recommendationApi }) {
         {state.error && <p className="rec-inline-error" role="alert">{state.error}</p>}
         {state.status === 'loading' ? <RecommendationSkeleton /> : state.status !== 'ready'
           ? <RecommendationEmptyState state={state.status} needsTags={state.status === 'cold' && profile?.readiness === 'needs_tags'}
+            needsIdentity={state.status === 'cold' && pending > 0} onIdentity={() => setPanel({ kind: 'identity' })}
             onRetry={state.retry} onReset={reset} onPreferences={openPreferences} />
           : <><RecommendationCard {...cardProps(state.items[0])} hero />
             {state.items.length > 1 && <><div className="rec-more-heading"><h3>还有这些故事，值得翻开</h3><span>不止一种心动</span></div>
@@ -121,7 +130,8 @@ export default function Recommendations({ client = recommendationApi }) {
       <footer className="rec-footer"><span>给每一次喜欢，一个值得停留的位置。</span><span>DISCOVERY JOURNAL / CONTENT V1</span></footer>
     </div>
     <div className="rec-toast" role="status" aria-live="polite">{notice && <p>{notice}</p>}</div>
-    {panel && <RecommendationDialog kind={panel.kind} busy={saving} title={panel.kind === 'filters' ? '给心动留一点范围' : panel.kind === 'preferences' ? '我的口味' : panel.item.title}
+    {panel?.kind === 'identity' && <RecommendationIdentityReview client={client} onClose={() => setPanel(null)} onChanged={state.retry} />}
+    {panel && panel.kind !== 'identity' && <RecommendationDialog kind={panel.kind} busy={saving} title={panel.kind === 'filters' ? '给心动留一点范围' : panel.kind === 'preferences' ? '我的口味' : panel.item.title}
       onClose={() => setPanel(null)}>
       {panel.kind === 'filters' ? <form onSubmit={(event) => { event.preventDefault(); setFilters({ ...draftFilters }); setPanel(null) }}>
         <p className="rec-muted">成人及分级未知作品已由后端过滤，不会混入推荐流。</p>

@@ -5,17 +5,16 @@ import json
 import math
 import threading
 from collections import Counter
-from decimal import Decimal
 
 from django.conf import settings
 from django.core.cache import cache
-from django.db.models import Count, Max, Subquery
+from django.db.models import Count, Max
 from rest_framework.exceptions import APIException
 
-from anime.models import UserAnimeRecord
-from .identity import normalized_title, safe_catalog
-from .services import preference_contract, profile_contract
-from .taxonomy import TAXONOMY_VERSION, canonical_tags
+from .identity import safe_catalog
+from .services import preference_contract, profile_data
+from .taxonomy import TAXONOMY_VERSION
+from .features import feature_tags
 
 ALGORITHM_VERSION = 'content.v1'
 FEATURE_VERSION = 'genres-idf.v1'
@@ -35,12 +34,6 @@ class RecommendationUnavailable(APIException):
 class RecommendationSnapshotChanged(APIException):
     status_code = 409
     default_detail = '喜好、筛选或数据已变化，请重新加载第一页。'
-
-
-def feature_tags(raw, titles=()):
-    values = raw.replace('，', ',').split(',') if isinstance(raw, str) else raw
-    names = {normalized_title(title) for title in titles if title}
-    return frozenset(tag for tag in canonical_tags(values) if normalized_title(tag) not in names)
 
 
 def public_features():
@@ -74,33 +67,16 @@ def public_features():
 
 def user_context(user):
     """Read own seeds anew. No inferred private state or HTTP payload cache."""
-    profile = profile_contract(user)
+    profile, records, seeds = profile_data(user)
     preferences = preference_contract(user)
-    rows = list(UserAnimeRecord.objects.filter(
-        user=user, watch_status='completed',
-        personal_score__gte=Decimal(str(settings.RECOMMENDATION_PROFILE_SCORE_THRESHOLD)),
-        anime__bgm_id__in=Subquery(safe_catalog().order_by().values('bangumi_id')),
-    ).order_by('anime__bgm_id').values(
-        'anime__bgm_id', 'personal_score', 'metadata_initialized',
-        'private_base_tags', 'anime__base_tags',
-    ))
-    sources = {row['bangumi_id']: row for row in safe_catalog().filter(
-        bangumi_id__in=[row['anime__bgm_id'] for row in rows],
-    ).values('bangumi_id', 'title_zh', 'title_jp')}
-    seeds = []
-    for row in rows:
-        source = sources.get(row['anime__bgm_id'])
-        if not source:
-            continue
-        raw = row['private_base_tags'] if row['metadata_initialized'] else row['anime__base_tags']
-        tags = feature_tags(raw, (source['title_zh'], source['title_jp']))
-        if tags:
-            seeds.append({'bangumi_id': source['bangumi_id'], 'title': source['title_zh'] or source['title_jp'],
-                          'score': float(row['personal_score']), 'tags': tags})
     mode = ('personalized' if not profile['cold_start'] and seeds
             else 'preference_based' if preferences['tags'] else 'cold_start')
-    owned = dict(UserAnimeRecord.objects.filter(user=user, anime__bgm_id__isnull=False)
-                 .values_list('anime__bgm_id', 'watch_status'))
+    priority = {'completed': 4, 'watching': 3, 'plan': 2, 'on_hold': 1}
+    owned = {}
+    for row in records:
+        identity = row['resolved_bangumi_id']
+        if identity and priority.get(row['watch_status'], 0) > priority.get(owned.get(identity), 0):
+            owned[identity] = row['watch_status']
     return {'profile': profile, 'preferences': preferences, 'seeds': seeds,
             'mode': mode, 'owned': owned}
 

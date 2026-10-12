@@ -46,7 +46,28 @@ export function validateRecommendationProfile(data) {
     || !data.sample_policy || !Number.isFinite(Number(data.sample_policy.minimum_score))) {
     throw new Error('推荐画像合同不兼容，请重新加载。')
   }
+  if (data.diagnostics && !['high_score_record_count', 'pending_identity_count', 'linked_high_score_record_count',
+    'unavailable_identity_count', 'stale_identity_count', 'conflict_identity_count'].every((key) =>
+    Number.isInteger(data.diagnostics[key]) && data.diagnostics[key] >= 0)) throw new Error('推荐画像合同不兼容，请重新加载。')
   return data
+}
+
+export function validateIdentityReview(data) {
+  if (!Number.isInteger(data?.count) || data.count < 0 || !Number.isInteger(data.page) || data.page < 1
+    || !Array.isArray(data.results) || data.results.length > 10 || (data.next_page !== null && data.next_page !== data.page + 1)
+    || !data.results.every((row) => Number.isInteger(row.record_id) && row.record_id > 0
+      && typeof row.title === 'string' && Number.isInteger(row.identity_version) && Array.isArray(row.candidates)
+      && row.candidates.every((item) => item.content_rating === 'non_adult' && Number.isInteger(item.bangumi_id)
+        && item.bangumi_id > 0 && typeof item.ticket === 'string' && typeof item.title_zh === 'string'))) {
+    throw new Error('推荐身份核对合同不兼容，请重新加载。')
+  }
+  return data
+}
+
+export function identitySummary(profile) {
+  const diagnostics = profile?.diagnostics
+  if (!diagnostics || !diagnostics.pending_identity_count) return ''
+  return `手账已有 ${diagnostics.high_score_record_count} 条高分记录，其中 ${diagnostics.pending_identity_count} 条尚待关联标准作品，暂未计入画像。无需重新评分。`
 }
 
 export function validateRecommendationPreferences(data) {
