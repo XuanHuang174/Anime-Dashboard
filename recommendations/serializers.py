@@ -107,3 +107,29 @@ class RecommendationPublicAnimeSerializer(serializers.ModelSerializer):
 
     def get_tags(self, instance):
         return canonical_tags(instance.tags.split(','))
+
+
+class RecommendationQuerySerializer(serializers.Serializer):
+    category = serializers.ChoiceField(choices=('all', 'familiar', 'explore'), default='all')
+    type = serializers.ChoiceField(choices=('all', 'TV', 'OVA', '剧场版', 'WEB', '短片', '动态漫画'), default='all')
+    min_score = serializers.DecimalField(max_digits=3, decimal_places=1, min_value=0, max_value=10, default=0)
+    hide_recorded = serializers.BooleanField(default=True)
+    page = serializers.IntegerField(min_value=1, max_value=1000, default=1)
+    page_size = serializers.IntegerField(min_value=1, max_value=24, default=12)
+    state_token = serializers.RegexField(regex=r'^[a-f0-9]{64}$', required=False)
+
+    def to_internal_value(self, data):
+        if set(data) - set(self.fields) or any(len(data.getlist(key)) > 1 for key in data if hasattr(data, 'getlist')):
+            raise serializers.ValidationError({'non_field_errors': ['查询包含未定义或重复的参数。']})
+        return super().to_internal_value(data)
+
+    def validate(self, attrs):
+        if attrs['page'] > 1 and 'state_token' not in attrs:
+            raise serializers.ValidationError('加载下一页必须携带第一页的 state_token。')
+        return attrs
+
+
+class RecommendationListAnimeSerializer(RecommendationPublicAnimeSerializer):
+    class Meta(RecommendationPublicAnimeSerializer.Meta):
+        fields = tuple(field for field in RecommendationPublicAnimeSerializer.Meta.fields if field != 'synopsis')
+        read_only_fields = fields

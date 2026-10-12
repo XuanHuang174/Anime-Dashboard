@@ -1,4 +1,4 @@
-// UI-only contracts. No user profiling, HTTP writes, or persistent records.
+// Legacy UI fixtures for regression tests only, not the production request layer.
 export const DEFAULT_REC_FILTERS = Object.freeze({ type: 'all', minScore: '0', hideRecorded: false })
 export const REC_CATEGORIES = [
   { id: 'all', label: '为你发现' },

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getRecommendationCover } from '../../utils/recommendationPreview.js'
+import { getRecommendationCover } from '../../utils/recommendations.js'
 
 export function RecommendationCover({ item, priority = false }) {
   const safeSrc = getRecommendationCover(item.coverUrl)
@@ -23,29 +23,29 @@ export function RecommendationMeta({ item }) {
     <span>Bangumi <b>{Number.isFinite(item.score) ? item.score.toFixed(1) : '暂无评分'}</b></span></p>
 }
 
-export function RecommendationActions({ item, record, onDetail, onWant, detailLabel = '查看详情' }) {
-  const labels = { want: '演示：已在想看', watched: '演示：已看过', watching: '演示：在看中', dropped: '演示：已搁置' }
+export function RecommendationActions({ item, onDetail, detailLabel = '查看详情' }) {
+  const labels = { plan: '已在想看', completed: '已看过', watching: '在看中', on_hold: '已搁置' }
   return <div className="rec-card-actions">
     <button type="button" className="rec-button rec-button--primary" onClick={() => onDetail(item)}
       aria-label={detailLabel === '查看详情' ? `查看${item.title}详情` : detailLabel}>{detailLabel} <span aria-hidden="true">↗</span></button>
-    <button type="button" className="rec-button" disabled={Boolean(record)} onClick={() => onWant(item)}
-      aria-label={record ? `${item.title}${labels[record.status] || '已有记录'}` : `将${item.title}加入演示想看`}>
-      {record ? labels[record.status] || '演示：已有记录' : '+ 加入想看'}
+    <button type="button" className="rec-button" disabled title="手账加入功能将在下一阶段开放；不会更改现有记录"
+      aria-label={`${item.title}${labels[item.watchStatus] || '加入想看尚未开放'}`}>
+      {labels[item.watchStatus] || '+ 加入想看 · 待开放'}
     </button>
   </div>
 }
 
-export default function RecommendationCard({ item, hero = false, record, onDetail, onWant }) {
+export default function RecommendationCard({ item, hero = false, onDetail }) {
   return <article className={`rec-card ${hero ? 'rec-card--hero' : ''}`}>
     <RecommendationCover item={item} priority={hero} />
     <div className="rec-card-body">
-      {hero && <span className="rec-eyebrow">THE EDITOR’S PICK <span className="rec-sticker">本期主推 · 演示</span></span>}
+      {hero && <span className="rec-eyebrow">YOUR NEXT STORY <span className="rec-sticker">本期主推</span></span>}
       <h3 className="rec-card-title" title={item.title}>{item.title}</h3>
       <RecommendationMeta item={item} />
       <p className="rec-card-reason" title={item.reason}><span aria-hidden="true">✧ </span>{item.reason}</p>
       {hero && <p className="rec-hero-synopsis">{item.synopsis}</p>}
       <div className="rec-card-tags" aria-label="作品标签">{item.tags?.slice(0, 2).map((tag) => <span key={tag}>{tag}</span>)}</div>
-      <RecommendationActions item={item} record={record} onDetail={onDetail} onWant={onWant} />
+      <RecommendationActions item={item} onDetail={onDetail} />
     </div>
   </article>
 }

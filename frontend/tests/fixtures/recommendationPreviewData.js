@@ -1,4 +1,4 @@
-// Public catalog snapshot for visual QA, NOT personalized or live API results.
+// Public catalog snapshots for isolated UI tests only; never imported by production.
 // Fixture identities cannot be mistaken for backend Anime/UserAnimeRecord IDs.
 const snapshot = [
   [51, 'CLANNAD', 'CLANNAD -クラナド-', 2007, 'TV', 8.4, 'familiar', ['校园', '治愈'], '角色之间细腻的情感变化', '在樱花盛开的坡道上，一段关于陪伴与成长的故事展开。'],

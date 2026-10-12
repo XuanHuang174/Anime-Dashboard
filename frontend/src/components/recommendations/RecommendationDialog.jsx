@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef } from 'react'
 
 // Native modal dialog supplies top-layer stacking, inert background and focus trap.
-export default function RecommendationDialog({ title, children, onClose, kind = 'detail' }) {
+export default function RecommendationDialog({ title, children, onClose, kind = 'detail', busy = false }) {
   const ref = useRef(null)
   const titleId = useId()
   useEffect(() => {
@@ -18,14 +18,14 @@ export default function RecommendationDialog({ title, children, onClose, kind = 
     }
   }, [])
   return <dialog ref={ref} className={`rec-dialog rec-dialog--${kind}`} aria-labelledby={titleId}
-    onCancel={(event) => { event.preventDefault(); onClose() }}
+    onCancel={(event) => { event.preventDefault(); if (!busy) onClose() }}
     onClick={(event) => {
       const rect = ref.current.getBoundingClientRect()
       if (event.target === ref.current && (event.clientX < rect.left || event.clientX > rect.right
-        || event.clientY < rect.top || event.clientY > rect.bottom)) onClose()
+        || event.clientY < rect.top || event.clientY > rect.bottom) && !busy) onClose()
     }}>
     <header className="rec-dialog-header"><h2 id={titleId}>{title}</h2>
-      <button type="button" className="rec-button rec-close" data-initial-focus aria-label="关闭面板" onClick={onClose}>×</button></header>
+      <button type="button" className="rec-button rec-close" disabled={busy} data-initial-focus aria-label="关闭面板" onClick={onClose}>×</button></header>
     <div className="rec-dialog-body">{children}</div>
   </dialog>
 }

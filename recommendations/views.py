@@ -1,13 +1,26 @@
 from io import BytesIO
+import hmac
+import logging
+
+from django.db import DatabaseError
 
 from rest_framework import permissions
 from rest_framework.exceptions import ValidationError
 from rest_framework.parsers import JSONParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.exceptions import NotFound
+from rest_framework.throttling import ScopedRateThrottle, UserRateThrottle
 
 from .serializers import RecommendationPreferencePatchSerializer, RecommendationPreferenceSerializer, RecommendationProfileSerializer
 from .services import patch_preferences, preference_contract, profile_contract
+from .engine import (ALGORITHM_VERSION, CONTRACT_VERSION, FEATURE_VERSION, RecommendationSnapshotChanged,
+                     RecommendationUnavailable, evidence_for, rank_candidates, user_context)
+from .identity import safe_catalog
+from .serializers import RecommendationPublicAnimeSerializer, RecommendationListAnimeSerializer, RecommendationQuerySerializer
+from .taxonomy import TAXONOMY_VERSION
+
+logger = logging.getLogger(__name__)
 
 
 class BoundedPreferenceJSONParser(JSONParser):
@@ -23,6 +36,12 @@ class BoundedPreferenceJSONParser(JSONParser):
 class OwnRecommendationAPIView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
     parser_classes = (BoundedPreferenceJSONParser,)
+
+    def handle_exception(self, exc):
+        if isinstance(exc, DatabaseError):
+            logger.warning('Recommendation database unavailable: %s', type(exc).__name__)
+            exc = RecommendationUnavailable()
+        return super().handle_exception(exc)
 
     def check_query_contract(self, request):
         if request.query_params:
@@ -46,3 +65,52 @@ class RecommendationPreferenceView(OwnRecommendationAPIView):
         serializer.is_valid(raise_exception=True)
         result = patch_preferences(user=request.user, changes=serializer.validated_data)
         return Response(RecommendationPreferenceSerializer(result).data)
+
+
+class RecommendationListView(OwnRecommendationAPIView):
+    throttle_classes = (UserRateThrottle, ScopedRateThrottle)
+    throttle_scope = 'recommendation_read'
+
+    def get(self, request):
+        query = RecommendationQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+        options = query.validated_data
+        context, ranked, token, _ = rank_candidates(request.user, options)
+        if options['page'] > 1 and not hmac.compare_digest(token, options['state_token']):
+            raise RecommendationSnapshotChanged()
+        start = (options['page'] - 1) * options['page_size']
+        page = ranked[start:start + options['page_size']]
+        results = []
+        for item in page:
+            data = dict(RecommendationListAnimeSerializer(item['anime']).data)
+            data.update(content_rating='non_adult', reason=item['reason'], evidence=item['evidence'],
+                        watch_status=context['owned'].get(item['anime'].bangumi_id))
+            results.append(data)
+        return Response({
+            'contract_version': CONTRACT_VERSION, 'algorithm_version': ALGORITHM_VERSION,
+            'feature_version': FEATURE_VERSION, 'taxonomy_version': TAXONOMY_VERSION,
+            'mode': context['mode'], 'readiness': context['profile']['readiness'],
+            'count': len(ranked), 'page': options['page'], 'page_size': options['page_size'],
+            'state_token': token if token != 'cold' else None,
+            'next_page': options['page'] + 1 if start + len(page) < len(ranked) else None,
+            'results': results,
+        })
+
+
+class RecommendationDetailView(OwnRecommendationAPIView):
+    throttle_classes = (UserRateThrottle, ScopedRateThrottle)
+    throttle_scope = 'recommendation_read'
+
+    def get(self, request, bangumi_id):
+        self.check_query_contract(request)
+        anime = safe_catalog().filter(bangumi_id=bangumi_id).first()
+        if anime is None:
+            raise NotFound('该作品不可用于推荐。')
+        context = user_context(request.user)
+        from .engine import feature_tags, public_features
+        tags = feature_tags(anime.tags, (anime.title_zh, anime.title_jp))
+        evidence, reason, _ = evidence_for(tags, context, public_features()['weights'])
+        data = dict(RecommendationPublicAnimeSerializer(anime).data)
+        data.update(content_rating='non_adult', reason=reason, evidence=evidence,
+                    watch_status=context['owned'].get(anime.bangumi_id))
+        return Response(data)

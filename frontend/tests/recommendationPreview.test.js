@@ -1,8 +1,9 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { RECOMMENDATION_PREVIEW_ITEMS, PREVIEW_EXISTING_RECORDS } from '../src/data/recommendationPreview.js'
-import { addPreviewWant, DEFAULT_REC_FILTERS, filterRecommendationPreview, getRecommendationCover, getRecommendationViewState } from '../src/utils/recommendationPreview.js'
+import { RECOMMENDATION_PREVIEW_ITEMS, PREVIEW_EXISTING_RECORDS } from './fixtures/recommendationPreviewData.js'
+import { addPreviewWant, DEFAULT_REC_FILTERS, filterRecommendationPreview, getRecommendationViewState } from './fixtures/recommendationPreviewLogic.js'
+import { getRecommendationCover } from '../src/utils/recommendations.js'
 
 test('recommendation covers accept only exact R2 host and fixed JPEG namespace', () => {
   const safe = 'https://media.xh-anime.com/covers/51.jpg'
@@ -59,15 +60,17 @@ test('adding demo want is idempotent and preserves existing ratings and reviews'
   }
 })
 
-test('preview page imports no API client or persistence and route remains protected', () => {
+test('real page has no mock fallback or acceptance controls and route remains protected', () => {
   const page = readFileSync(new URL('../src/pages/Recommendations.jsx', import.meta.url), 'utf8')
-  assert.doesNotMatch(page, /api\/api|localStorage|sessionStorage|fetch\(/)
+  assert.doesNotMatch(page, /recommendationPreview|REC_SCENARIOS|rec-qa-panel|localStorage|sessionStorage/)
+  assert.match(page, /useRecommendations/)
+  assert.match(page, /client.detail/)
   const router = readFileSync(new URL('../src/router/AppRouter.jsx', import.meta.url), 'utf8')
   assert.match(router, /path="\/recommendations" element=\{<ProtectedRoute><Suspense/)
   assert.match(router, /<Recommendations\s*\/><\/Suspense><\/ProtectedRoute>/)
   const banner = readFileSync(new URL('../src/components/JournalRecommendationBanner.jsx', import.meta.url), 'utf8')
   assert.match(banner, /to="\/recommendations"/)
-  assert.match(banner, /界面预览/)
+  assert.doesNotMatch(banner, /界面预览/)
 })
 
 test('styles use the independent namespace and static non-flashing skeletons', () => {
