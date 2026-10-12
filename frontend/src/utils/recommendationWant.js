@@ -15,7 +15,10 @@ export function wantFailure(error) {
   const code = error?.response?.data?.code
   if (code === 'identity_confirmation_required') return { code, message: '手账可能已有这部作品。请先核对旧记录的原名、季度和版本，本次没有新增或合并。' }
   if (code === 'journal_field_conflict') return { code, message: '作品标题或资料超过手账字段长度，无法无损加入。请联系管理员；不会截断标题。' }
-  if (code === 'public_identity_conflict' || code === 'work_unavailable') return { code, message: '公共作品身份存在冲突或作品已下架，请联系管理员核对。本次未新增记录。' }
+  if (code === 'public_identity_conflict') return { code, message: '公共资料的作品身份尚未明确或存在冲突，请联系管理员核对 Bangumi ID、原名与季度。本次未新增记录，不会仅按片名自动合并。' }
+  // Compatibility during rolling backend deployment; do not mislabel a
+  // private-only/shared hidden record as a removed or banned anime.
+  if (code === 'work_unavailable') return { code, message: '当前服务暂不允许加入这部作品，请刷新页面后重试；若持续出现，请联系管理员。本次未新增记录。' }
   if (code === 'capacity_exceeded') return { code, message: '手账已达到容量上限，请先返回手账整理记录。' }
   if (error?.response?.status === 404) return { code: 'unavailable', message: '该作品已不可用于推荐，无法加入；请刷新推荐结果。' }
   if (error?.response?.status === 429) return { code: 'retry', message: '操作较频繁，请稍后重试。' }

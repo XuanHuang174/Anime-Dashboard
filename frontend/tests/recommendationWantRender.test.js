@@ -11,6 +11,7 @@ const server = await createServer({ configFile: false, plugins: [react()],
   server: { middlewareMode: true, hmr: false }, appType: 'custom' })
 after(() => server.close())
 const { RecommendationActions, default: RecommendationCard } = await server.ssrLoadModule('/src/components/recommendations/RecommendationCard.jsx')
+const { wantFailure } = await server.ssrLoadModule('/src/utils/recommendationWant.js')
 const item = { bangumiId: 123, title: '真实作品', originalTitle: 'Title', score: 8.7, tags: ['日常'],
   coverUrl: 'https://external.invalid/raw.jpg', watchStatus: null }
 const actions = props => renderToStaticMarkup(React.createElement(RecommendationActions, {
@@ -41,4 +42,15 @@ test('actual retry and identity confirmation actions include visible error expla
   assert.match(retry, /长评仍完整保留/)
   const confirmation = actions({ operation: { error: { code: 'identity_confirmation_required', message: '请核对原名与季度' } } })
   assert.match(confirmation, /核对旧记录/); assert.match(confirmation, /原名与季度/)
+})
+
+test('actual hero/grid/detail error blocks do not confuse hidden public visibility with a ban', () => {
+  for (const code of ['public_identity_conflict', 'work_unavailable']) {
+    const error = wantFailure({ response: { status: 409, data: { code } } })
+    const html = actions({ operation: { status: 'error', error } })
+    assert.match(html, /暂不可加入/)
+    assert.match(html, /role="alert"/)
+    assert.doesNotMatch(html, /已下架|封禁/)
+    assert.match(html, code === 'public_identity_conflict' ? /Bangumi ID/ : /刷新页面后重试/)
+  }
 })

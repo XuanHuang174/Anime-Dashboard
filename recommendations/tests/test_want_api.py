@@ -12,6 +12,7 @@ from django.urls import reverse
 from rest_framework.test import APITestCase
 
 from anime.models import Anime, UserAnimeRecord
+from anime.views import BangumiCollectionBatchImportView
 from recommendations.binding import bind_record
 from recommendations.models import RecommendationAnime, RecommendationRecordIdentity, RecommendationIdentityEvent
 from recommendations.views import RecommendationWantView
@@ -64,6 +65,7 @@ class WantAPITests(APITestCase):
         self.assertEqual(record.private_poster_url, self.catalog.cover_url)
         self.assertEqual(record.private_description, '真实简介')
         self.assertEqual(record.anime.bgm_id, 501)
+        self.assertFalse(record.anime.is_active)
         self.assertEqual(response.data['bangumi_id'], 501)
         self.assertEqual(response.data['anime_id'], record.anime_id)
         self.assertEqual(response.data['record_id'], record.pk)
@@ -236,12 +238,95 @@ class WantAPITests(APITestCase):
         self.assertEqual(Anime.objects.count(), 0)
         self.assertEqual(UserAnimeRecord.objects.count(), 0)
 
-    def test_inactive_public_work_is_not_reactivated_or_created(self):
+    def test_hidden_shared_identity_can_be_added_without_reactivation_or_mutation(self):
         shared = Anime.objects.create(bgm_id=501, chinese_title='作品', airing_period='2026-4', is_active=False)
+        before = Anime.objects.filter(pk=shared.pk).values().get()
         response = self.post()
-        self.assertEqual(response.data['code'], 'work_unavailable')
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data['anime_id'], shared.pk)
+        self.assertEqual(self.post().data['record_id'], response.data['record_id'])
+        self.assertEqual(UserAnimeRecord.objects.count(), 1)
+        self.assertEqual(Anime.objects.filter(pk=shared.pk).values().get(), before)
+        # Public search still hides the row, while the private owner can read it.
+        public = self.client.get(reverse('anime_api:animes-list'), {'search': '作品'})
+        self.assertEqual(public.data['results'], [])
+        private = self.client.get(reverse('anime_api:user-anime-record-detail', args=[response.data['record_id']]))
+        self.assertEqual(private.status_code, 200)
+        self.assertEqual(private.data['anime']['chinese_title'], self.catalog.title_zh)
+
+    def test_private_bangumi_import_is_not_a_global_ban(self):
+        defaults = BangumiCollectionBatchImportView._subject_defaults({
+            'name_cn': '作品', 'name': 'Story', 'date': '2026-04-01',
+        }, request_user=self.other)
+        self.assertFalse(defaults['is_active'])
+        shared = Anime.objects.create(bgm_id=501, **defaults)
+        old = UserAnimeRecord.objects.create(user=self.other, anime=shared, watch_status='completed',
+                                            personal_score=Decimal('9.5'), review='另一用户的原长评')
+        before_shared = Anime.objects.filter(pk=shared.pk).values().get()
+        before_old = UserAnimeRecord.objects.filter(pk=old.pk).values().get()
+        response = self.post()
+        self.assertEqual(response.status_code, 201)
+        added = UserAnimeRecord.objects.get(pk=response.data['record_id'])
+        self.assertEqual(added.user_id, self.user.pk)
+        self.assertIsNone(added.personal_score)
+        self.assertEqual(added.review, '')
+        self.assertEqual(Anime.objects.filter(pk=shared.pk).values().get(), before_shared)
+        self.assertEqual(UserAnimeRecord.objects.filter(pk=old.pk).values().get(), before_old)
+
+    @override_settings(PUBLIC_SHOWCASE_USERNAME='want-other')
+    def test_removal_from_showcase_does_not_ban_safe_private_additions(self):
+        shared = Anime.objects.create(bgm_id=501, chinese_title='作品', airing_period='2026-4')
+        holder = get_user_model().objects.create_user(username='remaining-private-owner')
+        retained = UserAnimeRecord.objects.create(user=holder, anime=shared, review='保留旧记录')
+        showcase = UserAnimeRecord.objects.create(user=self.other, anime=shared)
+        showcase.delete()  # Real legacy signal hides, rather than deletes, shared metadata.
+        shared.refresh_from_db()
+        self.assertFalse(shared.is_active)
+        before_shared = Anime.objects.filter(pk=shared.pk).values().get()
+        before_record = UserAnimeRecord.objects.filter(pk=retained.pk).values().get()
+        self.assertEqual(self.post().status_code, 201)
+        self.assertEqual(Anime.objects.filter(pk=shared.pk).values().get(), before_shared)
+        self.assertEqual(UserAnimeRecord.objects.filter(pk=retained.pk).values().get(), before_record)
+
+    def test_hidden_identity_still_rejects_unsafe_content(self):
+        shared = Anime.objects.create(bgm_id=501, chinese_title='作品', airing_period='2026-4', is_active=False)
+        before = Anime.objects.filter(pk=shared.pk).values().get()
+        for rating in (True, None):
+            self.catalog.nsfw = rating; self.catalog.save(update_fields=['nsfw'])
+            self.assertEqual(self.post().status_code, 404)
+            self.assertEqual(self.client.get(reverse('recommendations:detail', args=[501])).status_code, 404)
         self.assertEqual(UserAnimeRecord.objects.count(), 0)
-        shared.refresh_from_db(); self.assertFalse(shared.is_active)
+        self.assertEqual(Anime.objects.filter(pk=shared.pk).values().get(), before)
+
+    def test_hidden_missing_identity_still_requires_explicit_confirmation(self):
+        record = self.record(direct=False)
+        record.anime.is_active = False; record.anime.save(update_fields=['is_active'])
+        before = UserAnimeRecord.objects.filter(pk=record.pk).values().get()
+        response = self.post()
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.data['code'], 'identity_confirmation_required')
+        self.assertEqual(UserAnimeRecord.objects.filter(pk=record.pk).values().get(), before)
+        self.assertEqual(RecommendationRecordIdentity.objects.count(), 0)
+        self.assertIsNone(Anime.objects.get(pk=record.anime_id).bgm_id)
+
+    def test_hidden_existing_states_keep_scores_reviews_and_all_fields(self):
+        record = self.record(personal_score=Decimal('9.4'), review='原长评\n' * 5000, watched_eps=7, total_eps=12)
+        record.anime.is_active = False; record.anime.save(update_fields=['is_active'])
+        for state in ('plan', 'watching', 'completed', 'on_hold'):
+            record.watch_status = state; record.save(update_fields=['watch_status'])
+            self.unchanged_existing(record)
+
+    @override_settings(PUBLIC_SHOWCASE_USERNAME='want-owner')
+    def test_new_showcase_owner_metadata_retains_existing_public_visibility_policy(self):
+        self.assertEqual(self.post().status_code, 201)
+        self.assertTrue(Anime.objects.get(bgm_id=501).is_active)
+
+    @override_settings(PUBLIC_SHOWCASE_USERNAME='want-owner')
+    def test_showcase_owner_does_not_reactivate_existing_hidden_shared_row(self):
+        shared = Anime.objects.create(bgm_id=501, chinese_title='作品', airing_period='2026-4', is_active=False)
+        before = Anime.objects.filter(pk=shared.pk).values().get()
+        self.assertEqual(self.post().status_code, 201)
+        self.assertEqual(Anime.objects.filter(pk=shared.pk).values().get(), before)
 
 
 @skipUnless(connection.vendor == 'postgresql', 'Real row-lock races require an isolated PostgreSQL test database')

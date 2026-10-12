@@ -79,7 +79,10 @@ def add_want(*, user, bangumi_id):
         tags.append(catalog.status_type)
     metadata = {'chinese_title': title, 'japanese_title': catalog.title_jp,
                 'airing_period': catalog.season or '未定档', 'description': catalog.synopsis,
-                'poster_url': public_cover_url(catalog), 'base_tags': tags}
+                'poster_url': public_cover_url(catalog), 'base_tags': tags,
+                # Same visibility policy as Bangumi imports: private-only metadata
+                # is not automatically promoted into the public showcase/search.
+                'is_active': user.username == settings.PUBLIC_SHOWCASE_USERNAME}
     try:
         # Savepoint keeps the enclosing transaction usable after unique-key races.
         # NEVER title-merge, update_or_create, truncate, or assign an ID to an old row.
@@ -87,8 +90,10 @@ def add_want(*, user, bangumi_id):
             shared, _ = Anime.objects.get_or_create(bgm_id=bangumi_id, defaults=metadata)
     except IntegrityError:
         raise WantConflict('public_identity_conflict', '公共资料存在不同或缺失的作品身份，请联系管理员核对；本次未创建记录。') from None
-    if not shared.is_active:
-        raise WantConflict('work_unavailable', '该作品在公共库中已下架，暂不能新增。')
+    # is_active controls PUBLIC visibility, not private journal eligibility.
+    # Reuse authoritative Bangumi identities even when the shared row is hidden;
+    # never reactivate/modify it. Eligibility was checked against safe_catalog()
+    # under lock above, with legacy/length conflicts still rejected before here.
     record, created = UserAnimeRecord.objects.get_or_create(user=user, anime=shared, defaults={
         'watch_status': UserAnimeRecord.WatchStatus.PLAN_TO_WATCH,
         'personal_score': None, 'review': '', 'watched_eps': 0, 'total_eps': 0,

@@ -75,6 +75,17 @@ test('confirmation clears only failed operations, ready/adding states stay scope
   assert.equal(controller.getSnapshot()[124], undefined)
 })
 
+test('public identity conflicts and legacy availability failures have distinct accurate explanations', () => {
+  const conflict = wantFailure({ response: { status: 409, data: { code: 'public_identity_conflict' } } })
+  const legacy = wantFailure({ response: { status: 409, data: { code: 'work_unavailable' } } })
+  assert.notEqual(conflict.message, legacy.message)
+  assert.match(conflict.message, /Bangumi ID/)
+  assert.match(conflict.message, /不会仅按片名自动合并/)
+  assert.match(legacy.message, /刷新页面后重试/)
+  assert.doesNotMatch(conflict.message + legacy.message, /下架|封禁/)
+  for (const error of [conflict, legacy]) assert.equal(wantButtonState(item, { error }).disabled, true)
+})
+
 test('unmount aborts and suppresses late success, StrictMode reactivation can retry', async () => {
   const old = defer(); let calls = 0, oldSignal
   const controller = createWantController({ want: (id, signal) => {

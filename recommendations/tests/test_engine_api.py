@@ -116,6 +116,28 @@ class EngineAPITests(APITestCase):
         self.assertIsNone(other['evidence'])
         self.assertIsNone(other['watch_status'])
 
+    def test_recommended_hidden_identity_completes_list_detail_want_and_status_flow(self):
+        shared = Anime.objects.create(bgm_id=10, chinese_title='原共享资料', airing_period='未定档', is_active=False)
+        before_shared = Anime.objects.filter(pk=shared.pk).values().get()
+        before_seeds = list(UserAnimeRecord.objects.filter(user=self.user).order_by('pk').values())
+        listed = self.get(page_size=24)
+        self.assertEqual(listed.status_code, 200)
+        self.assertIn(10, [row['bangumi_id'] for row in listed.data['results']])
+        self.assertEqual(self.client.get('/api/recommendations/10/').status_code, 200)
+        snapshot = self.get(page_size=3).data['state_token']
+        added = self.client.post('/api/recommendations/10/want/', {}, format='json')
+        self.assertEqual(added.status_code, 201)
+        self.assertEqual(added.data['anime_id'], shared.pk)
+        self.assertEqual(self.client.get('/api/recommendations/10/').data['watch_status'], 'plan')
+        self.assertNotIn(10, [row['bangumi_id'] for row in self.get(page_size=24).data['results']])
+        visible = self.get(page_size=24, hide_recorded=False).data['results']
+        self.assertEqual(next(row for row in visible if row['bangumi_id'] == 10)['watch_status'], 'plan')
+        self.assertEqual(self.get(page_size=3, page=2, state_token=snapshot).status_code, 409)
+        self.assertEqual(self.client.post('/api/recommendations/10/want/', {}, format='json').status_code, 200)
+        self.assertEqual(Anime.objects.filter(pk=shared.pk).values().get(), before_shared)
+        self.assertEqual(list(UserAnimeRecord.objects.filter(user=self.user).exclude(
+            pk=added.data['record_id']).order_by('pk').values()), before_seeds)
+
     def test_tag_cleanup_and_idf(self):
         self.assertEqual(feature_tags('日常,搞笑,日本,2026,年度最佳,二刷,作品A,音乐', ['音乐']), {'日常', '喜剧'})
         index = public_features()
