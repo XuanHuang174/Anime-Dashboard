@@ -1,0 +1,29 @@
+import { Link } from 'react-router-dom'
+
+export function RecommendationSkeleton() {
+  return <section className="rec-skeleton" aria-busy="true" aria-label="正在加载推荐">
+    <p className="rec-muted" role="status">正在整理下一次心动…（加载状态演示）</p>
+    <div className="rec-skeleton-hero" aria-hidden="true"><span /><div><i /><i /><i /></div></div>
+    <div className="rec-grid" aria-hidden="true">{Array.from({ length: 4 }, (_, index) =>
+      <div className="rec-skeleton-card" key={index}><span /><i /><i /><i /></div>)}</div>
+  </section>
+}
+
+export function RecommendationEmptyState({ state, onRetry, onReset, onPreferences }) {
+  const content = {
+    cold: ['✧', '让我们先认识你的口味', '请先给几部喜欢的番剧打分，或选择喜好。样本不足时，我们不会编造个性化结果。'],
+    empty: ['⌕', '这次筛选，还没遇见心头好', '试着放宽评分或作品类型，给意外的心动留一点空间。'],
+    error: ['↻', '推荐暂时没有准备好', '暂时无法加载结果。你的手账不会受影响，可以稍后重试。'],
+  }[state]
+  return <section className="rec-empty" role="status" aria-live="polite">
+    <span className="rec-empty-symbol" aria-hidden="true">{content[0]}</span>
+    <span className="rec-eyebrow">A LITTLE PAUSE, NOT THE END</span>
+    <h2>{content[1]}</h2><p>{content[2]}</p>
+    <div className="rec-empty-actions">
+      {state === 'cold' ? <><Link className="rec-button rec-button--primary" to="/dashboard">去手账评分</Link>
+        <button type="button" className="rec-button" onClick={onPreferences}>选择喜好</button></>
+        : <><button type="button" className="rec-button rec-button--primary" onClick={onRetry}>重新加载</button>
+          <button type="button" className="rec-button" onClick={onReset}>恢复筛选</button></>}
+    </div>
+  </section>
+}

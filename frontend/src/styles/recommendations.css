@@ -1,0 +1,176 @@
+/* Entire page and top-layer dialogs scoped to this namespace. No global resets. */
+.memphis-rec-container { --rec-cream: #fff8ef; --rec-yellow: #ffe397; --rec-teal: #bce9df; --rec-ink: #1a1a1a; --rec-muted: #68645d; min-height: 100vh; background: var(--rec-cream); color: var(--rec-ink); font-family: inherit; padding: 0 28px; }
+.memphis-rec-container *, .memphis-rec-container *::before, .memphis-rec-container *::after { box-sizing: border-box; }
+.memphis-rec-container button, .memphis-rec-container input, .memphis-rec-container select { font: inherit; }
+.memphis-rec-container button, .memphis-rec-container a { -webkit-tap-highlight-color: transparent; }
+.memphis-rec-container button { cursor: pointer; }
+.memphis-rec-container button:disabled { cursor: default; color: #6b675f; background: #f1eee8; box-shadow: none; transform: none; }
+.memphis-rec-container :is(button, a, input, select):focus-visible { outline: 3px solid var(--rec-ink); outline-offset: 4px; }
+.memphis-rec-container .rec-page { max-width: 1240px; margin: 0 auto; padding-bottom: 24px; }
+.memphis-rec-container .rec-nav { min-height: 84px; display: flex; justify-content: space-between; align-items: center; gap: 12px; border-bottom: 1px solid #ded6c9; }
+.memphis-rec-container .rec-back { color: inherit; text-decoration: none; font-size: 14px; font-weight: 800; }
+.memphis-rec-container .rec-back:hover { text-decoration: underline; text-underline-offset: 5px; }
+.memphis-rec-container .rec-button { display: inline-flex; justify-content: center; align-items: center; gap: 8px; min-height: 42px; padding: 9px 14px; border: 2px solid var(--rec-ink); background: white; color: var(--rec-ink); box-shadow: 3px 3px 0 var(--rec-ink); font-weight: 800; font-size: 13px; text-decoration: none; line-height: 1.35; transition: transform 150ms ease, box-shadow 150ms ease, background-color 150ms ease; }
+.memphis-rec-container .rec-button--primary { background: var(--rec-yellow); }
+.memphis-rec-container .rec-button:hover:not(:disabled) { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--rec-ink); }
+.memphis-rec-container .rec-button:active:not(:disabled) { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--rec-ink); }
+.memphis-rec-container .rec-intro { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 48px; align-items: center; padding: 48px 0 32px; }
+.memphis-rec-container .rec-eyebrow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 10px; font-weight: 800; letter-spacing: .15em; }
+.memphis-rec-container .rec-preview-badge { display: inline-block; padding: 3px 7px; border: 1px solid var(--rec-ink); background: white; font-size: 10px; font-weight: 800; letter-spacing: 0; }
+.memphis-rec-container .rec-intro h1 { font-size: clamp(32px, 4vw, 54px); line-height: 1.22; font-weight: 900; letter-spacing: -.04em; margin: 18px 0 14px; }
+.memphis-rec-container .rec-intro h1 > span { position: relative; display: inline-block; z-index: 0; }
+.memphis-rec-container .rec-intro h1 > span::after { content: ''; position: absolute; bottom: 3px; left: -4px; right: -4px; height: 15px; background: var(--rec-yellow); z-index: -1; }
+.memphis-rec-container .rec-title-star { color: #e27563; display: inline-block; font-size: .7em; margin-left: 18px; }
+.memphis-rec-container .rec-intro-copy > p { margin: 0; font-size: 14px; line-height: 1.8; color: var(--rec-muted); }
+.memphis-rec-container .rec-taste-note { background: #eff9f3; border: 3px solid var(--rec-ink); padding: 22px; box-shadow: 4px 4px 0 var(--rec-ink); transform: rotate(-.5deg); position: relative; }
+.memphis-rec-container .rec-taste-note::before { content: ''; display: block; position: absolute; width: 70px; height: 16px; background: #eedaa3; top: -10px; left: calc(50% - 35px); opacity: .85; transform: rotate(-3deg); }
+.memphis-rec-container .rec-taste-note h2 { display: flex; justify-content: space-between; margin: 16px 0 8px; font-size: 20px; font-weight: 900; }
+.memphis-rec-container .rec-taste-summary { font-size: 12px; margin-bottom: 14px; color: var(--rec-muted); }
+.memphis-rec-container .rec-taste-summary b { color: var(--rec-ink); }
+.memphis-rec-container .rec-text-button { border: 0; background: transparent; padding: 8px 0; color: var(--rec-ink); font-size: 12px; font-weight: 800; text-decoration: underline; text-underline-offset: 4px; }
+.memphis-rec-container .rec-demo-note { display: flex; align-items: start; gap: 12px; border: 1px solid #e1d4be; padding: 12px 16px; background: #fff2d9; }
+.memphis-rec-container .rec-demo-note p { margin: 0; font-size: 12px; line-height: 1.8; color: #625540; }
+.memphis-rec-container .rec-demo-dot { flex-shrink: 0; width: 7px; height: 7px; border: 1px solid var(--rec-ink); background: #ec9583; margin-top: 7px; }
+.memphis-rec-container .rec-controls { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 24px 0; border-bottom: 2px solid var(--rec-ink); }
+.memphis-rec-container .rec-categories { display: flex; flex-wrap: wrap; gap: 8px; }
+.memphis-rec-container .rec-category { min-height: 42px; padding: 9px 15px; border: 2px solid transparent; background: transparent; font-size: 13px; font-weight: 800; white-space: nowrap; }
+.memphis-rec-container .rec-category.is-selected { border-color: var(--rec-ink); background: var(--rec-yellow); box-shadow: 3px 3px 0 var(--rec-ink); }
+.memphis-rec-container .rec-category:not(.is-selected):hover { background: #eee6d9; }
+.memphis-rec-container .rec-filter-count { background: var(--rec-teal); border: 1px solid var(--rec-ink); padding: 0 4px; }
+.memphis-rec-container .rec-active-filters { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding-top: 12px; font-size: 12px; color: var(--rec-muted); }
+.memphis-rec-container .rec-section-heading { display: flex; justify-content: space-between; align-items: end; gap: 12px; padding: 26px 0 20px; }
+.memphis-rec-container .rec-section-heading .rec-eyebrow { color: var(--rec-muted); font-size: 9px; }
+.memphis-rec-container .rec-section-heading h2 { margin: 8px 0 0; font-size: 21px; font-weight: 900; }
+.memphis-rec-container .rec-result-count { font-size: 11px; color: var(--rec-muted); white-space: nowrap; }
+.memphis-rec-container .rec-card { min-width: 0; background: white; border: 2px solid var(--rec-ink); box-shadow: 3px 3px 0 var(--rec-ink); display: flex; flex-direction: column; }
+.memphis-rec-container .rec-card--hero { border-width: 3px; display: grid; grid-template-columns: 205px minmax(0, 1fr); min-height: 300px; box-shadow: 4px 4px 0 var(--rec-ink); }
+.memphis-rec-container .rec-cover { aspect-ratio: 3 / 4; border-bottom: 2px solid var(--rec-ink); overflow: hidden; background: var(--rec-cream); }
+.memphis-rec-container .rec-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.memphis-rec-container .rec-card--hero > .rec-cover { aspect-ratio: auto; height: 100%; min-height: 280px; border-bottom: 0; border-right: 3px solid var(--rec-ink); }
+.memphis-rec-container .rec-cover-placeholder { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 16px; padding: 20px; background-color: #fff5e6; background-image: linear-gradient(#dacfbb55 1px, transparent 1px), linear-gradient(90deg, #dacfbb55 1px, transparent 1px); background-size: 24px 24px; }
+.memphis-rec-container .rec-cover-symbol { font-size: 40px; color: #b5a482; }
+.memphis-rec-container .rec-cover-placeholder > span:nth-child(2) { font-size: 8px; letter-spacing: .1em; color: #74664f; }
+.memphis-rec-container .rec-cover-placeholder strong { font-size: 19px; line-height: 1.6; font-weight: 800; }
+.memphis-rec-container .rec-cover-placeholder small { font-size: 10px; color: var(--rec-muted); }
+.memphis-rec-container .rec-card-body { padding: 18px 16px; display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.memphis-rec-container .rec-card--hero .rec-card-body { padding: 32px 36px; justify-content: center; align-items: start; }
+.memphis-rec-container .rec-sticker { background: #f7baaa; padding: 4px 7px; font-size: 9px; letter-spacing: 0; }
+.memphis-rec-container .rec-card-title { margin: 0 0 10px; font-size: 17px; line-height: 1.55; font-weight: 900; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; min-height: 53px; overflow-wrap: anywhere; }
+.memphis-rec-container .rec-card--hero .rec-card-title { font-size: 30px; min-height: 0; margin-top: 14px; }
+.memphis-rec-container .rec-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; font-size: 10px; color: var(--rec-muted); margin: 0 0 12px; }
+.memphis-rec-container .rec-meta b { color: var(--rec-ink); }
+.memphis-rec-container .rec-card-reason { margin: 0 0 14px; width: 100%; font-size: 12px; line-height: 1.8; color: #545c50; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.memphis-rec-container .rec-hero-synopsis { margin: 0 0 18px; font-size: 13px; line-height: 1.9; color: var(--rec-muted); }
+.memphis-rec-container .rec-card-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.memphis-rec-container .rec-card-tags span { border: 1px solid #667569; background: #e6f3ec; padding: 3px 7px; font-size: 10px; font-weight: 700; }
+.memphis-rec-container .rec-card-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; padding-top: 20px; margin-top: auto; }
+.memphis-rec-container .rec-card-actions .rec-button { font-size: 11px; padding: 9px 6px; min-width: 0; }
+.memphis-rec-container .rec-card--hero .rec-card-actions { display: flex; margin-top: 0; }
+.memphis-rec-container .rec-card--hero .rec-card-actions .rec-button { padding: 10px 22px; font-size: 12px; }
+.memphis-rec-container .rec-more-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 32px 0 18px; }
+.memphis-rec-container .rec-more-heading h3 { margin: 0; font-size: 17px; font-weight: 900; }
+.memphis-rec-container .rec-more-heading > span { font-size: 11px; color: var(--rec-muted); }
+.memphis-rec-container .rec-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 22px; }
+.memphis-rec-container .rec-muted { font-size: 12px; line-height: 1.9; color: var(--rec-muted); }
+.memphis-rec-container .rec-empty { min-height: 350px; border: 3px solid var(--rec-ink); box-shadow: 4px 4px 0 var(--rec-ink); background: white; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 40px 24px; }
+.memphis-rec-container .rec-empty-symbol { font-size: 44px; color: #7c9385; margin-bottom: 14px; }
+.memphis-rec-container .rec-empty h2 { font-size: 24px; font-weight: 900; margin: 18px 0 12px; }
+.memphis-rec-container .rec-empty > p { max-width: 460px; font-size: 13px; line-height: 1.9; color: var(--rec-muted); margin: 0; }
+.memphis-rec-container .rec-empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 24px; }
+.memphis-rec-container .rec-skeleton-hero { display: grid; grid-template-columns: 205px 1fr; border: 2px solid #d8d2c8; min-height: 280px; margin-bottom: 24px; }
+.memphis-rec-container .rec-skeleton-hero > span, .memphis-rec-container .rec-skeleton-card > span { display: block; background: #eae6de; }
+.memphis-rec-container .rec-skeleton-hero > div { padding: 40px; }
+.memphis-rec-container .rec-skeleton i { display: block; height: 15px; background: #eae6de; margin-bottom: 20px; }
+.memphis-rec-container .rec-skeleton i:nth-child(2) { width: 70%; }
+.memphis-rec-container .rec-skeleton-card { border: 2px solid #d8d2c8; padding-bottom: 12px; background: #fffdf9; }
+.memphis-rec-container .rec-skeleton-card > span { aspect-ratio: 3 / 4; margin-bottom: 20px; }
+.memphis-rec-container .rec-skeleton-card > i { margin: 12px 16px; }
+.memphis-rec-container .rec-qa-panel { display: flex; align-items: center; gap: 20px; justify-content: space-between; border-top: 1px dashed #a99f8d; border-bottom: 1px dashed #a99f8d; padding: 20px 0; margin-top: 42px; }
+.memphis-rec-container .rec-qa-panel strong { font-size: 13px; }
+.memphis-rec-container .rec-qa-panel p { font-size: 11px; color: var(--rec-muted); margin: 6px 0 0; }
+.memphis-rec-container .rec-qa-panel label { display: flex; align-items: center; gap: 10px; font-size: 12px; white-space: nowrap; }
+.memphis-rec-container select { border: 2px solid var(--rec-ink); background: white; color: var(--rec-ink); padding: 10px; min-height: 44px; max-width: 100%; }
+.memphis-rec-container select:focus { background: #fff0c4; }
+.memphis-rec-container .rec-footer { display: flex; justify-content: space-between; gap: 14px; padding: 22px 0; color: var(--rec-muted); font-size: 10px; }
+.memphis-rec-container .rec-toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); z-index: 40; width: min(540px, calc(100% - 32px)); pointer-events: none; }
+.memphis-rec-container .rec-toast p { background: var(--rec-teal); border: 2px solid var(--rec-ink); box-shadow: 3px 3px 0 var(--rec-ink); padding: 14px 18px; margin: 0; font-size: 12px; line-height: 1.7; }
+.memphis-rec-container .rec-skip-link { position: fixed; top: -80px; left: 16px; z-index: 50; background: white; border: 2px solid var(--rec-ink); padding: 12px; color: var(--rec-ink); }
+.memphis-rec-container .rec-skip-link:focus { top: 12px; }
+.memphis-rec-container .rec-dialog { position: fixed; inset: 0; margin: auto; width: min(860px, calc(100% - 40px)); max-width: none; max-height: calc(100dvh - 48px); padding: 0; border: 3px solid var(--rec-ink); background: var(--rec-cream); color: var(--rec-ink); box-shadow: 4px 4px 0 var(--rec-ink); overflow-y: auto; overscroll-behavior: contain; }
+.memphis-rec-container .rec-dialog::backdrop { background: rgb(26 26 26 / .42); }
+.memphis-rec-container .rec-dialog--filters, .memphis-rec-container .rec-dialog--preferences { width: min(430px, calc(100% - 40px)); }
+.memphis-rec-container .rec-dialog--filters { left: auto; right: 24px; margin-right: 0; }
+.memphis-rec-container .rec-dialog-header { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 20px; border-bottom: 2px solid var(--rec-ink); background: var(--rec-yellow); }
+.memphis-rec-container .rec-dialog-header h2 { font-size: 20px; font-weight: 900; line-height: 1.5; margin: 0; overflow-wrap: anywhere; }
+.memphis-rec-container .rec-close { min-width: 42px; flex-shrink: 0; font-size: 24px; padding: 2px; }
+.memphis-rec-container .rec-dialog-body { padding: 24px; }
+.memphis-rec-container .rec-field { display: flex; flex-direction: column; gap: 10px; font-size: 13px; font-weight: 800; margin: 22px 0; }
+.memphis-rec-container .rec-checkbox { display: flex; gap: 10px; align-items: center; font-size: 13px; padding: 10px 0; }
+.memphis-rec-container input[type='checkbox'] { width: 18px; height: 18px; accent-color: var(--rec-ink); }
+.memphis-rec-container .rec-dialog-actions { display: flex; gap: 12px; justify-content: end; flex-wrap: wrap; border-top: 1px solid #ded6c9; margin-top: 24px; padding-top: 22px; }
+.memphis-rec-container .rec-taste-options { margin-top: 24px; border: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.memphis-rec-container .rec-taste-options legend { font-size: 13px; font-weight: 800; margin-bottom: 12px; }
+.memphis-rec-container .rec-taste-option { display: flex; align-items: center; gap: 10px; border: 2px solid var(--rec-ink); background: white; padding: 12px; font-size: 13px; }
+.memphis-rec-container .rec-taste-option:has(input:checked) { background: var(--rec-yellow); }
+.memphis-rec-container .rec-detail-content { display: grid; grid-template-columns: 205px minmax(0, 1fr); gap: 26px; }
+.memphis-rec-container .rec-detail-content > .rec-cover { height: fit-content; border: 2px solid var(--rec-ink); }
+.memphis-rec-container .rec-detail-content h3 { font-size: 14px; font-weight: 900; margin: 24px 0 10px; }
+.memphis-rec-container .rec-detail-content p { font-size: 13px; line-height: 1.9; }
+.memphis-rec-container .rec-original-title { color: var(--rec-muted); overflow-wrap: anywhere; }
+.memphis-rec-container .rec-record-note { background: #e6f3ec; padding: 10px; }
+@media (max-width: 1099px) {
+  .memphis-rec-container .rec-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+  .memphis-rec-container .rec-intro { gap: 28px; grid-template-columns: minmax(0, 1fr) 250px; }
+}
+@media (max-width: 767px) {
+  .memphis-rec-container { padding: 0 18px; }
+  .memphis-rec-container .rec-nav { min-height: 70px; }
+  .memphis-rec-container .rec-intro { display: flex; flex-direction: column; align-items: stretch; padding: 30px 0 22px; gap: 22px; }
+  .memphis-rec-container .rec-intro h1 { font-size: 36px; }
+  .memphis-rec-container .rec-taste-note { padding: 14px 16px; transform: none; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 6px; }
+  .memphis-rec-container .rec-taste-note::before, .memphis-rec-container .rec-taste-note > .rec-eyebrow, .memphis-rec-container .rec-taste-note > .rec-card-tags { display: none; }
+  .memphis-rec-container .rec-taste-note h2 { font-size: 16px; margin: 0; }
+  .memphis-rec-container .rec-taste-note h2 span { display: none; }
+  .memphis-rec-container .rec-taste-summary { grid-column: 1; margin: 0; }
+  .memphis-rec-container .rec-taste-note .rec-text-button { grid-column: 2; grid-row: 1 / 3; }
+  .memphis-rec-container .rec-controls { align-items: stretch; gap: 12px; padding: 20px 0; flex-wrap: wrap; }
+  .memphis-rec-container .rec-categories { flex: 1 1 100%; justify-content: space-between; gap: 4px; }
+  .memphis-rec-container .rec-category { padding: 8px 10px; font-size: 12px; }
+  .memphis-rec-container .rec-filter-button { margin-left: auto; }
+  .memphis-rec-container .rec-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .memphis-rec-container .rec-card--hero { grid-template-columns: 130px minmax(0, 1fr); min-height: 230px; }
+  .memphis-rec-container .rec-card--hero > .rec-cover { min-height: 230px; }
+  .memphis-rec-container .rec-card--hero .rec-card-body { padding: 18px; }
+  .memphis-rec-container .rec-card--hero .rec-eyebrow { font-size: 8px; }
+  .memphis-rec-container .rec-card--hero .rec-card-title { font-size: 21px; }
+  .memphis-rec-container .rec-card--hero .rec-hero-synopsis { display: none; }
+  .memphis-rec-container .rec-card--hero .rec-card-actions { flex-wrap: wrap; gap: 8px; }
+  .memphis-rec-container .rec-card--hero .rec-card-actions .rec-button { padding: 8px 10px; font-size: 11px; }
+  .memphis-rec-container .rec-card-body { padding: 14px 12px; }
+  .memphis-rec-container .rec-card-title { font-size: 15px; min-height: 47px; }
+  .memphis-rec-container .rec-card-actions { grid-template-columns: 1fr; padding-top: 16px; }
+  .memphis-rec-container .rec-section-heading { align-items: start; }
+  .memphis-rec-container .rec-section-heading h2 { font-size: 18px; }
+  .memphis-rec-container .rec-result-count { margin-top: 2px; font-size: 10px; }
+  .memphis-rec-container .rec-more-heading > span { display: none; }
+  .memphis-rec-container .rec-qa-panel { flex-wrap: wrap; gap: 14px; }
+  .memphis-rec-container .rec-qa-panel > div { width: 100%; }
+  .memphis-rec-container .rec-footer { flex-direction: column; }
+  .memphis-rec-container .rec-dialog { width: calc(100% - 28px); max-height: calc(100dvh - 36px); }
+  .memphis-rec-container .rec-dialog--filters, .memphis-rec-container .rec-dialog--preferences { width: 100%; inset: auto 0 0; margin: 0; max-height: 88dvh; border-bottom: 0; box-shadow: none; }
+  .memphis-rec-container .rec-detail-content { grid-template-columns: minmax(0, 1fr); }
+  .memphis-rec-container .rec-detail-content > .rec-cover { width: 150px; justify-self: center; }
+  .memphis-rec-container .rec-empty { min-height: 320px; }
+  .memphis-rec-container .rec-empty h2 { font-size: 20px; }
+  .memphis-rec-container .rec-skeleton-hero { grid-template-columns: 130px 1fr; min-height: 230px; }
+  .memphis-rec-container .rec-skeleton-hero > div { padding: 24px; }
+}
+@media (max-width: 359px) {
+  .memphis-rec-container .rec-grid { grid-template-columns: minmax(0, 1fr); }
+  .memphis-rec-container .rec-card--hero { display: flex; }
+  .memphis-rec-container .rec-card--hero > .rec-cover { aspect-ratio: 3 / 4; min-height: 0; border-right: 0; border-bottom: 2px solid var(--rec-ink); }
+  .memphis-rec-container .rec-category { padding: 8px 5px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .memphis-rec-container .rec-button { transition: none; }
+}

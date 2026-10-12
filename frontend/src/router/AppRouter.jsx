@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
+import { lazy, Suspense } from 'react'
 import PublicHomePage from '../App.jsx'
 import AdminProtectedRoute from '../components/AdminProtectedRoute.jsx'
 import ProtectedRoute from '../components/ProtectedRoute.jsx'
@@ -10,6 +11,7 @@ import FeaturedColumn from '../pages/FeaturedColumn.jsx'
 import LoginPage from '../pages/LoginPage.jsx'
 import PublicUniverse from '../pages/PublicUniverse.jsx'
 import ResetPasswordPage from '../pages/ResetPasswordPage.jsx'
+const Recommendations = lazy(() => import('../pages/Recommendations.jsx'))
 
 function AppRouter() {
   return (
@@ -21,6 +23,7 @@ function AppRouter() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/activate" element={<ActivatePage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/recommendations" element={<ProtectedRoute><Suspense fallback={<p role="status" style={{ padding: 24 }}>正在翻开番剧发现手账…</p>}><Recommendations /></Suspense></ProtectedRoute>} />
       <Route path="/admin-login" element={<AdminLogin />} />
       <Route
         path="/admin-dashboard"
