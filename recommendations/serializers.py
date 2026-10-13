@@ -3,8 +3,9 @@ from collections.abc import Mapping
 from rest_framework import serializers
 
 from .identity import public_cover_url, require_safe_anime
+from .features import feature_tags
 from .models import RecommendationAnime
-from .taxonomy import MAX_PREFERENCE_TAGS, canonical_tag, canonical_tags
+from .taxonomy import AVAILABLE_TAGS, MAX_PREFERENCE_TAGS, canonical_tag, canonical_tags
 
 
 class PreferenceTagList(serializers.ListField):
@@ -63,12 +64,67 @@ class ProfilePolicySerializer(serializers.Serializer):
     minimum_score = serializers.DecimalField(max_digits=3, decimal_places=1, read_only=True)
     minimum_samples = serializers.IntegerField(read_only=True)
     requires_safe_bangumi_identity = serializers.BooleanField(read_only=True)
+    requires_usable_tags = serializers.BooleanField(read_only=True)
+
+
+class FeatureSourceCountsSerializer(serializers.Serializer):
+    private_base_tags = serializers.IntegerField(min_value=0, read_only=True)
+    shared_base_tags = serializers.IntegerField(min_value=0, read_only=True)
+    custom_tags = serializers.IntegerField(min_value=0, read_only=True)
+
+
+class ExtractedGenreSerializer(ProfileTagSerializer):
+    source_work_counts = FeatureSourceCountsSerializer(read_only=True)
+
+
+class TrustedProfileSerializer(serializers.Serializer):
+    eligible_work_count = serializers.IntegerField(min_value=0, read_only=True)
+    usable_work_count = serializers.IntegerField(min_value=0, read_only=True)
+    ready = serializers.BooleanField(read_only=True)
+    tag_summary = ExtractedGenreSerializer(many=True, read_only=True)
+
+
+class CommonTopicsSerializer(serializers.Serializer):
+    work_count = serializers.IntegerField(min_value=0, read_only=True)
+    feature_work_count = serializers.IntegerField(min_value=0, read_only=True)
+    requires_confirmation = serializers.BooleanField(read_only=True)
+    used_for_recommendation = serializers.BooleanField(read_only=True)
+    tag_summary = ExtractedGenreSerializer(many=True, read_only=True)
+
+
+class ProfileRecordStatsSerializer(serializers.Serializer):
+    journal_record_count = serializers.IntegerField(min_value=0, read_only=True)
+    rated_record_count = serializers.IntegerField(min_value=0, read_only=True)
+    unrated_record_count = serializers.IntegerField(min_value=0, read_only=True)
+    completed_record_count = serializers.IntegerField(min_value=0, read_only=True)
+    safe_linked_work_count = serializers.IntegerField(min_value=0, read_only=True)
+
+
+class IgnoredTagCountsSerializer(serializers.Serializer):
+    invalid = serializers.IntegerField(min_value=0, read_only=True)
+    year = serializers.IntegerField(min_value=0, read_only=True)
+    country = serializers.IntegerField(min_value=0, read_only=True)
+    management = serializers.IntegerField(min_value=0, read_only=True)
+    work_title = serializers.IntegerField(min_value=0, read_only=True)
+    unknown = serializers.IntegerField(min_value=0, read_only=True)
+
+
+class ProfileExtractionSerializer(serializers.Serializer):
+    contract_version = serializers.CharField(read_only=True)
+    rule_version = serializers.CharField(read_only=True)
+    taxonomy_version = serializers.CharField(read_only=True)
+    explicit_preferences = RecommendationPreferenceSerializer(read_only=True)
+    trusted_profile = TrustedProfileSerializer(read_only=True)
+    common_topics = CommonTopicsSerializer(read_only=True)
+    record_stats = ProfileRecordStatsSerializer(read_only=True)
+    ignored_tag_counts = IgnoredTagCountsSerializer(read_only=True)
 
 
 class RecommendationProfileSerializer(serializers.Serializer):
     contract_version = serializers.CharField(read_only=True)
     taxonomy_version = serializers.CharField(read_only=True)
     eligible_sample_count = serializers.IntegerField(read_only=True)
+    usable_sample_count = serializers.IntegerField(min_value=0, read_only=True)
     cold_start = serializers.BooleanField(read_only=True)
     has_usable_tags = serializers.BooleanField(read_only=True)
     readiness = serializers.CharField(read_only=True)
@@ -76,6 +132,7 @@ class RecommendationProfileSerializer(serializers.Serializer):
     sample_policy = ProfilePolicySerializer(read_only=True)
     diagnostics = serializers.DictField(child=serializers.IntegerField(min_value=0), read_only=True)
     identity_service_ready = serializers.BooleanField(read_only=True)
+    extraction = ProfileExtractionSerializer(read_only=True)
 
 
 class RecommendationIdentitySerializer(serializers.Serializer):
@@ -108,7 +165,8 @@ class RecommendationPublicAnimeSerializer(serializers.ModelSerializer):
         return public_cover_url(instance)
 
     def get_tags(self, instance):
-        return canonical_tags(instance.tags.split(','))
+        tags = feature_tags(instance.tags, (instance.title_zh, instance.title_jp))
+        return [tag for tag in AVAILABLE_TAGS if tag in tags]
 
 
 class RecommendationWantSerializer(serializers.Serializer):

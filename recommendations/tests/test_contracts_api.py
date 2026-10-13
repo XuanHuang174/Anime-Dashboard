@@ -42,7 +42,8 @@ class ProfileAPITests(ContractFixtures, APITestCase):
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(set(response.data), {'contract_version', 'taxonomy_version', 'eligible_sample_count',
-                         'cold_start', 'has_usable_tags', 'readiness', 'tag_summary', 'sample_policy', 'diagnostics', 'identity_service_ready'})
+                         'cold_start', 'has_usable_tags', 'readiness', 'tag_summary', 'sample_policy', 'diagnostics',
+                         'identity_service_ready', 'usable_sample_count', 'extraction'})
         self.assertEqual(response.data['eligible_sample_count'], 0)
         self.assertTrue(response.data['cold_start'])
         self.assertEqual(response.data['tag_summary'], [])
@@ -83,7 +84,7 @@ class ProfileAPITests(ContractFixtures, APITestCase):
         RecommendationAnime.objects.filter(bangumi_id=3001).update(score=10)
         self.assertEqual(self.client.get(self.url).data['eligible_sample_count'], 0)
 
-    def test_only_effective_private_base_tags_no_reviews_or_custom_tags(self):
+    def test_effective_private_base_and_custom_genres_but_never_reviews_or_management(self):
         record = self.seed(4001, tags=['战斗'])
         record.private_base_tags = ['搞笑', '喜剧', '日常', '日本', '2026', '成人', '年度最佳']
         record.custom_tags = ['科幻']
@@ -91,7 +92,7 @@ class ProfileAPITests(ContractFixtures, APITestCase):
         record.save(update_fields=['private_base_tags', 'custom_tags', 'review'])
         response = self.client.get(self.url)
         self.assertEqual(response.data['tag_summary'], [
-            {'tag': '日常', 'sample_count': 1}, {'tag': '喜剧', 'sample_count': 1}])
+            {'tag': '日常', 'sample_count': 1}, {'tag': '喜剧', 'sample_count': 1}, {'tag': '科幻', 'sample_count': 1}])
         self.assertNotIn(record.review, str(response.data))
         self.assertNotIn('成人', str(response.data))
 
@@ -106,7 +107,7 @@ class ProfileAPITests(ContractFixtures, APITestCase):
         for identity in (4201, 4202, 4203):
             self.seed(identity, tags=['日本', '2026'])
         response = self.client.get(self.url)
-        self.assertFalse(response.data['cold_start'])
+        self.assertTrue(response.data['cold_start'])
         self.assertEqual(response.data['readiness'], 'needs_tags')
         self.assertFalse(response.data['has_usable_tags'])
         RecommendationAnime.objects.filter(bangumi_id=4201).update(nsfw=True)
@@ -122,7 +123,7 @@ class ProfileAPITests(ContractFixtures, APITestCase):
     def test_multi_user_isolation_and_query_bound(self):
         self.seed(5101, tags=['日常'])
         self.seed(5102, user=self.other, tags=['机战'])
-        with self.assertNumQueries(4):
+        with self.assertNumQueries(5):  # One extra, bounded read of independent explicit preferences.
             own = profile_contract(self.user)
         self.assertEqual(own['tag_summary'], [{'tag': '日常', 'sample_count': 1}])
         self.client.force_authenticate(self.other)

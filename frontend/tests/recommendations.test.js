@@ -32,6 +32,19 @@ test('profile and preferences require compatible real contracts instead of inven
   assert.throws(() => validateRecommendationPreferences({ ...preferences, tags: ['unknown'] }))
 })
 
+test('4A additive extraction contract remains compatible with the current page without trusting common topics', () => {
+  const profile = { contract_version: 'recommendations.3a.v1', taxonomy_version: 'genres.v2',
+    eligible_sample_count: 3, usable_sample_count: 1, cold_start: true, readiness: 'needs_tags',
+    tag_summary: [{ tag: '音乐', sample_count: 1 }], sample_policy: { minimum_score: '8.5', requires_usable_tags: true },
+    extraction: { contract_version: 'recommendations.extraction.v1', rule_version: 'journal-genres.v1',
+      explicit_preferences: { tags: [], version: 0 },
+      common_topics: { requires_confirmation: true, used_for_recommendation: false, tag_summary: [{ tag: '科幻', sample_count: 5 }] } } }
+  assert.equal(validateRecommendationProfile(profile), profile)
+  assert.equal(profile.cold_start, true)
+  assert.deepEqual(profile.tag_summary, [{ tag: '音乐', sample_count: 1 }])
+  assert.deepEqual(profile.extraction.explicit_preferences.tags, [])
+})
+
 test('late request resolving after cancellation cannot commit or replace newer results', async () => {
   const gate = createLatestRequestGate()
   let resolveOld

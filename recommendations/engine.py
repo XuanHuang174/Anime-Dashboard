@@ -12,14 +12,14 @@ from django.db.models import Count, Max
 from rest_framework.exceptions import APIException
 
 from .identity import safe_catalog
-from .services import preference_contract, profile_data
+from .services import profile_data
 from .taxonomy import TAXONOMY_VERSION
-from .features import feature_tags
+from .features import feature_tags, FEATURE_RULE_VERSION
 
 ALGORITHM_VERSION = 'content.v1'
-FEATURE_VERSION = 'genres-idf.v1'
+FEATURE_VERSION = 'genres-idf.v2'
 CONTRACT_VERSION = 'recommendations.3b.v1'
-CACHE_KEY = 'recommendations.public-features.v1'
+CACHE_KEY = 'recommendations.public-features.v2'
 MAX_CATALOG_ROWS = 50000
 CANDIDATE_POOL = 400
 MAX_RESULTS = 120
@@ -68,7 +68,8 @@ def public_features():
 def user_context(user):
     """Read own seeds anew. No inferred private state or HTTP payload cache."""
     profile, records, seeds = profile_data(user)
-    preferences = preference_contract(user)
+    # Reuse this request's explicit-preference read; common topics are not input.
+    preferences = profile['extraction']['explicit_preferences']
     mode = ('personalized' if not profile['cold_start'] and seeds
             else 'preference_based' if preferences['tags'] else 'cold_start')
     priority = {'completed': 4, 'watching': 3, 'plan': 2, 'on_hold': 1}
@@ -125,7 +126,8 @@ def evidence_for(tags, context, weights):
         shown = '、'.join(f'“{tag}”' for tag in shared[:2])
         return {'kind': 'rated_work', 'source': {'bangumi_id': seed['bangumi_id'], 'title': seed['title'],
                                                'personal_score': f'{seed["score"]:.1f}'},
-                'shared_tags': shared}, f'因为你给《{seed["title"]}》打了 {seed["score"]:.1f} 分，这部作品同样包含{shown}标签。', best[0][0]
+                'shared_tags': shared, 'feature_rule_version': FEATURE_RULE_VERSION,
+                'shared_tag_sources': {tag: list(seed['feature_sources'][tag]) for tag in shared}}, f'因为你给《{seed["title"]}》打了 {seed["score"]:.1f} 分，这部作品同样包含{shown}标签。', best[0][0]
     shared = tags & set(context['preferences']['tags'])
     if shared:
         shared = sorted(shared)
@@ -197,8 +199,10 @@ def rank_candidates(user, options):
         ranked = ranked[:MAX_RESULTS]
     # Opaque, user-bound state token; never exposes ratings or user IDs themselves.
     state = {'user': user.pk, 'algorithm': ALGORITHM_VERSION, 'features': FEATURE_VERSION,
+             'extraction_rule': FEATURE_RULE_VERSION,
              'preferences': (context['preferences']['version'], context['preferences']['tags']),
-             'seeds': [(seed['bangumi_id'], seed['score'], sorted(seed['tags'])) for seed in context['seeds']],
+             'seeds': [(seed['bangumi_id'], seed['score'], sorted(seed['tags']), seed['feature_sources'])
+                       for seed in context['seeds']],
              'owned': sorted(context['owned'].items()),
              'query': {key: str(options[key]) for key in ('category', 'type', 'min_score', 'hide_recorded', 'page_size')},
              'items': [(item['anime'].bangumi_id, item['anime'].score, sorted(item['tags']), item['reason'],

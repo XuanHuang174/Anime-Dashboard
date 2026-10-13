@@ -1,17 +1,15 @@
-"""3A own-user profile and transactional explicit-preference storage only."""
-from collections import Counter
+"""Own-user contracts: independent preferences and 4A read-only extraction."""
 from decimal import Decimal
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
-from rest_framework.exceptions import APIException
+from rest_framework.exceptions import APIException, NotAuthenticated
 
-from anime.models import UserAnimeRecord
-from .features import feature_tags
+from .extraction import extract_profile, EXTRACTION_CONTRACT_VERSION
 from .resolution import resolved_records
 from .models import RecommendationPreference
-from .taxonomy import AVAILABLE_TAGS, MAX_PREFERENCE_TAGS, TAXONOMY_VERSION, canonical_tags
+from .taxonomy import MAX_PREFERENCE_TAGS, TAXONOMY_VERSION, canonical_tags, AVAILABLE_TAGS
 
 CONTRACT_VERSION = 'recommendations.3a.v1'
 
@@ -34,50 +32,28 @@ def preference_contract(user):
 
 
 def profile_data(user):
+    if not getattr(user, 'is_authenticated', False):
+        raise NotAuthenticated()
     threshold = Decimal(str(settings.RECOMMENDATION_PROFILE_SCORE_THRESHOLD))
     minimum = settings.RECOMMENDATION_PROFILE_MIN_SAMPLES
     records = resolved_records(user)
-    high = [row for row in records if row['watch_status'] == UserAnimeRecord.WatchStatus.COMPLETED
-            and row['personal_score'] is not None and row['personal_score'] >= threshold]
-    diagnostics = {'high_score_record_count': len(high), 'linked_high_score_record_count': 0,
-                   'pending_identity_count': 0, 'unavailable_identity_count': 0,
-                   'stale_identity_count': 0, 'conflict_identity_count': 0}
-    selected = {}
-    for row in high:
-        state = row['identity_state']
-        if state == 'linked':
-            diagnostics['linked_high_score_record_count'] += 1
-            identity = row['resolved_bangumi_id']
-            previous = selected.get(identity)
-            if previous is None or row['personal_score'] > previous['personal_score']:
-                selected[identity] = row
-        elif state in ('unlinked', 'stale_link', 'identity_conflict'):
-            diagnostics['pending_identity_count'] += 1
-            diagnostics['stale_identity_count'] += int(state == 'stale_link')
-            diagnostics['conflict_identity_count'] += int(state == 'identity_conflict')
-        else:
-            diagnostics['unavailable_identity_count'] += 1
-    summary, seeds = Counter(), []
-    for identity, row in sorted(selected.items()):
-        source = row['catalog']
-        tags = feature_tags(row['metadata']['tags'], (source['title_zh'], source['title_jp']))
-        summary.update(tags)
-        if tags:
-            seeds.append({'bangumi_id': identity, 'title': source['title_zh'] or source['title_jp'],
-                          'score': float(row['personal_score']), 'tags': tags})
-    count = len(selected)
-    readiness = ('needs_identity' if count < minimum and diagnostics['pending_identity_count']
-                 else 'needs_more_samples' if count < minimum else 'needs_tags' if not summary else 'ready')
+    extracted, seeds = extract_profile(records, threshold=threshold, minimum=minimum)
     # Counts and genre labels only: never serialize seed IDs, titles or reviews.
     contract = {
         'contract_version': CONTRACT_VERSION, 'taxonomy_version': TAXONOMY_VERSION,
-        'eligible_sample_count': count, 'cold_start': count < minimum,
-        'has_usable_tags': bool(summary),
-        'readiness': readiness, 'diagnostics': diagnostics, 'identity_service_ready': records.schema_available,
-        'tag_summary': [{'tag': tag, 'sample_count': number} for tag, number in
-                        sorted(summary.items(), key=lambda pair: (-pair[1], AVAILABLE_TAGS.index(pair[0])))],
+        **{key: extracted[key] for key in ('eligible_sample_count', 'usable_sample_count', 'cold_start',
+                                         'has_usable_tags', 'readiness', 'diagnostics')},
+        'identity_service_ready': records.schema_available,
+        'tag_summary': [{'tag': item['tag'], 'sample_count': item['sample_count']}
+                        for item in extracted['trusted_profile']['tag_summary']],
         'sample_policy': {'watch_status': 'completed', 'minimum_score': threshold,
-                          'minimum_samples': minimum, 'requires_safe_bangumi_identity': True},
+                          'minimum_samples': minimum, 'requires_safe_bangumi_identity': True,
+                          'requires_usable_tags': True},
+        'extraction': {'contract_version': EXTRACTION_CONTRACT_VERSION,
+                       'rule_version': extracted['rule_version'], 'taxonomy_version': TAXONOMY_VERSION,
+                       'explicit_preferences': preference_contract(user),
+                       **{key: extracted[key] for key in ('trusted_profile', 'common_topics',
+                                                        'record_stats', 'ignored_tag_counts')}},
     }
     return contract, records, seeds
 

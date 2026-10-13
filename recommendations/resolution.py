@@ -4,7 +4,7 @@ from django.db import DatabaseError, transaction
 from .matching import catalog_fingerprint, effective_metadata, record_fingerprint
 from .models import RecommendationAnime
 
-RECORD_FIELDS = ('pk', 'user_id', 'anime_id', 'watch_status', 'personal_score', 'metadata_initialized',
+RECORD_FIELDS = ('pk', 'user_id', 'anime_id', 'watch_status', 'personal_score', 'custom_tags', 'metadata_initialized',
                  'private_chinese_title', 'private_japanese_title', 'private_airing_period', 'private_base_tags',
                  'anime__chinese_title', 'anime__japanese_title', 'anime__airing_period', 'anime__base_tags', 'anime__bgm_id')
 LINK_FIELDS = ('recommendation_identity__catalog_anime__bangumi_id', 'recommendation_identity__record_fingerprint',
