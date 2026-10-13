@@ -3,6 +3,48 @@ export const REC_CATEGORIES = [
   { id: 'all', label: '为你发现' }, { id: 'familiar', label: '熟悉的心动' }, { id: 'explore', label: '换一种口味' },
 ]
 
+export const COLD_START_CODES = Object.freeze(['empty_journal', 'all_unrated', 'no_qualifying_high_scores',
+  'insufficient_samples', 'pending_identity', 'missing_genres', 'unavailable_samples', 'ready'])
+
+export function validateColdStartState(value) {
+  if (value === undefined) return // Rolling deployment: never invent a missing reason.
+  const counts = ['minimum_samples', 'explicit_preference_count', 'journal_record_count', 'rated_record_count',
+    'unrated_record_count', 'high_score_record_count', 'eligible_sample_count', 'usable_sample_count',
+    'pending_identity_count', 'missing_genre_count', 'unavailable_sample_count']
+  if (value?.contract_version !== 'recommendations.cold-start.v1' || !COLD_START_CODES.includes(value.code)
+    || !Array.isArray(value.reasons) || value.reasons[0] !== value.code
+    || !value.reasons.every(code => COLD_START_CODES.includes(code))
+    || new Set(value.reasons).size !== value.reasons.length
+    || !counts.every(key => Number.isInteger(value[key]) && value[key] >= 0)
+    || value.minimum_samples < 1 || value.explicit_preference_count > 20
+    || typeof value.is_cold_start !== 'boolean'
+    || value.rated_record_count + value.unrated_record_count !== value.journal_record_count
+    || value.high_score_record_count > value.rated_record_count
+    || value.usable_sample_count > value.eligible_sample_count
+    || value.missing_genre_count !== value.eligible_sample_count - value.usable_sample_count
+    || value.is_cold_start !== (value.usable_sample_count < value.minimum_samples)
+    || (value.code === 'ready') !== !value.is_cold_start
+    || value.recommendation_basis !== (!value.is_cold_start ? 'personalized'
+      : value.explicit_preference_count ? 'explicit_preferences' : 'none')) {
+    throw new Error('推荐冷启动合同不兼容，请重新加载。')
+  }
+}
+
+export function validateRecommendationSnapshot(profile, preferences, data) {
+  const state = profile.cold_start_state
+  if (state || data.cold_start_state) {
+    if (!state || !data.cold_start_state || JSON.stringify(state) !== JSON.stringify(data.cold_start_state)
+      || JSON.stringify(profile.extraction.explicit_preferences.tags) !== JSON.stringify(preferences.tags)) {
+      throw new Error('推荐画像合同不兼容，数据已变化，请重新加载。')
+    }
+  }
+}
+
+// Recommendation transport state stays separate from profile readiness.
+export function recommendationResultState(data) {
+  return data.mode === 'cold_start' ? 'cold' : data.items.length ? 'ready' : 'empty'
+}
+
 export function getRecommendationCover(value) {
   try {
     const url = new URL(value)
@@ -36,6 +78,11 @@ export function mapRecommendationPage(data) {
     || (data.mode !== 'cold_start' && !/^[a-f0-9]{64}$/.test(data.state_token))) {
     throw new Error('推荐分页合同不兼容，请重新加载。')
   }
+  validateColdStartState(data.cold_start_state)
+  if (data.cold_start_state && data.mode !== ({ personalized: 'personalized',
+    explicit_preferences: 'preference_based', none: 'cold_start' }[data.cold_start_state.recommendation_basis])) {
+    throw new Error('推荐分页合同不兼容，请重新加载。')
+  }
   return { ...data, items: data.results.map(mapRecommendationItem) }
 }
 
@@ -49,6 +96,16 @@ export function validateRecommendationProfile(data) {
   if (data.diagnostics && !['high_score_record_count', 'pending_identity_count', 'linked_high_score_record_count',
     'unavailable_identity_count', 'stale_identity_count', 'conflict_identity_count'].every((key) =>
     Number.isInteger(data.diagnostics[key]) && data.diagnostics[key] >= 0)) throw new Error('推荐画像合同不兼容，请重新加载。')
+  validateColdStartState(data.cold_start_state)
+  if (data.cold_start_state) {
+    const cold = data.cold_start_state
+    if (cold.usable_sample_count !== data.usable_sample_count || cold.eligible_sample_count !== data.eligible_sample_count
+      || cold.is_cold_start !== data.cold_start || cold.minimum_samples !== data.sample_policy.minimum_samples
+      || !Array.isArray(data.extraction?.explicit_preferences?.tags)
+      || cold.explicit_preference_count !== data.extraction.explicit_preferences.tags.length) {
+      throw new Error('推荐画像合同不兼容，请重新加载。')
+    }
+  }
   return data
 }
 

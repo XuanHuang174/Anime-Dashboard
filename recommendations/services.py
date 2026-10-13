@@ -7,6 +7,7 @@ from django.db import transaction
 from rest_framework.exceptions import APIException, NotAuthenticated
 
 from .extraction import extract_profile, EXTRACTION_CONTRACT_VERSION
+from .cold_start import cold_start_contract
 from .resolution import resolved_records
 from .models import RecommendationPreference
 from .taxonomy import MAX_PREFERENCE_TAGS, TAXONOMY_VERSION, canonical_tags, AVAILABLE_TAGS
@@ -55,6 +56,8 @@ def profile_data(user):
                        **{key: extracted[key] for key in ('trusted_profile', 'common_topics',
                                                         'record_stats', 'ignored_tag_counts')}},
     }
+    contract['cold_start_state'] = cold_start_contract(extracted,
+        preference_tags=contract['extraction']['explicit_preferences']['tags'], minimum=minimum)
     return contract, records, seeds
 
 

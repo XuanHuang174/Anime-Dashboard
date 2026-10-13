@@ -116,6 +116,7 @@ class RecommendationListView(OwnRecommendationAPIView):
             'contract_version': CONTRACT_VERSION, 'algorithm_version': ALGORITHM_VERSION,
             'feature_version': FEATURE_VERSION, 'taxonomy_version': TAXONOMY_VERSION,
             'mode': context['mode'], 'readiness': context['profile']['readiness'],
+            'cold_start_state': context['profile']['cold_start_state'],
             'count': len(ranked), 'page': options['page'], 'page_size': options['page_size'],
             'state_token': token if token != 'cold' else None,
             'next_page': options['page'] + 1 if start + len(page) < len(ranked) else None,

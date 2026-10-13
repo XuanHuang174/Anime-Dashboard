@@ -95,9 +95,11 @@ export function getSeasonDetails(period) {
     gridIconClass: '',
   }
 
-  if (!period || !period.includes('-')) return details
+  if (typeof period !== 'string' || !period.includes('-')) return details
 
-  const month = period.split('-')[1]
+  // Presentation only: retain the stored quarter and accept both 2026-4 / 2026-04.
+  const rawMonth = period.trim().split('-')[1]
+  const month = /^(?:0?[147]|10)$/.test(rawMonth) ? String(Number(rawMonth)) : ''
   if (month === '1') {
     return {
       periodStyle: 'bg-sky-50 text-sky-700 border-2 border-sky-500 shadow-[2px_2px_0_0_#38bdf8]',

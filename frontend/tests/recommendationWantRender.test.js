@@ -8,7 +8,7 @@ import react from '@vitejs/plugin-react'
 // Compile the actual JSX with the installed toolchain, not a duplicate fixture.
 // Middleware/disabled HMR means this test opens no browser/listening server.
 const server = await createServer({ configFile: false, plugins: [react()],
-  server: { middlewareMode: true, hmr: false }, appType: 'custom' })
+  server: { middlewareMode: true, hmr: false, ws: false }, appType: 'custom' })
 after(() => server.close())
 const { RecommendationActions, default: RecommendationCard } = await server.ssrLoadModule('/src/components/recommendations/RecommendationCard.jsx')
 const { wantFailure } = await server.ssrLoadModule('/src/utils/recommendationWant.js')

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import RecommendationCard, { RecommendationActions, RecommendationCover, RecommendationMeta } from '../components/recommendations/RecommendationCard.jsx'
 import RecommendationDialog from '../components/recommendations/RecommendationDialog.jsx'
 import RecommendationIdentityReview from '../components/recommendations/RecommendationIdentityReview.jsx'
+import { RecommendationTasteNote, RecommendationColdStartGuide } from '../components/recommendations/RecommendationProfileGuide.jsx'
 import { RecommendationEmptyState, RecommendationSkeleton } from '../components/recommendations/RecommendationStates.jsx'
 import recommendationApi from '../api/recommendations.js'
 import useRecommendations from '../hooks/useRecommendations.js'
@@ -94,21 +95,17 @@ export default function Recommendations({ client = recommendationApi }) {
         <div className="rec-intro-copy"><span className="rec-eyebrow">YOUR NEXT FAVORITE <span className="rec-preview-badge">推荐 V1</span></span>
           <h1>找到你的下一部<br /><span>心头好<span className="rec-title-star" aria-hidden="true">✦</span></span></h1>
           <p>从喜欢的故事出发，把下一次心动写进手账。</p></div>
-        <aside className="rec-taste-note" aria-labelledby="rec-taste-title"><span className="rec-eyebrow">A NOTE ABOUT YOUR TASTE</span>
-          <h2 id="rec-taste-title">我的口味 <span aria-hidden="true">↗</span></h2>
-          <p className="rec-taste-summary">{pending && !profile?.eligible_sample_count ? '高分作品待关联，画像标签待生成'
-            : <><b>{profile?.tag_summary.length ?? '—'}</b> 个画像标签 · <b>{profile?.eligible_sample_count ?? '—'}</b> 部已关联样本</>}</p>
-          <p className="rec-muted">手动偏好 {state.preferences?.tags.length ?? '—'} 个{pending ? ` · 待关联 ${pending} 条` : ''}</p>
-          <div className="rec-card-tags">{profile?.tag_summary.slice(0, 3).map(({ tag }) => <span key={tag}>{tag}</span>)}</div>
-          <button type="button" className="rec-text-button" disabled={!state.preferences} onClick={openPreferences}>调整明确喜好 →</button>
-        </aside>
+        <RecommendationTasteNote profile={profile} preferences={state.preferences} status={state.status}
+          onPreferences={openPreferences} onRetry={state.retry} />
       </header>
-      {pending > 0 && <section className="rec-identity-notice" aria-label="旧数据关联提示"><p>{identitySummary(profile)}</p>
+      <RecommendationColdStartGuide profile={profile} status={state.status} preferencesReady={!!state.preferences}
+        onPreferences={openPreferences} onIdentity={() => setPanel({ kind: 'identity' })} />
+      {pending > 0 && !profile.cold_start && <section className="rec-identity-notice" aria-label="旧数据关联提示"><p>{identitySummary(profile)}</p>
         <button type="button" className="rec-button rec-button--primary" disabled={profile.identity_service_ready === false} onClick={() => setPanel({ kind: 'identity' })}>核对旧作品 →</button></section>}
       {profile?.identity_service_ready === false && <p className="rec-muted">关联工具尚待完成部署。旧手账记录仍完整保留，当前不会自动修改数据。</p>}
       {profile?.diagnostics?.unavailable_identity_count > 0 && <p className="rec-muted">另有 {profile.diagnostics.unavailable_identity_count} 条高分记录因未收录或分级限制未计入推荐画像。</p>}
       <section className="rec-demo-note" aria-label="推荐依据"><span className="rec-demo-dot" aria-hidden="true" />
-        <p>{state.data?.mode === 'preference_based' ? '当前依据你明确选择的题材推荐，尚未形成高分作品画像。'
+        <p>{state.data?.mode === 'preference_based' ? '根据你选择的题材推荐，尚未形成高分作品画像。'
           : `参考已看过且个人评分 ≥ ${profile?.sample_policy.minimum_score ?? '8.5'} 的作品；只展示已有数据支持的推荐理由。`}
           {' '}加入想看不会覆盖已有评分、长评或观看状态。</p></section>
       <section className="rec-controls" aria-label="推荐类别与筛选">
@@ -125,10 +122,9 @@ export default function Recommendations({ client = recommendationApi }) {
           <h2 id="rec-results-title">下一次心动，从这里开始</h2></div>
           <span className="rec-result-count">{state.data ? `${state.data.count} 部可浏览作品` : state.status === 'error' ? '暂未加载结果' : '正在读取数据'}</span></div>
         {state.error && <p className="rec-inline-error" role="alert">{state.error}</p>}
-        {state.status === 'loading' ? <RecommendationSkeleton /> : state.status !== 'ready'
-          ? <RecommendationEmptyState state={state.status} needsTags={state.status === 'cold' && profile?.readiness === 'needs_tags'}
-            needsIdentity={state.status === 'cold' && pending > 0} onIdentity={() => setPanel({ kind: 'identity' })}
-            onRetry={state.retry} onReset={reset} onPreferences={openPreferences} />
+        {state.status === 'loading' ? <RecommendationSkeleton /> : state.status === 'cold'
+          ? <p className="rec-muted">完成上方口味设置后，再来翻开推荐故事。你的原有手账不会被修改。</p> : state.status !== 'ready'
+          ? <RecommendationEmptyState state={state.status} onRetry={state.retry} onReset={reset} />
           : <><RecommendationCard {...cardProps(state.items[0])} hero />
             {state.items.length > 1 && <><div className="rec-more-heading"><h3>还有这些故事，值得翻开</h3><span>不止一种心动</span></div>
               <div className="rec-grid">{state.items.slice(1).map((item) => <RecommendationCard key={item.id} {...cardProps(item)} />)}</div></>}

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import recommendationApi from '../api/recommendations.js'
-import { createLatestRequestGate, mapRecommendationPage, mergeRecommendationPages, recommendationError, validateRecommendationPreferences, validateRecommendationProfile } from '../utils/recommendations.js'
+import { createLatestRequestGate, mapRecommendationPage, mergeRecommendationPages, recommendationError, validateRecommendationPreferences, validateRecommendationProfile, validateRecommendationSnapshot, recommendationResultState } from '../utils/recommendations.js'
 
 export default function useRecommendations(category, filters, client = recommendationApi) {
   const root = useRef(createLatestRequestGate())
@@ -19,7 +19,8 @@ export default function useRecommendations(category, filters, client = recommend
       validateRecommendationProfile(profile)
       validateRecommendationPreferences(preferences)
       const data = mapRecommendationPage(raw)
-      if (request.isCurrent()) setState({ key, status: data.mode === 'cold_start' ? 'cold' : data.items.length ? 'ready' : 'empty',
+      validateRecommendationSnapshot(profile, preferences, data)
+      if (request.isCurrent()) setState({ key, status: recommendationResultState(data),
         profile, preferences, items: data.items, data, moreLoading: false, moreError: '' })
     }).catch((error) => {
       if (request.isCurrent()) {

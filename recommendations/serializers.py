@@ -120,12 +120,32 @@ class ProfileExtractionSerializer(serializers.Serializer):
     ignored_tag_counts = IgnoredTagCountsSerializer(read_only=True)
 
 
+class ColdStartStateSerializer(serializers.Serializer):
+    contract_version = serializers.CharField(read_only=True)
+    code = serializers.CharField(read_only=True)
+    reasons = serializers.ListField(child=serializers.CharField(), read_only=True)
+    is_cold_start = serializers.BooleanField(read_only=True)
+    recommendation_basis = serializers.CharField(read_only=True)
+    minimum_samples = serializers.IntegerField(min_value=1, read_only=True)
+    explicit_preference_count = serializers.IntegerField(min_value=0, read_only=True)
+    journal_record_count = serializers.IntegerField(min_value=0, read_only=True)
+    rated_record_count = serializers.IntegerField(min_value=0, read_only=True)
+    unrated_record_count = serializers.IntegerField(min_value=0, read_only=True)
+    high_score_record_count = serializers.IntegerField(min_value=0, read_only=True)
+    eligible_sample_count = serializers.IntegerField(min_value=0, read_only=True)
+    usable_sample_count = serializers.IntegerField(min_value=0, read_only=True)
+    pending_identity_count = serializers.IntegerField(min_value=0, read_only=True)
+    missing_genre_count = serializers.IntegerField(min_value=0, read_only=True)
+    unavailable_sample_count = serializers.IntegerField(min_value=0, read_only=True)
+
+
 class RecommendationProfileSerializer(serializers.Serializer):
     contract_version = serializers.CharField(read_only=True)
     taxonomy_version = serializers.CharField(read_only=True)
     eligible_sample_count = serializers.IntegerField(read_only=True)
     usable_sample_count = serializers.IntegerField(min_value=0, read_only=True)
     cold_start = serializers.BooleanField(read_only=True)
+    cold_start_state = ColdStartStateSerializer(read_only=True)
     has_usable_tags = serializers.BooleanField(read_only=True)
     readiness = serializers.CharField(read_only=True)
     tag_summary = ProfileTagSerializer(many=True, read_only=True)

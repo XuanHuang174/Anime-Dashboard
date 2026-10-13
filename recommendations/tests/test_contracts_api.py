@@ -43,7 +43,7 @@ class ProfileAPITests(ContractFixtures, APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(set(response.data), {'contract_version', 'taxonomy_version', 'eligible_sample_count',
                          'cold_start', 'has_usable_tags', 'readiness', 'tag_summary', 'sample_policy', 'diagnostics',
-                         'identity_service_ready', 'usable_sample_count', 'extraction'})
+                         'identity_service_ready', 'usable_sample_count', 'extraction', 'cold_start_state'})
         self.assertEqual(response.data['eligible_sample_count'], 0)
         self.assertTrue(response.data['cold_start'])
         self.assertEqual(response.data['tag_summary'], [])
