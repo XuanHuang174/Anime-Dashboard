@@ -1,6 +1,15 @@
 import { Link } from 'react-router-dom'
 
-export function RecommendationTasteNote({ profile, preferences, status, onPreferences, onRetry }) {
+export function RecommendationRefreshNotice({ confirmedPreferences, status, onRetry }) {
+  if (!confirmedPreferences) return null
+  return <section className="rec-save-refresh" role={status === 'error' ? 'alert' : 'status'}>
+    <p>{status === 'error' ? '偏好已保存，推荐更新失败。已保存的设置不会丢失，也无需重复保存。'
+      : '偏好已保存，正在重新读取画像与推荐…'}</p>
+    {status === 'error' && <button type="button" className="rec-button" onClick={onRetry}>重试更新推荐</button>}
+  </section>
+}
+
+export function RecommendationTasteNote({ profile, preferences, status, onPreferences, onRetry, confirmedPreferences }) {
   const unavailable = !profile || status === 'loading' || status === 'error'
   return <aside className="rec-taste-note" aria-labelledby="rec-taste-title" aria-busy={status === 'loading'}>
     <span className="rec-eyebrow">A NOTE ABOUT YOUR TASTE</span>
@@ -19,6 +28,7 @@ export function RecommendationTasteNote({ profile, preferences, status, onPrefer
         <div className="rec-card-tags">{preferences?.tags.slice(0, 3).map(tag => <span key={tag}>{tag}</span>)}</div>
         {!preferences?.tags.length && <small>尚未选择；不会自动替你勾选</small>}
       </div></>}
+    {unavailable && confirmedPreferences && <p className="rec-muted">手动偏好已保存 {confirmedPreferences.tags.length} 个；自动画像等待重新读取。</p>}
     {status === 'error' ? <button type="button" className="rec-text-button" onClick={onRetry}>重试读取 →</button>
       : <button type="button" className="rec-text-button" disabled={!preferences} onClick={onPreferences}>调整明确喜好 →</button>}
   </aside>

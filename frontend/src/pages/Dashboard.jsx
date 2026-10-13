@@ -27,6 +27,7 @@ import {
 import StatsSummary from '../components/StatsSummary.jsx'
 import { comparePeriod } from '../utils/animeDisplay.js'
 import { mapRecordToAnimeItem } from '../utils/recordMapping.js'
+import { notifyRecommendationChange } from '../utils/recommendationReload.js'
 
 gsap.registerPlugin(useGSAP)
 
@@ -653,6 +654,7 @@ function Dashboard() {
   }
 
   const handleRecordUpdated = (updatedRecord) => {
+    if (!isSharedJournal && !isAdminJournalReview) notifyRecommendationChange()
     setRecords((current) => current.map((record) => (
       record.id === updatedRecord.id ? updatedRecord : record
     )))
@@ -706,6 +708,7 @@ function Dashboard() {
   }
 
   const handleRecordDeleted = (recordId) => {
+    if (!isSharedJournal && !isAdminJournalReview) notifyRecommendationChange()
     setRecords((current) => current.filter((record) => record.id !== recordId))
     setSelectedItem(null)
     const remainingTotal = Math.max(0, Number(recordsTotal ?? 0) - 1)
@@ -718,6 +721,7 @@ function Dashboard() {
   }
 
   const handleRecordAdded = (newRecord) => {
+    if (!isSharedJournal && !isAdminJournalReview) notifyRecommendationChange()
     // Keep the POST response (including its newly persisted R2 poster URL) in
     // local state immediately; the refresh below remains the source of truth
     // for pagination, sorting and aggregate counts.
@@ -730,6 +734,7 @@ function Dashboard() {
   }
 
   const handleRecordsImported = () => {
+    if (!isSharedJournal && !isAdminJournalReview) notifyRecommendationChange()
     setSelectedItem(null)
     setCurrentPage(1)
     setRecordsRefreshKey((key) => key + 1)

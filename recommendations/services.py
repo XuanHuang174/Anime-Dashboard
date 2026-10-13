@@ -53,6 +53,11 @@ def profile_data(user):
         'extraction': {'contract_version': EXTRACTION_CONTRACT_VERSION,
                        'rule_version': extracted['rule_version'], 'taxonomy_version': TAXONOMY_VERSION,
                        'explicit_preferences': preference_contract(user),
+                       'preference_policy': {'maximum_tags': MAX_PREFERENCE_TAGS,
+                                             'suggested_initial_min': 3, 'suggested_initial_max': 5,
+                                             'maximum_observed_topics': 8,
+                                             'explicit_preferences_are_hard_filters': False,
+                                             'common_topics_require_confirmation': True},
                        **{key: extracted[key] for key in ('trusted_profile', 'common_topics',
                                                         'record_stats', 'ignored_tag_counts')}},
     }

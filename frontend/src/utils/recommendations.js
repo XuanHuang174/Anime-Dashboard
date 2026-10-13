@@ -34,7 +34,8 @@ export function validateRecommendationSnapshot(profile, preferences, data) {
   const state = profile.cold_start_state
   if (state || data.cold_start_state) {
     if (!state || !data.cold_start_state || JSON.stringify(state) !== JSON.stringify(data.cold_start_state)
-      || JSON.stringify(profile.extraction.explicit_preferences.tags) !== JSON.stringify(preferences.tags)) {
+      || JSON.stringify(profile.extraction.explicit_preferences.tags) !== JSON.stringify(preferences.tags)
+      || profile.extraction.explicit_preferences.version !== preferences.version) {
       throw new Error('推荐画像合同不兼容，数据已变化，请重新加载。')
     }
   }
@@ -106,6 +107,18 @@ export function validateRecommendationProfile(data) {
       throw new Error('推荐画像合同不兼容，请重新加载。')
     }
   }
+  if (data.extraction?.preference_policy) {
+    const { preference_policy: policy, trusted_profile: trusted, common_topics: common } = data.extraction
+    const topics = value => Array.isArray(value) && value.every(item => typeof item.tag === 'string'
+      && Number.isInteger(item.sample_count) && item.sample_count > 0)
+    if (policy.maximum_tags !== 20 || policy.maximum_observed_topics !== 8
+      || policy.common_topics_require_confirmation !== true || policy.explicit_preferences_are_hard_filters !== false
+      || !Number.isInteger(trusted?.usable_work_count) || trusted.usable_work_count !== data.usable_sample_count
+      || !topics(trusted.tag_summary) || !topics(common?.tag_summary)
+      || common.requires_confirmation !== true || common.used_for_recommendation !== false) {
+      throw new Error('推荐画像合同不兼容，请重新加载。')
+    }
+  }
   return data
 }
 
@@ -130,7 +143,8 @@ export function identitySummary(profile) {
 export function validateRecommendationPreferences(data) {
   if (data?.contract_version !== 'recommendations.3a.v1' || !Number.isInteger(data.version) || data.version < 0
     || !Array.isArray(data.tags) || data.tags.length > 20 || !Array.isArray(data.available_tags)
-    || !data.available_tags.every((tag) => typeof tag === 'string') || !data.tags.every((tag) => data.available_tags.includes(tag))) {
+    || !data.available_tags.every((tag) => typeof tag === 'string') || !data.tags.every((tag) => data.available_tags.includes(tag))
+    || new Set(data.tags).size !== data.tags.length || new Set(data.available_tags).size !== data.available_tags.length) {
     throw new Error('推荐偏好合同不兼容，请重新加载。')
   }
   return data

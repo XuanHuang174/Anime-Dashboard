@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import recommendationApi from '../api/recommendations.js'
-import { createLatestRequestGate, mapRecommendationPage, mergeRecommendationPages, recommendationError, validateRecommendationPreferences, validateRecommendationProfile, validateRecommendationSnapshot, recommendationResultState } from '../utils/recommendations.js'
+import { createLatestRequestGate, mapRecommendationPage, mergeRecommendationPages, recommendationError, recommendationResultState } from '../utils/recommendations.js'
+import { loadRecommendationSnapshot } from '../utils/recommendationSnapshot.js'
 
 export default function useRecommendations(category, filters, client = recommendationApi) {
   const root = useRef(createLatestRequestGate())
   const more = useRef(createLatestRequestGate())
   const moreBusy = useRef(false)
+  const confirmed = useRef(null)
   const [revision, setRevision] = useState(0)
   const [state, setState] = useState({ status: 'loading', items: [] })
   const key = JSON.stringify([category, filters.type, filters.minScore, filters.hideRecorded, revision])
@@ -13,19 +15,17 @@ export default function useRecommendations(category, filters, client = recommend
     const request = root.current.begin()
     more.current.cancel()
     moreBusy.current = false
-    setState({ key, status: 'loading', items: [] })
-    Promise.all([client.profile(request.signal), client.preferences(request.signal),
-      client.list({ category, filters }, request.signal)]).then(([profile, preferences, raw]) => {
-      validateRecommendationProfile(profile)
-      validateRecommendationPreferences(preferences)
-      const data = mapRecommendationPage(raw)
-      validateRecommendationSnapshot(profile, preferences, data)
-      if (request.isCurrent()) setState({ key, status: recommendationResultState(data),
-        profile, preferences, items: data.items, data, moreLoading: false, moreError: '' })
+    const confirmedPreferences = confirmed.current
+    setState({ key, status: 'loading', items: [], confirmedPreferences })
+    loadRecommendationSnapshot(client, { category, filters, signal: request.signal, confirmedPreferences }).then(snapshot => {
+      if (request.isCurrent()) {
+        confirmed.current = null
+        setState({ key, status: recommendationResultState(snapshot.data), ...snapshot, moreLoading: false, moreError: '' })
+      }
     }).catch((error) => {
       if (request.isCurrent()) {
         root.current.cancel()
-        setState({ key, status: 'error', items: [], error: recommendationError(error) })
+        setState({ key, status: 'error', items: [], confirmedPreferences, error: recommendationError(error) })
       }
     })
     return () => { root.current.cancel(); more.current.cancel() }
@@ -33,7 +33,11 @@ export default function useRecommendations(category, filters, client = recommend
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, client])
 
-  const retry = () => setRevision((value) => value + 1)
+  const retry = ({ confirmedPreferences } = {}) => {
+    if (confirmedPreferences) confirmed.current = confirmedPreferences
+    root.current.cancel(); more.current.cancel(); moreBusy.current = false
+    setRevision((value) => value + 1)
+  }
   const recordChanged = (identity, watchStatus) => {
     more.current.cancel(); moreBusy.current = false
     setState((current) => ({ ...current, snapshotDirty: true, moreLoading: false, moreError: '',
@@ -58,5 +62,5 @@ export default function useRecommendations(category, filters, client = recommend
       }
     } finally { if (request.isCurrent()) moreBusy.current = false }
   }
-  return { ...(state.key === key ? state : { status: 'loading', items: [] }), retry, loadMore, recordChanged }
+  return { ...(state.key === key ? state : { status: 'loading', items: [], confirmedPreferences: confirmed.current }), retry, loadMore, recordChanged }
 }

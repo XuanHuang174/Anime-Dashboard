@@ -109,11 +109,21 @@ class IgnoredTagCountsSerializer(serializers.Serializer):
     unknown = serializers.IntegerField(min_value=0, read_only=True)
 
 
+class PreferencePolicySerializer(serializers.Serializer):
+    maximum_tags = serializers.IntegerField(read_only=True)
+    suggested_initial_min = serializers.IntegerField(read_only=True)
+    suggested_initial_max = serializers.IntegerField(read_only=True)
+    maximum_observed_topics = serializers.IntegerField(read_only=True)
+    explicit_preferences_are_hard_filters = serializers.BooleanField(read_only=True)
+    common_topics_require_confirmation = serializers.BooleanField(read_only=True)
+
+
 class ProfileExtractionSerializer(serializers.Serializer):
     contract_version = serializers.CharField(read_only=True)
     rule_version = serializers.CharField(read_only=True)
     taxonomy_version = serializers.CharField(read_only=True)
     explicit_preferences = RecommendationPreferenceSerializer(read_only=True)
+    preference_policy = PreferencePolicySerializer(read_only=True)
     trusted_profile = TrustedProfileSerializer(read_only=True)
     common_topics = CommonTopicsSerializer(read_only=True)
     record_stats = ProfileRecordStatsSerializer(read_only=True)

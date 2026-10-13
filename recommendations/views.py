@@ -3,6 +3,7 @@ import hmac
 import logging
 
 from django.db import DatabaseError
+from django.utils.cache import patch_vary_headers
 
 from rest_framework import permissions
 from rest_framework.exceptions import ValidationError
@@ -41,6 +42,13 @@ class BoundedPreferenceJSONParser(JSONParser):
 class OwnRecommendationAPIView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
     parser_classes = (BoundedPreferenceJSONParser,)
+
+    def finalize_response(self, request, response, *args, **kwargs):
+        response = super().finalize_response(request, response, *args, **kwargs)
+        # Personalized responses must not be replayed by a browser/CDN after a save.
+        response['Cache-Control'] = 'private, no-store'
+        patch_vary_headers(response, ('Authorization', 'Cookie'))
+        return response
 
     def handle_exception(self, exc):
         if isinstance(exc, DatabaseError):

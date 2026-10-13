@@ -55,6 +55,20 @@ export function createWantController(client) {
       state = Object.fromEntries(Object.entries(state).filter(([,value]) => !value.error))
       for (const listener of listeners) listener()
     },
+    reconcile(items) {
+      if (disposed) return
+      let changed = false
+      const next = { ...state }
+      for (const item of items) {
+        const operation = next[item.bangumiId]
+        if (operation?.status !== 'ready') continue // Never discard an in-flight POST.
+        if (item.watchStatus === null) { delete next[item.bangumiId]; changed = true }
+        else if (STATUSES.includes(item.watchStatus) && operation.watchStatus !== item.watchStatus) {
+          next[item.bangumiId] = { ...operation, watchStatus: item.watchStatus }; changed = true
+        }
+      }
+      if (changed) { state = next; for (const listener of listeners) listener() }
+    },
     add(item) {
       const id = item.bangumiId
       if (disposed || !Number.isInteger(id) || id < 1 || id > 2147483647) return Promise.resolve(null)

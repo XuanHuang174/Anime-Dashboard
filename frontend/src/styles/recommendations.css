@@ -119,6 +119,20 @@
 .memphis-rec-container .rec-taste-options legend { font-size: 13px; font-weight: 800; margin-bottom: 12px; }
 .memphis-rec-container .rec-taste-option { display: flex; align-items: center; gap: 10px; border: 2px solid var(--rec-ink); background: white; padding: 12px; font-size: 13px; }
 .memphis-rec-container .rec-taste-option:has(input:checked) { background: var(--rec-yellow); }
+.memphis-rec-container .rec-preference-basis { font-size: 13px; line-height: 1.9; }
+.memphis-rec-container .rec-preference-basis span { display: block; color: var(--rec-muted); margin-top: 6px; }
+.memphis-rec-container .rec-preference-section { border: 2px solid var(--rec-ink); padding: 18px; margin-top: 18px; background: white; }
+.memphis-rec-container .rec-preference-section--trusted { background: #e6f3ec; }
+.memphis-rec-container .rec-preference-section--observed, .memphis-rec-container .rec-preference-conflict { background: #fff2cc; }
+.memphis-rec-container .rec-preference-section h3 { margin: 0 0 10px; font-size: 16px; font-weight: 900; }
+.memphis-rec-container .rec-preference-section h3 small { margin-left: 8px; font-size: 11px; font-weight: 600; }
+.memphis-rec-container .rec-preference-section p, .memphis-rec-container .rec-preference-conflict p { font-size: 12px; line-height: 1.9; }
+.memphis-rec-container .rec-topic-list { list-style: none; padding: 0; margin: 12px 0 0; }
+.memphis-rec-container .rec-topic-list li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 14px; padding: 10px 0; font-size: 12px; line-height: 1.8; border-top: 1px solid #b9c9bc; }
+.memphis-rec-container .rec-topic-list .rec-button { min-height: 36px; font-size: 11px; padding: 6px 10px; }
+.memphis-rec-container .rec-preference-conflict { border: 2px solid var(--rec-ink); padding: 16px; margin-top: 16px; }
+.memphis-rec-container .rec-save-refresh { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; border: 2px solid var(--rec-ink); background: #e6f3ec; padding: 14px 18px; margin: 0 0 18px; font-size: 13px; }
+.memphis-rec-container .rec-save-refresh p { flex: 1 1 260px; margin: 0; line-height: 1.8; }
 .memphis-rec-container .rec-detail-content { display: grid; grid-template-columns: 205px minmax(0, 1fr); gap: 26px; }
 .memphis-rec-container .rec-detail-content > .rec-cover { height: fit-content; border: 2px solid var(--rec-ink); }
 .memphis-rec-container .rec-detail-content h3 { font-size: 14px; font-weight: 900; margin: 24px 0 10px; }
@@ -147,6 +161,7 @@
   .memphis-rec-container .rec-cold-guide { padding: 16px; }
   .memphis-rec-container .rec-cold-guide h2 { font-size: 18px; }
   .memphis-rec-container .rec-cold-actions .rec-button { flex: 1 1 170px; }
+  .memphis-rec-container .rec-preference-section { padding: 14px; }
   .memphis-rec-container .rec-controls { align-items: stretch; gap: 12px; padding: 20px 0; flex-wrap: wrap; }
   .memphis-rec-container .rec-categories { flex: 1 1 100%; justify-content: space-between; gap: 4px; }
   .memphis-rec-container .rec-category { padding: 8px 10px; font-size: 12px; }
