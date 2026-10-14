@@ -37,11 +37,11 @@ class TagCoveragePrimitiveTests(SimpleTestCase):
             self.assertIsNone(canonical_tag(source))
             self.assertEqual(feature_tags(source), frozenset())
         self.assertEqual(ALIASES, before)
-        self.assertEqual(TAXONOMY_VERSION, 'genres.v2')
+        self.assertEqual(TAXONOMY_VERSION, 'genres.v3')
         self.assertEqual(canonical_tag('搞笑'), '喜剧')
 
     def test_actual_coverage_unchanged_but_hypothesis_is_labelled_and_deduplicated(self):
-        rows = [row(1, tags='MUSIC, music,ｍｕｓｉｃ'), row(2, tags='音乐,MUSIC'),
+        rows = [row(1, tags='SPORTS, sports,ｓｐｏｒｔｓ'), row(2, tags='运动,SPORTS'),
                 row(3, tags='热血'), row(4, tags=''), row(5, tags='TV,2026,日本')]
         old = deepcopy(rows)
         result = analyze(rows)
@@ -50,11 +50,11 @@ class TagCoveragePrimitiveTests(SimpleTestCase):
         self.assertEqual(result['draft_synonyms_simulation']['with_effective_genres'], 2)
         self.assertEqual(result['draft_impact']['recovered_zero_genre_works'], 1)
         self.assertEqual(result['draft_impact']['enriched_works'], 1)
-        self.assertEqual(result['draft_impact']['new_genre_document_frequency'], {'音乐': 1})
-        music = next(item for item in result['unknown_tags'] if item['normalized_key'] == 'music')
-        self.assertEqual(music['document_frequency'], 2)
-        self.assertEqual(music['occurrences'], 4)
-        self.assertEqual(music['zero_genre_document_frequency'], 1)
+        self.assertEqual(result['draft_impact']['new_genre_document_frequency'], {'运动': 1})
+        sports = next(item for item in result['unknown_tags'] if item['normalized_key'] == 'sports')
+        self.assertEqual(sports['document_frequency'], 2)
+        self.assertEqual(sports['occurrences'], 4)
+        self.assertEqual(sports['zero_genre_document_frequency'], 1)
         self.assertEqual(rows, old)
         self.assertFalse(result['policy']['mapping_applied'])
         self.assertNotIn('热血', result['draft_impact']['new_genre_document_frequency'])
@@ -62,7 +62,7 @@ class TagCoveragePrimitiveTests(SimpleTestCase):
 
     def test_empty_management_title_and_mapping_target_title_never_become_features(self):
         rows = [row(1, tags=''), row(2, tags='二刷,2026,日本,神作'),
-                row(3, title_zh='MUSIC', tags='MUSIC'), row(4, title_zh='音乐', tags='music')]
+                row(3, title_zh='SPORTS', tags='SPORTS'), row(4, title_zh='运动', tags='sports')]
         report = analyze(rows)
         self.assertEqual(report['before']['with_effective_genres'], 0)
         self.assertEqual(report['draft_synonyms_simulation']['with_effective_genres'], 0)
@@ -70,7 +70,7 @@ class TagCoveragePrimitiveTests(SimpleTestCase):
         self.assertEqual(report['baseline_zero_genre_breakdown']['only_non_genre_tags'], 2)
         self.assertEqual(report['baseline_zero_genre_breakdown']['unmapped_tags_present'], 1)
         keys = {item['normalized_key'] for item in report['unknown_tags']}
-        self.assertEqual(keys, {'music'})
+        self.assertEqual(keys, {'sports'})
         self.assertEqual(extract_genres([], [])['tags'], frozenset())
 
     def test_three_classes_exact_labels_never_guess_from_names_or_cooccurrence(self):
@@ -95,7 +95,7 @@ class TagCoveragePrimitiveTests(SimpleTestCase):
         self.assertEqual(data['per_type']['TV']['before']['with_effective_genres'], 1)
 
     def test_valid_identity_subscope_and_empty_catalog_not_fake_zero_coverage(self):
-        result = analyze([row(None, tags='music'), row(0, tags='music'), row(1, tags='日常')])
+        result = analyze([row(None, tags='sports'), row(0, tags='sports'), row(1, tags='日常')])
         self.assertEqual(result['draft_synonyms_simulation']['with_effective_genres'], 3)
         self.assertEqual(result['valid_identity_coverage']['draft_synonyms_simulation']['works'], 1)
         empty = analyze([])
@@ -104,11 +104,11 @@ class TagCoveragePrimitiveTests(SimpleTestCase):
         self.assertIn('不可计算', coverage_markdown(empty))
 
     def test_samples_bounded_and_safety_metadata_conflicts_are_not_exported_as_titles(self):
-        report = analyze([row(i, tags='music') for i in range(1, 12)], example_limit=2)
+        report = analyze([row(i, tags='sports') for i in range(1, 12)], example_limit=2)
         self.assertEqual(len(report['unknown_tags'][0]['examples']), 2)
         self.assertEqual(len(report['unknown_tags'][0]['zero_genre_examples']), 2)
-        self.assertEqual(analyze([row(tags='music')], example_limit=0)['unknown_tags'][0]['examples'], [])
-        data = analyze([row(tags='music,里番', title_zh='SAFETY_REVIEW_TITLE')])
+        self.assertEqual(analyze([row(tags='sports')], example_limit=0)['unknown_tags'][0]['examples'], [])
+        data = analyze([row(tags='sports,里番', title_zh='SAFETY_REVIEW_TITLE')])
         self.assertEqual(data['safety_metadata_review_works'], 1)
         self.assertNotIn('SAFETY_REVIEW_TITLE', json.dumps(data, ensure_ascii=False))
         self.assertTrue(all(not item['examples'] for item in data['unknown_tags']))
@@ -150,7 +150,7 @@ class TagCoveragePrimitiveTests(SimpleTestCase):
 
 class TagCoverageDatabaseTests(TransactionTestCase):
     def setUp(self):
-        RecommendationAnime.objects.create(bangumi_id=1, title_zh='安全公共作品', tags='music,TV', nsfw=False)
+        RecommendationAnime.objects.create(bangumi_id=1, title_zh='安全公共作品', tags='sports,TV', nsfw=False)
         RecommendationAnime.objects.create(bangumi_id=2, title_zh='ADULT_SECRET_TITLE', tags='ADULT_SECRET_TAG', nsfw=True)
         RecommendationAnime.objects.create(bangumi_id=3, title_zh='UNKNOWN_SECRET_TITLE', tags='UNKNOWN_SECRET_TAG', nsfw=None)
 
@@ -207,11 +207,11 @@ class TagCoverageDatabaseTests(TransactionTestCase):
             review = json.loads((path / 'mapping-review.json').read_text(encoding='utf-8'))
             review['pending_synonyms'][0]['decision'] = 'approved'
             review['pending_synonyms'][0]['apply_to_production'] = True
-            self.assertIsNone(canonical_tag('music'))
+            self.assertIsNone(canonical_tag('sports'))
             index = build_feature_index([{'bangumi_id': 1, 'title_zh': '安全公共作品', 'title_jp': '',
-                                         'tags': 'music,TV', 'score': 8, 'status_type': 'TV'}])
+                                         'tags': 'sports,TV', 'score': 8, 'status_type': 'TV'}])
             self.assertFalse(index['features'][0][1])
             self.assertIsNone(candidate_score(set(), 8, {'音乐': 1}, {'音乐': 1}, 'all'))
             context = {'mode': 'preference_based', 'seeds': [], 'preferences': {'tags': ['音乐']}, 'owned': {}}
             self.assertEqual(rank_context(context, {'hide_recorded': True, 'category': 'all', 'min_score': 0, 'type': 'all'}, index)[0], [])
-            self.assertEqual(RecommendationAnime.objects.get(bangumi_id=1).tags, 'music,TV')
+            self.assertEqual(RecommendationAnime.objects.get(bangumi_id=1).tags, 'sports,TV')

@@ -6,7 +6,8 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import DatabaseError
 
 from recommendations.quality_readonly import readonly_snapshot
-from recommendations.tag_coverage import ARTIFACTS, analyze_public_tags, public_tag_snapshot, write_coverage_reports
+from recommendations.tag_coverage import (ARTIFACTS, analyze_public_tags, attach_release_comparison,
+                                           public_tag_snapshot, write_coverage_reports)
 
 
 class Command(BaseCommand):
@@ -16,6 +17,7 @@ class Command(BaseCommand):
         parser.add_argument('--output-dir', type=Path)
         parser.add_argument('--example-limit', type=int, default=3, help='每个标签最多 0–5 个非成人公共作品样例')
         parser.add_argument('--statement-timeout-ms', type=int, default=30000)
+        parser.add_argument('--compare-before-dir', type=Path, help='核验同目录的 genres.v2 旧报告，生成实际启用前后对比；目录不一致时拒绝归因')
 
     def handle(self, *args, **options):
         if not 0 <= options['example_limit'] <= 5:
@@ -29,11 +31,13 @@ class Command(BaseCommand):
                 scope, rows = public_tag_snapshot()
                 self.stdout.write(f'Snapshot: {len(rows)} explicitly non-adult public rows; database read-only')
                 report = analyze_public_tags(rows, scope, example_limit=options['example_limit'])
+            if options['compare_before_dir']:
+                attach_release_comparison(report, options['compare_before_dir'])
             paths = write_coverage_reports(report, directory)
         except (ValueError, OSError, DatabaseError) as exc:
             raise CommandError(str(exc) if isinstance(exc, ValueError) else
                 f'Tag audit stopped safely ({type(exc).__name__}); no database writes performed') from None
         self.stdout.write(f"Unknown labels: {report['unknown_unique_tags']}; draft recovered works: "
-                          f"{report['draft_impact']['recovered_zero_genre_works']}; NO mappings activated")
+                          f"{report['draft_impact']['recovered_zero_genre_works']}; audit itself activates NO mappings")
         for path in paths:
             self.stdout.write(str(path))

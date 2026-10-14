@@ -6,7 +6,7 @@ import unicodedata
 from .identity import normalized_title
 from .taxonomy import AVAILABLE_TAGS, canonical_tag
 
-FEATURE_RULE_VERSION = 'journal-genres.v1'
+FEATURE_RULE_VERSION = 'journal-genres.v2'
 FEATURE_SOURCES = ('private_base_tags', 'shared_base_tags', 'custom_tags')
 IGNORED_REASONS = ('invalid', 'year', 'country', 'management', 'work_title', 'unknown')
 COUNTRIES = frozenset(('日本', '中国', '美国', '韩国', '英国', '法国', '加拿大', '德国',

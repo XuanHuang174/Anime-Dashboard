@@ -1,17 +1,26 @@
 """Versioned, neutral subject vocabulary; raw source/user tags stay untouched."""
 import unicodedata
 
-TAXONOMY_VERSION = 'genres.v2'
+TAXONOMY_VERSION = 'genres.v3'
+APPROVED_ALIAS_RELEASE = 'aliases.2026-10-14.approved-11'
 MAX_PREFERENCE_TAGS = 20
 AVAILABLE_TAGS = (
     '日常', '治愈', '喜剧', '校园', '恋爱', '百合', '科幻', '奇幻', '冒险', '悬疑',
     '推理', '战斗', '机战', '音乐', '运动', '历史', '职场', '亲情', '成长', '友情',
     '青春', '魔法', '异世界', '偶像', '美食', '旅行',
 )
+# Only the 11 entries explicitly approved after the 5B-1 review. Casefolding
+# also accepts Comedy/MUSIC; no unobserved draft or new genre is activated.
+APPROVED_ALIASES = {
+    '治愈系': '治愈', '治癒': '治愈', 'comedy': '喜剧', '日常系': '日常',
+    '戀愛': '恋爱', 'music': '音乐', '戰鬥': '战斗', '旅行系': '旅行',
+    '校園': '校园', '百合向': '百合', '職場': '职场',
+}
 ALIASES = {
     '搞笑': '喜剧', '真百': '百合', '真百合': '百合',
     '轻百': '百合', '轻百合': '百合', 'ゆり': '百合',
     'sci-fi': '科幻', 'scifi': '科幻', 'fantasy': '奇幻', 'slice of life': '日常',
+    **APPROVED_ALIASES,
 }
 
 

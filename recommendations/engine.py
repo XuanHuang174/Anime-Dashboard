@@ -17,9 +17,9 @@ from .taxonomy import TAXONOMY_VERSION
 from .features import feature_tags, FEATURE_RULE_VERSION
 
 ALGORITHM_VERSION = 'content.v1'
-FEATURE_VERSION = 'genres-idf.v2'
+FEATURE_VERSION = 'genres-idf.v3'
 CONTRACT_VERSION = 'recommendations.3b.v1'
-CACHE_KEY = 'recommendations.public-features.v2'
+CACHE_KEY = 'recommendations.public-features.v3'
 MAX_CATALOG_ROWS = 50000
 CANDIDATE_POOL = 400
 MAX_RESULTS = 120
@@ -52,7 +52,7 @@ def build_feature_index(rows, *, signature=None):
 
 def public_features():
     revision = safe_catalog().aggregate(count=Count('pk'), updated=Max('updated_at'))
-    signature = (revision['count'], str(revision['updated']), TAXONOMY_VERSION, FEATURE_VERSION)
+    signature = (revision['count'], str(revision['updated']), TAXONOMY_VERSION, FEATURE_VERSION, FEATURE_RULE_VERSION)
     if revision['count'] > MAX_CATALOG_ROWS:
         raise RecommendationUnavailable()
     value = cache.get(CACHE_KEY)
@@ -211,6 +211,7 @@ def rank_candidates(user, options):
     ranked, weights = rank_context(context, options, public_features())
     # Opaque, user-bound state token; never exposes ratings or user IDs themselves.
     state = {'user': user.pk, 'algorithm': ALGORITHM_VERSION, 'features': FEATURE_VERSION,
+             'taxonomy': TAXONOMY_VERSION,
              'extraction_rule': FEATURE_RULE_VERSION,
              'preferences': (context['preferences']['version'], context['preferences']['tags']),
              'seeds': [(seed['bangumi_id'], seed['score'], sorted(seed['tags']), seed['feature_sources'])

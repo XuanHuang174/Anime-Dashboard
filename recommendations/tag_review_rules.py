@@ -5,22 +5,20 @@ Approval requires a separate reviewed taxonomy change and version bump.
 """
 import unicodedata
 
-REVIEW_RULE_VERSION = 'public-tag-review.v1'
-PROPOSAL_VERSION = 'genres.v3.proposal.1'
+REVIEW_RULE_VERSION = 'public-tag-review.v2'
+PROPOSAL_VERSION = 'genres.v4.proposal.1'
 
 # Traditional forms / explicit genre names only. Subgenres and slang are NOT
 # flattened to a vaguely related existing genre to inflate coverage.
 PENDING_ALIASES = {
-    '喜劇': '喜剧', '搞笑向': '喜剧', 'コメディ': '喜剧', 'comedy': '喜剧',
-    '療癒': '治愈', '治癒': '治愈', '治愈系': '治愈', '日常系': '日常',
-    '校園': '校园', '戀愛': '恋爱', '恋愛': '恋爱', 'romance': '恋爱',
-    '百合向': '百合', '百合系': '百合',
+    '喜劇': '喜剧', '搞笑向': '喜剧', 'コメディ': '喜剧',
+    '療癒': '治愈', '恋愛': '恋爱', 'romance': '恋爱', '百合系': '百合',
     '科學幻想': '科幻', '科学幻想': '科幻', 'science fiction': '科幻', 'sci fi': '科幻',
     'ファンタジー': '奇幻', '冒險': '冒险', '懸疑': '悬疑',
-    '戰鬥': '战斗', '機戰': '机战', '音樂': '音乐', 'music': '音乐',
-    '運動': '运动', 'sports': '运动', '歷史': '历史', '職場': '职场',
+    '機戰': '机战', '音樂': '音乐',
+    '運動': '运动', 'sports': '运动', '歷史': '历史',
     '親情': '亲情', '成長': '成长', 'friendship': '友情',
-    '異世界': '异世界', '偶像系': '偶像', '美食系': '美食', '旅行系': '旅行',
+    '異世界': '异世界', '偶像系': '偶像', '美食系': '美食',
 }
 
 # Definitions must be confirmed separately. No candidate below is simulated as
