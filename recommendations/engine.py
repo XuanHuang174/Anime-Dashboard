@@ -15,8 +15,10 @@ from .identity import safe_catalog
 from .services import profile_data
 from .taxonomy import TAXONOMY_VERSION
 from .features import feature_tags, FEATURE_RULE_VERSION
+from . import ranking_v2
 
 ALGORITHM_VERSION = 'content.v1'
+EXPERIMENTAL_ALGORITHM_VERSION = 'content.v2'
 FEATURE_VERSION = 'genres-idf.v4'
 CONTRACT_VERSION = 'recommendations.3b.v1'
 CACHE_KEY = 'recommendations.public-features.v4'
@@ -87,13 +89,14 @@ def user_context(user):
             'mode': mode, 'owned': owned}
 
 
-def taste_vector(context):
+def taste_vector(context, *, deterministic=False):
     counts = Counter()
     if context['mode'] == 'personalized':
         for seed in context['seeds']:
-            for tag in seed['tags']:
+            for tag in (sorted(seed['tags']) if deterministic else seed['tags']):
                 counts[tag] += max(.1, seed['score'] - float(settings.RECOMMENDATION_PROFILE_SCORE_THRESHOLD) + 1.0) / len(seed['tags'])
-        total = sum(counts.values()) or 1
+        total = sum(counts[tag] for tag in sorted(counts)) if deterministic else sum(counts.values())
+        total = total or 1
         counts = Counter({tag: value / total for tag, value in counts.items()})
     chosen = context['preferences']['tags']
     if chosen:
@@ -103,7 +106,7 @@ def taste_vector(context):
     return counts
 
 
-def evidence_for(tags, context, weights):
+def evidence_for(tags, context, weights, *, deterministic=False):
     # Cap explanation search while retaining genre coverage. Profile uses ALL seeds.
     if 'explanation_seeds' not in context:
         ordered = sorted(context['seeds'], key=lambda seed: (-seed['score'], seed['bangumi_id']))
@@ -121,7 +124,10 @@ def evidence_for(tags, context, weights):
             shared = tags & seed['tags']
             if not shared:
                 continue
-            overlap = sum(weights.get(tag, 1) for tag in shared) / sum(weights.get(tag, 1) for tag in tags | seed['tags'])
+            shared_order = sorted(shared) if deterministic else shared
+            union = tags | seed['tags']
+            union_order = sorted(union) if deterministic else union
+            overlap = sum(weights.get(tag, 1) for tag in shared_order) / sum(weights.get(tag, 1) for tag in union_order)
             key = (overlap, seed['score'], -seed['bangumi_id'])
             if best is None or key > best[0]:
                 best = (key, seed, shared)
@@ -140,23 +146,27 @@ def evidence_for(tags, context, weights):
     return None, '', 0
 
 
-def candidate_score(tags, score, vector, weights, category, affinity=0):
+def candidate_score(tags, score, vector, weights, category, affinity=0, *, exploration_weights=(.5, .4, .1), deterministic=False):
     if not tags or not tags & vector.keys():
         return None
-    dot = sum(weights.get(tag, 1) ** 2 * vector[tag] for tag in tags if tag in vector)
-    norm = math.sqrt(sum(weights.get(tag, 1) ** 2 for tag in tags))
-    user_norm = math.sqrt(sum((weights.get(tag, 1) * value) ** 2 for tag, value in vector.items()))
+    tag_order = sorted(tags) if deterministic else tags
+    vector_order = sorted(vector.items()) if deterministic else vector.items()
+    dot = sum(weights.get(tag, 1) ** 2 * vector[tag] for tag in tag_order if tag in vector)
+    norm = math.sqrt(sum(weights.get(tag, 1) ** 2 for tag in tag_order))
+    user_norm = math.sqrt(sum((weights.get(tag, 1) * value) ** 2 for tag, value in vector_order))
     related = dot / (norm * user_norm) if user_norm else 0
-    novelty = sum(weights.get(tag, 1) for tag in tags - vector.keys()) / sum(weights.get(tag, 1) for tag in tags)
+    novel = tags - vector.keys()
+    novelty = sum(weights.get(tag, 1) for tag in (sorted(novel) if deterministic else novel)) / sum(weights.get(tag, 1) for tag in tag_order)
     quality = max(0, min(10, score)) / 10
     if category == 'explore':
-        return .5 * related + .4 * novelty + .1 * quality if novelty else None
+        related_weight, novelty_weight, quality_weight = exploration_weights
+        return related_weight * related + novelty_weight * novelty + quality_weight * quality if novelty else None
     if category == 'familiar':
         return .65 * affinity + .3 * related + .05 * quality
     return .85 * related + .1 * quality + .05 * novelty
 
 
-def rank_context(context, options, index):
+def _rank_context_v1(context, options, index):
     """Same V1 ranking, supplied request-local context/index; not an API input."""
     if context['mode'] == 'cold_start':
         return [], []
@@ -204,13 +214,89 @@ def rank_context(context, options, index):
     return ranked, weights
 
 
+def configured_algorithm():
+    version = getattr(settings, 'RECOMMENDATION_ALGORITHM_VERSION', ALGORITHM_VERSION)
+    if version not in (ALGORITHM_VERSION, EXPERIMENTAL_ALGORITHM_VERSION):
+        raise RecommendationUnavailable('推荐算法配置暂不可用，请联系管理员。')
+    return version
+
+
+def _v2_item(row, context, options, weights, vector, seed_ids):
+    identity = row['bangumi_id']
+    if identity in seed_ids or (
+            options['hide_recorded'] and identity in context['owned']):
+        return None
+    tags = feature_tags(row['tags'], (row['title_zh'], row['title_jp']))
+    if not tags & vector.keys():
+        return None
+    evidence, reason, affinity = evidence_for(tags, context, weights, deterministic=True)
+    if not evidence or (options['category'] == 'familiar' and context['mode'] == 'personalized'
+                        and evidence['kind'] != 'rated_work'):
+        return None
+    value = candidate_score(tags, row['score'], vector, weights, options['category'], affinity,
+                            exploration_weights=ranking_v2.EXPLORATION_WEIGHTS, deterministic=True)
+    if value is None or not math.isfinite(value):
+        return None
+    return {'bangumi_id': identity, 'tags': tags, 'value': value, 'evidence': evidence, 'reason': reason}
+
+
+def _rank_context_v2(context, options, index):
+    if context['mode'] == 'cold_start':
+        return [], []
+    weights, vector = index['weights'], taste_vector(context, deterministic=True)
+    seed_ids = {seed['bangumi_id'] for seed in context['seeds']}
+    # A stale cached feature row is NEVER authority for safety or evidence. Read
+    # bounded CURRENT public metadata before balancing, so invalid high-frequency
+    # rows cannot steal the rare-genre quota. No synopsis, images or private reviews.
+    query = safe_catalog().filter(score__gte=options['min_score'])
+    if options['type'] != 'all':
+        query = query.filter(status_type=options['type'])
+    fields = ('bangumi_id', 'tags', 'title_zh', 'title_jp', 'score', 'status_type')
+    eligible = []
+    for position, row in enumerate(query.order_by('bangumi_id').values(*fields)[:MAX_CATALOG_ROWS + 1].iterator(chunk_size=500), 1):
+        if position > MAX_CATALOG_ROWS:
+            raise RecommendationUnavailable()
+        item = _v2_item(row, context, options, weights, vector, seed_ids)
+        if item:
+            eligible.append(item)
+    pool = ranking_v2.balanced_candidate_pool(eligible, vector, limit=CANDIDATE_POOL)
+    # Recheck immediately before ranking/serialization; a safety change during
+    # pool construction can only remove rows, never bypass the backend filter.
+    rows = query.filter(bangumi_id__in=[item['bangumi_id'] for item in pool]).order_by('bangumi_id').defer('synopsis', 'source_cover_url')
+    current = []
+    for anime in rows:
+        item = _v2_item({field: getattr(anime, field) for field in fields}, context, options, weights, vector, seed_ids)
+        if item:
+            current.append({**item, 'anime': anime})
+    # Source safety is just as important as candidate safety. A source changing
+    # classification during a long pool scan must trigger a fresh profile read,
+    # not leak its title/rating through an otherwise safe candidate's reason.
+    if context['mode'] == 'personalized' and seed_ids != set(safe_catalog().filter(
+            bangumi_id__in=seed_ids).values_list('bangumi_id', flat=True)):
+        raise RecommendationSnapshotChanged()
+    return ranking_v2.rerank_candidates(current, vector, weights, category=options['category'], limit=MAX_RESULTS), weights
+
+
+def rank_context(context, options, index, *, algorithm_version=ALGORITHM_VERSION):
+    """Explicit offline version; V1 baseline never follows a deployment flag."""
+    if algorithm_version == ALGORITHM_VERSION:
+        return _rank_context_v1(context, options, index)
+    if algorithm_version == EXPERIMENTAL_ALGORITHM_VERSION:
+        return _rank_context_v2(context, options, index)
+    raise RecommendationUnavailable('推荐算法配置暂不可用，请联系管理员。')
+
+
 def rank_candidates(user, options):
+    algorithm = configured_algorithm()
     context = user_context(user)
+    context['algorithm_version'] = algorithm
     if context['mode'] == 'cold_start':
         return context, [], 'cold', []
-    ranked, weights = rank_context(context, options, public_features())
+    ranked, weights = rank_context(context, options, public_features(), algorithm_version=algorithm)
     # Opaque, user-bound state token; never exposes ratings or user IDs themselves.
-    state = {'user': user.pk, 'algorithm': ALGORITHM_VERSION, 'features': FEATURE_VERSION,
+    state = {'user': user.pk, 'algorithm': algorithm, 'features': FEATURE_VERSION,
+             'rerank_policy': ranking_v2.policy_contract() if algorithm == EXPERIMENTAL_ALGORITHM_VERSION else None,
+             'profile': context['profile'],
              'taxonomy': TAXONOMY_VERSION,
              'extraction_rule': FEATURE_RULE_VERSION,
              'preferences': (context['preferences']['version'], context['preferences']['tags']),
@@ -221,5 +307,5 @@ def rank_candidates(user, options):
              'items': [(item['anime'].bangumi_id, item['anime'].score, sorted(item['tags']), item['reason'],
                         item['anime'].cover_url, item['anime'].title_zh, item['anime'].title_jp,
                         item['anime'].status_type, item['anime'].season) for item in ranked]}
-    token = hmac.new(settings.SECRET_KEY.encode(), json.dumps(state, ensure_ascii=False, sort_keys=True).encode(), hashlib.sha256).hexdigest()
+    token = hmac.new(settings.SECRET_KEY.encode(), json.dumps(state, ensure_ascii=False, sort_keys=True, default=str).encode(), hashlib.sha256).hexdigest()
     return context, ranked, token, weights

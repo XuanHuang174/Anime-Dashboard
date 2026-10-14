@@ -15,7 +15,7 @@ from rest_framework.throttling import ScopedRateThrottle, UserRateThrottle
 
 from .serializers import RecommendationPreferencePatchSerializer, RecommendationPreferenceSerializer, RecommendationProfileSerializer
 from .services import patch_preferences, preference_contract, profile_contract
-from .engine import (ALGORITHM_VERSION, CONTRACT_VERSION, FEATURE_VERSION, RecommendationSnapshotChanged,
+from .engine import (CONTRACT_VERSION, FEATURE_VERSION, RecommendationSnapshotChanged,
                      RecommendationUnavailable, evidence_for, rank_candidates, user_context)
 from .identity import safe_catalog
 from .serializers import RecommendationPublicAnimeSerializer, RecommendationListAnimeSerializer, RecommendationQuerySerializer
@@ -121,7 +121,7 @@ class RecommendationListView(OwnRecommendationAPIView):
                         watch_status=context['owned'].get(item['anime'].bangumi_id))
             results.append(data)
         return Response({
-            'contract_version': CONTRACT_VERSION, 'algorithm_version': ALGORITHM_VERSION,
+            'contract_version': CONTRACT_VERSION, 'algorithm_version': context['algorithm_version'],
             'feature_version': FEATURE_VERSION, 'taxonomy_version': TAXONOMY_VERSION,
             'mode': context['mode'], 'readiness': context['profile']['readiness'],
             'cold_start_state': context['profile']['cold_start_state'],

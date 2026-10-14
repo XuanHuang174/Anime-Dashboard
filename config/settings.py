@@ -344,6 +344,9 @@ USER_ANIME_RECORD_LIMIT = env.int('USER_ANIME_RECORD_LIMIT', default=3000)
 RECOMMENDATION_PROFILE_SCORE_THRESHOLD = 8.5
 RECOMMENDATION_PROFILE_MIN_SAMPLES = 3
 
+# 5B-2 opt-in only. Keep the frozen V1 live until same-snapshot 5B-3 evaluation.
+RECOMMENDATION_ALGORITHM_VERSION = env('RECOMMENDATION_ALGORITHM_VERSION', default='content.v1')
+
 # Bangumi metadata proxy
 #
 # Fill these with the origins of your own reverse proxies, without a trailing

@@ -14,6 +14,7 @@ os.environ['SECRET_KEY'] = 'isolated-recommendation-tests-not-for-deployment'
 from .settings import *  # noqa: F403, E402
 
 DATABASE_URL = ''
+RECOMMENDATION_ALGORITHM_VERSION = 'content.v1'  # Tests opt into V2 explicitly.
 DATABASES = {'default': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': ':memory:'}}
 STORAGES = {
     'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
