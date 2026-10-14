@@ -36,6 +36,20 @@ class RecommendationSnapshotChanged(APIException):
     default_detail = '喜好、筛选或数据已变化，请重新加载第一页。'
 
 
+def build_feature_index(rows, *, signature=None):
+    """Pure public feature construction shared by serving and read-only evaluation."""
+    features, frequency = [], Counter()
+    for row in rows:
+        tags = feature_tags(row['tags'], (row['title_zh'], row['title_jp']))
+        frequency.update(tags)
+        features.append((row['bangumi_id'], tags, row['score'], row['status_type']))
+        if len(features) > MAX_CATALOG_ROWS:
+            raise RecommendationUnavailable()
+    weights = {tag: min(3.0, 1 + math.log((1 + len(features)) / (1 + count)))
+               for tag, count in frequency.items()}
+    return {'signature': signature, 'features': features, 'weights': weights}
+
+
 def public_features():
     revision = safe_catalog().aggregate(count=Count('pk'), updated=Max('updated_at'))
     signature = (revision['count'], str(revision['updated']), TAXONOMY_VERSION, FEATURE_VERSION)
@@ -51,16 +65,7 @@ def public_features():
         rows = safe_catalog().order_by('bangumi_id').values(
             'bangumi_id', 'tags', 'title_zh', 'title_jp', 'score', 'status_type',
         )[:MAX_CATALOG_ROWS + 1]
-        features, frequency = [], Counter()
-        for row in rows:
-            tags = feature_tags(row['tags'], (row['title_zh'], row['title_jp']))
-            frequency.update(tags)
-            features.append((row['bangumi_id'], tags, row['score'], row['status_type']))
-        if len(features) > MAX_CATALOG_ROWS:
-            raise RecommendationUnavailable()
-        weights = {tag: min(3.0, 1 + math.log((1 + len(features)) / (1 + count)))
-                   for tag, count in frequency.items()}
-        value = {'signature': signature, 'features': features, 'weights': weights}
+        value = build_feature_index(rows, signature=signature)
         cache.set(CACHE_KEY, value, timeout=60)
         return value
 
@@ -151,11 +156,10 @@ def candidate_score(tags, score, vector, weights, category, affinity=0):
     return .85 * related + .1 * quality + .05 * novelty
 
 
-def rank_candidates(user, options):
-    context = user_context(user)
+def rank_context(context, options, index):
+    """Same V1 ranking, supplied request-local context/index; not an API input."""
     if context['mode'] == 'cold_start':
-        return context, [], 'cold', []
-    index = public_features()
+        return [], []
     weights, vector = index['weights'], taste_vector(context)
     seed_ids = {seed['bangumi_id'] for seed in context['seeds']}
     shortlist = []
@@ -197,6 +201,14 @@ def rank_candidates(user, options):
         ranked = chosen
     else:
         ranked = ranked[:MAX_RESULTS]
+    return ranked, weights
+
+
+def rank_candidates(user, options):
+    context = user_context(user)
+    if context['mode'] == 'cold_start':
+        return context, [], 'cold', []
+    ranked, weights = rank_context(context, options, public_features())
     # Opaque, user-bound state token; never exposes ratings or user IDs themselves.
     state = {'user': user.pk, 'algorithm': ALGORITHM_VERSION, 'features': FEATURE_VERSION,
              'extraction_rule': FEATURE_RULE_VERSION,
