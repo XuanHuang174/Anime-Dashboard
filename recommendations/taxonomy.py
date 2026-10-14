@@ -1,5 +1,6 @@
 """Versioned, neutral subject vocabulary; raw source/user tags stay untouched."""
 import unicodedata
+from types import MappingProxyType
 
 TAXONOMY_VERSION = 'genres.v4'
 APPROVED_ALIAS_RELEASE = 'aliases.2026-10-14.approved-11'
@@ -36,13 +37,35 @@ ALIASES = {
     **APPROVED_ALIASES,
 }
 
+# Frozen pre-5B-1 vocabulary, verified against the 5A baseline (eca457f).
+# Explicit copies, NOT derived by subtracting future releases. Offline only.
+LEGACY_TAXONOMY_VERSION = 'genres.v2'
+LEGACY_AVAILABLE_TAGS = (
+    '日常', '治愈', '喜剧', '校园', '恋爱', '百合', '科幻', '奇幻', '冒险', '悬疑',
+    '推理', '战斗', '机战', '音乐', '运动', '历史', '职场', '亲情', '成长', '友情',
+    '青春', '魔法', '异世界', '偶像', '美食', '旅行',
+)
+LEGACY_ALIASES = MappingProxyType({
+    '搞笑': '喜剧', '真百': '百合', '真百合': '百合', '轻百': '百合', '轻百合': '百合',
+    'ゆり': '百合', 'sci-fi': '科幻', 'scifi': '科幻', 'fantasy': '奇幻', 'slice of life': '日常',
+})
 
-def canonical_tag(value):
+
+def genre_rules(version=None):
+    if version in (None, TAXONOMY_VERSION):
+        return AVAILABLE_TAGS, ALIASES
+    if version == LEGACY_TAXONOMY_VERSION:
+        return LEGACY_AVAILABLE_TAGS, LEGACY_ALIASES
+    raise ValueError('Unsupported genre-rule version')
+
+
+def canonical_tag(value, *, taxonomy_version=None):
     if not isinstance(value, str):
         return None
     value = unicodedata.normalize('NFKC', value).strip()
-    value = ALIASES.get(value.casefold(), value)
-    return value if value in AVAILABLE_TAGS else None
+    available, aliases = genre_rules(taxonomy_version)
+    value = aliases.get(value.casefold(), value)
+    return value if value in available else None
 
 
 def canonical_tags(values):

@@ -4,7 +4,7 @@ import re
 import unicodedata
 
 from .identity import normalized_title
-from .taxonomy import AVAILABLE_TAGS, canonical_tag
+from .taxonomy import AVAILABLE_TAGS, canonical_tag, genre_rules, TAXONOMY_VERSION
 
 FEATURE_RULE_VERSION = 'journal-genres.v3'
 FEATURE_SOURCES = ('private_base_tags', 'shared_base_tags', 'custom_tags')
@@ -15,7 +15,7 @@ MANAGEMENT_TAGS = frozenset(('二刷', '三刷', '重看', '年度最佳', '年�
                             '补番', '待补', '收藏', '已看', '想看', '在看', '看过', '搁置'))
 
 
-def extract_genres(base_tags, custom_tags=(), *, titles=(), base_source='private_base_tags'):
+def extract_genres(base_tags, custom_tags=(), *, titles=(), base_source='private_base_tags', taxonomy_version=None):
     """Copy only known genres and their field provenance, never raw private labels.
 
     Duplicates/aliases within or across fields contribute one feature per work.
@@ -24,6 +24,7 @@ def extract_genres(base_tags, custom_tags=(), *, titles=(), base_source='private
     """
     if base_source not in FEATURE_SOURCES[:2]:
         raise ValueError('Unsupported base genre source')
+    available, _ = genre_rules(taxonomy_version)
     names = {normalized_title(title) for title in titles if isinstance(title, str) and title}
     origins, ignored = {}, Counter({reason: 0 for reason in IGNORED_REASONS})
     for raw, source in ((base_tags, base_source), (custom_tags, 'custom_tags')):
@@ -41,7 +42,7 @@ def extract_genres(base_tags, custom_tags=(), *, titles=(), base_source='private
                 ignored['invalid'] += 1
                 continue
             value = unicodedata.normalize('NFKC', value).strip()
-            tag = canonical_tag(value)
+            tag = canonical_tag(value) if taxonomy_version in (None, TAXONOMY_VERSION) else canonical_tag(value, taxonomy_version=taxonomy_version)
             if normalized_title(value) in names or (tag and normalized_title(tag) in names):
                 ignored['work_title'] += 1
             elif re.fullmatch(r'\d{4}(?:年.*|[-/]\d{1,2}(?:[-/]\d{1,2})?)?', value):
@@ -57,11 +58,11 @@ def extract_genres(base_tags, custom_tags=(), *, titles=(), base_source='private
     return {
         'tags': frozenset(origins),
         'sources': {tag: tuple(source for source in FEATURE_SOURCES if source in origins[tag])
-                    for tag in AVAILABLE_TAGS if tag in origins},
+                    for tag in available if tag in origins},
         'ignored_counts': dict(ignored),
     }
 
 
-def feature_tags(raw, titles=()):
+def feature_tags(raw, titles=(), *, taxonomy_version=None):
     # Public candidate features use the same vocabulary, not users' private rows.
-    return extract_genres(raw, titles=titles, base_source='shared_base_tags')['tags']
+    return extract_genres(raw, titles=titles, base_source='shared_base_tags', taxonomy_version=taxonomy_version)['tags']

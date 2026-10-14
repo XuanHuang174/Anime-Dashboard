@@ -15,11 +15,11 @@ def _safe(row):
             and 0 < identity <= 2_147_483_647 and catalog.get('bangumi_id') == identity)
 
 
-def _genres(row):
+def _genres(row, taxonomy_version=None):
     meta, catalog = row['metadata'], row['catalog']
     return extract_genres(meta['tags'], row.get('custom_tags', ()),
         titles=(meta['title_zh'], meta['title_jp'], catalog['title_zh'], catalog['title_jp']),
-        base_source='private_base_tags' if row['metadata_initialized'] else 'shared_base_tags')
+        base_source='private_base_tags' if row['metadata_initialized'] else 'shared_base_tags', taxonomy_version=taxonomy_version)
 
 
 def _summary(features):
@@ -34,7 +34,7 @@ def _summary(features):
             for tag in sorted(counts, key=lambda tag: (-counts[tag], AVAILABLE_TAGS.index(tag)))]
 
 
-def extract_profile(records, *, threshold, minimum):
+def extract_profile(records, *, threshold, minimum, taxonomy_version=None):
     """Return bounded aggregate contract plus request-local trusted evidence seeds.
 
     Do not attach identities, mutate rows, parse reviews, fetch catalog genres,
@@ -66,7 +66,7 @@ def extract_profile(records, *, threshold, minimum):
     trusted, seeds = [], []
     ignored = Counter({reason: 0 for reason in IGNORED_REASONS})
     for identity, row in sorted(selected.items()):
-        features = _genres(row)
+        features = _genres(row, taxonomy_version)
         trusted.append(features)
         ignored.update(features['ignored_counts'])
         if features['tags']:
@@ -86,7 +86,7 @@ def extract_profile(records, *, threshold, minimum):
         identity = row['resolved_bangumi_id']
         safe_work_ids.add(identity)
         if identity not in selected and identity not in weak:
-            weak[identity] = _genres(row)
+            weak[identity] = _genres(row, taxonomy_version)
             ignored.update(weak[identity]['ignored_counts'])
 
     count, usable = len(selected), len(seeds)

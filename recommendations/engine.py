@@ -13,9 +13,9 @@ from rest_framework.exceptions import APIException
 
 from .identity import safe_catalog
 from .services import profile_data
-from .taxonomy import TAXONOMY_VERSION
+from .taxonomy import TAXONOMY_VERSION, genre_rules
 from .features import feature_tags, FEATURE_RULE_VERSION
-from . import ranking_v2
+from . import ranking_v2, taxonomy as vocabulary
 
 ALGORITHM_VERSION = 'content.v1'
 EXPERIMENTAL_ALGORITHM_VERSION = 'content.v2'
@@ -38,37 +38,40 @@ class RecommendationSnapshotChanged(APIException):
     default_detail = '喜好、筛选或数据已变化，请重新加载第一页。'
 
 
-def build_feature_index(rows, *, signature=None):
+def build_feature_index(rows, *, signature=None, taxonomy_version=None):
     """Pure public feature construction shared by serving and read-only evaluation."""
     features, frequency = [], Counter()
     for row in rows:
-        tags = feature_tags(row['tags'], (row['title_zh'], row['title_jp']))
+        tags = feature_tags(row['tags'], (row['title_zh'], row['title_jp']), taxonomy_version=taxonomy_version)
         frequency.update(tags)
         features.append((row['bangumi_id'], tags, row['score'], row['status_type']))
         if len(features) > MAX_CATALOG_ROWS:
             raise RecommendationUnavailable()
     weights = {tag: min(3.0, 1 + math.log((1 + len(features)) / (1 + count)))
                for tag, count in frequency.items()}
-    return {'signature': signature, 'features': features, 'weights': weights}
+    return {'signature': signature, 'features': features, 'weights': weights,
+            'taxonomy_version': taxonomy_version or vocabulary.TAXONOMY_VERSION}
 
 
-def public_features():
+def public_features(*, algorithm_version=ALGORITHM_VERSION):
+    from .version_control import cache_namespace
+    key = cache_namespace(algorithm_version, TAXONOMY_VERSION, FEATURE_VERSION, FEATURE_RULE_VERSION)
     revision = safe_catalog().aggregate(count=Count('pk'), updated=Max('updated_at'))
-    signature = (revision['count'], str(revision['updated']), TAXONOMY_VERSION, FEATURE_VERSION, FEATURE_RULE_VERSION)
+    signature = (revision['count'], str(revision['updated']), algorithm_version, TAXONOMY_VERSION, FEATURE_VERSION, FEATURE_RULE_VERSION)
     if revision['count'] > MAX_CATALOG_ROWS:
         raise RecommendationUnavailable()
-    value = cache.get(CACHE_KEY)
+    value = cache.get(key)
     if value and value['signature'] == signature:
         return value
     with _feature_lock:
-        value = cache.get(CACHE_KEY)
+        value = cache.get(key)
         if value and value['signature'] == signature:
             return value
         rows = safe_catalog().order_by('bangumi_id').values(
             'bangumi_id', 'tags', 'title_zh', 'title_jp', 'score', 'status_type',
         )[:MAX_CATALOG_ROWS + 1]
         value = build_feature_index(rows, signature=signature)
-        cache.set(CACHE_KEY, value, timeout=60)
+        cache.set(key, value, timeout=60)
         return value
 
 
@@ -85,7 +88,7 @@ def user_context(user):
         identity = row['resolved_bangumi_id']
         if identity and priority.get(row['watch_status'], 0) > priority.get(owned.get(identity), 0):
             owned[identity] = row['watch_status']
-    return {'profile': profile, 'preferences': preferences, 'seeds': seeds,
+    return {'profile': profile, 'preferences': preferences, 'seeds': seeds, 'taxonomy_version': vocabulary.TAXONOMY_VERSION,
             'mode': mode, 'owned': owned}
 
 
@@ -184,6 +187,7 @@ def _rank_context_v1(context, options, index):
             shortlist.append((value, identity))
     shortlist.sort(key=lambda pair: (-pair[0], pair[1]))
     pool_ids = [identity for _, identity in shortlist[:CANDIDATE_POOL]]
+    context['_ranking_trace'] = {'eligible_candidates': len(shortlist), 'candidate_pool': len(pool_ids)}
     # Fetch CURRENT safe rows before evidence, ranking, pagination and serialization.
     query = safe_catalog().filter(bangumi_id__in=pool_ids, score__gte=options['min_score'])
     if options['type'] != 'all':
@@ -191,7 +195,7 @@ def _rank_context_v1(context, options, index):
     rows = list(query.order_by('bangumi_id').defer('synopsis', 'source_cover_url'))
     ranked = []
     for anime in rows:
-        tags = feature_tags(anime.tags, (anime.title_zh, anime.title_jp))
+        tags = feature_tags(anime.tags, (anime.title_zh, anime.title_jp), taxonomy_version=index.get('taxonomy_version'))
         evidence, reason, affinity = evidence_for(tags, context, weights)
         if not evidence or (options['category'] == 'familiar' and context['mode'] == 'personalized' and evidence['kind'] != 'rated_work'):
             continue
@@ -199,6 +203,7 @@ def _rank_context_v1(context, options, index):
         if value is not None:
             ranked.append({'anime': anime, 'tags': tags, 'value': value, 'evidence': evidence, 'reason': reason})
     ranked.sort(key=lambda item: (-item['value'], item['anime'].bangumi_id))
+    context['_ranking_trace']['validated_candidates'] = len(ranked)
     if options['category'] == 'all':
         chosen = []
         while ranked and len(chosen) < MAX_RESULTS:
@@ -218,15 +223,21 @@ def configured_algorithm():
     version = getattr(settings, 'RECOMMENDATION_ALGORITHM_VERSION', ALGORITHM_VERSION)
     if version not in (ALGORITHM_VERSION, EXPERIMENTAL_ALGORITHM_VERSION):
         raise RecommendationUnavailable('推荐算法配置暂不可用，请联系管理员。')
+    if version == EXPERIMENTAL_ALGORITHM_VERSION:
+        from .version_control import require_v2_approval
+        try:
+            require_v2_approval()
+        except ValueError:
+            raise RecommendationUnavailable('V2 尚未获得当前版本的验收凭据，请回滚 V1 或完成验收。') from None
     return version
 
 
-def _v2_item(row, context, options, weights, vector, seed_ids):
+def _v2_item(row, context, options, weights, vector, seed_ids, taxonomy_version=None):
     identity = row['bangumi_id']
     if identity in seed_ids or (
             options['hide_recorded'] and identity in context['owned']):
         return None
-    tags = feature_tags(row['tags'], (row['title_zh'], row['title_jp']))
+    tags = feature_tags(row['tags'], (row['title_zh'], row['title_jp']), taxonomy_version=taxonomy_version)
     if not tags & vector.keys():
         return None
     evidence, reason, affinity = evidence_for(tags, context, weights, deterministic=True)
@@ -256,16 +267,17 @@ def _rank_context_v2(context, options, index):
     for position, row in enumerate(query.order_by('bangumi_id').values(*fields)[:MAX_CATALOG_ROWS + 1].iterator(chunk_size=500), 1):
         if position > MAX_CATALOG_ROWS:
             raise RecommendationUnavailable()
-        item = _v2_item(row, context, options, weights, vector, seed_ids)
+        item = _v2_item(row, context, options, weights, vector, seed_ids, index.get('taxonomy_version'))
         if item:
             eligible.append(item)
     pool = ranking_v2.balanced_candidate_pool(eligible, vector, limit=CANDIDATE_POOL)
+    context['_ranking_trace'] = {'eligible_candidates': len(eligible), 'candidate_pool': len(pool)}
     # Recheck immediately before ranking/serialization; a safety change during
     # pool construction can only remove rows, never bypass the backend filter.
     rows = query.filter(bangumi_id__in=[item['bangumi_id'] for item in pool]).order_by('bangumi_id').defer('synopsis', 'source_cover_url')
     current = []
     for anime in rows:
-        item = _v2_item({field: getattr(anime, field) for field in fields}, context, options, weights, vector, seed_ids)
+        item = _v2_item({field: getattr(anime, field) for field in fields}, context, options, weights, vector, seed_ids, index.get('taxonomy_version'))
         if item:
             current.append({**item, 'anime': anime})
     # Source safety is just as important as candidate safety. A source changing
@@ -274,11 +286,15 @@ def _rank_context_v2(context, options, index):
     if context['mode'] == 'personalized' and seed_ids != set(safe_catalog().filter(
             bangumi_id__in=seed_ids).values_list('bangumi_id', flat=True)):
         raise RecommendationSnapshotChanged()
+    context['_ranking_trace']['validated_candidates'] = len(current)
     return ranking_v2.rerank_candidates(current, vector, weights, category=options['category'], limit=MAX_RESULTS), weights
 
 
 def rank_context(context, options, index, *, algorithm_version=ALGORITHM_VERSION):
     """Explicit offline version; V1 baseline never follows a deployment flag."""
+    genre_rules(index.get('taxonomy_version'))
+    if context.get('taxonomy_version', vocabulary.TAXONOMY_VERSION) != index.get('taxonomy_version', vocabulary.TAXONOMY_VERSION):
+        raise RecommendationUnavailable('画像与候选题材版本不一致。')
     if algorithm_version == ALGORITHM_VERSION:
         return _rank_context_v1(context, options, index)
     if algorithm_version == EXPERIMENTAL_ALGORITHM_VERSION:
@@ -292,9 +308,14 @@ def rank_candidates(user, options):
     context['algorithm_version'] = algorithm
     if context['mode'] == 'cold_start':
         return context, [], 'cold', []
-    ranked, weights = rank_context(context, options, public_features(), algorithm_version=algorithm)
+    ranked, weights = rank_context(context, options, public_features(algorithm_version=algorithm), algorithm_version=algorithm)
+    return context, ranked, snapshot_token(user.pk, context, options, ranked, algorithm), weights
+
+
+def snapshot_token(user_id, context, options, ranked, algorithm):
     # Opaque, user-bound state token; never exposes ratings or user IDs themselves.
-    state = {'user': user.pk, 'algorithm': algorithm, 'features': FEATURE_VERSION,
+    state = {'user': user_id, 'algorithm': algorithm, 'features': FEATURE_VERSION,
+             'context_rule': context.get('taxonomy_version'),
              'rerank_policy': ranking_v2.policy_contract() if algorithm == EXPERIMENTAL_ALGORITHM_VERSION else None,
              'profile': context['profile'],
              'taxonomy': TAXONOMY_VERSION,
@@ -308,4 +329,4 @@ def rank_candidates(user, options):
                         item['anime'].cover_url, item['anime'].title_zh, item['anime'].title_jp,
                         item['anime'].status_type, item['anime'].season) for item in ranked]}
     token = hmac.new(settings.SECRET_KEY.encode(), json.dumps(state, ensure_ascii=False, sort_keys=True, default=str).encode(), hashlib.sha256).hexdigest()
-    return context, ranked, token, weights
+    return token

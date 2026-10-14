@@ -15,6 +15,9 @@ from .settings import *  # noqa: F403, E402
 
 DATABASE_URL = ''
 RECOMMENDATION_ALGORITHM_VERSION = 'content.v1'  # Tests opt into V2 explicitly.
+RECOMMENDATION_V2_TEST_BYPASS = True  # Only this isolated test settings module.
+CACHES = {'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+                      'LOCATION': 'recommendation-isolated-tests'}}
 DATABASES = {'default': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': ':memory:'}}
 STORAGES = {
     'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
