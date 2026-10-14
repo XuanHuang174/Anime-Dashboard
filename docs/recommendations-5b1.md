@@ -2,7 +2,7 @@
 
 ## 当前交付边界
 
-初次交付生成统计、待审核映射清单及**离线假设试算**，没有自动启用映射。随后用户明确批准了已观察的 11 项同义映射：当前代码为 `genres.v3` / `journal-genres.v2`，排序仍是 `content.v1`，详情见 [11 项批准发布记录](recommendations-5b1-alias-release.md)。其他草案与新题材仍待审核；没有模型迁移、前端改版、原始数据清洗写入或私人用户扫描。
+初次交付生成统计、待审核映射清单及**离线假设试算**，没有自动启用映射。随后用户分别批准了已观察的 [11 项同义映射](recommendations-5b1-alias-release.md) 和 [7 项独立题材](recommendations-5b1-genre-release.md)：当前代码为 `genres.v4` / `journal-genres.v3`，排序仍是 `content.v1`。其他草案及剩余 5 项新题材仍待审核；没有模型迁移、前端布局改版、原始数据清洗写入或私人用户扫描。
 
 5A 的 16,736 部是“没有有效题材”的总数，不是全部都有可修复的题材标签：该快照中 206 部原标签为空、98 部只有已排除信息、16,432 部含未识别标签。新的统计每次重新扫描当前目录，不硬编码这些数量。
 
@@ -29,7 +29,7 @@
 .venv/Scripts/python.exe manage.py audit_recommendation_tags --compare-before-dir .tools/recommendation-tags/5b1-review-20261014-final --output-dir .tools/recommendation-tags/5b1-approved-11-check
 ```
 
-比较前校验旧报告 `manifest.json` 的完成标记、`coverage.json` SHA-256、版本和统计一致性。前后目录指纹及分级数量必须相同；数据变化时拒绝归因并停止，不输出“算法/映射提升”结论。只读取本地旧报告和当前公共目录，不从 JSON 加载或执行映射。
+比较前校验旧报告 `manifest.json` 的完成标记、`coverage.json` SHA-256、版本和统计一致性。前后目录指纹及分级数量必须相同；数据变化时拒绝归因并停止，不输出“算法/映射提升”结论。只读取本地旧报告和当前公共目录，不从 JSON 加载或执行映射。当前 `genres.v4` 支持比较 `genres.v2`（累计变化）或 `genres.v3`（仅新增 7 项题材）；单阶段执行示例见 7 项题材发布文档。
 
 - PostgreSQL 使用数据库强制的 `REPEATABLE READ, READ ONLY` 事务；SQLite 使用 `query_only`。不支持的数据库直接拒绝，无可写降级。
 - `--statement-timeout-ms` 默认 30000，范围 1000–120000；`--example-limit` 默认 3，范围 0–5（0 不导出作品样例）；全体作品与无有效题材子集分别提供该上限的样例，避免问题子集被正常作品挤掉。每次选择新的输出目录，不覆盖旧报告。
@@ -65,7 +65,7 @@
 1. `before`：运行该次审计的代码所启用规则的实际覆盖。
 2. `after_active`：统计命令结束后的实际覆盖，**必须与 before 相同**；统计命令本身不启用规则。
 3. `draft_synonyms_simulation`：假设全部已列出的同义候选通过审核时的公共目录覆盖；新题材候选不参与，未知信息不猜测。
-4. `approved_release_comparison`（显式指定旧报告时）：同一真实目录在旧 `genres.v2` 和当前代码下的实际覆盖对比。`approved_alias_release` 记录已启用的 11 项，不再混入待审清单。
+4. `approved_release_comparison`（显式指定旧报告时）：同一真实目录在受支持旧版本和当前代码下的实际覆盖对比，报告写明前后版本。`approved_alias_release` / `approved_genre_release` 分别记录已启用的 11 项映射 / 7 项题材，不再混入待审清单。
 
 试算不是已上线效果、候选推荐准确率或用户喜欢概率。恢复作品数按作品去重，不能直接累加每项标签的作品数。仍无题材的作品不会被强行补满，也不重新评分。
 

@@ -5,8 +5,8 @@ Approval requires a separate reviewed taxonomy change and version bump.
 """
 import unicodedata
 
-REVIEW_RULE_VERSION = 'public-tag-review.v2'
-PROPOSAL_VERSION = 'genres.v4.proposal.1'
+REVIEW_RULE_VERSION = 'public-tag-review.v3'
+PROPOSAL_VERSION = 'genres.v5.proposal.1'
 
 # Traditional forms / explicit genre names only. Subgenres and slang are NOT
 # flattened to a vaguely related existing genre to inflate coverage.
@@ -24,18 +24,11 @@ PENDING_ALIASES = {
 # Definitions must be confirmed separately. No candidate below is simulated as
 # an active genre, and none is folded into another genre (玄幻 != 奇幻 etc.).
 GENRE_CANDIDATES = {
-    '热血': '强调昂扬、拼搏的叙事气质；不等同于战斗，需确认边界。',
-    '后宫': '多角色恋爱关系结构；不等同于恋爱标签的直接同义词。',
-    '玄幻': '需独立确认东方幻想等适用边界；不直接归入奇幻或异世界。',
-    '穿越': '角色跨时间或世界的叙事机制；不等同于异世界。',
-    '魔法少女': '魔法少女题材；不直接展平为魔法。',
     'BL': '男性间恋爱情感题材候选；需确认与耽美等标签的关系，不推断内容分级。',
     '耽美': '需确认题材定义及与 BL 的边界；不从人物关系猜测。',
     '超现实': '超现实表达题材/风格候选；需确认是否纳入题材体系。',
     '实验': '实验性表达风格候选；需确认是否另设风格维度。',
     '猎奇': '含义跨度大，需确认定义和安全边界后决定是否纳入。',
-    '恐怖': '以恐惧体验为主的题材候选；不直接等同于悬疑。',
-    '武侠': '武侠题材候选；不直接等同于战斗或历史。',
 }
 
 NON_GENRE_GROUPS = {
@@ -76,6 +69,8 @@ def validate_proposals():
     excluded_keys = {review_key(value) for values in NON_GENRE_GROUPS.values() for value in values}
     if seen & (candidate_keys | excluded_keys) or candidate_keys & excluded_keys:
         raise ValueError('Review categories must not overlap')
+    if any(canonical_tag(value) is not None for value in GENRE_CANDIDATES):
+        raise ValueError('Active genres must not remain pending genre candidates')
 
 
 def classify_unknown(value):

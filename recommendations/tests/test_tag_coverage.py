@@ -37,12 +37,12 @@ class TagCoveragePrimitiveTests(SimpleTestCase):
             self.assertIsNone(canonical_tag(source))
             self.assertEqual(feature_tags(source), frozenset())
         self.assertEqual(ALIASES, before)
-        self.assertEqual(TAXONOMY_VERSION, 'genres.v3')
+        self.assertEqual(TAXONOMY_VERSION, 'genres.v4')
         self.assertEqual(canonical_tag('搞笑'), '喜剧')
 
     def test_actual_coverage_unchanged_but_hypothesis_is_labelled_and_deduplicated(self):
         rows = [row(1, tags='SPORTS, sports,ｓｐｏｒｔｓ'), row(2, tags='运动,SPORTS'),
-                row(3, tags='热血'), row(4, tags=''), row(5, tags='TV,2026,日本')]
+                row(3, tags='实验'), row(4, tags=''), row(5, tags='TV,2026,日本')]
         old = deepcopy(rows)
         result = analyze(rows)
         self.assertEqual(result['before']['with_effective_genres'], 1)
@@ -57,7 +57,7 @@ class TagCoveragePrimitiveTests(SimpleTestCase):
         self.assertEqual(sports['zero_genre_document_frequency'], 1)
         self.assertEqual(rows, old)
         self.assertFalse(result['policy']['mapping_applied'])
-        self.assertNotIn('热血', result['draft_impact']['new_genre_document_frequency'])
+        self.assertNotIn('实验', result['draft_impact']['new_genre_document_frequency'])
         self.assertEqual(result['candidate_genre_observation']['zero_genre_works_with_candidate_labels'], 1)
 
     def test_empty_management_title_and_mapping_target_title_never_become_features(self):
@@ -75,8 +75,8 @@ class TagCoveragePrimitiveTests(SimpleTestCase):
 
     def test_three_classes_exact_labels_never_guess_from_names_or_cooccurrence(self):
         for value, category, target in (('音樂', 'pending_synonym', '音乐'),
-            ('玄幻', 'candidate_genre', None), ('穿越', 'candidate_genre', None),
-            ('魔法少女', 'candidate_genre', None), ('萝卜', 'excluded_or_unknown', None),
+            ('实验', 'candidate_genre', None), ('超现实', 'candidate_genre', None),
+            ('猎奇', 'candidate_genre', None), ('萝卜', 'excluded_or_unknown', None),
             ('SF', 'excluded_or_unknown', None), ('TV', 'excluded_or_unknown', None),
             ('SUNRISE', 'excluded_or_unknown', None), ('全新陌生词', 'excluded_or_unknown', None)):
             data = classify_unknown(value)
@@ -121,7 +121,7 @@ class TagCoveragePrimitiveTests(SimpleTestCase):
         self.assertEqual(token['zero_genre_examples'][0]['bangumi_id'], 3)
 
     def test_candidate_observation_counts_each_work_once_without_simulating_new_topics(self):
-        data = analyze([row(1, tags='热血,穿越,热血'), row(2, tags='日常,热血')])
+        data = analyze([row(1, tags='实验,超现实,实验'), row(2, tags='日常,实验')])
         self.assertEqual(data['candidate_genre_observation']['works_with_candidate_labels'], 2)
         self.assertEqual(data['candidate_genre_observation']['zero_genre_works_with_candidate_labels'], 1)
         self.assertEqual(data['draft_synonyms_simulation'], data['before'])

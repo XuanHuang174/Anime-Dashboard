@@ -1,16 +1,29 @@
 """Versioned, neutral subject vocabulary; raw source/user tags stay untouched."""
 import unicodedata
 
-TAXONOMY_VERSION = 'genres.v3'
+TAXONOMY_VERSION = 'genres.v4'
 APPROVED_ALIAS_RELEASE = 'aliases.2026-10-14.approved-11'
+APPROVED_GENRE_RELEASE = 'genres.2026-10-14.approved-7'
 MAX_PREFERENCE_TAGS = 20
+# These definitions document exact labels only; they are NOT classification
+# prompts, parent relationships, synonyms, or rules for mining titles/reviews.
+APPROVED_GENRES = {
+    '热血': '强调拼搏、挑战、昂扬情绪的叙事气质；不自动等同于战斗或运动。',
+    '后宫': '围绕同一主角展开的多角色恋爱或暧昧关系结构；不自动等同于恋爱、成人内容或古代宫廷。',
+    '玄幻': '具有超自然力量、修炼体系等幻想设定的题材；只依据已有标签识别，不自动等同于奇幻或异世界。',
+    '穿越': '角色跨越时间或世界的叙事机制；不自动等同于异世界或转生。',
+    '魔法少女': '以魔法少女身份、能力及相关叙事为题材；不自动等同于魔法或变身。',
+    '恐怖': '以恐惧、惊骇体验为主要表达方向；不自动等同于悬疑、猎奇或成人内容。',
+    '武侠': '以武者、武学、江湖及侠义关系为题材；不自动等同于战斗、历史或修仙。',
+}
 AVAILABLE_TAGS = (
     '日常', '治愈', '喜剧', '校园', '恋爱', '百合', '科幻', '奇幻', '冒险', '悬疑',
     '推理', '战斗', '机战', '音乐', '运动', '历史', '职场', '亲情', '成长', '友情',
     '青春', '魔法', '异世界', '偶像', '美食', '旅行',
+    *APPROVED_GENRES,
 )
 # Only the 11 entries explicitly approved after the 5B-1 review. Casefolding
-# also accepts Comedy/MUSIC; no unobserved draft or new genre is activated.
+# also accepts Comedy/MUSIC; no unobserved draft alias is activated.
 APPROVED_ALIASES = {
     '治愈系': '治愈', '治癒': '治愈', 'comedy': '喜剧', '日常系': '日常',
     '戀愛': '恋爱', 'music': '音乐', '戰鬥': '战斗', '旅行系': '旅行',

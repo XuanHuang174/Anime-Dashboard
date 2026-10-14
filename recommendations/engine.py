@@ -17,9 +17,9 @@ from .taxonomy import TAXONOMY_VERSION
 from .features import feature_tags, FEATURE_RULE_VERSION
 
 ALGORITHM_VERSION = 'content.v1'
-FEATURE_VERSION = 'genres-idf.v3'
+FEATURE_VERSION = 'genres-idf.v4'
 CONTRACT_VERSION = 'recommendations.3b.v1'
-CACHE_KEY = 'recommendations.public-features.v3'
+CACHE_KEY = 'recommendations.public-features.v4'
 MAX_CATALOG_ROWS = 50000
 CANDIDATE_POOL = 400
 MAX_RESULTS = 120

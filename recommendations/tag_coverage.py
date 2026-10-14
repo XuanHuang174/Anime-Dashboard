@@ -53,6 +53,8 @@ def analyze_public_tags(rows, scope, *, example_limit=3):
     safety_review_works = 0
     candidate_genre_works = candidate_genre_zero_works = 0
     new_genre_frequency = Counter()
+    approved_genre_frequency = Counter()
+    approved_genre_works = 0
     fingerprint = hashlib.sha256()
     for row in rows:
         fingerprint.update(json.dumps({key: row[key] for key in FIELDS}, ensure_ascii=False,
@@ -60,6 +62,9 @@ def analyze_public_tags(rows, scope, *, example_limit=3):
         titles = (row['title_zh'], row['title_jp'])
         original = extract_genres(row['tags'], titles=titles, base_source='shared_base_tags')
         baseline = original['tags']
+        approved_here = baseline & taxonomy.APPROVED_GENRES.keys()
+        approved_genre_frequency.update(approved_here)
+        approved_genre_works += bool(approved_here)
         hypothetical = set(baseline)
         ignored.update(original['ignored_counts'])
         if not baseline:
@@ -169,6 +174,12 @@ def analyze_public_tags(rows, scope, *, example_limit=3):
             for pair, frequency in sorted(active_aliases.items(), key=lambda item: (-item[1], item[0]))],
         'approved_alias_release': {'version': taxonomy.APPROVED_ALIAS_RELEASE,
             'status': 'enabled_in_this_code_version', 'aliases': dict(taxonomy.APPROVED_ALIASES)},
+        'approved_genre_release': {'version': taxonomy.APPROVED_GENRE_RELEASE,
+            'status': 'enabled_in_this_code_version', 'definitions': dict(taxonomy.APPROVED_GENRES),
+            'exact_labels_only': True, 'automatic_parent_expansion': False},
+        'approved_genre_observation': {'works_with_approved_labels': approved_genre_works,
+            'genre_document_frequency': {tag: approved_genre_frequency[tag] for tag in taxonomy.APPROVED_GENRES},
+            'meaning': 'Effective exact public labels after exclusion/deduplication; per-genre counts overlap, not recommendation quality'},
         'unknown_tags': inventory,
         'policy': {'mapping_applied': False, 'ranking_changed': False, 'private_tables_read': False,
             'mapping_applied_semantics': 'This audit activates no mappings; the enabled code release is recorded separately.',
@@ -181,10 +192,10 @@ def analyze_public_tags(rows, scope, *, example_limit=3):
 
 
 def attach_release_comparison(report, baseline_directory):
-    """Compare actual active coverage with a verified pre-release local report.
+    """Compare actual active coverage with a verified prior-rule local report.
 
     No taxonomy is loaded from JSON. Different catalog snapshots fail closed so
-    data changes cannot be misreported as an alias-release effect.
+    data changes cannot be misreported as an approved feature-release effect.
     """
     directory = Path(baseline_directory)
     coverage_path, manifest_path = directory / 'coverage.json', directory / 'manifest.json'
@@ -198,8 +209,10 @@ def attach_release_comparison(report, baseline_directory):
         if (manifest['complete'] is not True or manifest['contract_version'] != COVERAGE_VERSION
                 or manifest['sha256']['coverage.json'] != digest or baseline['contract_version'] != COVERAGE_VERSION):
             raise ValueError('Baseline manifest verification failed')
-        if baseline['versions']['active_taxonomy'] != 'genres.v2':
-            raise ValueError('This release comparison requires the genres.v2 pre-approval baseline')
+        prior_version = baseline['versions']['active_taxonomy']
+        allowed = {'genres.v3': ('genres.v2',), 'genres.v4': ('genres.v2', 'genres.v3')}
+        if prior_version not in allowed.get(report['versions']['active_taxonomy'], ()):
+            raise ValueError('Comparison requires a supported prior taxonomy report, not current/future rules')
         if baseline['scope'] != report['scope'] or baseline['catalog_fingerprint'] != report['catalog_fingerprint']:
             raise ValueError('Catalog snapshot changed; cannot attribute coverage changes to approved aliases')
         prior = baseline['after_active']
@@ -216,15 +229,15 @@ def attach_release_comparison(report, baseline_directory):
         raise ValueError('Invalid baseline report structure or encoding') from None
     current = report['before']
     if current['with_effective_genres'] < prior['with_effective_genres']:
-        raise ValueError('Alias-only release unexpectedly reduced coverage; inspect rules before publishing')
+        raise ValueError('Approved feature-only release unexpectedly reduced coverage; inspect rules before publishing')
     report['approved_release_comparison'] = {
         'status': 'verified_same_catalog_actual_comparison', 'baseline_report_sha256': digest,
-        'before_taxonomy': 'genres.v2', 'after_taxonomy': report['versions']['active_taxonomy'],
+        'before_taxonomy': prior_version, 'after_taxonomy': report['versions']['active_taxonomy'],
         'before': prior, 'after': current, 'identical_catalog_snapshot': True,
         'additional_covered_works': current['with_effective_genres'] - prior['with_effective_genres'],
         'coverage_fraction_delta': (current['coverage_fraction'] - prior['coverage_fraction'])
                                   if prior['coverage_fraction'] is not None else None,
-        'meaning': 'Actual feature coverage only, not recommendation accuracy or database row mutations'}
+        'meaning': 'Actual feature coverage only; the difference includes ALL rule changes between these versions, not recommendation accuracy or database row mutations'}
     report['report_fingerprint'] = hashlib.sha256((report['report_fingerprint'] + digest).encode()).hexdigest()
 
 
@@ -246,6 +259,7 @@ def review_document(report):
                  for item in report['unknown_tags'] if item['category'] != 'excluded_or_unknown']
     return {'proposal_version': report['versions']['proposal'], 'active_taxonomy': report['versions']['active_taxonomy'],
             'approved_alias_release': report['approved_alias_release'],
+            'approved_genre_release': report['approved_genre_release'],
             'catalog_fingerprint': report['catalog_fingerprint'], 'status': 'pending_human_review',
             'application': 'This file is NOT an executable config; edits do not activate mappings. A separate reviewed code/version change is required.',
             'pending_synonyms': [row for row in proposals if row['category'] == 'pending_synonym'],
@@ -256,13 +270,14 @@ def review_document(report):
 def review_markdown(review):
     lines = ['# 待审核映射清单（未应用）', '', f"草案版本：{review['proposal_version']}", '',
         f"当前已启用映射发布：{review['approved_alias_release']['version']}；已批准的 11 项不再重复列为待审。",
+        f"当前已启用题材发布：{review['approved_genre_release']['version']}；已批准的 7 项不再重复列为待审。",
         '下表剩余项目均待人工审核；修改 JSON 不会自动生效。新题材不参与覆盖试算。', '',
         '| 标签 | 拟映射/候选 | 作品数 | 其中原来无题材 | 说明 | 决策 |', '| --- | --- | --- | --- | --- | --- |']
     for row in review['pending_synonyms'] + review['candidate_genres_not_simulated']:
         lines.append(f"| {_cell(row['tag'])} | {_cell(row['target'] or '新题材候选，定义待确认')} | {row['document_frequency']} | {row['zero_genre_document_frequency']} | {_cell(row['rationale'])} | 待审核 |")
     lines += ['', '每项作品样例及类型分布见 mapping-review.json。各行作品可能重叠，不能直接相加当成覆盖提升。', '',
         '“搞笑 → 喜剧”等已有映射不重复申请；详见 JSON 的 already_active_aliases。',
-        '玄幻、穿越、魔法少女、BL 等不会强行展平成已有题材；未知标签继续排除。', '']
+        '玄幻、穿越、魔法少女是独立精确题材，不扩展父级；BL、耽美、实验、超现实、猎奇仍待审。', '']
     return '\n'.join(lines)
 
 
@@ -272,6 +287,8 @@ def coverage_markdown(report):
         f"全库 {report['scope']['total']}；明确非成人 {report['before']['works']}；成人 {report['scope']['adult']}、未知分级 {report['scope']['unknown']} 仅计数不取样。",
         '不读取私人手账、简介或长评，不访问外部服务；统计命令不改原标签、身份、评分或线上排序。', '',
         f"当前规则：{report['versions']['active_taxonomy']} / {report['versions']['active_extraction']}；已启用映射：{report['approved_alias_release']['version']}。", '',
+        f"已启用独立题材：{'、'.join(report['approved_genre_release']['definitions'])}；精确识别，不自动补父级或近义词。", '',
+        f"有效题材中包含上述新标签的作品共 {report['approved_genre_observation']['works_with_approved_labels']} 部（作品去重）；各题材计数见 coverage.json，不能相加作为新增覆盖数。", '',
         '## 当前实际覆盖与剩余待审草案（假设）', '',
         '| 指标 | 当前规则实际 | 审计后实际（不写库） | 若剩余同义候选获批（离线试算） |', '| --- | --- | --- | --- |']
     for label, key in (('有有效题材', 'with_effective_genres'), ('无有效题材', 'without_effective_genres'),
@@ -279,18 +296,18 @@ def coverage_markdown(report):
         lines.append(f"| {label} | {report['before'][key]} | {report['after_active'][key]} | {report['draft_synonyms_simulation'][key]} |")
     lines.append('| 作品题材覆盖率 | ' + ' | '.join(_percent(report[key]['coverage_fraction'])
                  for key in ('before', 'after_active', 'draft_synonyms_simulation')) + ' |')
-    lines += ['', '**已批准的 11 项已纳入当前规则；剩余草案尚未启用。试算只表示题材覆盖，不是推荐准确率、匹配概率或正式库修复数量。**',
-        f"原来无有效题材的构成：{report['baseline_zero_genre_breakdown']}。",
+    lines += ['', '**已批准的 11 项映射与 7 项题材已纳入当前规则；剩余草案尚未启用。试算只表示题材覆盖，不是推荐准确率、匹配概率或正式库修复数量。**',
+        f"当前无有效题材的构成：{report['baseline_zero_genre_breakdown']}。",
         f"试算新增覆盖 {report['draft_impact']['recovered_zero_genre_works']} 部，题材集合变化 {report['draft_impact']['enriched_works']} 部（按作品去重）。",
         '覆盖率分母为全部明确非成人作品；合法 Bangumi ID 子集另见 coverage.json，不用缺失身份凑推荐候选。']
     if comparison := report.get('approved_release_comparison'):
-        lines += ['', '## 已确认 11 项映射：同目录实际前后对比', '',
-            f"基线 {comparison['before_taxonomy']} → 当前 {comparison['after_taxonomy']}；目录指纹一致，基线 manifest 校验通过。",
+        lines += ['', '## 已批准规则：同目录实际前后对比', '',
+            f"基线 {comparison['before_taxonomy']} → 当前 {comparison['after_taxonomy']}；目录指纹一致，基线 manifest 校验通过。该差异包含这两个版本之间的全部规则变动。", '',
             '| 指标 | 启用前实际 | 当前代码实际 |', '| --- | --- | --- |',
             f"| 有有效题材作品 | {comparison['before']['with_effective_genres']} | {comparison['after']['with_effective_genres']} |",
             f"| 无有效题材作品 | {comparison['before']['without_effective_genres']} | {comparison['after']['without_effective_genres']} |",
             f"| 覆盖率 | {_percent(comparison['before']['coverage_fraction'])} | {_percent(comparison['after']['coverage_fraction'])} |",
-            f"新增覆盖 {comparison['additional_covered_works']} 部。这是当前代码对同一真实目录的提取结果，不代表线上服务已完成部署或推荐准确率提升。"]
+            '', f"新增覆盖 {comparison['additional_covered_works']} 部。这是当前代码对同一真实目录的提取结果，不代表线上服务已完成部署或推荐准确率提升。"]
     lines += ['', '## 未识别标签三分类', '', f"不同未识别标签 {report['unknown_unique_tags']} 个；按 NFKC + 大小写归一，每作品计一次。",
         f"分类：{report['unknown_categories']}。完整频率、无题材子集频率、类型分布、样例见 unknown-tags.json。",
         '全部安全作品均统计，同时单独标记无有效题材子集，避免只看问题子集而忽略已有题材作品。', '',

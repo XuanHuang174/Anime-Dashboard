@@ -32,12 +32,12 @@ EXPECTED_APPROVED = {'治愈系': '治愈', '治癒': '治愈', 'comedy': '喜�
 
 
 class AliasReleasePrimitiveTests(SimpleTestCase):
-    def test_only_the_11_approved_aliases_activated_without_new_genres(self):
+    def test_only_the_11_approved_aliases_retained_with_seven_approved_genres(self):
         self.assertEqual(APPROVED_ALIASES, EXPECTED_APPROVED)
         self.assertEqual(len(ALIASES), 21)  # 10 pre-existing + exactly 11 approved.
-        self.assertEqual(len(AVAILABLE_TAGS), 26)
-        self.assertEqual(TAXONOMY_VERSION, 'genres.v3')
-        self.assertEqual(FEATURE_RULE_VERSION, 'journal-genres.v2')
+        self.assertEqual(len(AVAILABLE_TAGS), 33)
+        self.assertEqual(TAXONOMY_VERSION, 'genres.v4')
+        self.assertEqual(FEATURE_RULE_VERSION, 'journal-genres.v3')
         self.assertEqual(engine.ALGORITHM_VERSION, 'content.v1')
         for source, target in EXPECTED_APPROVED.items():
             self.assertEqual(canonical_tag(source), target)
@@ -65,7 +65,7 @@ class AliasReleasePrimitiveTests(SimpleTestCase):
 
     def test_preference_payload_still_requires_canonical_choices_not_alias_writes(self):
         validate_preference_tags(['音乐', '喜剧'])
-        for tags in (['MUSIC'], ['热血'], ['百合', '百合']):
+        for tags in (['MUSIC'], ['BL'], ['百合', '百合']):
             with self.assertRaises(ValidationError):
                 validate_preference_tags(tags)
 
@@ -101,7 +101,7 @@ class AliasReleaseAPITests(APITestCase):
         self.assertEqual(profile['tag_summary'], [{'tag': '音乐', 'sample_count': 3}])
         self.assertEqual(profile['extraction']['explicit_preferences']['tags'], ['科幻'])
         self.assertEqual(result['algorithm_version'], 'content.v1')
-        self.assertEqual(result['taxonomy_version'], 'genres.v3')
+        self.assertEqual(result['taxonomy_version'], 'genres.v4')
         self.assertEqual({item['bangumi_id'] for item in result['results']}, {10, 11, 12})
         for item in result['results']:
             self.assertEqual(item['evidence']['feature_rule_version'], FEATURE_RULE_VERSION)
@@ -193,7 +193,7 @@ class AliasReleaseReportTests(SimpleTestCase):
                 if change == 'different_catalog':
                     old['catalog_fingerprint'] = 'different'
                 if change == 'wrong_version':
-                    old['versions']['active_taxonomy'] = 'genres.v3'
+                    old['versions']['active_taxonomy'] = 'genres.v4'
                 if change == 'bad_histogram':
                     old['before']['works'] = 99
                     old['after_active']['works'] = 99

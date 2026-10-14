@@ -17,7 +17,7 @@ class Command(BaseCommand):
         parser.add_argument('--output-dir', type=Path)
         parser.add_argument('--example-limit', type=int, default=3, help='每个标签最多 0–5 个非成人公共作品样例')
         parser.add_argument('--statement-timeout-ms', type=int, default=30000)
-        parser.add_argument('--compare-before-dir', type=Path, help='核验同目录的 genres.v2 旧报告，生成实际启用前后对比；目录不一致时拒绝归因')
+        parser.add_argument('--compare-before-dir', type=Path, help='核验同目录的旧题材版本报告，生成实际启用前后对比；目录不一致时拒绝归因')
 
     def handle(self, *args, **options):
         if not 0 <= options['example_limit'] <= 5:
