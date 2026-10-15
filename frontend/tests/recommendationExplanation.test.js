@@ -4,7 +4,8 @@ import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { createServer } from 'vite'
 import react from '@vitejs/plugin-react'
-import { recommendationEvidence, recommendationReason, recommendationAlgorithmLabel } from '../src/utils/recommendationExplanation.js'
+import { recommendationEvidence, recommendationReason, recommendationAlgorithmLabel, validateDetailEvidence } from '../src/utils/recommendationExplanation.js'
+import { createRecommendationClient } from '../src/api/recommendationClient.js'
 import { mapRecommendationItem, mapRecommendationPage, REC_CATEGORIES } from '../src/utils/recommendations.js'
 
 const server = await createServer({ configFile: false, plugins: [react()],
@@ -103,4 +104,28 @@ test('V1/V2 transport versions are supported but missing or unknown versions nev
   assert.equal(recommendationAlgorithmLabel('content.v99'), '推荐')
   assert.throws(() => mapRecommendationPage({ ...page, algorithm_version: 'content.v99' }))
   assert.equal(mapRecommendationPage(page).items.length, 1) // Rolling deployment compatibility.
+})
+
+test('6A detail transmits only the candidate evidence token and abort signal, never another identity', async () => {
+  const calls = []
+  const client = createRecommendationClient({ get: async (...args) => { calls.push(args); return { data: row } } })
+  const signal = new AbortController().signal
+  const token = 'a'.repeat(64)
+  await client.detail(52, signal, token)
+  assert.equal(calls[0][0], 'recommendations/52/')
+  assert.equal(calls[0][1].signal, signal)
+  assert.deepEqual(calls[0][1].params, { evidence_token: token })
+  for (const bad of ['wrong', '../users/1', null]) await assert.rejects(client.detail(52, signal, bad))
+  assert.equal(calls.length, 1)
+})
+
+test('6A refuses a fresh or missing detail revision instead of mixing it with an old card', () => {
+  const token = 'a'.repeat(64)
+  const card = mapRecommendationItem({ ...row, evidence_token: token, evidence_context: { preference_version: 1 } })
+  assert.equal(card.evidenceToken, token)
+  assert.equal(validateDetailEvidence(card, token), card)
+  assert.throws(() => validateDetailEvidence(mapRecommendationItem({ ...row, evidence_token: 'b'.repeat(64) }), token), /重新加载推荐/)
+  assert.throws(() => validateDetailEvidence(mapRecommendationItem(row), token), /合同不兼容/)
+  assert.throws(() => mapRecommendationItem({ ...row, evidence_token: 'invalid' }))
+  assert.equal(validateDetailEvidence(item, undefined), item) // Older direct-detail consumers remain compatible.
 })

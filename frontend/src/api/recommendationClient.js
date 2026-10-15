@@ -13,9 +13,11 @@ export function createRecommendationClient(client) {
     list: ({ category, filters, page = 1, stateToken }, signal) => client.get('recommendations/', { signal,
       params: { category, type: filters.type, min_score: filters.minScore, hide_recorded: filters.hideRecorded,
         page, page_size: 12, ...(stateToken ? { state_token: stateToken } : {}) } }).then((r) => r.data),
-    detail: (identity, signal) => {
+    detail: (identity, signal, evidenceToken) => {
       if (!Number.isInteger(identity) || identity < 1) return Promise.reject(new Error('无效作品身份'))
-      return client.get(`recommendations/${identity}/`, { signal }).then((r) => r.data)
+      if (evidenceToken !== undefined && !/^[a-f0-9]{64}$/.test(evidenceToken)) return Promise.reject(new Error('推荐依据合同不兼容'))
+      return client.get(`recommendations/${identity}/`, { signal,
+        ...(evidenceToken ? { params: { evidence_token: evidenceToken } } : {}) }).then((r) => r.data)
     },
   }
 }

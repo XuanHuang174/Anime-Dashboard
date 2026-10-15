@@ -28,3 +28,10 @@ export function recommendationAlgorithmLabel(version) {
   if (version === 'content.v2') return '推荐 V2'
   return '推荐'
 }
+
+export function validateDetailEvidence(item, expectedToken) {
+  if (expectedToken && item.evidenceToken !== expectedToken) {
+    throw new Error('推荐依据合同不兼容，请重新加载推荐后查看详情。')
+  }
+  return item
+}

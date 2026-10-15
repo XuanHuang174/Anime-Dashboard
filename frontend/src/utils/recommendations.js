@@ -62,13 +62,15 @@ export function getRecommendationCover(value) {
 export function mapRecommendationItem(row) {
   if (row?.content_rating !== 'non_adult' || !Number.isInteger(row.bangumi_id) || row.bangumi_id < 1
     || typeof row.title_zh !== 'string' || typeof row.title_jp !== 'string' || !Array.isArray(row.tags)
-    || !row.tags.every((tag) => typeof tag === 'string') || !Number.isFinite(row.score) || row.score < 0 || row.score > 10) {
+    || !row.tags.every((tag) => typeof tag === 'string') || !Number.isFinite(row.score) || row.score < 0 || row.score > 10
+    || (row.evidence_token !== undefined && !/^[a-f0-9]{64}$/.test(row.evidence_token))) {
     throw new Error('推荐数据合同不兼容，请重试或联系管理员。')
   }
   return { id: String(row.bangumi_id), bangumiId: row.bangumi_id, title: row.title_zh || row.title_jp,
     originalTitle: row.title_jp, year: row.season?.slice(0, 4), season: row.season, type: row.status_type,
     score: row.score, tags: row.tags, coverUrl: getRecommendationCover(row.cover_url),
-    synopsis: row.synopsis || '', reason: row.reason || '', evidence: row.evidence, watchStatus: row.watch_status }
+    synopsis: row.synopsis || '', reason: row.reason || '', evidence: row.evidence, watchStatus: row.watch_status,
+    evidenceToken: row.evidence_token, evidenceContext: row.evidence_context }
 }
 
 export function mapRecommendationPage(data) {

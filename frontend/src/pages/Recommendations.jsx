@@ -14,7 +14,7 @@ import useRecommendationWant from '../hooks/useRecommendationWant.js'
 import useRecommendationPreferences from '../hooks/useRecommendationPreferences.js'
 import useRecommendationReload from '../hooks/useRecommendationReload.js'
 import { notifyRecommendationChange } from '../utils/recommendationReload.js'
-import { recommendationAlgorithmLabel } from '../utils/recommendationExplanation.js'
+import { recommendationAlgorithmLabel, validateDetailEvidence } from '../utils/recommendationExplanation.js'
 import { createLatestRequestGate, DEFAULT_REC_FILTERS, mapRecommendationItem, recommendationError, REC_CATEGORIES, identitySummary } from '../utils/recommendations.js'
 import '../styles/recommendations.css'
 
@@ -40,6 +40,7 @@ export default function Recommendations({ client = recommendationApi }) {
   const want = useRecommendationWant(client)
   const activeFilters = Number(filters.type !== 'all') + Number(filters.minScore !== '0') + Number(filters.hideRecorded)
   const detailId = panel?.kind === 'detail' ? panel.item.bangumiId : null
+  const detailEvidenceToken = panel?.kind === 'detail' ? panel.item.evidenceToken : undefined
 
   useEffect(() => { want.reconcile(state.items) }, [state.items, want.reconcile])
   useEffect(() => { if (detail.status === 'ready') want.reconcile([detail.item]) }, [detail, want.reconcile])
@@ -53,12 +54,14 @@ export default function Recommendations({ client = recommendationApi }) {
     if (!detailId) { detailGate.current.cancel(); return undefined }
     const request = detailGate.current.begin()
     setDetail({ status: 'loading' })
-    client.detail(detailId, request.signal).then((raw) => {
-      const item = mapRecommendationItem(raw)
+    client.detail(detailId, request.signal, detailEvidenceToken).then((raw) => {
+      const item = validateDetailEvidence(mapRecommendationItem(raw), detailEvidenceToken)
       if (request.isCurrent()) setDetail({ status: 'ready', item })
-    }).catch((error) => { if (request.isCurrent()) setDetail({ status: 'error', message: recommendationError(error) }) })
+    }).catch((error) => { if (request.isCurrent()) setDetail({ status: 'error',
+      snapshotChanged: error?.response?.status === 409 || /^推荐依据合同不兼容/.test(error?.message || ''),
+      message: recommendationError(error) }) })
     return () => detailGate.current.cancel()
-  }, [detailId, detailRevision, client])
+  }, [detailId, detailEvidenceToken, detailRevision, client])
   useEffect(() => {
     if (!notice) return undefined
     const timer = window.setTimeout(() => setNotice(''), 5000)
@@ -160,7 +163,8 @@ export default function Recommendations({ client = recommendationApi }) {
         onTag={preferenceEditor.setTag} onClear={preferenceEditor.clearDraft} onSave={preferenceEditor.save}
         onReloadLatest={preferenceEditor.reloadLatest} onResolveConflict={preferenceEditor.resolveConflict} onClose={closePanel} />
         : detail.status === 'loading' ? <p className="rec-muted" role="status">正在读取作品详情…</p>
-        : detail.status === 'error' ? <div role="alert"><p>{detail.message}</p><button type="button" className="rec-button" onClick={() => setDetailRevision((n) => n + 1)}>重试详情</button></div>
+        : detail.status === 'error' ? <div role="alert"><p>{detail.message}</p><button type="button" className="rec-button"
+          onClick={() => { if (detail.snapshotChanged) { setPanel(null); reload() } else setDetailRevision((n) => n + 1) }}>{detail.snapshotChanged ? '重新加载推荐' : '重试详情'}</button></div>
           : <div className="rec-detail-content"><RecommendationCover item={detail.item} priority />
             <div><p className="rec-original-title">{detail.item.originalTitle}</p><RecommendationMeta item={detail.item} />
               <h3>推荐依据</h3><RecommendationEvidence item={detail.item} expanded />

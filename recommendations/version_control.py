@@ -17,8 +17,10 @@ from django.core.cache import cache
 ARTIFACT_VERSION = 'recommendations.release.v1'
 GATE_NAMES = ('safety', 'evidence', 'relevance', 'categories', 'performance', 'rollback')
 CHECK_MODULES = ('recommendations.tests.test_contracts_api', 'recommendations.tests.test_engine_api',
-                 'recommendations.tests.test_ranking_v2', 'recommendations.tests.test_comparison')
+                 'recommendations.tests.test_ranking_v2', 'recommendations.tests.test_comparison',
+                 'recommendations.tests.test_evidence_contract')
 SOURCE_PATHS = (
+    'recommendations/evidence.py',
     'recommendations/public_fingerprint.py',
     'recommendations/engine.py', 'recommendations/ranking_v2.py', 'recommendations/version_control.py',
     'recommendations/taxonomy.py', 'recommendations/features.py', 'recommendations/extraction.py',

@@ -16,7 +16,8 @@ from rest_framework.throttling import ScopedRateThrottle, UserRateThrottle
 from .serializers import RecommendationPreferencePatchSerializer, RecommendationPreferenceSerializer, RecommendationProfileSerializer
 from .services import patch_preferences, preference_contract, profile_contract
 from .engine import (CONTRACT_VERSION, FEATURE_VERSION, RecommendationSnapshotChanged,
-                     RecommendationUnavailable, evidence_for, rank_candidates, user_context)
+                     RecommendationUnavailable, rank_candidates, user_context, configured_algorithm)
+from .evidence import EvidencePresenter, EVIDENCE_CONTRACT_VERSION, EVIDENCE_DISCLAIMER
 from .identity import safe_catalog
 from .serializers import RecommendationPublicAnimeSerializer, RecommendationListAnimeSerializer, RecommendationQuerySerializer
 from .taxonomy import TAXONOMY_VERSION
@@ -25,6 +26,7 @@ from .binding import bind_record
 from .review import review_contract
 from .want import add_want, WantConflict
 from .serializers import RecommendationWantSerializer
+from .serializers import EvidenceEnvelopeSerializer, RecommendationDetailQuerySerializer
 
 logger = logging.getLogger(__name__)
 
@@ -109,20 +111,24 @@ class RecommendationListView(OwnRecommendationAPIView):
         query = RecommendationQuerySerializer(data=request.query_params)
         query.is_valid(raise_exception=True)
         options = query.validated_data
-        context, ranked, token, _ = rank_candidates(request.user, options)
+        context, ranked, token, weights = rank_candidates(request.user, options)
         if options['page'] > 1 and not hmac.compare_digest(token, options['state_token']):
             raise RecommendationSnapshotChanged()
         start = (options['page'] - 1) * options['page_size']
         page = ranked[start:start + options['page_size']]
+        presenter = EvidencePresenter(request.user, context, dict(weights), context['algorithm_version'])
+        presenter.ensure_safe([item['anime'] for item in page])
         results = []
         for item in page:
             data = dict(RecommendationListAnimeSerializer(item['anime']).data)
-            data.update(content_rating='non_adult', reason=item['reason'], evidence=item['evidence'],
-                        watch_status=context['owned'].get(item['anime'].bangumi_id))
+            data.update(EvidenceEnvelopeSerializer(presenter.present(item['anime'], item['tags'])).data)
+            data.update(content_rating='non_adult', watch_status=context['owned'].get(item['anime'].bangumi_id))
             results.append(data)
         return Response({
             'contract_version': CONTRACT_VERSION, 'algorithm_version': context['algorithm_version'],
             'feature_version': FEATURE_VERSION, 'taxonomy_version': TAXONOMY_VERSION,
+            'evidence_contract_version': EVIDENCE_CONTRACT_VERSION,
+            'evidence_context': presenter.versions, 'evidence_disclaimer': EVIDENCE_DISCLAIMER,
             'mode': context['mode'], 'readiness': context['profile']['readiness'],
             'cold_start_state': context['profile']['cold_start_state'],
             'count': len(ranked), 'page': options['page'], 'page_size': options['page_size'],
@@ -137,17 +143,24 @@ class RecommendationDetailView(OwnRecommendationAPIView):
     throttle_scope = 'recommendation_read'
 
     def get(self, request, bangumi_id):
-        self.check_query_contract(request)
+        query = RecommendationDetailQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
         anime = safe_catalog().filter(bangumi_id=bangumi_id).first()
         if anime is None:
             raise NotFound('该作品不可用于推荐。')
         context = user_context(request.user)
         from .engine import feature_tags, public_features
+        algorithm = configured_algorithm()
         tags = feature_tags(anime.tags, (anime.title_zh, anime.title_jp))
-        evidence, reason, _ = evidence_for(tags, context, public_features()['weights'])
+        presenter = EvidencePresenter(request.user, context, public_features(algorithm_version=algorithm)['weights'], algorithm)
+        presenter.ensure_safe([anime])
+        explanation = presenter.present(anime, tags)
+        expected = query.validated_data.get('evidence_token')
+        if expected and not hmac.compare_digest(expected, explanation['evidence_token']):
+            raise RecommendationSnapshotChanged('推荐依据已更新，请重新加载推荐后查看详情。')
         data = dict(RecommendationPublicAnimeSerializer(anime).data)
-        data.update(content_rating='non_adult', reason=reason, evidence=evidence,
-                    watch_status=context['owned'].get(anime.bangumi_id))
+        data.update(EvidenceEnvelopeSerializer(explanation).data)
+        data.update(content_rating='non_adult', watch_status=context['owned'].get(anime.bangumi_id))
         return Response(data)
 
 

@@ -94,7 +94,7 @@ def user_context(user):
         identity = row['resolved_bangumi_id']
         if identity and priority.get(row['watch_status'], 0) > priority.get(owned.get(identity), 0):
             owned[identity] = row['watch_status']
-    return {'profile': profile, 'preferences': preferences, 'seeds': seeds, 'taxonomy_version': vocabulary.TAXONOMY_VERSION,
+    return {'_owner_id': user.pk, 'profile': profile, 'preferences': preferences, 'seeds': seeds, 'taxonomy_version': vocabulary.TAXONOMY_VERSION,
             'mode': mode, 'owned': owned}
 
 
@@ -407,12 +407,16 @@ def rank_candidates(user, options):
     if context['mode'] == 'cold_start':
         return context, [], 'cold', []
     ranked, weights = rank_context(context, options, public_features(algorithm_version=algorithm), algorithm_version=algorithm)
-    return context, ranked, snapshot_token(user.pk, context, options, ranked, algorithm), weights
+    return context, ranked, snapshot_token(user.pk, context, options, ranked, algorithm, weights=weights), weights
 
 
-def snapshot_token(user_id, context, options, ranked, algorithm):
+def snapshot_token(user_id, context, options, ranked, algorithm, *, weights=None):
+    from .evidence import EVIDENCE_CONTRACT_VERSION, SELECTION_RULE_VERSION
     # Opaque, user-bound state token; never exposes ratings or user IDs themselves.
     state = {'user': user_id, 'algorithm': algorithm, 'features': FEATURE_VERSION,
+             'evidence_contract': EVIDENCE_CONTRACT_VERSION, 'evidence_selection': SELECTION_RULE_VERSION,
+             'evidence_catalog_version': hashlib.sha256(json.dumps(weights, sort_keys=True).encode()).hexdigest()
+                 if weights is not None else None,
              'context_rule': context.get('taxonomy_version'),
              'rerank_policy': ranking_v2.policy_contract() if algorithm == EXPERIMENTAL_ALGORITHM_VERSION else None,
              'profile': context['profile'],

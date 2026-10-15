@@ -236,6 +236,54 @@ class RecommendationListAnimeSerializer(RecommendationPublicAnimeSerializer):
         read_only_fields = fields
 
 
+class EvidenceVersionsSerializer(serializers.Serializer):
+    algorithm_version = serializers.CharField(read_only=True)
+    ranking_policy_version = serializers.CharField(read_only=True)
+    taxonomy_version = serializers.CharField(read_only=True)
+    feature_version = serializers.CharField(read_only=True)
+    feature_rule_version = serializers.CharField(read_only=True)
+    selection_rule_version = serializers.CharField(read_only=True)
+    profile_version = serializers.CharField(read_only=True)
+    preference_version = serializers.IntegerField(read_only=True)
+    catalog_feature_version = serializers.CharField(read_only=True)
+
+
+class EvidenceSourceSerializer(serializers.Serializer):
+    bangumi_id = serializers.IntegerField(read_only=True)
+    title = serializers.CharField(read_only=True)
+    personal_score = serializers.DecimalField(max_digits=3, decimal_places=1, read_only=True)
+
+
+class RecommendationEvidenceSerializer(serializers.Serializer):
+    contract_version = serializers.CharField(read_only=True)
+    kind = serializers.ChoiceField(choices=('rated_work', 'explicit_preferences'), read_only=True)
+    source = EvidenceSourceSerializer(read_only=True, allow_null=True)
+    shared_tags = serializers.ListField(child=serializers.CharField(), read_only=True)
+    feature_rule_version = serializers.CharField(read_only=True)
+    shared_tag_sources = serializers.DictField(child=serializers.ListField(child=serializers.CharField()), read_only=True)
+    versions = EvidenceVersionsSerializer(read_only=True)
+    interpretation = serializers.CharField(read_only=True)
+    is_probability = serializers.BooleanField(read_only=True)
+    is_exhaustive_ranking_explanation = serializers.BooleanField(read_only=True)
+
+
+class EvidenceEnvelopeSerializer(serializers.Serializer):
+    reason = serializers.CharField(read_only=True)
+    evidence = RecommendationEvidenceSerializer(read_only=True, allow_null=True)
+    evidence_context = EvidenceVersionsSerializer(read_only=True)
+    evidence_token = serializers.CharField(read_only=True)
+    evidence_disclaimer = serializers.CharField(read_only=True)
+
+
+class RecommendationDetailQuerySerializer(serializers.Serializer):
+    evidence_token = serializers.RegexField(regex=r'^[a-f0-9]{64}$', required=False)
+
+    def to_internal_value(self, data):
+        if set(data) - set(self.fields) or any(len(data.getlist(key)) != 1 for key in data if hasattr(data, 'getlist')):
+            raise serializers.ValidationError({'non_field_errors': ['详情仅接受一枚 evidence_token，不接受用户或算法覆盖参数。']})
+        return super().to_internal_value(data)
+
+
 class IdentityReviewQuerySerializer(serializers.Serializer):
     scope = serializers.ChoiceField(choices=('high-score', 'all'), default='high-score')
     page = serializers.IntegerField(min_value=1, max_value=1000, default=1)

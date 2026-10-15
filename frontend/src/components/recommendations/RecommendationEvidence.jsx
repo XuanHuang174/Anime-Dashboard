@@ -21,7 +21,7 @@ export default function RecommendationEvidence({ item, expanded = false }) {
               <div className="rec-evidence-tags" aria-label="明确选择且与本作共有的题材">{evidence.tags.map(tag => <span key={tag}>{tag}</span>)}</div>
               <p>这条依据来自你明确选择的题材，而非高分作品画像；不会据此宣称已形成完整画像。</p>
             </>}
-            <p className="rec-evidence-footnote">共同题材用于解释关联，不是喜欢概率。Bangumi 评分是公共评价，不是你的个人评分。</p>
+            <p className="rec-evidence-footnote">共同题材用于解释关联，不代表唯一排序原因，也不是喜欢概率。Bangumi 评分是公共评价，不是你的个人评分。</p>
           </>}
       </div>
     </details>
