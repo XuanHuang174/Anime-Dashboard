@@ -74,6 +74,11 @@
 .memphis-rec-container .rec-card--hero .rec-card-title { font-size: 30px; min-height: 0; margin-top: 14px; }
 .memphis-rec-container .rec-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; font-size: 10px; color: var(--rec-muted); margin: 0 0 12px; }
 .memphis-rec-container .rec-meta b { color: var(--rec-ink); }
+.memphis-rec-container .rec-public-score { display: inline-flex; flex-wrap: wrap; gap: 3px 6px; align-items: baseline; }
+.memphis-rec-container .rec-public-score > strong { color: var(--rec-ink); font-weight: 800; }
+.memphis-rec-container .rec-public-score[data-score-state="zero_ambiguous"] b,
+.memphis-rec-container .rec-public-score[data-score-state="unavailable"] b { color: var(--rec-muted); font-weight: 500; }
+.memphis-rec-container .rec-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 .memphis-rec-container .rec-card-reason { margin: 0 0 14px; width: 100%; font-size: 12px; line-height: 1.8; color: #545c50; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .memphis-rec-container .rec-explanation { width: 100%; min-width: 0; margin-bottom: 14px; }
 .memphis-rec-container .rec-explanation .rec-card-reason { margin-bottom: 4px; }

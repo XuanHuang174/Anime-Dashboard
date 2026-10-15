@@ -62,7 +62,8 @@ export function getRecommendationCover(value) {
 export function mapRecommendationItem(row) {
   if (row?.content_rating !== 'non_adult' || !Number.isInteger(row.bangumi_id) || row.bangumi_id < 1
     || typeof row.title_zh !== 'string' || typeof row.title_jp !== 'string' || !Array.isArray(row.tags)
-    || !row.tags.every((tag) => typeof tag === 'string') || !Number.isFinite(row.score) || row.score < 0 || row.score > 10
+    || !row.tags.every((tag) => typeof tag === 'string')
+    || (row.score !== null && (!Number.isFinite(row.score) || row.score < 0 || row.score > 10))
     || (row.evidence_token !== undefined && !/^[a-f0-9]{64}$/.test(row.evidence_token))) {
     throw new Error('推荐数据合同不兼容，请重试或联系管理员。')
   }

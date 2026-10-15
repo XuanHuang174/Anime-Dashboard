@@ -88,6 +88,7 @@ export default function Recommendations({ client = recommendationApi }) {
   }
   const openWantIdentity = () => setPanel({ kind: 'identity', scope: 'all' })
   const cardProps = (item) => ({ item, onWant: addWant, operation: want.operations[item.bangumiId], onIdentity: openWantIdentity,
+    onReload: () => reload(),
     onDetail: (chosen) => { setDetail({ status: 'loading' }); setPanel({ kind: 'detail', item: chosen }) } })
   const profile = state.profile
   const pending = profile?.diagnostics?.pending_identity_count || 0
@@ -167,7 +168,7 @@ export default function Recommendations({ client = recommendationApi }) {
           onClick={() => { if (detail.snapshotChanged) { setPanel(null); reload() } else setDetailRevision((n) => n + 1) }}>{detail.snapshotChanged ? '重新加载推荐' : '重试详情'}</button></div>
           : <div className="rec-detail-content"><RecommendationCover item={detail.item} priority />
             <div><p className="rec-original-title">{detail.item.originalTitle}</p><RecommendationMeta item={detail.item} />
-              <h3>推荐依据</h3><RecommendationEvidence item={detail.item} expanded />
+              <h3>推荐依据</h3><RecommendationEvidence item={detail.item} expanded onReload={() => { setPanel(null); reload() }} />
               <h3>故事简介</h3><p>{detail.item.synopsis || '暂未收录简介。'}</p>
               <RecommendationActions item={detail.item} detailLabel="关闭详情" onDetail={() => setPanel(null)}
                 onWant={addWant} operation={want.operations[detail.item.bangumiId]} onIdentity={openWantIdentity} />

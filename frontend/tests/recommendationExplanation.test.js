@@ -23,7 +23,7 @@ const render = props => renderToStaticMarkup(React.createElement(Evidence, { ite
 
 test('rated-work evidence uses the actual source personal score, not the public score', () => {
   const html = render()
-  assert.match(html, /来源作品/); assert.match(html, /你的个人评分/); assert.match(html, /9\.0 \/ 10/)
+  assert.match(html, /来源作品/); assert.match(html, /你对《来源作品》的评分：/); assert.match(html, /9\.0 分/)
   assert.match(html, /实际共有题材/); assert.match(html, /音乐/); assert.match(html, /日常/)
   assert.doesNotMatch(html, /7\.5 \/ 10|成长|匹配率|匹配百分比/)
   assert.match(html, /公共评价/); assert.match(html, /不是喜欢概率/)
@@ -31,7 +31,7 @@ test('rated-work evidence uses the actual source personal score, not the public 
 
 test('explicit evidence never pretends to be a rated-work profile or fabricates a source', () => {
   const html = render({ item: { ...item, evidence: { kind: 'explicit_preferences', source: null, shared_tags: ['音乐'] } } })
-  assert.match(html, /来自明确偏好/); assert.match(html, /根据你选择的题材推荐/)
+  assert.match(html, /来自你选择的题材/); assert.match(html, /根据你选择的题材推荐/)
   assert.match(html, /而非高分作品画像/)
   assert.doesNotMatch(html, /<dt>来源作品|<dt>你的个人评分|9\.0/)
 })
