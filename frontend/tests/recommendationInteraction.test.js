@@ -13,6 +13,7 @@ const server = await createServer({ configFile: false, plugins: [react()],
 after(() => server.close())
 const { default: Card } = await server.ssrLoadModule('/src/components/recommendations/RecommendationCard.jsx')
 const { default: Actions } = await server.ssrLoadModule('/src/components/recommendations/RecommendationDetailActions.jsx')
+const { default: Resources } = await server.ssrLoadModule('/src/components/recommendations/RecommendationResourcePanel.jsx')
 const { default: ResourceBoundary } = await server.ssrLoadModule('/src/components/recommendations/RecommendationResourceBoundary.jsx')
 const raw = (id = 123, changes = {}) => ({ bangumi_id: id, content_rating: 'non_adult', title_zh: '完整作品 第二季',
   title_jp: 'Title', season: '2026-04', score: 7.5, tags: ['音乐'], reason: '', evidence: null,
@@ -32,9 +33,11 @@ test('7A cards keep exactly two action buttons; resource entry exists only in de
   }
   const html = render(Actions, { item: { ...item, watchStatus: 'completed' }, resourceOpen: true,
     onClose() {}, onWant() {}, onResourceOpen() {}, onResourceClose() {} })
-  assert.match(html, /寻找资源/); assert.match(html, /完整作品 第二季/); assert.match(html, /2026-04/)
-  assert.match(html, /搜索关键词/); assert.match(html, /<input[^>]*placeholder=/)
-  assert.match(html, /不代表已匹配正确季度或版本/)
+  assert.match(html, /寻找资源/)
+  const resource = render(Resources, { item, open: true, sessionKey: 'local', onClose() {} })
+  assert.match(resource, /完整作品 第二季/); assert.match(resource, /2026-04/)
+  assert.match(resource, /搜索关键词/); assert.match(resource, /<input[^>]*placeholder=/)
+  assert.match(resource, /不代表已匹配正确季度或版本/)
 })
 
 test('a confirmed POST invalidates the WHOLE detail before standalone reload; duplicate clicks notify once', async () => {

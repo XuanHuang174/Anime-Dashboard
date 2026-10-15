@@ -127,3 +127,18 @@ class AnimeResourceSearchTests(SimpleTestCase):
             self.assertEqual(self.call().status_code, 200)
         self.assertEqual(self.call().status_code, 429)
         self.assertEqual(get.call_count, 20)
+
+    @patch("anime.resource_search.requests.get")
+    def test_users_have_separate_limits_and_no_shared_result_or_private_payload(self, get):
+        get.return_value = self.upstream([])
+        for _ in range(20):
+            self.assertEqual(self.call().status_code, 200)
+        self.assertEqual(self.call().status_code, 429)
+        self.user = get_user_model()(id=988, username="second-resource-user")
+        get.return_value = self.upstream([{"title": "公开资源", "magnet": "magnet:?xt=urn:btih:ABC",
+            "user_id": 987, "personal_score": "9.9", "review": "DO_NOT_FORWARD"}])
+        response = self.call()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(get.call_count, 21)
+        self.assertEqual(set(response.data['results'][0]), {'title', 'magnet', 'size', 'published_at', 'publisher'})
+        self.assertNotIn('DO_NOT_FORWARD', str(response.data))

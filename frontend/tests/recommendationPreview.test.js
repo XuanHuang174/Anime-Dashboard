@@ -78,7 +78,8 @@ test('real page has no mock fallback or acceptance controls and route remains pr
 
 test('styles use the independent namespace and static non-flashing skeletons', () => {
   const css = readFileSync(new URL('../src/styles/recommendations.css', import.meta.url), 'utf8')
-  assert.doesNotMatch(css, /@keyframes|animation:/)
+  assert.doesNotMatch(css, /@keyframes/)
+  assert.ok(css.split('\n').filter(line => line.includes('animation:')).every(line => /animation:\s*none;/.test(line)))
   const selectors = css.split('\n').filter((line) => line.includes('{') && !line.trim().startsWith('@'))
   assert.ok(selectors.every((line) => line.trim().startsWith('.memphis-rec-container')))
   assert.match(css, /repeat\(4, minmax\(0, 1fr\)\)/)

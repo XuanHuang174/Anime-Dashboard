@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import RecommendationCard, { RecommendationCover, RecommendationMeta } from '../components/recommendations/RecommendationCard.jsx'
 import RecommendationDialog from '../components/recommendations/RecommendationDialog.jsx'
@@ -13,6 +13,7 @@ import useRecommendations from '../hooks/useRecommendations.js'
 import useRecommendationWant from '../hooks/useRecommendationWant.js'
 import useRecommendationDetail from '../hooks/useRecommendationDetail.js'
 import RecommendationDetailActions from '../components/recommendations/RecommendationDetailActions.jsx'
+import RecommendationResourcePanel from '../components/recommendations/RecommendationResourcePanel.jsx'
 import useRecommendationPreferences from '../hooks/useRecommendationPreferences.js'
 import useRecommendationReload from '../hooks/useRecommendationReload.js'
 import { notifyRecommendationChange } from '../utils/recommendationReload.js'
@@ -26,6 +27,7 @@ export default function Recommendations({ client = recommendationApi }) {
   const [draftFilters, setDraftFilters] = useState({ ...DEFAULT_REC_FILTERS })
   const [panel, setPanel] = useState(null)
   const [notice, setNotice] = useState('')
+  const resourceTrigger = useRef(null)
   const { detail, controller: detailController } = useRecommendationDetail(client)
   const state = useRecommendations(category, filters, client)
   const preferenceEditor = useRecommendationPreferences(client, confirmedPreferences => {
@@ -136,7 +138,12 @@ export default function Recommendations({ client = recommendationApi }) {
     {panel?.kind === 'identity' && <RecommendationIdentityReview client={client} scope={panel.scope || 'high-score'} onClose={() => setPanel(null)}
       onChanged={() => { want.resetFailures(); reload(); notifyRecommendationChange({ local: false }) }} />}
     {panel && panel.kind !== 'identity' && <RecommendationDialog kind={panel.kind} busy={saving} title={panel.kind === 'filters' ? '给心动留一点范围' : panel.kind === 'preferences' ? '我的口味' : panel.item.title}
-      onClose={closePanel}>
+      onClose={closePanel} resourceOpen={panel.kind === 'detail' && detail.status === 'ready' && detail.resourceOpen}
+      onResourceClose={detailController.closeResources} resourceTriggerRef={resourceTrigger}
+      resourcePanel={panel.kind === 'detail' && detail.status === 'ready' ? <RecommendationResourcePanel
+        item={detail.item} open={detail.resourceOpen}
+        sessionKey={`${detail.selection.session}:${detail.resourceSession || 0}:${detail.item.bangumiId}:${detail.item.evidenceToken || ''}`}
+        onClose={detailController.closeResources} /> : null}>
       {panel.kind === 'filters' ? <form onSubmit={(event) => { event.preventDefault(); setFilters({ ...draftFilters }); setPanel(null) }}>
         <p className="rec-muted">成人及分级未知作品已由后端过滤，不会混入推荐流。</p>
         <label className="rec-field">作品类型<select value={draftFilters.type} onChange={(event) => setDraftFilters({ ...draftFilters, type: event.target.value })}>
@@ -158,6 +165,7 @@ export default function Recommendations({ client = recommendationApi }) {
               <h3>推荐依据</h3><RecommendationEvidence item={detail.item} expanded onReload={() => { closePanel(); reload() }} />
               <h3>故事简介</h3><p>{detail.item.synopsis || '暂未收录简介。'}</p>
               <RecommendationDetailActions item={detail.item} resourceOpen={detail.resourceOpen}
+                resourceTriggerRef={resourceTrigger}
                 onResourceOpen={detailController.openResources} onResourceClose={detailController.closeResources} onClose={closePanel}
                 onWant={addWant} operation={want.operations[detail.item.bangumiId]} onIdentity={openWantIdentity} />
             </div></div>}

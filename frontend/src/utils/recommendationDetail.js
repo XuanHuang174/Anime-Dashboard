@@ -53,7 +53,9 @@ export function createRecommendationDetailController(client) {
       return load(state.selection, state.expectation, state.confirmedMutation)
     },
     openResources() {
-      if (!disposed && state.status === 'ready') emit({ ...state, resourceOpen: true })
+      if (!disposed && state.status === 'ready' && !state.resourceOpen) {
+        emit({ ...state, resourceOpen: true, resourceSession: (state.resourceSession || 0) + 1 })
+      }
     },
     closeResources() {
       if (state.status === 'ready') emit({ ...state, resourceOpen: false })

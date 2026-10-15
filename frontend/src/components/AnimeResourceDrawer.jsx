@@ -1,102 +1,36 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react'
 import api from '../api/api.js'
-import { cleanResourceKeyword, dmhySearchUrl, hasResourceSearchSession, isSafeMagnet } from '../utils/resourceSearch.js'
+import { dmhySearchUrl, hasResourceSearchSession, isSafeMagnet } from '../utils/resourceSearch.js'
+import { createResourceSearchSession } from '../utils/resourceSearchSession.js'
 import './AnimeResourceDrawer.css'
 
-export default function AnimeResourceDrawer({ open, title = '', autoSearch = true, id = 'animeResourceDrawer', onClose, showToast }) {
-  const [keyword, setKeyword] = useState('')
-  const [searchedKeyword, setSearchedKeyword] = useState('')
-  const [results, setResults] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [needsLogin, setNeedsLogin] = useState(false)
-  const [copyFallback, setCopyFallback] = useState('')
-  const [copiedMagnet, setCopiedMagnet] = useState('')
+export default function AnimeResourceDrawer({ open, title = '', autoSearch = true, id = 'animeResourceDrawer', onClose, showToast,
+  sessionKey, trapFocus = true, client = api }) {
+  const latestToast = useRef(showToast)
+  latestToast.current = showToast
+  const session = useMemo(() => createResourceSearchSession(client, {
+    hasSession: hasResourceSearchSession,
+    copyText: value => navigator.clipboard.writeText(value),
+    onCopied: () => latestToast.current?.('Magnet 链接已复制。', 'success'),
+  }), [client])
+  const { keyword, searchedKeyword, results, loading, error, needsLogin, copyFallback, copiedMagnet } =
+    useSyncExternalStore(session.subscribe, session.getSnapshot, session.getSnapshot)
   const drawerRef = useRef(null)
   const inputRef = useRef(null)
-  const requestRef = useRef(null)
-  const sequenceRef = useRef(0)
-
-  async function search(value) {
-    requestRef.current?.abort()
-    const sequence = ++sequenceRef.current
-    const trimmed = value.trim()
-    setSearchedKeyword(trimmed)
-    setCopyFallback('')
-    setCopiedMagnet('')
-    setResults([])
-    setError('')
-    setNeedsLogin(false)
-    setLoading(false)
-    if (!trimmed) {
-      setError('请输入搜索关键词。')
-      return
-    }
-    if (!hasResourceSearchSession()) {
-      setNeedsLogin(true)
-      setError('请先登录手账账号，再使用资源搜索。')
-      return
-    }
-    setNeedsLogin(false)
-    setLoading(true)
-    const controller = new AbortController()
-    requestRef.current = controller
-    try {
-      const response = await api.get('utils/anime-search/', {
-        params: { keyword: trimmed }, signal: controller.signal, timeout: 15000,
-      })
-      if (sequence !== sequenceRef.current) return
-      if (response.data.status !== 'success' || !Array.isArray(response.data.results)) {
-        throw new Error('资源搜索返回的数据异常，请稍后再试。')
-      }
-      setResults(response.data.results)
-    } catch (requestError) {
-      if (controller.signal.aborted || sequence !== sequenceRef.current) return
-      setError(requestError.response?.data?.message
-        || (requestError.code === 'ECONNABORTED'
-          ? '数据源站点目前开启了防御或正在唤醒，请稍后再试'
-          : '资源搜索暂时不可用，请稍后再试或使用网页搜索。'))
-    } finally {
-      if (sequence === sequenceRef.current) setLoading(false)
-    }
-  }
 
   useEffect(() => {
     if (!open) return undefined
-    const initialKeyword = cleanResourceKeyword(title)
-    setKeyword(initialKeyword)
-    setSearchedKeyword('')
-    setResults([])
-    setError('')
-    setLoading(false)
-    setNeedsLogin(false)
-    setCopyFallback('')
-    setCopiedMagnet('')
-    if (autoSearch && initialKeyword) search(initialKeyword)
+    session.open(title, autoSearch)
     // Focus after the opening frame, once the formerly hidden drawer is visible.
     const focusFrame = requestAnimationFrame(() => inputRef.current?.focus({ preventScroll: true }))
     return () => {
       cancelAnimationFrame(focusFrame)
-      ++sequenceRef.current
-      requestRef.current?.abort()
+      session.close()
     }
-  }, [open, title, autoSearch])
-
-  async function copyMagnet(magnet) {
-    if (!isSafeMagnet(magnet)) return
-    try {
-      await navigator.clipboard.writeText(magnet)
-      setCopiedMagnet(magnet)
-      showToast?.('Magnet 链接已复制。', 'success')
-      setCopyFallback('')
-    } catch {
-      // Clipboard access may be disabled: offer a selectable manual fallback.
-      setCopyFallback(magnet)
-    }
-  }
+  }, [open, title, autoSearch, sessionKey, session])
 
   function keepFocusInDrawer(event) {
-    if (event.key !== 'Tab') return
+    if (!trapFocus || event.key !== 'Tab') return
     const focusable = [...drawerRef.current.querySelectorAll('button:not(:disabled), input, a[href]')]
     const first = focusable[0]
     const last = focusable.at(-1)
@@ -122,12 +56,12 @@ export default function AnimeResourceDrawer({ open, title = '', autoSearch = tru
         </div>
         <form className="anime-resource-drawer__search" onSubmit={(event) => {
           event.preventDefault()
-          search(keyword)
+          session.search(keyword)
         }}>
           <label htmlFor={`${id}-keyword`}>搜索关键词</label>
           <div>
             <input ref={inputRef} id={`${id}-keyword`} value={keyword} maxLength={200}
-              onChange={(event) => setKeyword(event.target.value)} placeholder="输入番剧名称…快速寻找 Magnet 资源" />
+              onChange={(event) => session.setKeyword(event.target.value)} placeholder="输入番剧名称…快速寻找 Magnet 资源" />
             <button type="submit" className="resource-button">搜索</button>
           </div>
         </form>
@@ -166,9 +100,9 @@ export default function AnimeResourceDrawer({ open, title = '', autoSearch = tru
                 <div className="resource-card__actions">
                   {isSafeMagnet(result.magnet) ? <>
                     <button type="button" className="resource-button resource-button--small"
-                      onClick={() => copyMagnet(result.magnet)}>{copiedMagnet === result.magnet ? '已复制 ✓' : '复制链接'}</button>
+                      onClick={() => session.copyMagnet(result.magnet)}>{copiedMagnet === result.magnet ? '已复制 ✓' : '复制链接'}</button>
                     <button type="button" className="resource-button resource-button--pink"
-                      onClick={() => { window.location.href = result.magnet }}>🧲 打开 Magnet</button>
+                      onClick={() => { if (session.canUseMagnet(result.magnet)) window.location.href = result.magnet }}>🧲 打开 Magnet</button>
                   </> : <span className="resource-hint">该条目暂无有效 Magnet 链接</span>}
                 </div>
               </article>
