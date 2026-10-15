@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import RecommendationCard, { RecommendationActions, RecommendationCover, RecommendationMeta } from '../components/recommendations/RecommendationCard.jsx'
+import RecommendationCard, { RecommendationCover, RecommendationMeta } from '../components/recommendations/RecommendationCard.jsx'
 import RecommendationDialog from '../components/recommendations/RecommendationDialog.jsx'
 import RecommendationEvidence from '../components/recommendations/RecommendationEvidence.jsx'
 import RecommendationCategoryGuide from '../components/recommendations/RecommendationCategoryGuide.jsx'
@@ -11,11 +11,13 @@ import RecommendationPreferencesPanel from '../components/recommendations/Recomm
 import recommendationApi from '../api/recommendations.js'
 import useRecommendations from '../hooks/useRecommendations.js'
 import useRecommendationWant from '../hooks/useRecommendationWant.js'
+import useRecommendationDetail from '../hooks/useRecommendationDetail.js'
+import RecommendationDetailActions from '../components/recommendations/RecommendationDetailActions.jsx'
 import useRecommendationPreferences from '../hooks/useRecommendationPreferences.js'
 import useRecommendationReload from '../hooks/useRecommendationReload.js'
 import { notifyRecommendationChange } from '../utils/recommendationReload.js'
-import { recommendationAlgorithmLabel, validateDetailEvidence } from '../utils/recommendationExplanation.js'
-import { createLatestRequestGate, DEFAULT_REC_FILTERS, mapRecommendationItem, recommendationError, REC_CATEGORIES, identitySummary } from '../utils/recommendations.js'
+import { recommendationAlgorithmLabel } from '../utils/recommendationExplanation.js'
+import { DEFAULT_REC_FILTERS, REC_CATEGORIES, identitySummary } from '../utils/recommendations.js'
 import '../styles/recommendations.css'
 
 export default function Recommendations({ client = recommendationApi }) {
@@ -24,9 +26,7 @@ export default function Recommendations({ client = recommendationApi }) {
   const [draftFilters, setDraftFilters] = useState({ ...DEFAULT_REC_FILTERS })
   const [panel, setPanel] = useState(null)
   const [notice, setNotice] = useState('')
-  const [detail, setDetail] = useState({ status: 'loading' })
-  const [detailRevision, setDetailRevision] = useState(0)
-  const detailGate = useRef(createLatestRequestGate())
+  const { detail, controller: detailController } = useRecommendationDetail(client)
   const state = useRecommendations(category, filters, client)
   const preferenceEditor = useRecommendationPreferences(client, confirmedPreferences => {
     setPanel(null); setNotice('偏好已保存，正在重新读取画像与推荐。')
@@ -37,11 +37,15 @@ export default function Recommendations({ client = recommendationApi }) {
   const preferences = state.preferences || state.confirmedPreferences
   const acknowledgeReload = useRecommendationReload(state.retry, Boolean(panel) || state.status === 'loading')
   const reload = options => { acknowledgeReload(); state.retry(options) }
-  const want = useRecommendationWant(client)
+  const want = useRecommendationWant(client, result => {
+    const refreshedDetail = detailController.afterWant(result) // synchronous invalidation BEFORE other reloads
+    state.recordChanged(result.bangumi_id, result.watch_status)
+    reload()
+    notifyRecommendationChange({ local: false })
+    setNotice(result.created ? '已加入想看，评分和长评留空。正在更新推荐依据。' : '手账已有这部作品，已保留原有状态、评分和长评。正在更新推荐依据。')
+    return refreshedDetail
+  })
   const activeFilters = Number(filters.type !== 'all') + Number(filters.minScore !== '0') + Number(filters.hideRecorded)
-  const detailId = panel?.kind === 'detail' ? panel.item.bangumiId : null
-  const detailEvidenceToken = panel?.kind === 'detail' ? panel.item.evidenceToken : undefined
-  const detailEvidenceContext = panel?.kind === 'detail' ? panel.item.evidenceContext : undefined
 
   useEffect(() => { want.reconcile(state.items) }, [state.items, want.reconcile])
   useEffect(() => { if (detail.status === 'ready') want.reconcile([detail.item]) }, [detail, want.reconcile])
@@ -51,18 +55,6 @@ export default function Recommendations({ client = recommendationApi }) {
     document.title = '个性化推荐 · 番剧发现手账'
     return () => { document.title = previous }
   }, [])
-  useEffect(() => {
-    if (!detailId) { detailGate.current.cancel(); return undefined }
-    const request = detailGate.current.begin()
-    setDetail({ status: 'loading' })
-    client.detail(detailId, request.signal, detailEvidenceToken).then((raw) => {
-      const item = validateDetailEvidence(mapRecommendationItem(raw), detailEvidenceToken, detailEvidenceContext)
-      if (request.isCurrent()) setDetail({ status: 'ready', item })
-    }).catch((error) => { if (request.isCurrent()) setDetail({ status: 'error',
-      snapshotChanged: error?.response?.status === 409 || /^推荐依据合同不兼容/.test(error?.message || ''),
-      message: recommendationError(error) }) })
-    return () => detailGate.current.cancel()
-  }, [detailId, detailEvidenceToken, detailEvidenceContext, detailRevision, client])
   useEffect(() => {
     if (!notice) return undefined
     const timer = window.setTimeout(() => setNotice(''), 5000)
@@ -77,20 +69,14 @@ export default function Recommendations({ client = recommendationApi }) {
     if (panel?.kind === 'preferences' && !preferenceEditor.close()) return
     // Cancelling still performs no write; a conflict read may have learned a newer version.
     if (panel?.kind === 'preferences') reload()
+    detailController.close()
     setPanel(null)
   }
-  const addWant = async (item) => {
-    const result = await want.add(item)
-    if (!result) return
-    state.recordChanged(result.bangumi_id, result.watch_status)
-    reload() // Refresh common-topic observations and the authoritative recorded filter too.
-    notifyRecommendationChange({ local: false })
-    setNotice(result.created ? '已加入想看，评分和长评留空。' : '手账已有这部作品，已保留原有状态、评分和长评。')
-  }
-  const openWantIdentity = () => setPanel({ kind: 'identity', scope: 'all' })
+  const addWant = item => want.add(item)
+  const openWantIdentity = () => { detailController.close(); setPanel({ kind: 'identity', scope: 'all' }) }
   const cardProps = (item) => ({ item, onWant: addWant, operation: want.operations[item.bangumiId], onIdentity: openWantIdentity,
     onReload: () => reload(),
-    onDetail: (chosen) => { setDetail({ status: 'loading' }); setPanel({ kind: 'detail', item: chosen }) } })
+    onDetail: (chosen) => { detailController.open(chosen); setPanel({ kind: 'detail', item: chosen }) } })
   const profile = state.profile
   const pending = profile?.diagnostics?.pending_identity_count || 0
 
@@ -164,14 +150,15 @@ export default function Recommendations({ client = recommendationApi }) {
       </form> : panel.kind === 'preferences' ? <RecommendationPreferencesPanel editor={preferenceEditor.editor} profile={panel.profile}
         onTag={preferenceEditor.setTag} onClear={preferenceEditor.clearDraft} onSave={preferenceEditor.save}
         onReloadLatest={preferenceEditor.reloadLatest} onResolveConflict={preferenceEditor.resolveConflict} onClose={closePanel} />
-        : detail.status === 'loading' ? <p className="rec-muted" role="status">正在读取作品详情…</p>
+        : ['loading', 'refreshing', 'closed'].includes(detail.status) ? <p className="rec-muted" role="status">{detail.status === 'refreshing' ? '加入操作已确认，旧依据已作废，正在重新读取完整详情…' : '正在读取作品详情…'}</p>
         : detail.status === 'error' ? <div role="alert"><p>{detail.message}</p><button type="button" className="rec-button"
-          onClick={() => { if (detail.snapshotChanged) { setPanel(null); reload() } else setDetailRevision((n) => n + 1) }}>{detail.snapshotChanged ? '重新加载推荐' : '重试详情'}</button></div>
+          onClick={() => { if (detail.snapshotChanged) { closePanel(); reload() } else detailController.retry() }}>{detail.snapshotChanged ? '重新加载推荐' : '重试详情'}</button></div>
           : <div className="rec-detail-content"><RecommendationCover item={detail.item} priority />
             <div><p className="rec-original-title">{detail.item.originalTitle}</p><RecommendationMeta item={detail.item} />
-              <h3>推荐依据</h3><RecommendationEvidence item={detail.item} expanded onReload={() => { setPanel(null); reload() }} />
+              <h3>推荐依据</h3><RecommendationEvidence item={detail.item} expanded onReload={() => { closePanel(); reload() }} />
               <h3>故事简介</h3><p>{detail.item.synopsis || '暂未收录简介。'}</p>
-              <RecommendationActions item={detail.item} detailLabel="关闭详情" onDetail={() => setPanel(null)}
+              <RecommendationDetailActions item={detail.item} resourceOpen={detail.resourceOpen}
+                onResourceOpen={detailController.openResources} onResourceClose={detailController.closeResources} onClose={closePanel}
                 onWant={addWant} operation={want.operations[detail.item.bangumiId]} onIdentity={openWantIdentity} />
             </div></div>}
     </RecommendationDialog>}

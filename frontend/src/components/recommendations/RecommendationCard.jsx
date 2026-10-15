@@ -36,7 +36,8 @@ export function RecommendationActions({ item, onDetail, detailLabel = '查看详
       aria-label={`${item.title}：${button.label}`}>
       {button.label}
     </button>
-  </div>{operation?.error && <p className="rec-inline-error rec-want-error" role="alert">{operation.error.message}</p>}</>
+  </div>{operation?.error && <p className="rec-inline-error rec-want-error" role="alert">{operation.error.message}</p>}
+  {operation?.syncWarning && <p className="rec-muted" role="status">{operation.syncWarning}</p>}</>
 }
 
 export default function RecommendationCard({ item, hero = false, onDetail, onWant, operation, onIdentity, onReload }) {

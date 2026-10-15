@@ -74,6 +74,12 @@
 .memphis-rec-container .rec-card--hero .rec-card-title { font-size: 30px; min-height: 0; margin-top: 14px; }
 .memphis-rec-container .rec-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; font-size: 10px; color: var(--rec-muted); margin: 0 0 12px; }
 .memphis-rec-container .rec-meta b { color: var(--rec-ink); }
+.memphis-rec-container .rec-detail-actions { display: flex; flex-wrap: wrap; align-items: start; gap: 10px; margin-top: 18px; }
+.memphis-rec-container .rec-detail-actions .rec-card-actions { display: flex; padding-top: 0; margin-top: 0; }
+.memphis-rec-container .rec-detail-actions .rec-resource-trigger { background: var(--rec-teal); }
+.memphis-rec-container .rec-detail-actions > .rec-want-error, .memphis-rec-container .rec-detail-actions > [role="status"] { flex-basis: 100%; }
+.memphis-rec-container .rec-resource-panel { margin-top: 20px; padding-top: 12px; border-top: 2px solid var(--rec-ink); overflow-wrap: anywhere; }
+.memphis-rec-container .rec-resource-panel .anime-resource-drawer { position: relative; inset: auto; width: 100%; height: min(580px, 65dvh); box-shadow: 3px 3px 0 var(--rec-ink); }
 .memphis-rec-container .rec-public-score { display: inline-flex; flex-wrap: wrap; gap: 3px 6px; align-items: baseline; }
 .memphis-rec-container .rec-public-score > strong { color: var(--rec-ink); font-weight: 800; }
 .memphis-rec-container .rec-public-score[data-score-state="zero_ambiguous"] b,
