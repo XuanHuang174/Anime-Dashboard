@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getRecommendationCover } from '../../utils/recommendations.js'
 import { wantButtonState } from '../../utils/recommendationWant.js'
+import RecommendationEvidence from './RecommendationEvidence.jsx'
 
 export function RecommendationCover({ item, priority = false }) {
   const safeSrc = getRecommendationCover(item.coverUrl)
@@ -44,7 +45,7 @@ export default function RecommendationCard({ item, hero = false, onDetail, onWan
       {hero && <span className="rec-eyebrow">YOUR NEXT STORY <span className="rec-sticker">本期主推</span></span>}
       <h3 className="rec-card-title" title={item.title}>{item.title}</h3>
       <RecommendationMeta item={item} />
-      <p className="rec-card-reason" title={item.reason}><span aria-hidden="true">✧ </span>{item.reason}</p>
+      <RecommendationEvidence item={item} />
       {hero && <p className="rec-hero-synopsis">{item.synopsis}</p>}
       <div className="rec-card-tags" aria-label="作品标签">{item.tags?.slice(0, 2).map((tag) => <span key={tag}>{tag}</span>)}</div>
       <RecommendationActions item={item} onDetail={onDetail} onWant={onWant} operation={operation} onIdentity={onIdentity} />

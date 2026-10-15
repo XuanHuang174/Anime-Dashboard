@@ -1,6 +1,8 @@
 export const DEFAULT_REC_FILTERS = Object.freeze({ type: 'all', minScore: '0', hideRecorded: true })
 export const REC_CATEGORIES = [
-  { id: 'all', label: '为你发现' }, { id: 'familiar', label: '熟悉的心动' }, { id: 'explore', label: '换一种口味' },
+  { id: 'all', label: '为你发现', description: '优先与你的口味相关，兼顾不同题材组合。' },
+  { id: 'familiar', label: '熟悉的心动', description: '寻找更贴近已有口味的作品，允许题材适当集中。' },
+  { id: 'explore', label: '换一种口味', description: '保留喜好关联，探索一些新的题材方向。' },
 ]
 
 export const COLD_START_CODES = Object.freeze(['empty_journal', 'all_unrated', 'no_qualifying_high_scores',
@@ -72,6 +74,7 @@ export function mapRecommendationItem(row) {
 export function mapRecommendationPage(data) {
   if (data?.contract_version !== 'recommendations.3b.v1' || !Array.isArray(data.results)
     || !['personalized', 'preference_based', 'cold_start'].includes(data.mode)
+    || (data.algorithm_version !== undefined && !['content.v1', 'content.v2'].includes(data.algorithm_version))
     || !Number.isInteger(data.count) || data.count < 0 || data.count > 120 || !Number.isInteger(data.page) || data.page < 1
     || !Number.isInteger(data.page_size) || data.page_size < 1 || data.page_size > 24
     || data.results.length > data.page_size || data.results.length > data.count

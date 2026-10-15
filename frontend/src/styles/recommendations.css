@@ -5,7 +5,7 @@
 .memphis-rec-container button, .memphis-rec-container a { -webkit-tap-highlight-color: transparent; }
 .memphis-rec-container button { cursor: pointer; }
 .memphis-rec-container button:disabled { cursor: default; color: #6b675f; background: #f1eee8; box-shadow: none; transform: none; }
-.memphis-rec-container :is(button, a, input, select):focus-visible { outline: 3px solid var(--rec-ink); outline-offset: 4px; }
+.memphis-rec-container :is(button, a, input, select, summary):focus-visible { outline: 3px solid var(--rec-ink); outline-offset: 4px; }
 .memphis-rec-container .rec-page { max-width: 1240px; margin: 0 auto; padding-bottom: 24px; }
 .memphis-rec-container .rec-nav { min-height: 84px; display: flex; justify-content: space-between; align-items: center; gap: 12px; border-bottom: 1px solid #ded6c9; }
 .memphis-rec-container .rec-back { color: inherit; text-decoration: none; font-size: 14px; font-weight: 800; }
@@ -47,6 +47,10 @@
 .memphis-rec-container .rec-category { min-height: 42px; padding: 9px 15px; border: 2px solid transparent; background: transparent; font-size: 13px; font-weight: 800; white-space: nowrap; }
 .memphis-rec-container .rec-category.is-selected { border-color: var(--rec-ink); background: var(--rec-yellow); box-shadow: 3px 3px 0 var(--rec-ink); }
 .memphis-rec-container .rec-category:not(.is-selected):hover { background: #eee6d9; }
+.memphis-rec-container .rec-category-guide { padding: 12px 0 4px; font-size: 12px; color: var(--rec-muted); }
+.memphis-rec-container .rec-category-guide p { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 0; line-height: 1.8; }
+.memphis-rec-container .rec-category-guide strong { color: var(--rec-ink); }
+.memphis-rec-container .rec-category-guide .rec-category-basis { margin-top: 6px; }
 .memphis-rec-container .rec-filter-count { background: var(--rec-teal); border: 1px solid var(--rec-ink); padding: 0 4px; }
 .memphis-rec-container .rec-active-filters { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding-top: 12px; font-size: 12px; color: var(--rec-muted); }
 .memphis-rec-container .rec-section-heading { display: flex; justify-content: space-between; align-items: end; gap: 12px; padding: 26px 0 20px; }
@@ -71,6 +75,24 @@
 .memphis-rec-container .rec-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; font-size: 10px; color: var(--rec-muted); margin: 0 0 12px; }
 .memphis-rec-container .rec-meta b { color: var(--rec-ink); }
 .memphis-rec-container .rec-card-reason { margin: 0 0 14px; width: 100%; font-size: 12px; line-height: 1.8; color: #545c50; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.memphis-rec-container .rec-explanation { width: 100%; min-width: 0; margin-bottom: 14px; }
+.memphis-rec-container .rec-explanation .rec-card-reason { margin-bottom: 4px; }
+.memphis-rec-container .rec-evidence { width: 100%; min-width: 0; font-size: 12px; }
+.memphis-rec-container .rec-evidence > summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 38px; padding: 6px 0; color: var(--rec-ink); font-weight: 800; list-style: none; cursor: pointer; }
+.memphis-rec-container .rec-evidence > summary::-webkit-details-marker { display: none; }
+.memphis-rec-container .rec-evidence > summary > span { font-size: 16px; }
+.memphis-rec-container .rec-evidence[open] > summary > span { transform: rotate(45deg); }
+.memphis-rec-container .rec-evidence > summary:hover { text-decoration: underline; text-underline-offset: 4px; }
+.memphis-rec-container .rec-evidence-body { padding: 12px; background: #edf7f2; border: 2px solid var(--rec-ink); overflow-wrap: anywhere; }
+.memphis-rec-container .rec-evidence-body p { margin: 8px 0; font-size: 12px; line-height: 1.8; }
+.memphis-rec-container .rec-evidence-label { display: inline-block; font-size: 10px; font-weight: 800; border-bottom: 2px solid #8ab8a7; padding-bottom: 3px; }
+.memphis-rec-container .rec-evidence-facts { margin: 10px 0; }
+.memphis-rec-container .rec-evidence-facts > div { margin-top: 10px; }
+.memphis-rec-container .rec-evidence-facts dt { font-size: 10px; color: var(--rec-muted); margin-bottom: 4px; }
+.memphis-rec-container .rec-evidence-facts dd { margin: 0; line-height: 1.8; }
+.memphis-rec-container .rec-evidence-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+.memphis-rec-container .rec-evidence-tags span { border: 1px solid #667569; background: white; padding: 2px 6px; font-size: 11px; }
+.memphis-rec-container .rec-evidence-body .rec-evidence-footnote { border-top: 1px solid #bfd3c9; margin-top: 12px; padding-top: 8px; font-size: 10px; color: var(--rec-muted); }
 .memphis-rec-container .rec-hero-synopsis { margin: 0 0 18px; font-size: 13px; line-height: 1.9; color: var(--rec-muted); }
 .memphis-rec-container .rec-card-tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .memphis-rec-container .rec-card-tags span { border: 1px solid #667569; background: #e6f3ec; padding: 3px 7px; font-size: 10px; font-weight: 700; }

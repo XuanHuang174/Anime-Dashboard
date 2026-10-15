@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import RecommendationCard, { RecommendationActions, RecommendationCover, RecommendationMeta } from '../components/recommendations/RecommendationCard.jsx'
 import RecommendationDialog from '../components/recommendations/RecommendationDialog.jsx'
+import RecommendationEvidence from '../components/recommendations/RecommendationEvidence.jsx'
+import RecommendationCategoryGuide from '../components/recommendations/RecommendationCategoryGuide.jsx'
 import RecommendationIdentityReview from '../components/recommendations/RecommendationIdentityReview.jsx'
 import { RecommendationTasteNote, RecommendationColdStartGuide, RecommendationRefreshNotice } from '../components/recommendations/RecommendationProfileGuide.jsx'
 import { RecommendationEmptyState, RecommendationSkeleton } from '../components/recommendations/RecommendationStates.jsx'
@@ -12,6 +14,7 @@ import useRecommendationWant from '../hooks/useRecommendationWant.js'
 import useRecommendationPreferences from '../hooks/useRecommendationPreferences.js'
 import useRecommendationReload from '../hooks/useRecommendationReload.js'
 import { notifyRecommendationChange } from '../utils/recommendationReload.js'
+import { recommendationAlgorithmLabel } from '../utils/recommendationExplanation.js'
 import { createLatestRequestGate, DEFAULT_REC_FILTERS, mapRecommendationItem, recommendationError, REC_CATEGORIES, identitySummary } from '../utils/recommendations.js'
 import '../styles/recommendations.css'
 
@@ -92,7 +95,7 @@ export default function Recommendations({ client = recommendationApi }) {
       <nav className="rec-nav" aria-label="推荐页面导航"><Link className="rec-back" to="/dashboard">← 返回我的手账</Link>
         <button type="button" className="rec-button rec-preferences" disabled={!preferences} onClick={openPreferences}>☷ 偏好设置</button></nav>
       <header className="rec-intro">
-        <div className="rec-intro-copy"><span className="rec-eyebrow">YOUR NEXT FAVORITE <span className="rec-preview-badge">推荐 V1</span></span>
+        <div className="rec-intro-copy"><span className="rec-eyebrow">YOUR NEXT FAVORITE <span className="rec-preview-badge">{recommendationAlgorithmLabel(state.data?.algorithm_version)}</span></span>
           <h1>找到你的下一部<br /><span>心头好<span className="rec-title-star" aria-hidden="true">✦</span></span></h1>
           <p>从喜欢的故事出发，把下一次心动写进手账。</p></div>
         <RecommendationTasteNote profile={profile} preferences={preferences} status={state.status} confirmedPreferences={state.confirmedPreferences}
@@ -111,11 +114,12 @@ export default function Recommendations({ client = recommendationApi }) {
             : '仅使用安全、已确认身份的作品和明确偏好；数据未加载时不会假装已有画像。'}
           {' '}加入想看不会覆盖已有评分、长评或观看状态。</p></section>
       <section className="rec-controls" aria-label="推荐类别与筛选">
-        <div className="rec-categories" role="group" aria-label="推荐类别">{REC_CATEGORIES.map((option) =>
+        <div className="rec-categories" role="group" aria-label="推荐类别" aria-describedby="rec-category-description">{REC_CATEGORIES.map((option) =>
           <button type="button" key={option.id} aria-pressed={category === option.id} className={`rec-category ${category === option.id ? 'is-selected' : ''}`}
             onClick={() => setCategory(option.id)}>{option.label}</button>)}</div>
         <button type="button" className="rec-button rec-filter-button" onClick={() => { setDraftFilters({ ...filters }); setPanel({ kind: 'filters' }) }}>☷ 筛选 {activeFilters > 0 && <span className="rec-filter-count">{activeFilters}</span>}</button>
       </section>
+      <RecommendationCategoryGuide category={category} mode={state.data?.mode} />
       {activeFilters > 0 && <div className="rec-active-filters"><span>筛选：{filters.type !== 'all' ? `${filters.type} · ` : ''}
         {filters.minScore !== '0' ? `评分 ≥ ${filters.minScore} · ` : ''}{filters.hideRecorded ? '隐藏手账已有记录' : ''}</span>
         <button type="button" className="rec-text-button" onClick={reset}>恢复筛选</button></div>}
@@ -135,7 +139,7 @@ export default function Recommendations({ client = recommendationApi }) {
               disabled={state.moreLoading} onClick={state.loadMore}>{state.moreLoading ? '正在加载…' : state.snapshotDirty ? '更新推荐结果 →' : state.moreError ? '重试加载下一页' : '再翻一页 →'}</button>
               <span>已展示 {state.items.length} / {state.data.count}</span></div>}</>}
       </section>
-      <footer className="rec-footer"><span>给每一次喜欢，一个值得停留的位置。</span><span>DISCOVERY JOURNAL / CONTENT V1</span></footer>
+      <footer className="rec-footer"><span>给每一次喜欢，一个值得停留的位置。</span><span>DISCOVERY JOURNAL / {recommendationAlgorithmLabel(state.data?.algorithm_version)}</span></footer>
     </div>
     <div className="rec-toast" role="status" aria-live="polite">{notice && <p>{notice}</p>}</div>
     {panel?.kind === 'identity' && <RecommendationIdentityReview client={client} scope={panel.scope || 'high-score'} onClose={() => setPanel(null)}
@@ -159,7 +163,7 @@ export default function Recommendations({ client = recommendationApi }) {
         : detail.status === 'error' ? <div role="alert"><p>{detail.message}</p><button type="button" className="rec-button" onClick={() => setDetailRevision((n) => n + 1)}>重试详情</button></div>
           : <div className="rec-detail-content"><RecommendationCover item={detail.item} priority />
             <div><p className="rec-original-title">{detail.item.originalTitle}</p><RecommendationMeta item={detail.item} />
-              <h3>推荐依据</h3><p>{detail.item.reason || '当前没有足够的共有题材证据。'}</p>
+              <h3>推荐依据</h3><RecommendationEvidence item={detail.item} expanded />
               <h3>故事简介</h3><p>{detail.item.synopsis || '暂未收录简介。'}</p>
               <RecommendationActions item={detail.item} detailLabel="关闭详情" onDetail={() => setPanel(null)}
                 onWant={addWant} operation={want.operations[detail.item.bangumiId]} onIdentity={openWantIdentity} />
