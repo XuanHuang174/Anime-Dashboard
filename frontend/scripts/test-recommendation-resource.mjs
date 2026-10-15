@@ -101,6 +101,8 @@ try {
   await page.keyboard.press('Escape')
   await page.waitForFunction(() => !document.querySelector('.rec-dialog-main').inert)
   assert.equal(await trigger.evaluate(node => node === document.activeElement), true)
+  const detailScroll = await page.locator('.rec-dialog-main').evaluate(node => { node.scrollTop = node.scrollHeight; return node.scrollTop })
+  assert.ok(detailScroll > 0, 'Narrow-screen detail remains scrollable after returning from resources')
   await page.keyboard.press('Escape')
   await page.locator('dialog').waitFor({ state: 'detached' })
   await page.evaluate(() => resourceQA.open(101))

@@ -339,9 +339,15 @@ class WantConcurrencyTests(TransactionTestCase):
 
     def parallel(self, calls):
         barrier = Barrier(len(calls))
+        backend_pids = []
         def execute(args):
             close_old_connections()
             try:
+                with connection.cursor() as cursor:
+                    cursor.execute("SET lock_timeout = '10s'")
+                    cursor.execute("SET statement_timeout = '20s'")
+                    cursor.execute('SELECT pg_backend_pid()')
+                    backend_pids.append(cursor.fetchone()[0])
                 user = get_user_model().objects.get(pk=args[0]); barrier.wait(timeout=10)
                 try:
                     return add_want(user=user, bangumi_id=args[1])
@@ -350,7 +356,11 @@ class WantConcurrencyTests(TransactionTestCase):
             finally:
                 close_old_connections()
         with ThreadPoolExecutor(max_workers=len(calls)) as pool:
-            return list(pool.map(execute, calls))
+            results = list(pool.map(execute, calls))
+        # Prove workers competed on distinct real PostgreSQL connections rather
+        # than one serialized connection or a SQLite simulation.
+        self.assertEqual(len(set(backend_pids)), len(calls))
+        return results
 
     def test_same_user_repeat_race_creates_exactly_one(self):
         results = self.parallel([(self.user.pk, 701)] * 8)
@@ -367,7 +377,8 @@ class WantConcurrencyTests(TransactionTestCase):
     def test_parallel_existing_record_preserves_score_review_and_all_fields(self):
         shared = Anime.objects.create(bgm_id=701, chinese_title='旧公共作品', airing_period='2026-4')
         record = UserAnimeRecord.objects.create(user=self.user, anime=shared, watch_status='completed',
-            personal_score=Decimal('9.5'), review='完整长评\n' * 5000, watched_eps=12, total_eps=12)
+            personal_score=Decimal('0.0'), review='完整长评\n' * 5000, watched_eps=12, total_eps=12,
+            metadata_initialized=True, private_base_tags=[], custom_tags=['二刷', '音乐'])
         before = UserAnimeRecord.objects.filter(pk=record.pk).values().get()
         results = self.parallel([(self.user.pk, 701)] * 8)
         self.assertTrue(all(not row['created'] for row in results))

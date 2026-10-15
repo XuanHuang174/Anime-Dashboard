@@ -28,6 +28,7 @@ export default function Recommendations({ client = recommendationApi }) {
   const [panel, setPanel] = useState(null)
   const [notice, setNotice] = useState('')
   const resourceTrigger = useRef(null)
+  const detailQuery = useRef(JSON.stringify([category, filters.type, filters.minScore, filters.hideRecorded]))
   const { detail, controller: detailController } = useRecommendationDetail(client)
   const state = useRecommendations(category, filters, client)
   const preferenceEditor = useRecommendationPreferences(client, confirmedPreferences => {
@@ -51,6 +52,14 @@ export default function Recommendations({ client = recommendationApi }) {
 
   useEffect(() => { want.reconcile(state.items) }, [state.items, want.reconcile])
   useEffect(() => { if (detail.status === 'ready') want.reconcile([detail.item]) }, [detail, want.reconcile])
+  useEffect(() => {
+    const query = JSON.stringify([category, filters.type, filters.minScore, filters.hideRecorded])
+    if (detailQuery.current !== query) {
+      detailQuery.current = query
+      detailController.close()
+      setPanel(current => current?.kind === 'detail' ? null : current)
+    }
+  }, [category, filters.type, filters.minScore, filters.hideRecorded, detailController])
 
   useEffect(() => {
     const previous = document.title
