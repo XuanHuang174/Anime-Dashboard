@@ -1,6 +1,7 @@
 // Presentation only: never infer evidence from titles, synopsis, tags or reviews.
 import { RECOMMENDATION_COPY as COPY } from './recommendationCopy.js'
 import { personalScoreValue } from './recommendationScores.js'
+import { sameEvidenceContext } from './recommendationEpoch.js'
 
 function hasCompatibleEvidenceContext(item) {
   const evidence = item?.evidence
@@ -52,8 +53,9 @@ export function recommendationAlgorithmLabel(version) {
   return '推荐'
 }
 
-export function validateDetailEvidence(item, expectedToken) {
-  if (expectedToken && item.evidenceToken !== expectedToken) {
+export function validateDetailEvidence(item, expectedToken, expectedContext) {
+  if ((expectedToken && item.evidenceToken !== expectedToken)
+    || (expectedContext !== undefined && !sameEvidenceContext(item.evidenceContext, expectedContext))) {
     throw new Error('推荐依据合同不兼容，请重新加载推荐后查看详情。')
   }
   return item

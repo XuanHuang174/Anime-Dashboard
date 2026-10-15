@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import recommendationApi from '../api/recommendations.js'
 import { createLatestRequestGate, mapRecommendationPage, mergeRecommendationPages, recommendationError, recommendationResultState } from '../utils/recommendations.js'
 import { loadRecommendationSnapshot } from '../utils/recommendationSnapshot.js'
+import { requireNextRecommendationEpoch } from '../utils/recommendationEpoch.js'
 
 export default function useRecommendations(category, filters, client = recommendationApi) {
   const root = useRef(createLatestRequestGate())
@@ -52,12 +53,13 @@ export default function useRecommendations(category, filters, client = recommend
     setState((current) => ({ ...current, moreLoading: true, moreError: '' }))
     try {
       const data = mapRecommendationPage(await client.list({ category, filters, page: state.data.next_page, stateToken: captured }, request.signal))
-      if (data.state_token !== captured) { if (request.isCurrent()) retry(); return }
+      if (!request.isCurrent()) return
+      requireNextRecommendationEpoch(state.data, data)
       if (request.isCurrent()) setState((current) => current.key !== key ? current : {
         ...current, data, items: mergeRecommendationPages(current.items, data.items), moreLoading: false })
     } catch (error) {
       if (request.isCurrent()) {
-        if (error?.response?.status === 409) retry()
+        if (error?.response?.status === 409 || error?.snapshotChanged) retry()
         else setState((current) => current.key !== key ? current : { ...current, moreLoading: false, moreError: recommendationError(error) })
       }
     } finally { if (request.isCurrent()) moreBusy.current = false }

@@ -41,6 +41,7 @@ export default function Recommendations({ client = recommendationApi }) {
   const activeFilters = Number(filters.type !== 'all') + Number(filters.minScore !== '0') + Number(filters.hideRecorded)
   const detailId = panel?.kind === 'detail' ? panel.item.bangumiId : null
   const detailEvidenceToken = panel?.kind === 'detail' ? panel.item.evidenceToken : undefined
+  const detailEvidenceContext = panel?.kind === 'detail' ? panel.item.evidenceContext : undefined
 
   useEffect(() => { want.reconcile(state.items) }, [state.items, want.reconcile])
   useEffect(() => { if (detail.status === 'ready') want.reconcile([detail.item]) }, [detail, want.reconcile])
@@ -55,13 +56,13 @@ export default function Recommendations({ client = recommendationApi }) {
     const request = detailGate.current.begin()
     setDetail({ status: 'loading' })
     client.detail(detailId, request.signal, detailEvidenceToken).then((raw) => {
-      const item = validateDetailEvidence(mapRecommendationItem(raw), detailEvidenceToken)
+      const item = validateDetailEvidence(mapRecommendationItem(raw), detailEvidenceToken, detailEvidenceContext)
       if (request.isCurrent()) setDetail({ status: 'ready', item })
     }).catch((error) => { if (request.isCurrent()) setDetail({ status: 'error',
       snapshotChanged: error?.response?.status === 409 || /^推荐依据合同不兼容/.test(error?.message || ''),
       message: recommendationError(error) }) })
     return () => detailGate.current.cancel()
-  }, [detailId, detailEvidenceToken, detailRevision, client])
+  }, [detailId, detailEvidenceToken, detailEvidenceContext, detailRevision, client])
   useEffect(() => {
     if (!notice) return undefined
     const timer = window.setTimeout(() => setNotice(''), 5000)

@@ -1,3 +1,5 @@
+import { sameEvidenceContext } from './recommendationEpoch.js'
+
 export const DEFAULT_REC_FILTERS = Object.freeze({ type: 'all', minScore: '0', hideRecorded: true })
 export const REC_CATEGORIES = [
   { id: 'all', label: '为你发现', description: '优先与你的口味相关，兼顾不同题材组合。' },
@@ -86,6 +88,10 @@ export function mapRecommendationPage(data) {
     throw new Error('推荐分页合同不兼容，请重新加载。')
   }
   validateColdStartState(data.cold_start_state)
+  if (data.evidence_context !== undefined && (data.evidence_context?.algorithm_version !== data.algorithm_version
+    || data.results.some(row => !sameEvidenceContext(row.evidence_context, data.evidence_context)))) {
+    throw new Error('推荐分页合同不兼容，卡片依据与当前页面不一致，请重新加载。')
+  }
   if (data.cold_start_state && data.mode !== ({ personalized: 'personalized',
     explicit_preferences: 'preference_based', none: 'cold_start' }[data.cold_start_state.recommendation_basis])) {
     throw new Error('推荐分页合同不兼容，请重新加载。')
