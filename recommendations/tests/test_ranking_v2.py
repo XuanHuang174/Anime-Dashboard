@@ -16,6 +16,7 @@ from recommendations import engine, ranking_v2
 from recommendations.models import RecommendationAnime, RecommendationPreference
 from recommendations.quality_evaluation import evidence_errors, evaluate_probe
 from recommendations.quality_readonly import readonly_snapshot
+from recommendations.public_fingerprint import public_feature_expression, public_feature_fingerprint
 
 
 def item(identity, tags, value):
@@ -144,7 +145,7 @@ class DifferentiatedRerankTests(SimpleTestCase):
         code = '''
 import django, json
 django.setup()
-from recommendations.engine import taste_vector, evidence_for, candidate_score
+from recommendations.engine import taste_vector, V2RequestScorer
 from recommendations.ranking_v2 import balanced_candidate_pool, rerank_candidates
 genres = ['音乐', '日常', '治愈', '成长', '亲情', '校园', '友情']
 seeds = [{'bangumi_id': i, 'title': f'作品{i}', 'score': 9 + i / 10,
@@ -155,11 +156,11 @@ context = {'mode': 'personalized', 'seeds': seeds, 'owned': {},
            'preferences': {'version': 1, 'tags': ['音乐', '日常']}}
 weights = {tag: 1.234567890123 + i / 10 for i, tag in enumerate(genres)}
 vector = taste_vector(context, deterministic=True)
+scorer = V2RequestScorer(context, {'category': 'all'}, weights, vector, 'genres.v4')
 items = []
 for i in range(20, 40):
     tags = frozenset(genres[i % 3:i % 3 + 4])
-    evidence, reason, affinity = evidence_for(tags, context, weights, deterministic=True)
-    value = candidate_score(tags, 8, vector, weights, 'all', affinity, deterministic=True)
+    evidence, reason, value = scorer.score(tags, 8)
     items.append({'bangumi_id': i, 'tags': tags, 'value': value, 'evidence': evidence, 'reason': reason})
 pool = balanced_candidate_pool(items, vector, limit=12)
 rows = rerank_candidates(pool, vector, weights, category='all')
@@ -192,8 +193,8 @@ class V2EngineAPITests(APITestCase):
             self.catalog(identity, tags='音乐,日常' if identity < 18 else '音乐,成长')
 
     def catalog(self, identity, **changes):
-        return RecommendationAnime.objects.create(bangumi_id=identity, title_zh=f'公开作品{identity}',
-            **{'tags': '音乐,日常', 'nsfw': False, 'score': 8, 'status_type': 'TV', **changes})
+        return RecommendationAnime.objects.create(bangumi_id=identity,
+            **{'title_zh': f'公开作品{identity}', 'tags': '音乐,日常', 'nsfw': False, 'score': 8, 'status_type': 'TV', **changes})
 
     def get(self, **params):
         return self.client.get('/api/recommendations/', params)
@@ -384,6 +385,50 @@ class V2EngineAPITests(APITestCase):
         with patch('recommendations.engine.MAX_CATALOG_ROWS', 2):
             self.assertEqual(self.get().status_code, 503)
 
+    def test_public_scan_is_bounded_client_fetch_with_stage_diagnostics(self):
+        context, index = engine.user_context(self.owner), engine.public_features()
+        options = {'category': 'all', 'type': 'all', 'min_score': 0, 'hide_recorded': True, 'page_size': 12}
+        with patch('django.db.models.query.QuerySet.iterator', side_effect=AssertionError('WAN server cursor')):
+            ranked, _ = engine.rank_context(context, options, index, algorithm_version='content.v2')
+        self.assertTrue(ranked)
+        stages = context['_ranking_trace']['stage_ms']
+        self.assertEqual(set(stages), {'public_fetch', 'feature_scoring', 'pool_balance', 'hydrate_and_safety', 'rerank'})
+        self.assertTrue(all(value >= 0 for value in stages.values()))
+
+    def test_public_sql_fingerprint_matches_python_including_unicode_and_delimiters(self):
+        for index, values in enumerate((('音乐,日常', '🎵作品é', '名称:4:'), ('', '', ''),
+                                        ('MUSIC,\n日常', '《日 常》', '１２３'), ('a:1:b', 'c', 'd'))):
+            self.catalog(100 + index, tags=values[0], title_zh=values[1], title_jp=values[2])
+        rows = RecommendationAnime.objects.annotate(feature_revision=public_feature_expression()).values(
+            'tags', 'title_zh', 'title_jp', 'feature_revision')
+        for row in rows:
+            self.assertEqual(row['feature_revision'], public_feature_fingerprint(row))
+        self.assertNotEqual(public_feature_fingerprint(dict(tags='a', title_zh='b:c', title_jp='d')),
+                            public_feature_fingerprint(dict(tags='a:b', title_zh='c', title_jp='d')))
+
+    def test_new_and_directly_changed_rows_revalidated_without_updated_timestamp(self):
+        self.catalog(80, tags='悬疑')
+        index = engine.public_features()
+        before = RecommendationAnime.objects.get(bangumi_id=80).updated_at
+        RecommendationAnime.objects.filter(bangumi_id=80).update(tags='音乐,成长')
+        RecommendationAnime.objects.filter(bangumi_id=10).update(title_zh='音乐', title_jp='日常')
+        self.catalog(81, tags='音乐,亲情')
+        self.assertEqual(RecommendationAnime.objects.get(bangumi_id=80).updated_at, before)
+        with patch('recommendations.engine.public_features', return_value=index):
+            response = self.get(page_size=24)
+        rows = {row['bangumi_id']: row for row in response.data['results']}
+        self.assertTrue({80, 81} <= rows.keys())
+        self.assertNotIn(10, rows)  # Titles now collide with both accepted genres.
+
+    def test_compact_scan_reads_current_score_and_honors_missing_revision_fallback(self):
+        index = engine.public_features()
+        RecommendationAnime.objects.filter(bangumi_id=10).update(score=9.9)
+        for compatible in (index, {key: value for key, value in index.items() if key != 'source_fingerprints'}):
+            with patch('recommendations.engine.public_features', return_value=compatible):
+                response = self.get(page_size=24)
+            row = next(row for row in response.data['results'] if row['bangumi_id'] == 10)
+            self.assertEqual(float(row['score']), 9.9)
+
     def test_v2_executes_in_enforced_readonly_transaction_and_v1_baseline_is_pinned(self):
         options = {'category': 'all', 'type': 'all', 'min_score': 0, 'hide_recorded': True, 'page_size': 12}
         index = engine.public_features()
@@ -401,7 +446,120 @@ class V2EngineAPITests(APITestCase):
         self.assertEqual(selected, ['content.v1'] * 3)
 
     def test_v2_explore_base_weights_prioritize_relatedness_and_not_match_probability(self):
-        self.assertEqual(ranking_v2.EXPLORATION_WEIGHTS, (.65, .25, .1))
-        score = engine.candidate_score({'音乐', '成长'}, 8, {'音乐': 1}, {}, 'explore',
-                                       exploration_weights=ranking_v2.EXPLORATION_WEIGHTS, deterministic=True)
-        self.assertAlmostEqual(score, .65 / (2 ** .5) + .25 / 2 + .1 * .8)
+        self.assertEqual(ranking_v2.EXPLORE_WEIGHTS, (.45, .30, .15, .10))
+        score = ranking_v2.base_score(category='explore', nearest=.5, affinity=.5,
+            related=1 / (2 ** .5), novelty=.5, source_rating=9, public_rating=8)
+        self.assertAlmostEqual(score, .45 * .5 + .30 / (2 ** .5) + .15 / 2 + .10 * .8)
+
+
+def pattern_context():
+    groups = ({'日常', '音乐', '成长'}, {'日常', '科幻', '悬疑'}, {'日常', '校园', '喜剧'})
+    return {'mode': 'personalized', 'owned': {}, 'preferences': {'tags': [], 'version': 0},
+            'seeds': [{'bangumi_id': index, 'title': f'样本{index}', 'score': 9 + index / 10,
+                       'tags': frozenset(tags), 'feature_sources': {tag: ('private_base_tags',) for tag in tags}}
+                      for index, tags in enumerate(groups, 1)]}
+
+
+class V2RevisionTests(SimpleTestCase):
+    def scorer(self, context=None, category='all', vector=None, rule='genres.v4'):
+        context = context or pattern_context()
+        vector = vector or {'日常': .9, '音乐': .02, '成长': .02, '科幻': .02, '悬疑': .02, '校园': .01, '喜剧': .01}
+        return engine.V2RequestScorer(context, {'category': category}, {}, vector, rule)
+
+    def test_closest_real_work_beats_bare_popular_feature(self):
+        scorer = self.scorer()
+        full = scorer.score(frozenset(('日常', '音乐', '成长')), 8)
+        generic = scorer.score(frozenset(('日常',)), 8)
+        self.assertGreater(full[2], generic[2])
+        self.assertGreater(full[2] - generic[2], ranking_v2.REPETITION_STRENGTH['all'])
+
+    def test_title_collision_memo_is_identical_to_full_extractor_for_old_and_new_rules(self):
+        for rule in ('genres.v2', 'genres.v4'):
+            scorer = self.scorer(rule=rule)
+            for raw in ('MUSIC,音乐,日常', '搞笑,喜剧,2026,日本,神作', 'slice of life,日常',
+                        '热血,后宫,治愈系', '真百,轻百,未知', ''):
+                for title in ('《MUSIC》', '音乐', '喜剧', '《《日常》》', 'S L I C E O F L I F E', '日 常', '普通作品', ''):
+                    row = {'tags': raw, 'title_zh': title, 'title_jp': 'MUSIC'}
+                    self.assertEqual(scorer.tags_for(row), engine.feature_tags(raw, (title, 'MUSIC'), taxonomy_version=rule),
+                                     (rule, raw, title))
+
+    def test_equivalent_titles_and_patterns_reuse_computation_but_not_public_scores(self):
+        scorer = self.scorer()
+        with patch('recommendations.engine.evidence_for', wraps=engine.evidence_for) as evidence:
+            with patch('recommendations.engine.feature_tags', wraps=engine.feature_tags) as extract:
+                for identity in range(500):
+                    tags = scorer.tags_for({'tags': '日常,音乐', 'title_zh': f'普通作品{identity}', 'title_jp': ''})
+                    scorer.score(tags, identity % 10)
+        self.assertEqual(evidence.call_count, 1)
+        self.assertEqual(extract.call_count, 1)
+        self.assertEqual(len(scorer.patterns), 1)
+        low, high = (scorer.score(tags, score)[2] for score in (2, 9))
+        self.assertAlmostEqual(high - low, .10 * .7)
+
+    def test_changed_title_and_tags_not_hidden_by_row_identity_memo(self):
+        scorer = self.scorer()
+        row = {'bangumi_id': 10, 'tags': '日常,音乐', 'title_zh': '普通作品', 'title_jp': ''}
+        self.assertEqual(scorer.tags_for(row), {'日常', '音乐'})
+        self.assertEqual(scorer.tags_for({**row, 'title_zh': '日常'}), {'音乐'})
+        self.assertEqual(scorer.tags_for({**row, 'tags': '科幻'}), {'科幻'})
+
+    def test_request_memo_limits_memory_without_dropping_uncached_valid_results(self):
+        scorer = self.scorer()
+        with patch.object(ranking_v2, 'REQUEST_MEMO_LIMIT', 1):
+            for raw in ('日常,音乐', '日常,科幻', '日常,校园', '日常,成长'):
+                row = {'tags': raw, 'title_zh': '普通作品', 'title_jp': ''}
+                tags = scorer.tags_for(row)
+                self.assertEqual(tags, engine.feature_tags(raw))
+                self.assertIsNotNone(scorer.score(tags, 8))
+        self.assertEqual(len(scorer.tags_cache), 1)
+        self.assertEqual(len(scorer.patterns), 1)
+
+    def test_private_pattern_memo_is_request_and_user_local(self):
+        first = self.scorer()
+        other = {'mode': 'preference_based', 'seeds': [], 'preferences': {'tags': ['悬疑'], 'version': 0}}
+        second = self.scorer(other, vector={'悬疑': 1})
+        self.assertEqual(first.patterns, second.patterns)
+        self.assertIsNotNone(first.score(frozenset(('日常', '音乐')), 8))
+        self.assertIsNone(second.score(frozenset(('日常', '音乐')), 8))
+        self.assertIsNot(first.patterns, second.patterns)
+
+    def test_familiar_uses_only_supported_source_personal_rating(self):
+        values = dict(category='familiar', nearest=1, affinity=1, related=.7, novelty=0, public_rating=8)
+        self.assertGreater(ranking_v2.base_score(**values, source_rating=9.8),
+                           ranking_v2.base_score(**values, source_rating=8.5))
+        without_public = {**values, 'public_rating': 0}
+        public_only = {**values, 'public_rating': 10}
+        self.assertGreater(ranking_v2.base_score(**without_public, source_rating=8.5),
+                           ranking_v2.base_score(**public_only, source_rating=0))
+
+    def test_familiar_anchor_comes_only_from_trusted_samples_not_all_recorded_topics(self):
+        scorer = self.scorer(category='familiar')
+        self.assertEqual(scorer.familiar_anchor, {'日常', '校园', '喜剧'})
+        self.assertGreater(scorer.score(frozenset(('日常', '校园', '喜剧')), 8)[2],
+                           scorer.score(frozenset(('日常', '音乐', '成长')), 8)[2])
+
+    def test_genre_reserve_rotates_patterns_without_merging_distinct_works(self):
+        rows = [item(i, ['音乐', '日常'], .9) for i in range(1, 701)]
+        rows += [item(800, ['音乐', '成长'], .8), item(801, ['音乐', '悬疑'], .8)]
+        pool = ranking_v2.balanced_candidate_pool(rows, {'音乐': 1})
+        self.assertTrue({800, 801} <= set(ids(pool)))
+        self.assertEqual(len(pool), 400)
+
+    def test_discovery_repetition_accumulates_and_familiar_can_remain_concentrated(self):
+        from collections import Counter
+        rows = [item(i, ['音乐', '日常'], .9) for i in range(1, 21)]
+        rows += [item(i, ['音乐', '成长'], .88) for i in range(21, 41)]
+        rows += [item(i, ['音乐', '悬疑'], .87) for i in range(41, 61)]
+        discovery = ranking_v2.rerank_candidates(rows, {'音乐': 1}, {}, category='all', limit=12)
+        familiar = ranking_v2.rerank_candidates(rows, {'音乐': 1}, {}, category='familiar', limit=12)
+        counts = Counter(row['tags'] for row in discovery)
+        self.assertEqual(len(counts), 3)
+        self.assertLessEqual(max(counts.values()), 6)
+        self.assertEqual(len({row['tags'] for row in familiar}), 1)
+
+    def test_new_policy_invalidates_cache_namespace_and_is_bound_in_release_contract(self):
+        from recommendations.version_control import cache_namespace
+        key = cache_namespace('content.v2', 'genres.v4', 'genres-idf.v4', 'journal-genres.v3')
+        self.assertIn('balanced-rerank.v2', key)
+        with patch.object(ranking_v2, 'POLICY_VERSION', 'balanced-rerank.v1'):
+            self.assertNotEqual(key, cache_namespace('content.v2', 'genres.v4', 'genres-idf.v4', 'journal-genres.v3'))

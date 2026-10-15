@@ -4,6 +4,7 @@ import hmac
 import json
 import math
 import threading
+from time import perf_counter
 from collections import Counter
 
 from django.conf import settings
@@ -11,10 +12,11 @@ from django.core.cache import cache
 from django.db.models import Count, Max
 from rest_framework.exceptions import APIException
 
-from .identity import safe_catalog
+from .identity import safe_catalog, normalized_title
 from .services import profile_data
 from .taxonomy import TAXONOMY_VERSION, genre_rules
 from .features import feature_tags, FEATURE_RULE_VERSION
+from .public_fingerprint import public_feature_fingerprint, public_feature_expression
 from . import ranking_v2, taxonomy as vocabulary
 
 ALGORITHM_VERSION = 'content.v1'
@@ -40,16 +42,18 @@ class RecommendationSnapshotChanged(APIException):
 
 def build_feature_index(rows, *, signature=None, taxonomy_version=None):
     """Pure public feature construction shared by serving and read-only evaluation."""
-    features, frequency = [], Counter()
+    features, frequency, fingerprints = [], Counter(), {}
     for row in rows:
         tags = feature_tags(row['tags'], (row['title_zh'], row['title_jp']), taxonomy_version=taxonomy_version)
         frequency.update(tags)
         features.append((row['bangumi_id'], tags, row['score'], row['status_type']))
+        fingerprints[row['bangumi_id']] = public_feature_fingerprint(row)
         if len(features) > MAX_CATALOG_ROWS:
             raise RecommendationUnavailable()
     weights = {tag: min(3.0, 1 + math.log((1 + len(features)) / (1 + count)))
                for tag, count in frequency.items()}
     return {'signature': signature, 'features': features, 'weights': weights,
+            'source_fingerprints': fingerprints,
             'taxonomy_version': taxonomy_version or vocabulary.TAXONOMY_VERSION}
 
 
@@ -57,7 +61,9 @@ def public_features(*, algorithm_version=ALGORITHM_VERSION):
     from .version_control import cache_namespace
     key = cache_namespace(algorithm_version, TAXONOMY_VERSION, FEATURE_VERSION, FEATURE_RULE_VERSION)
     revision = safe_catalog().aggregate(count=Count('pk'), updated=Max('updated_at'))
-    signature = (revision['count'], str(revision['updated']), algorithm_version, TAXONOMY_VERSION, FEATURE_VERSION, FEATURE_RULE_VERSION)
+    signature = (revision['count'], str(revision['updated']), algorithm_version,
+                 ranking_v2.POLICY_VERSION if algorithm_version == EXPERIMENTAL_ALGORITHM_VERSION else 'frozen',
+                 TAXONOMY_VERSION, FEATURE_VERSION, FEATURE_RULE_VERSION)
     if revision['count'] > MAX_CATALOG_ROWS:
         raise RecommendationUnavailable()
     value = cache.get(key)
@@ -232,22 +238,83 @@ def configured_algorithm():
     return version
 
 
-def _v2_item(row, context, options, weights, vector, seed_ids, taxonomy_version=None):
+class V2RequestScorer:
+    """Memoize equivalent PUBLIC feature patterns within ONE private request.
+
+    No cross-user cache or stale row-ID memo. A fresh row supplies raw tags and
+    title collisions every time, including the final safety/hydration query.
+    """
+    def __init__(self, context, options, weights, vector, taxonomy_version):
+        self.context, self.options, self.weights, self.vector = context, options, weights, vector
+        self.taxonomy_version = taxonomy_version
+        available, aliases = genre_rules(taxonomy_version)
+        self.genre_names = {normalized_title(value) for value in (*available, *aliases)}
+        self.tags_cache, self.patterns = {}, {}
+        self.vector_norm = math.sqrt(sum((weights.get(tag, 1) * vector[tag]) ** 2 for tag in sorted(vector)))
+        references = [seed['tags'] for seed in context['seeds']] if context['mode'] == 'personalized' else []
+        if context['preferences']['tags']:
+            references.append(frozenset(context['preferences']['tags']))
+        self.references = tuple(set(references))  # Max over sets; no order-dependent arithmetic.
+        anchor_weights = Counter()
+        for seed in context['seeds'] if context['mode'] == 'personalized' else ():
+            anchor_weights[seed['tags']] += max(.1, seed['score'] - float(settings.RECOMMENDATION_PROFILE_SCORE_THRESHOLD) + 1)
+        self.familiar_anchor = max(anchor_weights, key=lambda tags: (anchor_weights[tags], tuple(sorted(tags)))) if anchor_weights else (
+            frozenset(context['preferences']['tags']))
+
+    def tags_for(self, row):
+        # An unknown title cannot collide with an accepted canonical tag/alias.
+        # Keep ALL recognized collisions, including raw alias vs canonical title;
+        # the existing extractor remains the authority, including duplicate aliases.
+        names = tuple(sorted({normalized_title(row[key]) for key in ('title_zh', 'title_jp')} & self.genre_names))
+        key = (row['tags'], names)
+        if key in self.tags_cache:
+            return self.tags_cache[key]
+        tags = feature_tags(row['tags'], names, taxonomy_version=self.taxonomy_version)
+        if len(self.tags_cache) < ranking_v2.REQUEST_MEMO_LIMIT:
+            self.tags_cache[key] = tags
+        return tags
+
+    def score(self, tags, public_rating):
+        if tags in self.patterns:
+            pattern = self.patterns[tags]
+        else:
+            evidence, reason, affinity = evidence_for(tags, self.context, self.weights, deterministic=True)
+            if not evidence or (self.options['category'] == 'familiar' and self.context['mode'] == 'personalized'
+                                and evidence['kind'] != 'rated_work'):
+                pattern = None
+            else:
+                ordered = sorted(tags)
+                weight = lambda tag: self.weights.get(tag, 1)
+                dot = sum(weight(tag) ** 2 * self.vector[tag] for tag in ordered if tag in self.vector)
+                norm = math.sqrt(sum(weight(tag) ** 2 for tag in ordered))
+                related = dot / (norm * self.vector_norm) if self.vector_norm else 0
+                novelty = sum(weight(tag) for tag in sorted(tags - self.vector.keys())) / sum(weight(tag) for tag in ordered)
+                nearest = max((len(tags & ref) / len(tags | ref) for ref in self.references), default=0)
+                source_rating = float((evidence.get('source') or {}).get('personal_score', 0))
+                pattern = (evidence, reason, dict(category=self.options['category'], nearest=nearest,
+                    affinity=affinity, related=related, novelty=novelty, source_rating=source_rating,
+                    anchor=ranking_v2.weighted_overlap(tags, self.familiar_anchor, self.weights)))
+            if len(self.patterns) < ranking_v2.REQUEST_MEMO_LIMIT:
+                self.patterns[tags] = pattern
+        if pattern is None:
+            return None
+        evidence, reason, components = pattern
+        value = ranking_v2.base_score(**components, public_rating=public_rating)
+        return (evidence, reason, value) if value is not None and math.isfinite(value) else None
+
+
+def _v2_item(row, context, options, weights, vector, seed_ids, scorer, *, verified_tags=None):
     identity = row['bangumi_id']
     if identity in seed_ids or (
             options['hide_recorded'] and identity in context['owned']):
         return None
-    tags = feature_tags(row['tags'], (row['title_zh'], row['title_jp']), taxonomy_version=taxonomy_version)
+    tags = scorer.tags_for(row) if verified_tags is None else verified_tags
     if not tags & vector.keys():
         return None
-    evidence, reason, affinity = evidence_for(tags, context, weights, deterministic=True)
-    if not evidence or (options['category'] == 'familiar' and context['mode'] == 'personalized'
-                        and evidence['kind'] != 'rated_work'):
+    scored = scorer.score(tags, row['score'])
+    if scored is None:
         return None
-    value = candidate_score(tags, row['score'], vector, weights, options['category'], affinity,
-                            exploration_weights=ranking_v2.EXPLORATION_WEIGHTS, deterministic=True)
-    if value is None or not math.isfinite(value):
-        return None
+    evidence, reason, value = scored
     return {'bangumi_id': identity, 'tags': tags, 'value': value, 'evidence': evidence, 'reason': reason}
 
 
@@ -256,28 +323,49 @@ def _rank_context_v2(context, options, index):
         return [], []
     weights, vector = index['weights'], taste_vector(context, deterministic=True)
     seed_ids = {seed['bangumi_id'] for seed in context['seeds']}
-    # A stale cached feature row is NEVER authority for safety or evidence. Read
-    # bounded CURRENT public metadata before balancing, so invalid high-frequency
-    # rows cannot steal the rare-genre quota. No synopsis, images or private reviews.
+    scorer = V2RequestScorer(context, options, weights, vector, index.get('taxonomy_version'))
+    # Cached tags are usable ONLY after an exact CURRENT SHA256 input match.
+    # Safety and scores are live even when the feature fingerprint is unchanged.
     query = safe_catalog().filter(score__gte=options['min_score'])
     if options['type'] != 'all':
         query = query.filter(status_type=options['type'])
     fields = ('bangumi_id', 'tags', 'title_zh', 'title_jp', 'score', 'status_type')
+    started = perf_counter()
+    # Compact live revisions avoid retransmitting full titles/tags on every
+    # request. Bounded client-side fetch, not per-row or server-cursor round trips.
+    public_rows = list(query.annotate(feature_revision=public_feature_expression()).order_by('bangumi_id').values_list(
+        'bangumi_id', 'score', 'feature_revision')[:MAX_CATALOG_ROWS + 1])
+    fetched = perf_counter()
+    if len(public_rows) > MAX_CATALOG_ROWS:
+        raise RecommendationUnavailable()
+    cached = {identity: tags for identity, tags, _, _ in index['features']}
+    fingerprints = index.get('source_fingerprints', {})
+    changed = [identity for identity, _, revision in public_rows
+               if identity not in cached or fingerprints.get(identity) != revision]
+    # Missing/old cache entries and direct QuerySet.update (which may not touch
+    # updated_at) take this path. Never guess features or ignore new safe rows.
+    fresh = {row['bangumi_id']: row for row in query.filter(bangumi_id__in=changed).values(*fields)} if changed else {}
     eligible = []
-    for position, row in enumerate(query.order_by('bangumi_id').values(*fields)[:MAX_CATALOG_ROWS + 1].iterator(chunk_size=500), 1):
-        if position > MAX_CATALOG_ROWS:
-            raise RecommendationUnavailable()
-        item = _v2_item(row, context, options, weights, vector, seed_ids, index.get('taxonomy_version'))
+    for identity, score, revision in public_rows:
+        if identity in fresh:
+            item = _v2_item(fresh[identity], context, options, weights, vector, seed_ids, scorer)
+        elif identity in cached and fingerprints.get(identity) == revision:
+            item = _v2_item({'bangumi_id': identity, 'score': score}, context, options,
+                            weights, vector, seed_ids, scorer, verified_tags=cached[identity])
+        else:  # Changed row removed/reclassified between reads; fail closed.
+            item = None
         if item:
             eligible.append(item)
+    extracted = perf_counter()
     pool = ranking_v2.balanced_candidate_pool(eligible, vector, limit=CANDIDATE_POOL)
+    balanced = perf_counter()
     context['_ranking_trace'] = {'eligible_candidates': len(eligible), 'candidate_pool': len(pool)}
     # Recheck immediately before ranking/serialization; a safety change during
     # pool construction can only remove rows, never bypass the backend filter.
     rows = query.filter(bangumi_id__in=[item['bangumi_id'] for item in pool]).order_by('bangumi_id').defer('synopsis', 'source_cover_url')
     current = []
     for anime in rows:
-        item = _v2_item({field: getattr(anime, field) for field in fields}, context, options, weights, vector, seed_ids, index.get('taxonomy_version'))
+        item = _v2_item({field: getattr(anime, field) for field in fields}, context, options, weights, vector, seed_ids, scorer)
         if item:
             current.append({**item, 'anime': anime})
     # Source safety is just as important as candidate safety. A source changing
@@ -287,7 +375,17 @@ def _rank_context_v2(context, options, index):
             bangumi_id__in=seed_ids).values_list('bangumi_id', flat=True)):
         raise RecommendationSnapshotChanged()
     context['_ranking_trace']['validated_candidates'] = len(current)
-    return ranking_v2.rerank_candidates(current, vector, weights, category=options['category'], limit=MAX_RESULTS), weights
+    context['_ranking_trace']['public_tag_patterns'] = len(scorer.tags_cache)
+    context['_ranking_trace']['evidence_patterns'] = len(scorer.patterns)
+    context['_ranking_trace']['changed_public_rows'] = len(changed)
+    hydrated = perf_counter()
+    ranked = ranking_v2.rerank_candidates(current, vector, weights, category=options['category'], limit=MAX_RESULTS)
+    context['_ranking_trace']['stage_ms'] = dict(zip(
+        ('public_fetch', 'feature_scoring', 'pool_balance', 'hydrate_and_safety', 'rerank'),
+        (round((end - begin) * 1000, 3) for begin, end in zip(
+            (started, fetched, extracted, balanced, hydrated),
+            (fetched, extracted, balanced, hydrated, perf_counter())))))
+    return ranked, weights
 
 
 def rank_context(context, options, index, *, algorithm_version=ALGORITHM_VERSION):

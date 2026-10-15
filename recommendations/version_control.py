@@ -19,6 +19,7 @@ GATE_NAMES = ('safety', 'evidence', 'relevance', 'categories', 'performance', 'r
 CHECK_MODULES = ('recommendations.tests.test_contracts_api', 'recommendations.tests.test_engine_api',
                  'recommendations.tests.test_ranking_v2', 'recommendations.tests.test_comparison')
 SOURCE_PATHS = (
+    'recommendations/public_fingerprint.py',
     'recommendations/engine.py', 'recommendations/ranking_v2.py', 'recommendations/version_control.py',
     'recommendations/taxonomy.py', 'recommendations/features.py', 'recommendations/extraction.py',
     'recommendations/services.py', 'recommendations/resolution.py', 'recommendations/identity.py',
@@ -124,7 +125,9 @@ def require_v2_approval():
 def cache_namespace(algorithm, taxonomy, feature, extraction):
     if algorithm not in ('content.v1', 'content.v2'):
         raise ValueError('Unsupported algorithm version')
-    return f'recommendations.public-features.v4:{algorithm}:{taxonomy}:{feature}:{extraction}'
+    from .ranking_v2 import POLICY_VERSION
+    suffix = f':{POLICY_VERSION}' if algorithm == 'content.v2' else ''
+    return f'recommendations.public-features.v4:{algorithm}:{taxonomy}:{feature}:{extraction}{suffix}'
 
 
 def clear_version_cache(algorithm):
