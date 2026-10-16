@@ -33,9 +33,10 @@ SUITES = ('recommendations.tests.test_feedback_api', 'recommendations.tests.test
           *CORE7_SUITES)
 
 
-def main():
-    report = {'scope': '8a-feedback-isolated-postgresql', 'production_access': False,
-              'external_http': False, 'algorithm': 'content.v1', 'suites': list(SUITES)}
+def main(*, suites=SUITES, scope='8a-feedback-isolated-postgresql', output_name='acceptance-8a',
+         extra_race_class=None, expected_extra_races=0):
+    report = {'scope': scope, 'production_access': False,
+              'external_http': False, 'algorithm': 'content.v1', 'suites': list(suites)}
     start = time.perf_counter()
     try:
         validate_target(os.environ.get('RECOMMENDATION_TEST_DATABASE_URL', '').strip())
@@ -68,15 +69,18 @@ def main():
                 return result
 
         with patch('requests.sessions.Session.request', side_effect=AssertionError('External HTTP forbidden')):
-            failures = Runner(verbosity=2, interactive=False, keepdb=False).run_tests(SUITES)
+            failures = Runner(verbosity=2, interactive=False, keepdb=False).run_tests(suites)
         feedback_races = sum('.FeedbackConcurrencyTests.' in name for name in report.get('passed_cases', []))
         want_races = sum('.WantConcurrencyTests.' in name for name in report.get('passed_cases', []))
         report.update(feedback_concurrency_passed=feedback_races, want_concurrency_passed=want_races)
-        report['result'] = 'passed' if not failures and not report['skipped_cases'] and feedback_races == 6 and want_races == 4 else 'failed'
+        extra_races = sum(f'.{extra_race_class}.' in name for name in report.get('passed_cases', [])) if extra_race_class else 0
+        report['additional_concurrency_passed'] = extra_races
+        report['result'] = 'passed' if (not failures and not report['skipped_cases'] and feedback_races == 6
+            and want_races == 4 and extra_races == expected_extra_races) else 'failed'
     except Exception as exc:
         report.update(result='blocked_or_failed', failure_type=type(exc).__name__)
     report['seconds'] = round(time.perf_counter() - start, 3)
-    output = ROOT / '.tools/acceptance-8a'
+    output = ROOT / '.tools' / output_name
     output.mkdir(parents=True, exist_ok=True)
     filename = output / (datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ') + '.json')
     with filename.open('x', encoding='utf-8') as file:

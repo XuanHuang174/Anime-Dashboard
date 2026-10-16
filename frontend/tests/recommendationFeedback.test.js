@@ -227,3 +227,46 @@ test('8B UUID generation failure releases the write gate without a request', asy
   feedback.observeVersion(0); assert.equal(await feedback.hide(item), null); assert.equal(calls, 0)
   const release = gate.acquire(101); assert.equal(typeof release, 'function'); release()
 })
+
+test('8C reactivated controller rejects late acknowledgements and errors from its previous lifetime', async () => {
+  for (const reject of [false, true]) {
+    const old = deferred(); let body, callbacks = 0
+    const controller = createFeedbackController({ hideFeedback: data => { body = data; return old.promise } },
+      () => callbacks++, { uuid })
+    controller.observeVersion(0)
+    const pending = controller.hide(item); await tick()
+    controller.dispose(); controller.activate()
+    controller.observeVersion(3)
+    if (reject) old.reject(new Error('late')); else old.resolve(ack(body))
+    await pending
+    assert.equal(controller.getSnapshot().version, 3)
+    assert.equal(controller.getSnapshot().pending, false)
+    assert.equal(controller.getSnapshot().toast, null)
+    assert.equal(callbacks, 0)
+  }
+})
+
+test('8C hidden response is rejected when another feedback commits during its request', async () => {
+  const response = deferred(); let version = 2, observations = 0
+  const controller = createHiddenFeedbackController({ hiddenFeedback: () => response.promise },
+    () => observations++, () => version)
+  const pending = controller.open(); version = 3
+  response.resolve(hidden(2)); await pending
+  assert.equal(controller.getSnapshot().status, 'error')
+  assert.equal(controller.getSnapshot().data, undefined)
+  assert.equal(observations, 0)
+})
+
+test('8C an old toast timer cannot dismiss a newer feedback confirmation', async () => {
+  let version = 0
+  const controller = createFeedbackController({ hideFeedback: async body => ack(body) }, () => {},
+    { uuid: () => `00000000-0000-4000-8000-${String(++version).padStart(12, '0')}` })
+  controller.observeVersion(0)
+  await controller.hide(item); const firstKey = controller.getSnapshot().toast.key
+  await controller.hide({ ...item, bangumiId: 102 }); const secondKey = controller.getSnapshot().toast.key
+  assert.notEqual(firstKey, secondKey)
+  controller.dismissToast(firstKey)
+  assert.equal(controller.getSnapshot().toast.key, secondKey)
+  controller.dismissToast(secondKey)
+  assert.equal(controller.getSnapshot().toast, null)
+})

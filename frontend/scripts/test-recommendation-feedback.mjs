@@ -13,10 +13,13 @@ const origin = server.resolvedUrls.local[0].replace(/\/$/, '')
 const browser = await chromium.launch({ headless: true, channel: process.env.PLAYWRIGHT_CHANNEL || 'msedge' })
 const context = await browser.newContext({ viewport: { width: 1360, height: 900 } })
 const page = await context.newPage(), errors = [], external = [], calls = []
-const artifacts = path.resolve('../.tools/acceptance-8b-browser')
+const phase8c = process.env.FEEDBACK_ACCEPTANCE_PHASE === '8c'
+const artifacts = path.resolve(phase8c ? '../.tools/acceptance-8c-browser' : '../.tools/acceptance-8b-browser')
 await mkdir(artifacts, { recursive: true })
 let version = 0, failWrite = false, holdWrite = false, held = null, failHidden = false
-const hidden = new Map()
+let dropAfterCommit = false, dropBeforeCommit = false, holdCategory = null, heldList = null, holdHiddenPage = null, heldHidden = null
+const hidden = new Map(), workRevisions = new Map(), receipts = new Map(), writes = []
+const finish = async (route, options) => { try { await route.fulfill(options) } catch (error) { if (!route.request().failure()) throw error } }
 const date = '2026-10-16T12:00:00Z'
 const epoch = () => ({ algorithm_version: 'content.v1', profile_version: 'a'.repeat(64), preference_version: 0, feedback_version: version })
 const token = () => version.toString(16).padStart(64, '0')
@@ -28,16 +31,23 @@ page.on('pageerror', error => errors.push(error.message))
 await context.route('**/*', async route => {
   const url = new URL(route.request().url()), method = route.request().method()
   if (url.origin !== origin) { external.push(url.origin); return route.abort() }
-  if (url.pathname === '/api/utils/anime-search/') return route.fulfill({ json: { status: 'success', results: [] } })
+  if (url.pathname === '/api/utils/anime-search/') {
+    if (url.searchParams.get('keyword') === 'offline') return route.abort('internetdisconnected')
+    return route.fulfill({ json: { status: 'success', results: [] } })
+  }
   if (!url.pathname.startsWith('/__8bqa__/')) return route.continue()
   calls.push({ path: url.pathname, method })
   const type = url.pathname.split('/').at(-1), body = method === 'POST' ? route.request().postDataJSON() : null
   if (type === 'list') {
-    const ids = Array.from({ length: 30 }, (_, n) => 101 + n).filter(id => !hidden.has(id))
+    const category = url.searchParams.get('category') || 'all'
+    const start = category === 'familiar' ? 201 : category === 'explore' ? 301 : 101
+    const ids = Array.from({ length: 30 }, (_, n) => start + n).filter(id => !hidden.has(id))
     const p = Number(url.searchParams.get('page') || 1)
-    return route.fulfill({ json: { contract_version: 'recommendations.3b.v1', algorithm_version: 'content.v1', mode: 'preference_based',
+    const snapshot = { contract_version: 'recommendations.3b.v1', algorithm_version: 'content.v1', mode: 'preference_based',
       count: ids.length, page: p, page_size: 12, next_page: p * 12 < ids.length ? p + 1 : null,
-      state_token: token(), evidence_context: epoch(), results: ids.slice((p - 1) * 12, p * 12).map(row) } })
+      state_token: token(), evidence_context: epoch(), results: ids.slice((p - 1) * 12, p * 12).map(row) }
+    if (holdCategory === category) await new Promise(resolve => { heldList = resolve })
+    return finish(route, { json: snapshot })
   }
   if (type === 'detail') return route.fulfill({ json: row(Number(url.searchParams.get('id'))) })
   if (type === 'hidden') {
@@ -45,23 +55,36 @@ await context.route('**/*', async route => {
     const p = Number(url.searchParams.get('page') || 1), size = Number(url.searchParams.get('page_size') || 12)
     const rows = [...hidden].map(([id, revision]) => ({ bangumi_id: id, is_active: true, feedback_version: revision,
       title_zh: `作品${id}`, title_jp: '', season: '2026-04', status_type: 'TV', hidden_at: date, updated_at: date }))
-    return route.fulfill({ json: { contract_version: 'recommendations.feedback.v1', feedback_version: version,
+    const snapshot = { contract_version: 'recommendations.feedback.v1', feedback_version: version,
       count: rows.length, page: p, page_size: size, next_page: p * size < rows.length ? p + 1 : null,
-      results: rows.slice((p - 1) * size, p * size) } })
+      results: rows.slice((p - 1) * size, p * size) }
+    if (holdHiddenPage === p) await new Promise(resolve => { heldHidden = resolve })
+    return finish(route, { json: snapshot })
   }
   if (type === 'hide' || type === 'undo') {
+    writes.push({ type, body })
     if (holdWrite) { await new Promise(resolve => { held = resolve }); holdWrite = false }
     if (failWrite) return route.fulfill({ status: 429, json: {} })
+    if (dropBeforeCommit) return route.abort('internetdisconnected')
+    const old = receipts.get(body.operation_id)
+    if (old) return finish(route, { json: { ...old, changed: false, replayed: true, feedback_version: version,
+      feedback: { bangumi_id: body.bangumi_id, is_active: hidden.has(body.bangumi_id),
+        feedback_version: workRevisions.get(body.bangumi_id), hidden_at: date, updated_at: date } } })
     if (body.expected_feedback_version !== version) return route.fulfill({ status: 409, json: { code: 'feedback_version_conflict' } })
+    if (type === 'undo' && body.target_feedback_version !== workRevisions.get(body.bangumi_id)) return route.fulfill({ status: 409, json: { code: 'feedback_target_conflict' } })
     version++
+    workRevisions.set(body.bangumi_id, version)
     if (type === 'hide') hidden.set(body.bangumi_id, version); else hidden.delete(body.bangumi_id)
-    return route.fulfill({ json: { contract_version: 'recommendations.feedback.v1', action: type,
+    const ack = { contract_version: 'recommendations.feedback.v1', action: type,
       operation_id: body.operation_id, feedback_version: version, operation_feedback_version: version, changed: true, replayed: false,
-      feedback: { bangumi_id: body.bangumi_id, is_active: type === 'hide', feedback_version: version, hidden_at: date, updated_at: date } } })
+      feedback: { bangumi_id: body.bangumi_id, is_active: type === 'hide', feedback_version: version, hidden_at: date, updated_at: date } }
+    receipts.set(body.operation_id, ack)
+    if (dropAfterCommit) { dropAfterCommit = false; return route.abort('internetdisconnected') }
+    return finish(route, { json: ack })
   }
   throw new Error(`Unexpected synthetic endpoint: ${type}`)
 })
-const report = { scope: '8b-isolated-ui', live_writes: false, checks: [] }
+const report = { scope: phase8c ? '8c-isolated-ui-network-regression' : '8b-isolated-ui', live_writes: false, checks: [] }
 const check = name => { report.checks.push({ name, passed: true }); console.log(`PASS: ${name}`) }
 const load = async (p, id = 101) => { await p.goto(`${origin}/tests/fixtures/recommendationFeedbackHarness.html`); await p.getByRole('button', { name: `作品${id}的更多操作`, exact: true }).waitFor() }
 const menu = (p, id, scope = p) => scope.getByRole('button', { name: `作品${id}的更多操作`, exact: true })
@@ -90,8 +113,10 @@ try {
   assert.equal(await page.locator('dialog[open]').count(), 0)
   assert.equal(await page.locator('#recResourceDrawer').count(), 0)
   await page.evaluate(() => { feedbackQA.failList = false })
+  const savedWriteCount = writes.length
   await page.getByRole('button', { name: '重新加载推荐', exact: true }).click()
   await menu(page, 102).waitFor()
+  assert.equal(writes.length, savedWriteCount, 'A refresh-only retry must not POST feedback again')
   check('confirmed hide invalidates whole detail/resources and surfaces refresh-only failure with retry')
   await page.getByRole('button', { name: '撤销', exact: true }).click()
   await page.getByText('已撤销隐藏，作品已恢复参与推荐的资格。', { exact: true }).waitFor()
@@ -101,7 +126,7 @@ try {
   assert.equal(await page.locator('dialog[open]').count(), 1)
   await page.getByText('还没有已隐藏作品。', { exact: true }).waitFor()
   await page.getByRole('button', { name: '关闭面板', exact: true }).click()
-  for (let id = 115; id < 129; id++) hidden.set(id, ++version)
+  for (let id = 115; id < 129; id++) { hidden.set(id, ++version); workRevisions.set(id, version) }
   await page.getByRole('button', { name: '已隐藏作品', exact: true }).click()
   await page.getByText('第 1 页 · 14 部', { exact: true }).waitFor()
   await page.getByRole('button', { name: '下一页', exact: true }).click()
@@ -175,6 +200,115 @@ try {
   assert.equal(await timed.getByRole('complementary', { name: '推荐反馈提示', exact: true }).count(), 0)
   check('account change in another tab discards old dialogs, toast and private feedback controller state')
   await timed.close()
+  if (phase8c) {
+    await load(page, 106)
+    holdWrite = true
+    const initialWrites = writes.length
+    await hide(page, 106)
+    await waitFor(() => held !== null)
+    await page.getByRole('button', { name: '查看作品106详情', exact: true }).click()
+    const active = page.locator('dialog[open]')
+    assert.ok(await menu(page, 106, active).isDisabled())
+    await menu(page, 106, active).evaluate(node => { for (let i = 0; i < 30; i++) node.click() })
+    await active.getByRole('button', { name: '作品106：+ 加入想看', exact: true }).evaluate(node => { for (let i = 0; i < 30; i++) node.click() })
+    assert.equal(writes.length, initialWrites + 1)
+    held(); held = null
+    await page.getByText('已在推荐中隐藏《作品106》。', { exact: true }).waitFor()
+    assert.equal(await page.locator('dialog[open]').count(), 0)
+    check('8C rapid hero/detail duplicate clicks produce one POST and mutual write disabling')
+
+    const beforeLostAck = version
+    dropAfterCommit = true
+    await hide(page, 107)
+    await page.getByRole('button', { name: '重试确认原操作', exact: true }).waitFor()
+    assert.equal(version, beforeLostAck + 1)
+    assert.equal(await menu(page, 107).count(), 1) // never optimistically remove an unconfirmed card
+    await page.getByRole('button', { name: '重试确认原操作', exact: true }).click()
+    await page.getByText('已在推荐中隐藏《作品107》。', { exact: true }).waitFor()
+    const retries = writes.filter(w => w.body.bangumi_id === 107)
+    assert.equal(retries.length, 2); assert.deepEqual(retries[0].body, retries[1].body)
+    assert.equal(version, beforeLostAck + 1)
+    check('8C server committed but response lost: exact UUID/body replay, one state transition, no false early success')
+
+    await page.getByRole('button', { name: '查看作品108详情', exact: true }).click()
+    await page.getByRole('button', { name: '🧲 寻找资源', exact: true }).click()
+    dropBeforeCommit = true
+    await hide(page, 108, page.locator('dialog[open]'))
+    await page.locator('dialog[open]').getByText('反馈结果尚未确认，请重试原操作；不会重复写入。', { exact: true }).waitFor()
+    assert.equal(await page.locator('#recResourceDrawer').count(), 1)
+    const input = page.locator('#recResourceDrawer-keyword')
+    await input.fill('offline'); await input.press('Enter')
+    await page.getByText('资源搜索暂时不可用，请稍后再试或使用网页搜索。', { exact: true }).waitFor()
+    await input.fill('恢复关键词'); await input.press('Enter')
+    await page.getByText('未找到相关资源，请尝试缩短或更换搜索关键词', { exact: true }).waitFor()
+    dropBeforeCommit = false
+    // Close the detail voluntarily; the original request remains retryable on the page.
+    await page.getByRole('button', { name: '关闭面板', exact: true }).click()
+    await page.getByRole('button', { name: '重试确认原操作', exact: true }).click()
+    await page.getByText('已在推荐中隐藏《作品108》。', { exact: true }).waitFor()
+    check('8C independent offline feedback/resource recovery preserves detail context and replays only original feedback')
+
+    await page.getByRole('button', { name: '查看作品109详情', exact: true }).click()
+    version++ // another synthetic tab's decision, deliberately no notification
+    const beforeConflict = writes.length
+    await hide(page, 109, page.locator('dialog[open]'))
+    await page.locator('dialog[open]').getByRole('button', { name: '重新读取反馈状态', exact: true }).waitFor()
+    assert.equal(writes.length, beforeConflict + 1)
+    assert.equal(await page.locator('dialog[open]').count(), 1)
+    await page.locator('dialog[open]').getByRole('button', { name: '重新读取反馈状态', exact: true }).click()
+    await waitFor(async () => await page.locator('dialog[open]').count() === 0)
+    await menu(page, 109).waitFor()
+    await hide(page, 109)
+    await page.getByText('已在推荐中隐藏《作品109》。', { exact: true }).waitFor()
+    const decisions = writes.filter(w => w.body.bangumi_id === 109)
+    assert.notEqual(decisions[0].body.operation_id, decisions[1].body.operation_id)
+    check('8C stale 409 never auto-writes or closes detail; explicit reload precedes a new decision')
+
+    holdCategory = 'familiar'
+    await page.getByRole('button', { name: '熟悉的心动', exact: true }).click()
+    await waitFor(() => heldList !== null)
+    await page.getByRole('button', { name: '换一种口味', exact: true }).click()
+    await menu(page, 301).waitFor()
+    holdCategory = null; heldList(); heldList = null
+    assert.equal(await menu(page, 201).count(), 0)
+    await page.getByRole('button', { name: '再翻一页 →', exact: true }).click()
+    await menu(page, 313).waitFor()
+    check('8C slow old-category list cannot replace a newer category or its next page')
+
+    holdWrite = true
+    await hide(page, 301); await waitFor(() => held !== null)
+    await page.evaluate(() => feedbackQA.navigate('/dashboard'))
+    await page.getByRole('heading', { name: '8C 隔离手账返回页', exact: true }).waitFor()
+    held(); held = null
+    assert.equal(await page.locator('dialog[open], .rec-feedback-toast').count(), 0)
+    await page.evaluate(() => feedbackQA.navigate('/recommendations'))
+    await menu(page, 110).waitFor()
+    check('8C navigating away cancels owner session; late feedback cannot reopen old toast or dialog')
+
+    await page.setViewportSize({ width: 390, height: 844 })
+    const touch = await menu(page, 110).boundingBox()
+    assert.ok(touch.width >= 44 && touch.height >= 44)
+    await page.getByRole('button', { name: '已隐藏作品', exact: true }).click()
+    await page.getByRole('button', { name: '下一页', exact: true }).waitFor()
+    const scrolling = await page.locator('dialog[open] > .rec-dialog-body').evaluate(node => {
+      node.scrollTop = node.scrollHeight; return { inner: node.scrollHeight > node.clientHeight, offset: node.scrollTop }
+    })
+    assert.ok(scrolling.inner && scrolling.offset > 0)
+    const buttons = page.locator('dialog[open] button:enabled')
+    await buttons.last().focus(); await page.keyboard.press('Tab')
+    assert.ok(await buttons.first().evaluate(node => node === document.activeElement))
+    await page.keyboard.press('Shift+Tab')
+    assert.ok(await buttons.last().evaluate(node => node === document.activeElement))
+    holdHiddenPage = 2
+    await page.getByRole('button', { name: '下一页', exact: true }).click()
+    await waitFor(() => heldHidden !== null)
+    await page.getByRole('button', { name: '关闭面板', exact: true }).click()
+    await page.getByRole('button', { name: '已隐藏作品', exact: true }).click()
+    await page.getByText(/^第 1 页 ·/).waitFor()
+    holdHiddenPage = null; heldHidden(); heldHidden = null
+    assert.equal(await page.getByText(/^第 2 页 ·/).count(), 0)
+    check('8C narrow-screen touch/inner scrolling/native focus trap and late hidden-page isolation')
+  }
   assert.deepEqual(errors, []); assert.deepEqual(external, [])
   assert.ok(calls.every(call => call.path.startsWith('/__8bqa__/')))
   report.result = 'passed'

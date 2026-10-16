@@ -1,7 +1,7 @@
 // Synthetic service, not imported into app routes or production builds.
-import React, { StrictMode } from 'react'
+import React, { StrictMode, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Routes, Route, useNavigate } from 'react-router-dom'
 import Recommendations from '../../src/pages/Recommendations.jsx'
 
 window.feedbackQA = { failList: false, calls: [] }
@@ -19,7 +19,7 @@ const profile = { contract_version: 'recommendations.3a.v1', eligible_sample_cou
   cold_start: true, sample_policy: { minimum_score: '8.5' }, tag_summary: [] }
 const client = {
   profile: async () => profile, preferences: async () => preferences,
-  list: (options, signal) => read(`list?page=${options.page || 1}`, 'GET', null, signal),
+  list: (options, signal) => read(`list?page=${options.page || 1}&category=${options.category || 'all'}`, 'GET', null, signal),
   detail: (id, signal) => read(`detail?id=${id}`, 'GET', null, signal),
   want: (id, signal) => read('want', 'POST', { id }, signal),
   hiddenFeedback: (params, signal) => read(`hidden?${new URLSearchParams(params)}`, 'GET', null, signal),
@@ -28,4 +28,10 @@ const client = {
 }
 // Only synthetic auth; actual resource responses are intercepted by the runner.
 localStorage.setItem('anime_journal_access_token', 'synthetic-feedback-8b')
-createRoot(document.getElementById('root')).render(<StrictMode><MemoryRouter><Recommendations client={client} /></MemoryRouter></StrictMode>)
+function Harness() {
+  const navigate = useNavigate()
+  useEffect(() => { window.feedbackQA.navigate = navigate }, [navigate])
+  return <Routes><Route path="/recommendations" element={<Recommendations client={client} />} />
+    <Route path="/dashboard" element={<h1>8C 隔离手账返回页</h1>} /></Routes>
+}
+createRoot(document.getElementById('root')).render(<StrictMode><MemoryRouter initialEntries={['/recommendations']}><Harness /></MemoryRouter></StrictMode>)

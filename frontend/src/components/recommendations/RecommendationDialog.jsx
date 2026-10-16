@@ -39,7 +39,9 @@ export default function RecommendationDialog({ title, children, onClose, kind = 
     }
   }, [])
   function keepResourceFocus(event) {
-    if (!resourcePanel || event.key !== 'Tab') return
+    // Apply the boundary to every modal, including the hidden-works drawer.
+    // Some browser top-layer transitions briefly hand Tab back to browser chrome.
+    if (event.key !== 'Tab') return
     const targets = [...ref.current.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], summary, [tabindex]')]
       .filter(node => node.tabIndex >= 0 && !node.closest('[inert]') && node.getClientRects().length > 0
         && getComputedStyle(node).visibility !== 'hidden')
