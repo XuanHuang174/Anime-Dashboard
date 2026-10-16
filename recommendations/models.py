@@ -109,3 +109,74 @@ class RecommendationIdentityEvent(models.Model):
         ordering = ('created_at', 'pk')
         verbose_name = '番剧身份关联审计'
         verbose_name_plural = verbose_name
+
+
+class UserRecommendationFeedbackState(models.Model):
+    """Independent, monotonic per-user feedback revision (not preference version)."""
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                                related_name='recommendation_feedback_state')
+    feedback_version = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = '用户推荐反馈版本'
+        verbose_name_plural = verbose_name
+        constraints = [models.CheckConstraint(condition=models.Q(feedback_version__lte=2147483647),
+                                              name='rec_feedback_state_version_max')]
+
+    def __str__(self):
+        return f'用户 {self.user_id} 的反馈版本 {self.feedback_version}'
+
+
+class UserRecommendationFeedback(models.Model):
+    """Exact external work identity; never an Anime PK or journal record PK."""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                             related_name='recommendation_feedback')
+    bangumi_id = models.IntegerField(validators=[MinValueValidator(1)])
+    is_active = models.BooleanField(default=True)
+    # Last USER revision which changed THIS work. Tombstones retain undo history.
+    feedback_version = models.PositiveIntegerField()
+    hidden_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = '作品级推荐反馈'
+        verbose_name_plural = verbose_name
+        constraints = [
+            models.UniqueConstraint(fields=('user', 'bangumi_id'), name='rec_feedback_user_work_unique'),
+            models.CheckConstraint(condition=models.Q(bangumi_id__gt=0), name='rec_feedback_positive_bgm'),
+            models.CheckConstraint(condition=models.Q(feedback_version__gte=1, feedback_version__lte=2147483647),
+                                   name='rec_feedback_version_range'),
+            models.CheckConstraint(condition=models.Q(is_active=False) | models.Q(hidden_at__isnull=False),
+                                   name='rec_feedback_active_has_time'),
+        ]
+        indexes = [models.Index(fields=('user', 'is_active', '-hidden_at', '-id'), name='rec_feedback_hidden_idx')]
+
+    def __str__(self):
+        return f'用户 {self.user_id} / Bangumi {self.bangumi_id}: {self.is_active}'
+
+
+class RecommendationFeedbackOperation(models.Model):
+    """Minimal immutable receipt: retries cannot resurrect a subsequently undone hide."""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                             related_name='recommendation_feedback_operations')
+    operation_id = models.UUIDField()
+    bangumi_id = models.IntegerField()
+    action = models.CharField(max_length=8, choices=(('hide', '不感兴趣'), ('undo', '撤销')))
+    request_fingerprint = models.CharField(max_length=64)
+    applied_feedback_version = models.PositiveIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = '推荐反馈幂等回执'
+        verbose_name_plural = verbose_name
+        constraints = [
+            models.UniqueConstraint(fields=('user', 'operation_id'), name='rec_feedback_operation_unique'),
+            models.CheckConstraint(condition=models.Q(bangumi_id__gt=0), name='rec_feedback_op_positive_bgm'),
+            models.CheckConstraint(condition=models.Q(action__in=('hide', 'undo')), name='rec_feedback_op_action'),
+            models.CheckConstraint(condition=models.Q(applied_feedback_version__gte=1,
+                                                     applied_feedback_version__lte=2147483647),
+                                   name='rec_feedback_op_version_range'),
+        ]

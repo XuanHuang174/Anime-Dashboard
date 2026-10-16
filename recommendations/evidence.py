@@ -45,6 +45,8 @@ class EvidencePresenter:
         self.context = deepcopy({key: value for key, value in context.items()
                                  if key in ('profile', 'preferences', 'seeds', 'owned', 'mode', 'taxonomy_version')})
         self.weights, self.owner = dict(weights), user.pk
+        self.user = user
+        self.feedback_version = context.get('feedback', {}).get('version')
         self.patterns = {}
         state = {'owner': user.pk, 'profile': self.context['profile'], 'mode': self.context['mode'],
                  'preferences': self.context['preferences'], 'owned': sorted(self.context['owned'].items()),
@@ -60,12 +62,16 @@ class EvidencePresenter:
             # An opaque content revision, NOT a persisted counter or public user ID.
             'profile_version': _token('recommendations.profile.evidence.v1', state),
             'preference_version': context['preferences']['version'],
+            'feedback_version': self.feedback_version if self.feedback_version is not None else 0,
             'catalog_feature_version': hashlib.sha256(_bytes(self.weights)).hexdigest(),
         }
 
     def ensure_safe(self, animes):
-        """One batch query, never one source query per card. Fail closed on races."""
+        """Batch source safety + independent feedback revision; no per-card queries."""
         from .engine import RecommendationSnapshotChanged
+        if self.feedback_version is not None:
+            from .feedback import ensure_version
+            ensure_version(self.user, self.feedback_version)
         identities = {anime.bangumi_id for anime in animes}
         identities.update(seed['bangumi_id'] for seed in self.context['seeds'])
         if identities != set(safe_catalog().filter(bangumi_id__in=identities).values_list('bangumi_id', flat=True)):

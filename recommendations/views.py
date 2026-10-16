@@ -27,6 +27,9 @@ from .review import review_contract
 from .want import add_want, WantConflict
 from .serializers import RecommendationWantSerializer
 from .serializers import EvidenceEnvelopeSerializer, RecommendationDetailQuerySerializer
+from .feedback import FeedbackConflict, mutate_feedback, hidden_feedback
+from .serializers import (FeedbackMutationSerializer, FeedbackUndoSerializer,
+                          FeedbackHiddenQuerySerializer, FeedbackResultSerializer, FeedbackHiddenListSerializer)
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +56,10 @@ class OwnRecommendationAPIView(APIView):
         return response
 
     def handle_exception(self, exc):
+        if isinstance(exc, FeedbackConflict):
+            response = Response(exc.payload, status=exc.status_code)
+            response.exception = True
+            return response
         if isinstance(exc, DatabaseError):
             logger.warning('Recommendation database unavailable: %s', type(exc).__name__)
             exc = RecommendationUnavailable()
@@ -67,6 +74,33 @@ class RecommendationProfileView(OwnRecommendationAPIView):
     def get(self, request):
         self.check_query_contract(request)
         return Response(RecommendationProfileSerializer(profile_contract(request.user)).data)
+
+
+class RecommendationFeedbackView(OwnRecommendationAPIView):
+    throttle_classes = (UserRateThrottle, ScopedRateThrottle)
+    throttle_scope = 'recommendation_write'
+    action = 'hide'
+
+    def post(self, request):
+        self.check_query_contract(request)
+        serializer = (FeedbackUndoSerializer if self.action == 'undo' else FeedbackMutationSerializer)(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        result = mutate_feedback(user=request.user, action=self.action, changes=serializer.validated_data)
+        return Response(FeedbackResultSerializer(result).data)
+
+
+class RecommendationFeedbackUndoView(RecommendationFeedbackView):
+    action = 'undo'
+
+
+class RecommendationHiddenFeedbackView(OwnRecommendationAPIView):
+    throttle_classes = (UserRateThrottle, ScopedRateThrottle)
+    throttle_scope = 'recommendation_read'
+
+    def get(self, request):
+        serializer = FeedbackHiddenQuerySerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        return Response(FeedbackHiddenListSerializer(hidden_feedback(request.user, serializer.validated_data)).data)
 
 
 class RecommendationWantView(OwnRecommendationAPIView):

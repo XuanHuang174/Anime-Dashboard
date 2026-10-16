@@ -83,6 +83,8 @@ def public_features(*, algorithm_version=ALGORITHM_VERSION):
 
 def user_context(user):
     """Read own seeds anew. No inferred private state or HTTP payload cache."""
+    from .feedback import feedback_snapshot
+    feedback = feedback_snapshot(user)
     profile, records, seeds = profile_data(user)
     # Reuse this request's explicit-preference read; common topics are not input.
     preferences = profile['extraction']['explicit_preferences']
@@ -95,7 +97,7 @@ def user_context(user):
         if identity and priority.get(row['watch_status'], 0) > priority.get(owned.get(identity), 0):
             owned[identity] = row['watch_status']
     return {'_owner_id': user.pk, 'profile': profile, 'preferences': preferences, 'seeds': seeds, 'taxonomy_version': vocabulary.TAXONOMY_VERSION,
-            'mode': mode, 'owned': owned}
+            'mode': mode, 'owned': owned, 'feedback': feedback}
 
 
 def taste_vector(context, *, deterministic=False):
@@ -181,9 +183,10 @@ def _rank_context_v1(context, options, index):
         return [], []
     weights, vector = index['weights'], taste_vector(context)
     seed_ids = {seed['bangumi_id'] for seed in context['seeds']}
+    hidden_ids = context.get('feedback', {}).get('hidden_ids', ())
     shortlist = []
     for identity, tags, score, status_type in index['features']:
-        if identity in seed_ids or (options['hide_recorded'] and identity in context['owned']):
+        if identity in hidden_ids or identity in seed_ids or (options['hide_recorded'] and identity in context['owned']):
             continue
         if score < float(options['min_score']) or (options['type'] != 'all' and status_type != options['type']):
             continue
@@ -305,7 +308,7 @@ class V2RequestScorer:
 
 def _v2_item(row, context, options, weights, vector, seed_ids, scorer, *, verified_tags=None):
     identity = row['bangumi_id']
-    if identity in seed_ids or (
+    if identity in context.get('feedback', {}).get('hidden_ids', ()) or identity in seed_ids or (
             options['hide_recorded'] and identity in context['owned']):
         return None
     tags = scorer.tags_for(row) if verified_tags is None else verified_tags
@@ -423,6 +426,7 @@ def snapshot_token(user_id, context, options, ranked, algorithm, *, weights=None
              'taxonomy': TAXONOMY_VERSION,
              'extraction_rule': FEATURE_RULE_VERSION,
              'preferences': (context['preferences']['version'], context['preferences']['tags']),
+             'feedback_version': context.get('feedback', {}).get('version', 0),
              'seeds': [(seed['bangumi_id'], seed['score'], sorted(seed['tags']), seed['feature_sources'])
                        for seed in context['seeds']],
              'owned': sorted(context['owned'].items()),

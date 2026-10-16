@@ -245,7 +245,83 @@ class EvidenceVersionsSerializer(serializers.Serializer):
     selection_rule_version = serializers.CharField(read_only=True)
     profile_version = serializers.CharField(read_only=True)
     preference_version = serializers.IntegerField(read_only=True)
+    feedback_version = serializers.IntegerField(read_only=True)
     catalog_feature_version = serializers.CharField(read_only=True)
+
+
+class StrictFeedbackInteger(serializers.IntegerField):
+    def to_internal_value(self, data):
+        if isinstance(data, bool) or not isinstance(data, int):
+            self.fail('invalid')
+        return super().to_internal_value(data)
+
+
+class FeedbackMutationSerializer(serializers.Serializer):
+    bangumi_id = StrictFeedbackInteger(min_value=1, max_value=2147483647)
+    expected_feedback_version = StrictFeedbackInteger(min_value=0, max_value=2147483647)
+    operation_id = serializers.UUIDField()
+
+    def to_internal_value(self, data):
+        if isinstance(data, Mapping) and set(data) - set(self.fields):
+            raise serializers.ValidationError({'non_field_errors': ['包含不支持的字段；只允许修改当前用户的作品反馈。']})
+        return super().to_internal_value(data)
+
+
+class FeedbackUndoSerializer(FeedbackMutationSerializer):
+    target_feedback_version = StrictFeedbackInteger(min_value=1, max_value=2147483647)
+
+
+class FeedbackHiddenQuerySerializer(serializers.Serializer):
+    page = serializers.IntegerField(min_value=1, max_value=1000000, default=1)
+    page_size = serializers.IntegerField(min_value=1, max_value=24, default=12)
+    feedback_version = serializers.IntegerField(min_value=0, max_value=2147483647, required=False)
+
+    def to_internal_value(self, data):
+        if set(data) - set(self.fields) or (hasattr(data, 'getlist') and
+                any(len(data.getlist(key)) != 1 for key in data)):
+            raise serializers.ValidationError({'non_field_errors': ['查询参数未知或重复。']})
+        return super().to_internal_value(data)
+
+    def validate(self, attrs):
+        if attrs['page'] > 1 and 'feedback_version' not in attrs:
+            raise serializers.ValidationError('后续分页必须携带第一页的 feedback_version。')
+        return attrs
+
+
+class FeedbackWorkSerializer(serializers.Serializer):
+    bangumi_id = serializers.IntegerField(read_only=True)
+    is_active = serializers.BooleanField(read_only=True)
+    feedback_version = serializers.IntegerField(read_only=True)
+    hidden_at = serializers.DateTimeField(read_only=True, allow_null=True)
+    updated_at = serializers.DateTimeField(read_only=True)
+
+
+class FeedbackResultSerializer(serializers.Serializer):
+    contract_version = serializers.CharField(read_only=True)
+    action = serializers.CharField(read_only=True)
+    operation_id = serializers.UUIDField(read_only=True)
+    replayed = serializers.BooleanField(read_only=True)
+    changed = serializers.BooleanField(read_only=True)
+    feedback_version = serializers.IntegerField(read_only=True)
+    operation_feedback_version = serializers.IntegerField(read_only=True)
+    feedback = FeedbackWorkSerializer(read_only=True)
+
+
+class FeedbackHiddenWorkSerializer(FeedbackWorkSerializer):
+    title_zh = serializers.CharField(read_only=True)
+    title_jp = serializers.CharField(read_only=True)
+    season = serializers.CharField(read_only=True)
+    status_type = serializers.CharField(read_only=True)
+
+
+class FeedbackHiddenListSerializer(serializers.Serializer):
+    contract_version = serializers.CharField(read_only=True)
+    feedback_version = serializers.IntegerField(read_only=True)
+    count = serializers.IntegerField(read_only=True)
+    page = serializers.IntegerField(read_only=True)
+    page_size = serializers.IntegerField(read_only=True)
+    next_page = serializers.IntegerField(read_only=True, allow_null=True)
+    results = FeedbackHiddenWorkSerializer(many=True, read_only=True)
 
 
 class EvidenceSourceSerializer(serializers.Serializer):
