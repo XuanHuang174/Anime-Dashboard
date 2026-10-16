@@ -359,3 +359,20 @@ class FeedbackAPITests(ContractFixtures, APITestCase):
         self.assertTrue(all(isinstance(operation, CreateModel) for operation in migration.operations))
         self.assertEqual({operation.name for operation in migration.operations},
                          {'UserRecommendationFeedback', 'UserRecommendationFeedbackState', 'RecommendationFeedbackOperation'})
+
+    def test_8b_undo_invalidates_old_page_and_detail_without_changing_profile_or_rank_formula(self):
+        before = self.client.get('/api/recommendations/profile/').data
+        self.hide()
+        page = self.client.get('/api/recommendations/', {'page_size': 1}).data
+        row = page['results'][0]
+        self.assertEqual(page['evidence_context']['feedback_version'], 1)
+        self.assertEqual(self.undo(1, 1).status_code, 200)
+        self.assertEqual(self.client.get('/api/recommendations/', {'page': 2, 'page_size': 1,
+            'state_token': page['state_token']}).status_code, 409)
+        self.assertEqual(self.client.get(f'/api/recommendations/{row["bangumi_id"]}/',
+            {'evidence_token': row['evidence_token']}).status_code, 409)
+        fresh = self.client.get('/api/recommendations/').data
+        self.assertEqual(fresh['algorithm_version'], 'content.v1')
+        self.assertEqual(fresh['evidence_context']['feedback_version'], 2)
+        self.assertIn(101, {item['bangumi_id'] for item in fresh['results']})
+        self.assertEqual(self.client.get('/api/recommendations/profile/').data, before)

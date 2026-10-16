@@ -39,7 +39,7 @@ export function wantButtonState(item, operation = {}) {
 
 // One request per Bangumi identity across hero/grid/detail. No localStorage,
 // optimistic false success, journal edit payload, or mock fallback.
-export function createWantController(client, onConfirmed = () => {}) {
+export function createWantController(client, onConfirmed = () => {}, { writeGate } = {}) {
   let state = {}, disposed = false, epoch = 0
   const listeners = new Set(), pending = new Map()
   const update = (id, operation) => { state = { ...state, [id]: operation }; for (const listener of listeners) listener() }
@@ -75,8 +75,10 @@ export function createWantController(client, onConfirmed = () => {}) {
       if (disposed || !Number.isInteger(id) || id < 1 || id > 2147483647) return Promise.resolve(null)
       if (pending.has(id)) return pending.get(id).promise
       if (STATUSES.includes(item.watchStatus) || state[id]?.status === 'ready') return Promise.resolve(null)
-      const request = { controller: new AbortController(), epoch }
-      const current = () => !disposed && request.epoch === epoch && pending.get(id) === request
+      const release = writeGate?.acquire(id)
+      if (writeGate && !release) return Promise.resolve(null)
+      const request = { controller: new AbortController(), epoch, release }
+      const current = () => !disposed && request.epoch === epoch && pending.get(id) === request && (!writeGate || writeGate.isCurrent())
       pending.set(id, request)
       request.promise = Promise.resolve().then(() => current() ? client.want(id, request.controller.signal) : null).then((raw) => {
         if (!current()) return null
@@ -95,13 +97,13 @@ export function createWantController(client, onConfirmed = () => {}) {
       }).catch((error) => {
         if (current()) update(id, { status: 'error', error: wantFailure(error) })
         return null
-      }).finally(() => { if (pending.get(id) === request) pending.delete(id) })
+      }).finally(() => { request.release?.(); if (pending.get(id) === request) pending.delete(id) })
       update(id, { status: 'adding' })
       return request.promise
     },
     dispose() {
       disposed = true; epoch += 1
-      for (const request of pending.values()) request.controller.abort()
+      for (const request of pending.values()) { request.controller.abort(); request.release?.() }
       pending.clear()
     },
   }

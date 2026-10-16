@@ -9,6 +9,7 @@ export default function useRecommendations(category, filters, client = recommend
   const more = useRef(createLatestRequestGate())
   const moreBusy = useRef(false)
   const confirmed = useRef(null)
+  const confirmedFeedback = useRef(null)
   const [revision, setRevision] = useState(0)
   const [state, setState] = useState({ status: 'loading', items: [] })
   const key = JSON.stringify([category, filters.type, filters.minScore, filters.hideRecorded, revision])
@@ -17,16 +18,19 @@ export default function useRecommendations(category, filters, client = recommend
     more.current.cancel()
     moreBusy.current = false
     const confirmedPreferences = confirmed.current
-    setState({ key, status: 'loading', items: [], confirmedPreferences })
-    loadRecommendationSnapshot(client, { category, filters, signal: request.signal, confirmedPreferences }).then(snapshot => {
+    const feedbackAcknowledgement = confirmedFeedback.current
+    setState({ key, status: 'loading', items: [], confirmedPreferences, confirmedFeedback: feedbackAcknowledgement })
+    loadRecommendationSnapshot(client, { category, filters, signal: request.signal, confirmedPreferences,
+      minimumFeedbackVersion: feedbackAcknowledgement?.version }).then(snapshot => {
       if (request.isCurrent()) {
         confirmed.current = null
+        confirmedFeedback.current = null
         setState({ key, status: recommendationResultState(snapshot.data), ...snapshot, moreLoading: false, moreError: '' })
       }
     }).catch((error) => {
       if (request.isCurrent()) {
         root.current.cancel()
-        setState({ key, status: 'error', items: [], confirmedPreferences, error: recommendationError(error) })
+        setState({ key, status: 'error', items: [], confirmedPreferences, confirmedFeedback: feedbackAcknowledgement, error: recommendationError(error) })
       }
     })
     return () => { root.current.cancel(); more.current.cancel() }
@@ -34,8 +38,10 @@ export default function useRecommendations(category, filters, client = recommend
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, client])
 
-  const retry = ({ confirmedPreferences } = {}) => {
+  const retry = ({ confirmedPreferences, confirmedFeedback: feedbackAcknowledgement } = {}) => {
     if (confirmedPreferences) confirmed.current = confirmedPreferences
+    if (feedbackAcknowledgement) confirmedFeedback.current = { ...feedbackAcknowledgement,
+      version: Math.max(feedbackAcknowledgement.version, confirmedFeedback.current?.version || 0) }
     root.current.cancel(); more.current.cancel(); moreBusy.current = false
     setRevision((value) => value + 1)
   }
@@ -64,5 +70,6 @@ export default function useRecommendations(category, filters, client = recommend
       }
     } finally { if (request.isCurrent()) moreBusy.current = false }
   }
-  return { ...(state.key === key ? state : { status: 'loading', items: [], confirmedPreferences: confirmed.current }), retry, loadMore, recordChanged }
+  return { ...(state.key === key ? state : { status: 'loading', items: [], confirmedPreferences: confirmed.current,
+    confirmedFeedback: confirmedFeedback.current }), retry, loadMore, recordChanged }
 }

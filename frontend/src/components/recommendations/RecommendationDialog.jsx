@@ -2,7 +2,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 
 // Native modal dialog supplies top-layer stacking, inert background and focus trap.
 export default function RecommendationDialog({ title, children, onClose, kind = 'detail', busy = false,
-  resourceOpen = false, resourcePanel, onResourceClose, resourceTriggerRef }) {
+  resourceOpen = false, resourcePanel, onResourceClose, resourceTriggerRef, headerActions }) {
   const ref = useRef(null)
   const wasResourceOpen = useRef(false)
   const [compact, setCompact] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches)
@@ -35,6 +35,7 @@ export default function RecommendationDialog({ title, children, onClose, kind = 
       node.close()
       document.body.style.overflow = previousOverflow
       if (previousFocus?.isConnected) previousFocus.focus()
+      else document.querySelector('.memphis-rec-container .rec-nav-tools button')?.focus()
     }
   }, [])
   function keepResourceFocus(event) {
@@ -56,6 +57,7 @@ export default function RecommendationDialog({ title, children, onClose, kind = 
         || event.clientY < rect.top || event.clientY > rect.bottom) && !busy) onClose()
     }}>
     <header className="rec-dialog-header"><h2 id={titleId}>{title}</h2>
+      {headerActions}
       <button type="button" className="rec-button rec-close" disabled={busy} data-initial-focus aria-label="关闭面板" onClick={onClose}>×</button></header>
     {resourcePanel ? <div className="rec-dialog-workspace">
       <div className="rec-dialog-main" inert={resourceOpen && compact} aria-hidden={resourceOpen && compact}>

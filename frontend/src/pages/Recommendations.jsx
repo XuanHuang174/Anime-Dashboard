@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import RecommendationCard, { RecommendationCover, RecommendationMeta } from '../components/recommendations/RecommendationCard.jsx'
 import RecommendationDialog from '../components/recommendations/RecommendationDialog.jsx'
@@ -17,11 +17,32 @@ import RecommendationResourcePanel from '../components/recommendations/Recommend
 import useRecommendationPreferences from '../hooks/useRecommendationPreferences.js'
 import useRecommendationReload from '../hooks/useRecommendationReload.js'
 import { notifyRecommendationChange } from '../utils/recommendationReload.js'
+import useRecommendationFeedback from '../hooks/useRecommendationFeedback.js'
+import { createRecommendationWriteGate, validateHiddenFeedback } from '../utils/recommendationFeedback.js'
+import { notifyFeedbackChange, subscribeFeedbackChanges } from '../utils/recommendationFeedbackSync.js'
+import RecommendationFeedbackMenu from '../components/recommendations/RecommendationFeedbackMenu.jsx'
+import RecommendationFeedbackToast from '../components/recommendations/RecommendationFeedbackToast.jsx'
+import RecommendationHiddenWorks from '../components/recommendations/RecommendationHiddenWorks.jsx'
+import { getAccessToken } from '../auth/tokenStorage.js'
+import { recommendationSessionScope } from '../utils/recommendationSession.js'
 import { recommendationAlgorithmLabel } from '../utils/recommendationExplanation.js'
 import { DEFAULT_REC_FILTERS, REC_CATEGORIES, identitySummary } from '../utils/recommendations.js'
 import '../styles/recommendations.css'
 
 export default function Recommendations({ client = recommendationApi }) {
+  const readScope = () => { try { return recommendationSessionScope(getAccessToken()) } catch { return 'anonymous' } }
+  const [sessionScope, setSessionScope] = useState(readScope)
+  useEffect(() => {
+    const check = () => setSessionScope(readScope())
+    window.addEventListener('storage', check)
+    window.addEventListener('focus', check)
+    document.addEventListener('visibilitychange', check)
+    return () => { window.removeEventListener('storage', check); window.removeEventListener('focus', check); document.removeEventListener('visibilitychange', check) }
+  }, [])
+  return <RecommendationWorkspace key={sessionScope} client={client} sessionScope={sessionScope} />
+}
+
+function RecommendationWorkspace({ client, sessionScope }) {
   const [category, setCategory] = useState('all')
   const [filters, setFilters] = useState({ ...DEFAULT_REC_FILTERS })
   const [draftFilters, setDraftFilters] = useState({ ...DEFAULT_REC_FILTERS })
@@ -31,6 +52,9 @@ export default function Recommendations({ client = recommendationApi }) {
   const detailQuery = useRef(JSON.stringify([category, filters.type, filters.minScore, filters.hideRecorded]))
   const { detail, controller: detailController } = useRecommendationDetail(client)
   const state = useRecommendations(category, filters, client)
+  const writeGate = useMemo(() => createRecommendationWriteGate({ isCurrent: () => {
+    try { return recommendationSessionScope(getAccessToken()) === sessionScope } catch { return sessionScope === 'anonymous' }
+  } }), [client, sessionScope])
   const preferenceEditor = useRecommendationPreferences(client, confirmedPreferences => {
     setPanel(null); setNotice('偏好已保存，正在重新读取画像与推荐。')
     reload({ confirmedPreferences })
@@ -40,6 +64,14 @@ export default function Recommendations({ client = recommendationApi }) {
   const preferences = state.preferences || state.confirmedPreferences
   const acknowledgeReload = useRecommendationReload(state.retry, Boolean(panel) || state.status === 'loading')
   const reload = options => { acknowledgeReload(); state.retry(options) }
+  const feedback = useRecommendationFeedback(client, result => {
+    // Discard the entire old detail/resource context ONLY after server acknowledgement.
+    detailController.close()
+    setPanel(current => current?.kind === 'detail' ? null : current)
+    reload({ confirmedFeedback: { version: feedback.controller.getSnapshot().version } })
+    feedback.hidden.refresh()
+    notifyFeedbackChange()
+  }, writeGate, version => feedbackReload.current?.(version, false))
   const want = useRecommendationWant(client, result => {
     const refreshedDetail = detailController.afterWant(result) // synchronous invalidation BEFORE other reloads
     state.recordChanged(result.bangumi_id, result.watch_status)
@@ -47,7 +79,24 @@ export default function Recommendations({ client = recommendationApi }) {
     notifyRecommendationChange({ local: false })
     setNotice(result.created ? '已加入想看，评分和长评留空。正在更新推荐依据。' : '手账已有这部作品，已保留原有状态、评分和长评。正在更新推荐依据。')
     return refreshedDetail
-  })
+  }, writeGate)
+  const feedbackReload = useRef(null)
+  feedbackReload.current = (version, refreshHidden = true) => {
+    const previousToast = feedback.controller.getSnapshot().toast
+    if (previousToast) feedback.controller.dismissToast(previousToast.key)
+    feedback.controller.observeVersion(version)
+    detailController.close()
+    setPanel(current => current?.kind === 'detail' ? null : current)
+    reload({ confirmedFeedback: { version } })
+    if (refreshHidden) feedback.hidden.refresh()
+  }
+  useEffect(() => { feedback.controller.observeVersion(state.data?.evidence_context?.feedback_version) }, [state.data, feedback.controller])
+  useEffect(() => {
+    if (!client.hiddenFeedback) return undefined
+    return subscribeFeedbackChanges({ client, getVersion: () => feedback.controller.getSnapshot().version,
+      onChanged: version => feedbackReload.current(version) })
+  }, [client, feedback.controller])
+  useEffect(() => { if (panel?.kind !== 'hidden') feedback.hidden.close() }, [panel?.kind, feedback.hidden])
   const activeFilters = Number(filters.type !== 'all') + Number(filters.minScore !== '0') + Number(filters.hideRecorded)
 
   useEffect(() => { want.reconcile(state.items) }, [state.items, want.reconcile])
@@ -83,19 +132,39 @@ export default function Recommendations({ client = recommendationApi }) {
     detailController.close()
     setPanel(null)
   }
+  const openHidden = () => {
+    if (saving) return
+    detailController.close()
+    setPanel({ kind: 'hidden' })
+    feedback.hidden.open()
+  }
+  const reloadFeedback = async () => {
+    try {
+      const data = validateHiddenFeedback(await client.hiddenFeedback({ page: 1, page_size: 1 }))
+      feedback.controller.clearErrors()
+      feedbackReload.current(data.feedback_version)
+    } catch { setNotice('反馈状态读取失败，请稍后重试；原有状态未被覆盖。') }
+  }
   const addWant = item => want.add(item)
   const openWantIdentity = () => { detailController.close(); setPanel({ kind: 'identity', scope: 'all' }) }
   const cardProps = (item) => ({ item, onWant: addWant, operation: want.operations[item.bangumiId], onIdentity: openWantIdentity,
+    onHide: feedback.controller.hide, feedbackOperation: feedback.state.operations[item.bangumiId],
+    feedbackDisabled: feedback.state.pending || feedback.state.uncertain || feedback.state.version === null,
+    onFeedbackReload: reloadFeedback,
     onReload: () => reload(),
     onDetail: (chosen) => { detailController.open(chosen); setPanel({ kind: 'detail', item: chosen }) } })
   const profile = state.profile
   const pending = profile?.diagnostics?.pending_identity_count || 0
+  const feedbackToast = <RecommendationFeedbackToast toast={feedback.state.toast} busy={feedback.state.pending}
+    operation={feedback.state.operations[feedback.state.toast?.item.bangumiId]}
+    onUndo={feedback.controller.undo} onManage={openHidden} onDismiss={feedback.controller.dismissToast} onReload={reloadFeedback} />
 
   return <main className="memphis-rec-container">
     <a className="rec-skip-link" href="#rec-results">跳到推荐内容</a>
     <div className="rec-page">
       <nav className="rec-nav" aria-label="推荐页面导航"><Link className="rec-back" to="/dashboard">← 返回我的手账</Link>
-        <button type="button" className="rec-button rec-preferences" disabled={!preferences} onClick={openPreferences}>☷ 偏好设置</button></nav>
+        <div className="rec-nav-tools"><button type="button" className="rec-text-button" onClick={openHidden}>已隐藏作品</button>
+          <button type="button" className="rec-button rec-preferences" disabled={!preferences} onClick={openPreferences}>☷ 偏好设置</button></div></nav>
       <header className="rec-intro">
         <div className="rec-intro-copy"><span className="rec-eyebrow">YOUR NEXT FAVORITE <span className="rec-preview-badge">{recommendationAlgorithmLabel(state.data?.algorithm_version)}</span></span>
           <h1>找到你的下一部<br /><span>心头好<span className="rec-title-star" aria-hidden="true">✦</span></span></h1>
@@ -104,6 +173,10 @@ export default function Recommendations({ client = recommendationApi }) {
           onPreferences={openPreferences} onRetry={reload} />
       </header>
       <RecommendationRefreshNotice confirmedPreferences={state.confirmedPreferences} status={state.status} onRetry={() => reload()} />
+      {(state.confirmedFeedback && state.status === 'error' || feedback.state.syncError) && <section className="rec-feedback-refresh" role="alert">
+        <p>反馈已保存，推荐更新失败。</p><button type="button" className="rec-button" onClick={() => { feedback.controller.clearErrors(); reload() }}>重新加载推荐</button></section>}
+      {feedback.state.uncertain && <section className="rec-feedback-refresh" role="alert"><p>上次反馈结果尚未确认。请先确认原操作，暂不提交新的反馈。</p>
+        <button type="button" className="rec-button" disabled={feedback.state.pending} onClick={feedback.controller.retry}>重试确认原操作</button></section>}
       <RecommendationColdStartGuide profile={profile} status={state.status} preferencesReady={!!preferences}
         onPreferences={openPreferences} onIdentity={() => setPanel({ kind: 'identity' })} />
       {pending > 0 && !profile.cold_start && <section className="rec-identity-notice" aria-label="旧数据关联提示"><p>{identitySummary(profile)}</p>
@@ -144,16 +217,28 @@ export default function Recommendations({ client = recommendationApi }) {
       <footer className="rec-footer"><span>给每一次喜欢，一个值得停留的位置。</span><span>DISCOVERY JOURNAL / {recommendationAlgorithmLabel(state.data?.algorithm_version)}</span></footer>
     </div>
     <div className="rec-toast" role="status" aria-live="polite">{notice && <p>{notice}</p>}</div>
+    {panel?.kind !== 'hidden' && feedbackToast}
     {panel?.kind === 'identity' && <RecommendationIdentityReview client={client} scope={panel.scope || 'high-score'} onClose={() => setPanel(null)}
       onChanged={() => { want.resetFailures(); reload(); notifyRecommendationChange({ local: false }) }} />}
-    {panel && panel.kind !== 'identity' && <RecommendationDialog kind={panel.kind} busy={saving} title={panel.kind === 'filters' ? '给心动留一点范围' : panel.kind === 'preferences' ? '我的口味' : panel.item.title}
+    {panel && panel.kind !== 'identity' && <RecommendationDialog kind={panel.kind} busy={saving} title={panel.kind === 'filters' ? '给心动留一点范围' : panel.kind === 'preferences' ? '我的口味' : panel.kind === 'hidden' ? '已隐藏作品' : panel.item.title}
+      headerActions={panel.kind === 'detail' && detail.status === 'ready' ? <RecommendationFeedbackMenu
+        item={detail.item} onHide={feedback.controller.hide} operation={feedback.state.operations[detail.item.bangumiId]}
+        disabled={feedback.state.pending || feedback.state.uncertain || feedback.state.version === null || want.operations[detail.item.bangumiId]?.status === 'adding'}
+        onReload={reloadFeedback} /> : null}
       onClose={closePanel} resourceOpen={panel.kind === 'detail' && detail.status === 'ready' && detail.resourceOpen}
       onResourceClose={detailController.closeResources} resourceTriggerRef={resourceTrigger}
       resourcePanel={panel.kind === 'detail' && detail.status === 'ready' ? <RecommendationResourcePanel
         item={detail.item} open={detail.resourceOpen}
         sessionKey={`${detail.selection.session}:${detail.resourceSession || 0}:${detail.item.bangumiId}:${detail.item.evidenceToken || ''}`}
         onClose={detailController.closeResources} /> : null}>
-      {panel.kind === 'filters' ? <form onSubmit={(event) => { event.preventDefault(); setFilters({ ...draftFilters }); setPanel(null) }}>
+      {panel.kind === 'hidden' ? <>{state.confirmedFeedback && state.status === 'error' && <div className="rec-feedback-refresh" role="alert">
+          <p>反馈已保存，推荐更新失败。</p><button type="button" className="rec-button" onClick={() => reload()}>重新加载推荐</button></div>}
+        {feedback.state.uncertain && <div role="alert"><p>反馈结果尚未确认。</p><button type="button" className="rec-button"
+          disabled={feedback.state.pending} onClick={feedback.controller.retry}>重试确认原操作</button></div>}
+        <RecommendationHiddenWorks state={feedback.hiddenState} feedback={feedback.state}
+        onPage={feedback.hidden.load} onUndo={feedback.controller.undo} onReload={() => { feedback.controller.clearErrors(); feedback.hidden.refresh() }}
+        writeBusy={id => want.operations[id]?.status === 'adding'} />{feedbackToast}</>
+        : panel.kind === 'filters' ? <form onSubmit={(event) => { event.preventDefault(); setFilters({ ...draftFilters }); setPanel(null) }}>
         <p className="rec-muted">成人及分级未知作品已由后端过滤，不会混入推荐流。</p>
         <label className="rec-field">作品类型<select value={draftFilters.type} onChange={(event) => setDraftFilters({ ...draftFilters, type: event.target.value })}>
           <option value="all">全部类型</option>{['TV', '剧场版', 'OVA', 'WEB', '短片', '动态漫画'].map((type) => <option key={type}>{type}</option>)}</select></label>
@@ -176,7 +261,8 @@ export default function Recommendations({ client = recommendationApi }) {
               <RecommendationDetailActions item={detail.item} resourceOpen={detail.resourceOpen}
                 resourceTriggerRef={resourceTrigger}
                 onResourceOpen={detailController.openResources} onResourceClose={detailController.closeResources} onClose={closePanel}
-                onWant={addWant} operation={want.operations[detail.item.bangumiId]} onIdentity={openWantIdentity} />
+                onWant={addWant} operation={want.operations[detail.item.bangumiId]} onIdentity={openWantIdentity}
+                writeBlocked={feedback.state.operations[detail.item.bangumiId]?.status === 'saving' || feedback.state.operations[detail.item.bangumiId]?.uncertain} />
             </div></div>}
     </RecommendationDialog>}
   </main>

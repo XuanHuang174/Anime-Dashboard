@@ -1,4 +1,33 @@
 /* Entire page and top-layer dialogs scoped to this namespace. No global resets. */
+.memphis-rec-container .rec-nav-tools { display: flex; align-items: center; gap: 14px; }
+.memphis-rec-container .rec-card-title-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; width: 100%; }
+.memphis-rec-container .rec-card-title-row > h3 { flex: 1; min-width: 0; }
+.memphis-rec-container .rec-feedback-menu { position: relative; flex-shrink: 0; }
+.memphis-rec-container .rec-feedback-trigger { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; padding: 4px; border: 2px solid #1a1a1a; background: white; color: #1a1a1a; box-shadow: 2px 2px 0 #1a1a1a; font-size: 23px; line-height: 1; }
+.memphis-rec-container .rec-feedback-trigger:hover:not(:disabled), .memphis-rec-container .rec-feedback-options button:hover:not(:disabled) { background: #fff2cc; }
+.memphis-rec-container .rec-feedback-options { position: absolute; z-index: 20; top: calc(100% + 7px); right: 0; min-width: 140px; border: 2px solid #1a1a1a; box-shadow: 3px 3px 0 #1a1a1a; background: white; padding: 5px; }
+.memphis-rec-container .rec-feedback-options button { width: 100%; min-height: 44px; border: 0; background: white; color: #1a1a1a; text-align: left; padding: 8px 14px; font-size: 13px; }
+.memphis-rec-container .rec-feedback-message { position: absolute; z-index: 19; right: 0; top: calc(100% + 7px); width: min(260px, calc(100vw - 64px)); padding: 10px; background: #fff8ef; border: 2px solid #1a1a1a; box-shadow: 2px 2px 0 #1a1a1a; font-size: 12px; line-height: 1.7; }
+.memphis-rec-container .rec-feedback-message p { margin: 0; }
+.memphis-rec-container .rec-dialog-header h2 { flex: 1; min-width: 0; }
+.memphis-rec-container .rec-feedback-refresh { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 14px; margin: 16px 0; border: 2px solid #1a1a1a; background: #fff2cc; font-size: 13px; }
+.memphis-rec-container .rec-feedback-refresh p { margin: 0; }
+.memphis-rec-container .rec-feedback-toast { position: fixed; z-index: 40; bottom: 20px; left: 50%; transform: translateX(-50%); width: min(520px, calc(100vw - 32px)); max-height: 40dvh; overflow-y: auto; padding: 14px 18px; border: 2px solid #1a1a1a; background: white; color: #1a1a1a; box-shadow: 3px 3px 0 #1a1a1a; font-size: 13px; line-height: 1.8; }
+.memphis-rec-container .rec-feedback-toast p { margin: 0; overflow-wrap: anywhere; }
+.memphis-rec-container .rec-feedback-toast-actions { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.memphis-rec-container .rec-feedback-toast .rec-text-button { min-height: 44px; }
+.memphis-rec-container .rec-dialog.rec-dialog--hidden { position: fixed; inset: 0 0 0 auto; margin: 0; width: min(540px, calc(100vw - 24px)); max-width: 100%; height: 100dvh; max-height: 100dvh; background: white; }
+.memphis-rec-container .rec-dialog--hidden[open] { display: flex; flex-direction: column; }
+.memphis-rec-container .rec-dialog--hidden .rec-dialog-header { flex-shrink: 0; }
+.memphis-rec-container .rec-dialog--hidden > .rec-dialog-body { min-height: 0; overflow-y: auto; }
+.memphis-rec-container .rec-hidden-note { background: #edf7f2; border: 1px solid #9cbfb0; padding: 12px; font-size: 12px; line-height: 1.8; }
+.memphis-rec-container .rec-hidden-works ul { list-style: none; padding: 0; margin: 0; }
+.memphis-rec-container .rec-hidden-works li { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; border-bottom: 1px solid #ded6c9; padding: 18px 0; }
+.memphis-rec-container .rec-hidden-works li > div:first-child { flex: 1 1 220px; min-width: 0; }
+.memphis-rec-container .rec-hidden-works h3 { margin: 0 0 8px; overflow-wrap: anywhere; font-size: 15px; }
+.memphis-rec-container .rec-hidden-works li p { margin: 5px 0; font-size: 12px; color: #68645d; }
+.memphis-rec-container .rec-hidden-error { flex-basis: 100%; }
+.memphis-rec-container .rec-hidden-pagination { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 20px 0; font-size: 12px; }
 .memphis-rec-container { --rec-cream: #fff8ef; --rec-yellow: #ffe397; --rec-teal: #bce9df; --rec-ink: #1a1a1a; --rec-muted: #68645d; min-height: 100vh; background: var(--rec-cream); color: var(--rec-ink); font-family: inherit; padding: 0 28px; }
 .memphis-rec-container *, .memphis-rec-container *::before, .memphis-rec-container *::after { box-sizing: border-box; }
 .memphis-rec-container button, .memphis-rec-container input, .memphis-rec-container select { font: inherit; }
