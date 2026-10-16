@@ -107,7 +107,9 @@ def input_fingerprint(context):
     private = {'owner': context.get('_owner_id'), 'mode': context['mode'],
         'preferences': (context['preferences']['version'], context['preferences']['tags']),
         'seeds': [(seed['bangumi_id'], seed['score'], sorted(seed['tags']), seed['feature_sources']) for seed in context['seeds']],
-        'owned': sorted(context['owned'].items())}
+        'owned': sorted(context['owned'].items()),
+        'feedback': (context.get('feedback', {}).get('version', 0),
+                     sorted(context.get('feedback', {}).get('hidden_ids', ())))}
     return hmac.new(settings.SECRET_KEY.encode(), b'quality-baseline.v1\0' + json.dumps(
         private, sort_keys=True, ensure_ascii=False).encode(), hashlib.sha256).hexdigest()
 

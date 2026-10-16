@@ -12,6 +12,7 @@ from recommendations.comparison_report import write_comparison, FILES
 from recommendations.quality_audit import audit_rows, catalog_snapshot
 from recommendations.quality_readonly import readonly_snapshot
 from recommendations.resolution import resolved_records
+from recommendations.feedback import feedback_snapshot
 from recommendations.services import preference_contract
 from recommendations.version_control import CHECK_MODULES, read_artifact
 
@@ -66,7 +67,8 @@ class Command(BaseCommand):
                 for position, user in enumerate(sorted(users, key=lambda user: user.pk), 1):
                     self.stdout.write(f'Evaluating authorized sample {position}/{count}; same snapshot, no private content logged')
                     samples.append(evaluate_snapshot(resolved_records(user), preference_contract(user), user.pk, catalog,
-                        top_k=options['top_k'], max_holdouts=options['max_holdouts'], repeats=options['repeats']))
+                        top_k=options['top_k'], max_holdouts=options['max_holdouts'], repeats=options['repeats'],
+                        feedback=feedback_snapshot(user)))
                 report = build_comparison_report(scope, catalog, samples, attestation,
                     top_k=options['top_k'], max_holdouts=options['max_holdouts'], repeats=options['repeats'])
             if attestation:

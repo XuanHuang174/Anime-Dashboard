@@ -8,7 +8,7 @@ from copy import deepcopy
 from decimal import Decimal
 import hashlib
 import math
-from time import perf_counter
+from time import perf_counter, process_time
 
 from django.conf import settings
 from django.db import connection
@@ -28,7 +28,7 @@ DEFAULT_LIMITS = {'maximum_relevance_drop': 0.0, 'maximum_holdout_drop': 0.0,
                   'maximum_sql_queries': 6, 'minimum_novel_directions': 2}
 
 
-def context_snapshot(records, preference, owner_id, rule):
+def context_snapshot(records, preference, owner_id, rule, *, feedback=None):
     extracted, seeds = extract_profile(records, threshold=Decimal(str(settings.RECOMMENDATION_PROFILE_SCORE_THRESHOLD)),
                                       minimum=settings.RECOMMENDATION_PROFILE_MIN_SAMPLES, taxonomy_version=rule)
     available, _ = genre_rules(rule)
@@ -41,16 +41,22 @@ def context_snapshot(records, preference, owner_id, rule):
             owned[identity] = row['watch_status']
     return {'_owner_id': owner_id, 'taxonomy_version': rule, 'profile': extracted,
             'preferences': {'version': preference['version'], 'tags': tags}, 'seeds': seeds, 'owned': owned,
+            'feedback': deepcopy(feedback or {'version': 0, 'hidden_ids': frozenset()}),
             'mode': 'personalized' if not extracted['cold_start'] else 'preference_based' if tags else 'cold_start'}
 
 
 class QueryCounter:
     def __init__(self):
         self.count = 0
+        self.seconds = 0.0
 
     def __call__(self, execute, sql, params, many, context):
         self.count += 1
-        return execute(sql, params, many, context)  # Never retain SQL or parameters.
+        started = perf_counter()
+        try:
+            return execute(sql, params, many, context)  # Never retain SQL or parameters.
+        finally:
+            self.seconds += perf_counter() - started
 
 
 def coverage(rows, rule):
@@ -64,11 +70,14 @@ def coverage(rows, rule):
 def measured_rank(context, options, index, algorithm):
     clone, counter = deepcopy(context), QueryCounter()
     started = perf_counter()
+    cpu_started = process_time()
     with connection.execute_wrapper(counter):
         ranked, _ = rank_context(clone, options, index, algorithm_version=algorithm)
     elapsed = (perf_counter() - started) * 1000
     trace = clone.get('_ranking_trace', dict.fromkeys(('eligible_candidates', 'candidate_pool', 'validated_candidates'), 0))
-    return ranked, {'compute_ms': round(elapsed, 3), 'sql_queries': counter.count, **trace}
+    return ranked, {'compute_ms': round(elapsed, 3), 'sql_queries': counter.count,
+                    'process_cpu_ms': round((process_time() - cpu_started) * 1000, 3),
+                    'sql_execute_ms': round(counter.seconds * 1000, 3), **trace}
 
 
 def comparable_metrics(ranked, context, reference, current_features, top_k):
@@ -90,8 +99,8 @@ def comparable_metrics(ranked, context, reference, current_features, top_k):
     return metrics
 
 
-def evaluate_snapshot(records, preference, owner_id, catalog, *, top_k=10, max_holdouts=4, repeats=2):
-    contexts = {rule: context_snapshot(records, preference, owner_id, rule)
+def evaluate_snapshot(records, preference, owner_id, catalog, *, top_k=10, max_holdouts=4, repeats=2, feedback=None):
+    contexts = {rule: context_snapshot(records, preference, owner_id, rule, feedback=feedback)
                 for rule in (LEGACY_TAXONOMY_VERSION, TAXONOMY_VERSION)}
     reference = contexts[TAXONOMY_VERSION]
     required = max(4, settings.RECOMMENDATION_PROFILE_MIN_SAMPLES + 1)
