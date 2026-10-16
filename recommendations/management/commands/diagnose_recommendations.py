@@ -32,6 +32,7 @@ class Command(BaseCommand):
         parser.add_argument('--top-k', type=int, default=10)
         parser.add_argument('--repeats', type=int, default=2)
         parser.add_argument('--max-holdouts', type=int, default=4)
+        parser.add_argument('--compare-previous-v2', action='store_true')
         parser.add_argument('--statement-timeout-ms', type=int, default=30000)
         parser.add_argument('--execution-context', choices=('local_client', 'deployed_service', 'isolated_test'), default='local_client')
 
@@ -96,7 +97,8 @@ class Command(BaseCommand):
                         def progress(message):
                             self.stdout.write(f'sample_{number:03d}: {message}'); self.stdout.flush()
                         samples.append(diagnose_sample(context, summary, index, top_k=options['top_k'],
-                            repeats=options['repeats'], max_holdouts=options['max_holdouts'], progress=progress))
+                            repeats=options['repeats'], max_holdouts=options['max_holdouts'], progress=progress,
+                            compare_previous_v2=options['compare_previous_v2']))
             if fingerprint != release_descriptor()['fingerprint'] or sources != diagnostic_sources():
                 raise ValueError('Code changed during diagnostics; no complete report issued.')
             report = {'contract_version': 'recommendations.diagnostic.v1',
@@ -106,7 +108,7 @@ class Command(BaseCommand):
                 'transaction': {'read_only': readonly, 'isolation': isolation},
                 'setup': {'catalog_read_ms': catalog_ms, 'index_build_ms': index_ms}, 'catalog_scope': scope,
                 'catalog_fingerprint': hashlib.sha256(canonical_bytes(catalog)).hexdigest(),
-                'samples': samples, 'configuration': {key: options[key] for key in ('top_k', 'repeats', 'max_holdouts')},
+                'samples': samples, 'configuration': {key: options[key] for key in ('top_k', 'repeats', 'max_holdouts', 'compare_previous_v2')},
                 'unchanged_release_limits': DEFAULT_LIMITS, 'online_default': 'content.v1',
                 'eligible_for_manual_switch': False, 'approval_issued': False,
                 'privacy': {'no_review_reads': True, 'no_mutations': True, 'no_external_calls': True,

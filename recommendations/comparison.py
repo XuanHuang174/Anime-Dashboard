@@ -67,12 +67,13 @@ def coverage(rows, rule):
             'genre_size_histogram': {str(key): value for key, value in sorted(counts.items())}}
 
 
-def measured_rank(context, options, index, algorithm):
+def measured_rank(context, options, index, algorithm, *, v2_policy_version=None):
     clone, counter = deepcopy(context), QueryCounter()
     started = perf_counter()
     cpu_started = process_time()
     with connection.execute_wrapper(counter):
-        ranked, _ = rank_context(clone, options, index, algorithm_version=algorithm)
+        ranked, _ = rank_context(clone, options, index, algorithm_version=algorithm,
+            **({'v2_policy_version': v2_policy_version} if v2_policy_version is not None else {}))
     elapsed = (perf_counter() - started) * 1000
     trace = clone.get('_ranking_trace', dict.fromkeys(('eligible_candidates', 'candidate_pool', 'validated_candidates'), 0))
     return ranked, {'compute_ms': round(elapsed, 3), 'sql_queries': counter.count,

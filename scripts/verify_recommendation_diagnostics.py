@@ -20,9 +20,11 @@ if __name__ == '__main__':
     sys.exit(main(suites=(*SUITES,
         'recommendations.tests.test_feedback_closure', 'recommendations.tests.test_feedback_deployment_guard',
         'recommendations.tests.test_diagnostics',
+        'recommendations.tests.test_preference_discovery',
         'recommendations.tests.test_comparison.ComparisonPrimitiveTests',
         'recommendations.tests.test_ranking_v2.BalancedPoolTests',
         'recommendations.tests.test_ranking_v2.DifferentiatedRerankTests',
+        'recommendations.tests.test_ranking_v2.V2RevisionTests',
         *('recommendations.tests.test_comparison.ComparisonDatabaseTests.' + name for name in COMPARE_CASES)),
         scope='current-baseline-diagnostics-isolated-postgresql', output_name='acceptance-v2-diagnostics',
         extra_race_class='FeedbackBoundaryConcurrencyTests', expected_extra_races=6))

@@ -177,6 +177,21 @@ def candidate_score(tags, score, vector, weights, category, affinity=0, *, explo
     return .85 * related + .1 * quality + .05 * novelty
 
 
+def _diagnostic_target_trace(context, *, eligible=None, pool=None, validated=None):
+    """Offline target ordinal only; never adds work IDs or scores to responses.
+
+    Normal user_context never supplies this marker. Observes existing decisions;
+    it cannot insert a target, change ties or enlarge a candidate pool.
+    """
+    target = context.get('_diagnostic_target_id')
+    if target is None:
+        return
+    trace = context['_ranking_trace'].setdefault('target', {})
+    for label, identities in (('eligible_rank', eligible), ('pool_rank', pool), ('validated_position', validated)):
+        if identities is not None:
+            trace[label] = next((position for position, identity in enumerate(identities, 1) if identity == target), None)
+
+
 def _rank_context_v1(context, options, index):
     """Same V1 ranking, supplied request-local context/index; not an API input."""
     if context['mode'] == 'cold_start':
@@ -197,6 +212,7 @@ def _rank_context_v1(context, options, index):
     shortlist.sort(key=lambda pair: (-pair[0], pair[1]))
     pool_ids = [identity for _, identity in shortlist[:CANDIDATE_POOL]]
     context['_ranking_trace'] = {'eligible_candidates': len(shortlist), 'candidate_pool': len(pool_ids)}
+    _diagnostic_target_trace(context, eligible=(identity for _, identity in shortlist), pool=pool_ids)
     # Fetch CURRENT safe rows before evidence, ranking, pagination and serialization.
     query = safe_catalog().filter(bangumi_id__in=pool_ids, score__gte=options['min_score'])
     if options['type'] != 'all':
@@ -213,6 +229,7 @@ def _rank_context_v1(context, options, index):
             ranked.append({'anime': anime, 'tags': tags, 'value': value, 'evidence': evidence, 'reason': reason})
     ranked.sort(key=lambda item: (-item['value'], item['anime'].bangumi_id))
     context['_ranking_trace']['validated_candidates'] = len(ranked)
+    _diagnostic_target_trace(context, validated=(item['anime'].bangumi_id for item in ranked))
     if options['category'] == 'all':
         chosen = []
         while ranked and len(chosen) < MAX_RESULTS:
@@ -247,7 +264,12 @@ class V2RequestScorer:
     No cross-user cache or stale row-ID memo. A fresh row supplies raw tags and
     title collisions every time, including the final safety/hydration query.
     """
-    def __init__(self, context, options, weights, vector, taxonomy_version):
+    def __init__(self, context, options, weights, vector, taxonomy_version, *, policy_version=None):
+        self.policy_version = policy_version or ranking_v2.POLICY_VERSION
+        if self.policy_version not in (ranking_v2.POLICY_VERSION, ranking_v2.PREVIOUS_POLICY_VERSION):
+            raise RecommendationUnavailable('不支持的 V2 评测策略。')
+        self.preference_discovery = (context['mode'] == 'preference_based' and options['category'] == 'all'
+                                     and self.policy_version == ranking_v2.POLICY_VERSION)
         self.context, self.options, self.weights, self.vector = context, options, weights, vector
         self.taxonomy_version = taxonomy_version
         available, aliases = genre_rules(taxonomy_version)
@@ -296,7 +318,10 @@ class V2RequestScorer:
                 source_rating = float((evidence.get('source') or {}).get('personal_score', 0))
                 pattern = (evidence, reason, dict(category=self.options['category'], nearest=nearest,
                     affinity=affinity, related=related, novelty=novelty, source_rating=source_rating,
-                    anchor=ranking_v2.weighted_overlap(tags, self.familiar_anchor, self.weights)))
+                    anchor=ranking_v2.weighted_overlap(tags, self.familiar_anchor, self.weights),
+                    preference_discovery=self.preference_discovery,
+                    preference_coverage=(sum(weight(tag) for tag in sorted(tags & self.vector.keys()))
+                        / sum(weight(tag) for tag in sorted(self.vector)) if self.preference_discovery and self.vector else 0)))
             if len(self.patterns) < ranking_v2.REQUEST_MEMO_LIMIT:
                 self.patterns[tags] = pattern
         if pattern is None:
@@ -321,12 +346,12 @@ def _v2_item(row, context, options, weights, vector, seed_ids, scorer, *, verifi
     return {'bangumi_id': identity, 'tags': tags, 'value': value, 'evidence': evidence, 'reason': reason}
 
 
-def _rank_context_v2(context, options, index):
+def _rank_context_v2(context, options, index, *, policy_version=None):
     if context['mode'] == 'cold_start':
         return [], []
     weights, vector = index['weights'], taste_vector(context, deterministic=True)
     seed_ids = {seed['bangumi_id'] for seed in context['seeds']}
-    scorer = V2RequestScorer(context, options, weights, vector, index.get('taxonomy_version'))
+    scorer = V2RequestScorer(context, options, weights, vector, index.get('taxonomy_version'), policy_version=policy_version)
     # Cached tags are usable ONLY after an exact CURRENT SHA256 input match.
     # Safety and scores are live even when the feature fingerprint is unchanged.
     query = safe_catalog().filter(score__gte=options['min_score'])
@@ -363,6 +388,10 @@ def _rank_context_v2(context, options, index):
     pool = ranking_v2.balanced_candidate_pool(eligible, vector, limit=CANDIDATE_POOL)
     balanced = perf_counter()
     context['_ranking_trace'] = {'eligible_candidates': len(eligible), 'candidate_pool': len(pool)}
+    if '_diagnostic_target_id' in context:
+        _diagnostic_target_trace(context,
+            eligible=(item['bangumi_id'] for item in sorted(eligible, key=lambda item: (-item['value'], item['bangumi_id']))),
+            pool=(item['bangumi_id'] for item in pool))
     # Recheck immediately before ranking/serialization; a safety change during
     # pool construction can only remove rows, never bypass the backend filter.
     rows = query.filter(bangumi_id__in=[item['bangumi_id'] for item in pool]).order_by('bangumi_id').defer('synopsis', 'source_cover_url')
@@ -378,6 +407,7 @@ def _rank_context_v2(context, options, index):
             bangumi_id__in=seed_ids).values_list('bangumi_id', flat=True)):
         raise RecommendationSnapshotChanged()
     context['_ranking_trace']['validated_candidates'] = len(current)
+    _diagnostic_target_trace(context, validated=(item['bangumi_id'] for item in current))
     context['_ranking_trace']['public_tag_patterns'] = len(scorer.tags_cache)
     context['_ranking_trace']['evidence_patterns'] = len(scorer.patterns)
     context['_ranking_trace']['changed_public_rows'] = len(changed)
@@ -391,15 +421,19 @@ def _rank_context_v2(context, options, index):
     return ranked, weights
 
 
-def rank_context(context, options, index, *, algorithm_version=ALGORITHM_VERSION):
+def rank_context(context, options, index, *, algorithm_version=ALGORITHM_VERSION, v2_policy_version=None):
     """Explicit offline version; V1 baseline never follows a deployment flag."""
     genre_rules(index.get('taxonomy_version'))
     if context.get('taxonomy_version', vocabulary.TAXONOMY_VERSION) != index.get('taxonomy_version', vocabulary.TAXONOMY_VERSION):
         raise RecommendationUnavailable('画像与候选题材版本不一致。')
     if algorithm_version == ALGORITHM_VERSION:
+        if v2_policy_version is not None:
+            raise RecommendationUnavailable('V1 不接受 V2 策略覆盖。')
         return _rank_context_v1(context, options, index)
     if algorithm_version == EXPERIMENTAL_ALGORITHM_VERSION:
-        return _rank_context_v2(context, options, index)
+        if v2_policy_version not in (None, ranking_v2.POLICY_VERSION, ranking_v2.PREVIOUS_POLICY_VERSION):
+            raise RecommendationUnavailable('不支持的 V2 评测策略。')
+        return _rank_context_v2(context, options, index, policy_version=v2_policy_version)
     raise RecommendationUnavailable('推荐算法配置暂不可用，请联系管理员。')
 
 

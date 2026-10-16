@@ -7,7 +7,8 @@ the same-snapshot 5B-3 evaluation approves a release.
 from collections import Counter, deque
 import math
 
-POLICY_VERSION = 'balanced-rerank.v2'
+POLICY_VERSION = 'balanced-rerank.v3'
+PREVIOUS_POLICY_VERSION = 'balanced-rerank.v2'
 RELEVANCE_CORE_FRACTION = .5
 REPETITION_STRENGTH = {'all': .25, 'familiar': .005, 'explore': .18}
 NOVEL_DIRECTION_SHARE = .8
@@ -16,6 +17,7 @@ REQUEST_MEMO_LIMIT = 2048
 DISCOVERY_WEIGHTS = (.50, .20, .15, .10, .05)  # nearest set, IDF affinity, vector, public, novelty
 FAMILIAR_WEIGHTS = (.65, .25, .06, .03, .01)  # source affinity, trusted anchor, personal rating, vector, public
 EXPLORE_WEIGHTS = (.45, .30, .15, .10)  # nearest set, vector, novelty, public
+PREFERENCE_DISCOVERY_WEIGHTS = (.40, .45, .10, .05)  # chosen-topic coverage, vector, public, novelty
 
 
 def policy_contract():
@@ -25,13 +27,17 @@ def policy_contract():
             'novel_direction_share': NOVEL_DIRECTION_SHARE,
             'discovery_weights': list(DISCOVERY_WEIGHTS), 'familiar_weights': list(FAMILIAR_WEIGHTS),
             'explore_weights': list(EXPLORE_WEIGHTS), 'discovery_repeat': '0.7-prefix-mean+0.3-prefix-max',
+            'preference_discovery_weights': list(PREFERENCE_DISCOVERY_WEIGHTS),
+            'preference_discovery': 'chosen-topic-coverage-not-exact-genre-set',
+            'preference_vector_transform': 'sqrt-cosine-bounded-0-1',
             'public_scan_fetch': PUBLIC_SCAN_FETCH, 'request_memo_limit': REQUEST_MEMO_LIMIT,
             'familiar_anchor': 'strongest-trusted-genre-pattern-not-a-series',
             'pool_strata': 'preferred-genre-then-distinct-genre-pattern',
             'request_memo_version': 'public-title-collision-and-genre-pattern.v1'}
 
 
-def base_score(*, category, nearest, affinity, related, novelty, source_rating, public_rating, anchor=0):
+def base_score(*, category, nearest, affinity, related, novelty, source_rating, public_rating, anchor=0,
+               preference_discovery=False, preference_coverage=0):
     """Supported work affinity is distinct from aggregate genre popularity.
 
     All inputs are bounded internal signals, NOT probability estimates. The
@@ -47,6 +53,14 @@ def base_score(*, category, nearest, affinity, related, novelty, source_rating, 
             return None
         n, r, x, q = EXPLORE_WEIGHTS
         return n * nearest + r * related + x * novelty + q * quality
+    if preference_discovery:
+        # A chosen topic means interest in that topic, not a preference for works
+        # containing ONLY that topic. Still requires real shared-topic evidence.
+        c, r, q, x = PREFERENCE_DISCOVERY_WEIGHTS
+        # IDF cosine already penalizes extra topics. With only explicit topics
+        # available, soften that penalty without rewarding a zero association.
+        related = math.sqrt(max(0.0, min(1.0, related)))
+        return c * preference_coverage + r * related + q * quality + x * novelty
     n, a, r, q, x = DISCOVERY_WEIGHTS
     return n * nearest + a * affinity + r * related + q * quality + x * novelty
 

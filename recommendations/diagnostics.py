@@ -4,6 +4,7 @@ No mutations, user discovery, review reads, network calls or threshold changes.
 Measures the real ranking functions, not a second approximate recommendation engine.
 """
 from copy import deepcopy
+from collections import Counter
 from time import perf_counter
 import hashlib
 import math
@@ -12,13 +13,43 @@ from django.conf import settings
 
 from .cold_start import cold_start_contract
 from .comparison import context_snapshot, measured_rank, comparable_metrics
-from .engine import build_feature_index, snapshot_token
+from .engine import build_feature_index, snapshot_token, taste_vector
+from . import ranking_v2
 from .quality_evaluation import (CATEGORIES, category_differences, evidence_errors,
                                  input_fingerprint, mean, without_seed)
 from .taxonomy import TAXONOMY_VERSION
 from .version_control import canonical_bytes
 
 VERSIONS = ('content.v1', 'content.v2')
+PREVIOUS_V2_ARM = 'content.v2.previous'
+
+
+def target_diagnostic(context, category, target, features, ranked, measurement, *, ordinal, top_k):
+    """Observe a fixed holdout's actual pipeline; never forces it into a pool."""
+    ids = [row['anime'].bangumi_id for row in ranked]
+    returned_rank = ids.index(target) + 1 if target in ids else None
+    tags = features.get(target, frozenset())
+    preferred = set(taste_vector(context, deterministic=True))
+    trace = measurement.get('target', {})
+    if returned_rank is not None:
+        reason = 'hit_top_k' if returned_rank <= top_k else 'below_top_k'
+    elif not tags:
+        reason = 'no_effective_catalog_genres'
+    elif not tags & preferred:
+        reason = 'no_training_topic_overlap'
+    elif category == 'explore' and not tags - preferred:
+        reason = 'explore_requires_new_topic'
+    elif trace.get('eligible_rank') is None:
+        reason = 'not_eligible_under_actual_rules'
+    elif trace.get('pool_rank') is None:
+        reason = 'outside_candidate_pool'
+    elif trace.get('validated_position') is None:
+        reason = 'not_retained_after_validation'
+    else:
+        reason = 'outside_returned_limit'
+    return {'target_ordinal': ordinal, 'reason': reason, 'returned_rank': returned_rank,
+        'catalog_topic_count': len(tags), 'shared_training_topic_count': len(tags & preferred),
+        'new_topic_count': len(tags - preferred), **trace}
 
 
 def prepare_sample(records, preference, owner_id, feedback):
@@ -43,27 +74,32 @@ def result_checks(ranked, context, safe_ids):
         'checked_rows': len(ranked)}
 
 
-def diagnose_sample(context, summary, index, *, top_k, repeats, max_holdouts, progress=lambda text: None):
+def diagnose_sample(context, summary, index, *, top_k, repeats, max_holdouts, progress=lambda text: None,
+                    compare_previous_v2=False):
     """Both arms use exactly the same frozen inputs, feedback and default filters.
 
     Alternate execution order between repeats; report first vs subsequent runs,
     not purported cold/warm production-cache timings (index is already built).
     """
     options = {'type': 'all', 'min_score': 0, 'hide_recorded': True, 'page_size': top_k}
+    versions = (*VERSIONS, PREVIOUS_V2_ARM) if compare_previous_v2 else VERSIONS
     safe_ids = {identity for identity, _, _, _ in index['features']}
     current_features = {identity: tags for identity, tags, _, _ in index['features']}
-    runs = {version: {category: [] for category in CATEGORIES} for version in VERSIONS}
-    outputs = {version: {} for version in VERSIONS}
+    runs = {version: {category: [] for category in CATEGORIES} for version in versions}
+    outputs = {version: {} for version in versions}
     checks = dict.fromkeys(('unsafe_rows', 'hidden_rows', 'evidence_errors', 'checked_rows'), 0)
-    sequences = {version: {category: [] for category in CATEGORIES} for version in VERSIONS}
+    sequences = {version: {category: [] for category in CATEGORIES} for version in versions}
     def compute(clone, category, version):
-        ranked, measurement = measured_rank(clone, {**options, 'category': category}, index, version)
+        previous = version == PREVIOUS_V2_ARM
+        ranked, measurement = measured_rank(clone, {**options, 'category': category}, index,
+            'content.v2' if previous else version,
+            **({'v2_policy_version': ranking_v2.PREVIOUS_POLICY_VERSION} if previous else {}))
         for key, value in result_checks(ranked, clone, safe_ids).items():
             checks[key] += value
         return ranked, measurement
     for iteration in range(repeats):
         for category in CATEGORIES:
-            for version in VERSIONS if iteration % 2 == 0 else reversed(VERSIONS):
+            for version in versions if iteration % 2 == 0 else reversed(versions):
                 ranked, measurement = compute(context, category, version)
                 sequences[version][category].append(hashlib.sha256(canonical_bytes([
                     (row['anime'].bangumi_id, row['evidence'], row['reason']) for row in ranked])).hexdigest())
@@ -74,8 +110,8 @@ def diagnose_sample(context, summary, index, *, top_k, repeats, max_holdouts, pr
         'metrics': comparable_metrics(outputs[version][category], context, context, current_features, top_k),
         'runs': runs[version][category],
         'stable_order_and_evidence': len(set(sequences[version][category])) == 1,
-    } for category in CATEGORIES} for version in VERSIONS}
-    holdout = {version: {category: [] for category in CATEGORIES} for version in VERSIONS}
+    } for category in CATEGORIES} for version in versions}
+    holdout = {version: {category: [] for category in CATEGORIES} for version in versions}
     targets = sorted(seed['bangumi_id'] for seed in context['seeds'])[:max_holdouts] if summary['holdout_eligible'] else []
     blocked = 0
     for position, target in enumerate(targets, 1):
@@ -83,14 +119,17 @@ def diagnose_sample(context, summary, index, *, top_k, repeats, max_holdouts, pr
             blocked += 1  # Never unhide a held-out target to improve a metric.
             continue
         clone = without_seed(context, target, minimum=settings.RECOMMENDATION_PROFILE_MIN_SAMPLES)
+        clone['_diagnostic_target_id'] = target
         for category in CATEGORIES:
-            for version in VERSIONS if position % 2 else reversed(VERSIONS):
+            for version in versions if position % 2 else reversed(versions):
                 ranked, measurement = compute(clone, category, version)
                 ids = [row['anime'].bangumi_id for row in ranked[:top_k]]
                 rank = ids.index(target) + 1 if target in ids else None
                 holdout[version][category].append({'hit_at_k': int(rank is not None),
                     'mrr_at_k': 1 / rank if rank else 0,
-                    'binary_ndcg_at_k': 1 / math.log2(rank + 1) if rank else 0, 'measurement': measurement})
+                    'binary_ndcg_at_k': 1 / math.log2(rank + 1) if rank else 0, 'measurement': measurement,
+                    'target_diagnostic': target_diagnostic(clone, category, target, current_features, ranked, measurement,
+                                                           ordinal=position, top_k=top_k)})
         progress(f'paired holdout {position}/{len(targets)} complete')
     aggregate = {version: {category: {metric: mean([row[metric] for row in values])
         for metric in ('hit_at_k', 'mrr_at_k', 'binary_ndcg_at_k')}
@@ -102,7 +141,12 @@ def diagnose_sample(context, summary, index, *, top_k, repeats, max_holdouts, pr
         'holdout': {'status': 'evaluated' if targets and blocked < len(targets) else 'insufficient_evidence',
             'selected_targets': len(targets), 'feedback_blocked_targets': blocked,
             'paired_targets': len(targets) - blocked, 'metrics': aggregate, 'runs': holdout,
-            'explicit_preferences_retained': True},
+            'explicit_preferences_retained': True, 'target_selection': 'fixed_lowest_bangumi_ids.v1',
+            'target_selection_warning': 'Repeated runs reuse the same targets; not independent new samples.',
+            'reason_counts': {version: {category: dict(Counter(row['target_diagnostic']['reason'] for row in rows))
+                for category, rows in categories.items()} for version, categories in holdout.items()}},
+        'v2_policy_versions': {'content.v2': ranking_v2.POLICY_VERSION,
+            **({PREVIOUS_V2_ARM: ranking_v2.PREVIOUS_POLICY_VERSION} if compare_previous_v2 else {})},
         'version_tokens_isolated': proof['content.v1'] != proof['content.v2']}
 
 
@@ -119,6 +163,7 @@ def markdown_diagnostic(report):
         f"公共目录读取：{report['setup']['catalog_read_ms']} ms；公共索引构建：{report['setup']['index_build_ms']} ms。",
         '以下排名计时不含上述准备阶段、HTTP 序列化和浏览器网络；原 5000 ms 门槛不扣除数据库耗时。', '']
     for number, sample in enumerate(report['samples'], 1):
+        versions = tuple(sample['arms'])
         summary = sample['summary']; state = summary['state']
         lines += [f'## sample_{number:03d}',
             f"手账 {state['journal_record_count']} 部，未评分 {state['unrated_record_count']} 部；有效样本 {state['usable_sample_count']} 部。",
@@ -133,14 +178,16 @@ def markdown_diagnostic(report):
         lines += ['', '### V2 分阶段（每次运行，ms）']
         for category, data in sample['arms']['content.v2'].items():
             lines.append(f"- {category}: " + str([r.get('stage_ms', {}) for r in data['runs']]))
-        lines += ['', '### 质量代理与留出（非喜欢概率）',
-            '| 分类 | 关联代理 V1/V2 | 题材重复 V1/V2 | 新方向数 V1/V2 | Hit@K V1/V2 |', '| --- | --- | --- | --- | --- |']
+        lines += ['', '### 质量代理与留出（非喜欢概率）', '数值顺序：' + ' / '.join(versions),
+            '| 分类 | 关联代理 | 题材重复 | 新方向数 | Hit@K |', '| --- | --- | --- | --- | --- |']
         for category in CATEGORIES:
-            metrics = [sample['arms'][version][category]['metrics'] for version in VERSIONS]
-            hits = [sample['holdout']['metrics'][version][category]['hit_at_k'] for version in VERSIONS]
+            metrics = [sample['arms'][version][category]['metrics'] for version in versions]
+            hits = [sample['holdout']['metrics'][version][category]['hit_at_k'] for version in versions]
             lines.append(f"| {category} | {[r['topic_overlap_proxy_mean'] for r in metrics]} | "
                 f"{[r['pairwise_genre_jaccard_mean'] for r in metrics]} | {[r['novel_direction_count'] for r in metrics]} | {hits} |")
         lines += [f"留出状态：{sample['holdout']['status']}，配对 {sample['holdout']['paired_targets']} 个。",
+            '目标固定为同一组最低 Bangumi ID；重复复测不增加独立样本量。',
+            '未命中位置诊断：' + str(sample['holdout']['reason_counts']),
             f"安全/反馈排除/证据检查：{sample['checks']}。", '']
     lines += ['## 边界',
         '- SQL execute 计时含驱动/网络往返和执行，不含所有 fetch、传输解码；不能冒充纯服务器 SQL 时间。',

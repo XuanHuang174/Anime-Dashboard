@@ -560,6 +560,6 @@ class V2RevisionTests(SimpleTestCase):
     def test_new_policy_invalidates_cache_namespace_and_is_bound_in_release_contract(self):
         from recommendations.version_control import cache_namespace
         key = cache_namespace('content.v2', 'genres.v4', 'genres-idf.v4', 'journal-genres.v3')
-        self.assertIn('balanced-rerank.v2', key)
+        self.assertIn('balanced-rerank.v3', key)
         with patch.object(ranking_v2, 'POLICY_VERSION', 'balanced-rerank.v1'):
             self.assertNotEqual(key, cache_namespace('content.v2', 'genres.v4', 'genres-idf.v4', 'journal-genres.v3'))
