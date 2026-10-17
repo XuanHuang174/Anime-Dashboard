@@ -192,7 +192,7 @@ def _diagnostic_target_trace(context, *, eligible=None, pool=None, validated=Non
             trace[label] = next((position for position, identity in enumerate(identities, 1) if identity == target), None)
 
 
-def _rank_context_v1(context, options, index):
+def _rank_context_v1(context, options, index, *, observer=None):
     """Same V1 ranking, supplied request-local context/index; not an API input."""
     if context['mode'] == 'cold_start':
         return [], []
@@ -211,6 +211,9 @@ def _rank_context_v1(context, options, index):
             shortlist.append((value, identity))
     shortlist.sort(key=lambda pair: (-pair[0], pair[1]))
     pool_ids = [identity for _, identity in shortlist[:CANDIDATE_POOL]]
+    if observer is not None:
+        observer.stage('eligible', (identity for _, identity in shortlist))
+        observer.stage('pool', pool_ids)
     context['_ranking_trace'] = {'eligible_candidates': len(shortlist), 'candidate_pool': len(pool_ids)}
     _diagnostic_target_trace(context, eligible=(identity for _, identity in shortlist), pool=pool_ids)
     # Fetch CURRENT safe rows before evidence, ranking, pagination and serialization.
@@ -218,6 +221,8 @@ def _rank_context_v1(context, options, index):
     if options['type'] != 'all':
         query = query.filter(status_type=options['type'])
     rows = list(query.order_by('bangumi_id').defer('synopsis', 'source_cover_url'))
+    if observer is not None:
+        observer.stage('hydrated', (anime.bangumi_id for anime in rows))
     ranked = []
     for anime in rows:
         tags = feature_tags(anime.tags, (anime.title_zh, anime.title_jp), taxonomy_version=index.get('taxonomy_version'))
@@ -228,6 +233,8 @@ def _rank_context_v1(context, options, index):
         if value is not None:
             ranked.append({'anime': anime, 'tags': tags, 'value': value, 'evidence': evidence, 'reason': reason})
     ranked.sort(key=lambda item: (-item['value'], item['anime'].bangumi_id))
+    if observer is not None:
+        observer.stage('validated', (item['anime'].bangumi_id for item in ranked))
     context['_ranking_trace']['validated_candidates'] = len(ranked)
     _diagnostic_target_trace(context, validated=(item['anime'].bangumi_id for item in ranked))
     if options['category'] == 'all':
@@ -242,6 +249,8 @@ def _rank_context_v1(context, options, index):
         ranked = chosen
     else:
         ranked = ranked[:MAX_RESULTS]
+    if observer is not None:
+        observer.stage('returned', (item['anime'].bangumi_id for item in ranked))
     return ranked, weights
 
 
@@ -346,7 +355,7 @@ def _v2_item(row, context, options, weights, vector, seed_ids, scorer, *, verifi
     return {'bangumi_id': identity, 'tags': tags, 'value': value, 'evidence': evidence, 'reason': reason}
 
 
-def _rank_context_v2(context, options, index, *, policy_version=None):
+def _rank_context_v2(context, options, index, *, policy_version=None, observer=None):
     if context['mode'] == 'cold_start':
         return [], []
     weights, vector = index['weights'], taste_vector(context, deterministic=True)
@@ -386,6 +395,10 @@ def _rank_context_v2(context, options, index, *, policy_version=None):
             eligible.append(item)
     extracted = perf_counter()
     pool = ranking_v2.balanced_candidate_pool(eligible, vector, limit=CANDIDATE_POOL)
+    if observer is not None:
+        observer.stage('eligible', (item['bangumi_id'] for item in sorted(
+            eligible, key=lambda item: (-item['value'], item['bangumi_id']))))
+        observer.stage('pool', (item['bangumi_id'] for item in pool))
     balanced = perf_counter()
     context['_ranking_trace'] = {'eligible_candidates': len(eligible), 'candidate_pool': len(pool)}
     if '_diagnostic_target_id' in context:
@@ -395,6 +408,11 @@ def _rank_context_v2(context, options, index, *, policy_version=None):
     # Recheck immediately before ranking/serialization; a safety change during
     # pool construction can only remove rows, never bypass the backend filter.
     rows = query.filter(bangumi_id__in=[item['bangumi_id'] for item in pool]).order_by('bangumi_id').defer('synopsis', 'source_cover_url')
+    if observer is not None:
+        # Materialization is diagnostic-only; normal QuerySet iteration already
+        # materializes the same bounded query. It does not add/filter any rows.
+        rows = list(rows)
+        observer.stage('hydrated', (anime.bangumi_id for anime in rows))
     current = []
     for anime in rows:
         item = _v2_item({field: getattr(anime, field) for field in fields}, context, options, weights, vector, seed_ids, scorer)
@@ -407,12 +425,16 @@ def _rank_context_v2(context, options, index, *, policy_version=None):
             bangumi_id__in=seed_ids).values_list('bangumi_id', flat=True)):
         raise RecommendationSnapshotChanged()
     context['_ranking_trace']['validated_candidates'] = len(current)
+    if observer is not None:
+        observer.stage('validated', (item['anime'].bangumi_id for item in current))
     _diagnostic_target_trace(context, validated=(item['bangumi_id'] for item in current))
     context['_ranking_trace']['public_tag_patterns'] = len(scorer.tags_cache)
     context['_ranking_trace']['evidence_patterns'] = len(scorer.patterns)
     context['_ranking_trace']['changed_public_rows'] = len(changed)
     hydrated = perf_counter()
     ranked = ranking_v2.rerank_candidates(current, vector, weights, category=options['category'], limit=MAX_RESULTS)
+    if observer is not None:
+        observer.stage('returned', (item['anime'].bangumi_id for item in ranked))
     context['_ranking_trace']['stage_ms'] = dict(zip(
         ('public_fetch', 'feature_scoring', 'pool_balance', 'hydrate_and_safety', 'rerank'),
         (round((end - begin) * 1000, 3) for begin, end in zip(
@@ -421,7 +443,8 @@ def _rank_context_v2(context, options, index, *, policy_version=None):
     return ranked, weights
 
 
-def rank_context(context, options, index, *, algorithm_version=ALGORITHM_VERSION, v2_policy_version=None):
+def rank_context(context, options, index, *, algorithm_version=ALGORITHM_VERSION, v2_policy_version=None,
+                 pipeline_observer=None):
     """Explicit offline version; V1 baseline never follows a deployment flag."""
     genre_rules(index.get('taxonomy_version'))
     if context.get('taxonomy_version', vocabulary.TAXONOMY_VERSION) != index.get('taxonomy_version', vocabulary.TAXONOMY_VERSION):
@@ -429,11 +452,11 @@ def rank_context(context, options, index, *, algorithm_version=ALGORITHM_VERSION
     if algorithm_version == ALGORITHM_VERSION:
         if v2_policy_version is not None:
             raise RecommendationUnavailable('V1 不接受 V2 策略覆盖。')
-        return _rank_context_v1(context, options, index)
+        return _rank_context_v1(context, options, index, observer=pipeline_observer)
     if algorithm_version == EXPERIMENTAL_ALGORITHM_VERSION:
         if v2_policy_version not in (None, ranking_v2.POLICY_VERSION, ranking_v2.PREVIOUS_POLICY_VERSION):
             raise RecommendationUnavailable('不支持的 V2 评测策略。')
-        return _rank_context_v2(context, options, index, policy_version=v2_policy_version)
+        return _rank_context_v2(context, options, index, policy_version=v2_policy_version, observer=pipeline_observer)
     raise RecommendationUnavailable('推荐算法配置暂不可用，请联系管理员。')
 
 

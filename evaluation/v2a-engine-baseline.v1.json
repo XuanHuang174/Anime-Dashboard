@@ -1,0 +1,12 @@
+{
+  "reference_commit": "780b3a63d0d9e7f03e1bc635b7c08cf297e67b23",
+  "engine_functions_ast_sha256": {
+    "taste_vector": "9557d6ef0c46c4ba6f18d6bd674ec4fe831016250b01d9967895a9c014887f38",
+    "evidence_for": "010f93ffbdc93d9f72b53c7f49f11a1cc68e062833ceae841ca0f333cfd4c03e",
+    "candidate_score": "88b09908426234aab610b73e74fbd82f188baffacfa81f5b6a716716bfda19bc",
+    "_rank_context_v1": "514d4452b86bc196f49da24ef2b85a9bc73c164e7faefa693656e7e880861ec0",
+    "_rank_context_v2": "31ffb7d95e0c4328a163c5dd2b66d67fb40a775d3223b137f0813434b41acc8b",
+    "rank_context": "fa79a1e2d99152b7e6a1e40a080f48839941091651b26c04c5e9b7857f3f7362"
+  },
+  "ranking_v2_module_ast_sha256": "327bdbe89e3ef73026468968386737a815fd6ee2c8debaf46607b4f87504444c"
+}
