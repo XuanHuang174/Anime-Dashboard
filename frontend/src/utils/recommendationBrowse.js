@@ -1,5 +1,6 @@
 import { mapRecommendationItem, validateColdStartState } from './recommendations.js'
 import { sameEvidenceContext } from './recommendationEpoch.js'
+import { validExecutionRecipe, sameExecutionRecipe, matchesExecutionContext, validDetailContext } from './recommendationExecution.js'
 
 export const BROWSE_UPDATED = '浏览依据已更新，请重新加载推荐。'
 export const REC_STYLES = Object.freeze([
@@ -22,8 +23,15 @@ export function sameConditions(a, b) { return a && b && keys.every(key => a[key]
 
 export function mapBrowsePage(data) {
   const c = data?.effective_conditions
-  if (data?.contract_version !== 'recommendations.3b.v1' || data.browse_contract_version !== 'recommendations.browse.v1'
-    || data.algorithm_version !== 'content.v1' || data.control_policy_version !== 'browse-controls.v1'
+  const prepared = data?.browse_contract_version === 'recommendations.browse.v2'
+  if (prepared ? !validExecutionRecipe(data.execution_recipe) || data.algorithm_version !== 'content.v2'
+    || data.control_policy_version !== data.execution_recipe.control_policy_version
+    || !matchesExecutionContext(data.evidence_context, data.execution_recipe)
+    || data.results?.some(row => !validDetailContext(row.detail_context))
+    : data?.execution_recipe !== undefined || data?.evidence_context?.recipe_revision !== undefined || data?.algorithm_version !== 'content.v1'
+      || data?.control_policy_version !== 'browse-controls.v1') invalid()
+  if (data?.contract_version !== 'recommendations.3b.v1' || (data.browse_contract_version !== 'recommendations.browse.v1'
+    && !prepared)
     || !REC_STYLES.some(style => style.id === data.style) || !c || Object.keys(c).length !== keys.length
     || !['all', 'familiar', 'explore'].includes(c.category) || c.style !== data.style
     || !['all', 'TV', 'OVA', '剧场版', 'WEB', '短片', '动态漫画'].includes(c.type)
@@ -51,7 +59,7 @@ export function mapBrowsePage(data) {
       || data.page === 1 && data.batch_hero_bangumi_id !== data.results[0]?.bangumi_id)
     || data.mode === 'cold_start' && data.count !== 0) invalid()
   validateColdStartState(data.cold_start_state)
-  if (!data.evidence_context || data.evidence_context.algorithm_version !== 'content.v1'
+  if (!data.evidence_context || data.evidence_context.algorithm_version !== data.algorithm_version
     || data.results.some(row => !sameEvidenceContext(row.evidence_context, data.evidence_context))
     || data.cold_start_state && data.mode !== ({ personalized: 'personalized', explicit_preferences: 'preference_based', none: 'cold_start' }[data.cold_start_state.recommendation_basis])) invalid()
   const items = data.results.map(mapRecommendationItem)
@@ -64,6 +72,7 @@ export function requireBrowseTransition(current, next, action, seen) {
     'feature_version', 'taxonomy_version', 'evidence_contract_version', 'mode', 'count', 'page_size']
     .some(key => current[key] !== next[key]) || !sameConditions(current.effective_conditions, next.effective_conditions)
     || !sameEvidenceContext(current.evidence_context, next.evidence_context)
+    || !sameExecutionRecipe(current.execution_recipe, next.execution_recipe)
     || (action === 'more' ? next.batch !== current.batch || next.page !== current.page + 1
       || next.batch_hero_bangumi_id !== current.batch_hero_bangumi_id : next.batch !== current.batch + 1 || next.page !== 1)
     || next.items.some(item => seen.has(item.bangumiId))) {

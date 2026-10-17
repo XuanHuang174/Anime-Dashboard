@@ -30,7 +30,7 @@ def _token(domain, value):
 
 class EvidencePresenter:
     """One authenticated user's immutable effective inputs; no shared private cache."""
-    def __init__(self, user, context, weights, algorithm):
+    def __init__(self, user, context, weights, algorithm, *, execution_scope=None):
         from .engine import FEATURE_VERSION, ALGORITHM_VERSION, EXPERIMENTAL_ALGORITHM_VERSION
         from .ranking_v2 import POLICY_VERSION
         if algorithm not in (ALGORITHM_VERSION, EXPERIMENTAL_ALGORITHM_VERSION):
@@ -65,6 +65,14 @@ class EvidencePresenter:
             'feedback_version': self.feedback_version if self.feedback_version is not None else 0,
             'catalog_feature_version': hashlib.sha256(_bytes(self.weights)).hexdigest(),
         }
+        if execution_scope is not None:
+            from .execution import recipe_descriptor
+            recipe = execution_scope['recipe']
+            if recipe != recipe_descriptor() or algorithm != recipe['algorithm_version']:
+                raise ValueError('Evidence execution recipe mismatch')
+            self.versions.update({key: recipe[key] for key in ('recipe_revision', 'recall_policy_version',
+                'runtime_version', 'control_policy_version')})
+            self.versions['browse_context_version'] = execution_scope['browse_revision']
 
     def ensure_safe(self, animes):
         """Batch source safety + independent feedback revision; no per-card queries."""

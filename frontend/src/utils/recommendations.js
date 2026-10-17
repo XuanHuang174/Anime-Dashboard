@@ -73,7 +73,7 @@ export function mapRecommendationItem(row) {
     originalTitle: row.title_jp, year: row.season?.slice(0, 4), season: row.season, type: row.status_type,
     score: row.score, tags: row.tags, coverUrl: getRecommendationCover(row.cover_url),
     synopsis: row.synopsis || '', reason: row.reason || '', evidence: row.evidence, watchStatus: row.watch_status,
-    evidenceToken: row.evidence_token, evidenceContext: row.evidence_context }
+    evidenceToken: row.evidence_token, evidenceContext: row.evidence_context, detailContext: row.detail_context }
 }
 
 export function mapRecommendationPage(data) {

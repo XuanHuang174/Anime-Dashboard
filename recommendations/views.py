@@ -196,6 +196,10 @@ class RecommendationDetailView(OwnRecommendationAPIView):
     def get(self, request, bangumi_id):
         query = RecommendationDetailQuerySerializer(data=request.query_params)
         query.is_valid(raise_exception=True)
+        if 'detail_context' in query.validated_data:
+            # D2 prepared contexts are NOT routed to V2 in production. A rolling
+            # rollback must invalidate them, not reinterpret them as V1 details.
+            raise RecommendationSnapshotChanged('浏览版本已变化，请重新加载推荐。')
         anime = safe_catalog().filter(bangumi_id=bangumi_id).first()
         if anime is None:
             raise NotFound('该作品不可用于推荐。')

@@ -263,6 +263,11 @@ class RecommendationListAnimeSerializer(RecommendationPublicAnimeSerializer):
 
 
 class EvidenceVersionsSerializer(serializers.Serializer):
+    recipe_revision = serializers.CharField(read_only=True)
+    recall_policy_version = serializers.CharField(read_only=True)
+    runtime_version = serializers.CharField(read_only=True)
+    control_policy_version = serializers.CharField(read_only=True)
+    browse_context_version = serializers.CharField(read_only=True)
     algorithm_version = serializers.CharField(read_only=True)
     ranking_policy_version = serializers.CharField(read_only=True)
     taxonomy_version = serializers.CharField(read_only=True)
@@ -276,7 +281,7 @@ class EvidenceVersionsSerializer(serializers.Serializer):
 
 
 class ExecutionRecipeSerializer(serializers.Serializer):
-    """Prepared D1 contract only; not added to serving responses until D2."""
+    """Prepared execution contract; D2 responses only, production stays V1."""
     contract_version = serializers.CharField(read_only=True)
     algorithm_version = serializers.CharField(read_only=True)
     ranking_policy_version = serializers.CharField(read_only=True)
@@ -387,6 +392,7 @@ class RecommendationEvidenceSerializer(serializers.Serializer):
 
 
 class EvidenceEnvelopeSerializer(serializers.Serializer):
+    detail_context = serializers.CharField(read_only=True)
     reason = serializers.CharField(read_only=True)
     evidence = RecommendationEvidenceSerializer(read_only=True, allow_null=True)
     evidence_context = EvidenceVersionsSerializer(read_only=True)
@@ -408,6 +414,7 @@ class RecommendationBrowseResultSerializer(EvidenceEnvelopeSerializer):
 
 
 class RecommendationBrowsePageSerializer(serializers.Serializer):
+    execution_recipe = ExecutionRecipeSerializer(read_only=True)
     contract_version = serializers.CharField(read_only=True)
     browse_contract_version = serializers.CharField(read_only=True)
     algorithm_version = serializers.CharField(read_only=True)
@@ -441,6 +448,7 @@ class RecommendationBrowsePageSerializer(serializers.Serializer):
 
 class RecommendationDetailQuerySerializer(serializers.Serializer):
     evidence_token = serializers.RegexField(regex=r'^[a-f0-9]{64}$', required=False)
+    detail_context = serializers.CharField(max_length=8192, required=False, trim_whitespace=False, allow_blank=False)
 
     def to_internal_value(self, data):
         if set(data) - set(self.fields) or any(len(data.getlist(key)) != 1 for key in data if hasattr(data, 'getlist')):

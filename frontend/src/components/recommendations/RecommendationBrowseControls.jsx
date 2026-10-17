@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { REC_CATEGORIES } from '../../utils/recommendations.js'
 import { DEFAULT_BROWSE_FILTERS, REC_STYLES, filterChips, filterDraftError } from '../../utils/recommendationBrowse.js'
 
-export function RecommendationBrowseControls({ category, style, filters, onCategory, onStyle, onFilter, onRemove, onReset, legacy = false }) {
+export function RecommendationBrowseControls({ category, style, filters, onCategory, onStyle, onFilter, onRemove, onReset, legacy = false, algorithmVersion = 'content.v1' }) {
   const chips = filterChips(filters)
   return <>
     <section className="rec-controls" aria-label="推荐类别与筛选">
@@ -14,7 +14,7 @@ export function RecommendationBrowseControls({ category, style, filters, onCateg
         onChange={event => onStyle(event.target.value)}>{REC_STYLES.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}</select></label>}
         <button type="button" className="rec-button rec-filter-button" onClick={onFilter}>☷ 筛选 {chips.length > 0 && <span className="rec-filter-count">{chips.length}</span>}</button></div>
     </section>
-    {!legacy && <p className="rec-style-description">{REC_STYLES.find(option => option.id === style).description}</p>}
+    {!legacy && <p className="rec-style-description">{REC_STYLES.find(option => option.id === style).description.replace('V1', algorithmVersion === 'content.v2' ? 'V2' : 'V1')}</p>}
     <div className="rec-active-filters" aria-label="当前生效条件"><div className="rec-filter-chips">
       {chips.map(chip => <button type="button" key={chip.id} className="rec-filter-chip" aria-label={`移除条件：${chip.label}`}
         onClick={() => onRemove(chip.id)}>{chip.label}<span aria-hidden="true"> ×</span></button>)}

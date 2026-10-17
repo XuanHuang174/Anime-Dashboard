@@ -114,6 +114,12 @@ function RecommendationWorkspace({ client, sessionScope }) {
     }
   }, [category, style, filters.type, filters.minScore, filters.hideRecorded, filters.yearFrom, filters.yearTo, detailController])
   useEffect(() => { if (state.snapshotExpired) discardDetail() }, [state.snapshotExpired, detailController])
+  const executionEpoch = state.data ? `${state.data.algorithm_version}:${state.data.execution_recipe?.recipe_revision || ''}:${state.transport}` : ''
+  const lastExecutionEpoch = useRef('')
+  useLayoutEffect(() => {
+    if (executionEpoch && lastExecutionEpoch.current && executionEpoch !== lastExecutionEpoch.current) discardDetail()
+    if (executionEpoch) lastExecutionEpoch.current = executionEpoch
+  }, [executionEpoch, detailController])
   useLayoutEffect(() => {
     if (legacy) {
       discardDetail()
@@ -223,7 +229,7 @@ function RecommendationWorkspace({ client, sessionScope }) {
             : '仅使用安全、已确认身份的作品和明确偏好；数据未加载时不会假装已有画像。'}
           {' '}加入想看不会覆盖已有评分、长评或观看状态。</p></section>
       {legacy && <p className="rec-muted" role="status">增强浏览已关闭，已恢复原有 V1 推荐与分页。你的手账、偏好和反馈均未改变。</p>}
-      <RecommendationBrowseControls category={category} style={style} filters={visibleFilters} legacy={legacy}
+      <RecommendationBrowseControls category={category} style={style} filters={visibleFilters} legacy={legacy} algorithmVersion={state.data?.algorithm_version}
         onCategory={next => { if (next !== category) { discardDetail(); state.cancelBrowse(); setCategory(next) } }}
         onStyle={next => { if (next !== style) { discardDetail(); state.cancelBrowse(); setStyle(next) } }}
         onFilter={openFilters} onRemove={removeFilter} onReset={reset} />

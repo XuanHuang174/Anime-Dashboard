@@ -1,6 +1,7 @@
 import { mapRecommendationItem, recommendationError } from './recommendations.js'
 import { validateDetailEvidence } from './recommendationExplanation.js'
 import { validateWantResult } from './recommendationWant.js'
+import { requireScopedDetail } from './recommendationExecution.js'
 
 // Request-local state machine. No persistence, score writes or resource responses.
 export function createRecommendationDetailController(client) {
@@ -17,11 +18,12 @@ export function createRecommendationDetailController(client) {
     emit({ status: confirmedMutation ? 'refreshing' : 'loading', selection, expectation,
       confirmedMutation, resourceOpen: false })
     try {
-      const raw = await client.detail(selection.bangumiId, controller.signal, expectation?.token)
+      const raw = await client.detail(selection.bangumiId, controller.signal, expectation?.token, selection.detailContext)
       if (!current()) return null
       const item = validateDetailEvidence(mapRecommendationItem(raw), expectation?.token, expectation?.context)
+      requireScopedDetail(item, selection)
       if (item.bangumiId !== selection.bangumiId) throw new Error('推荐依据合同不兼容，作品身份不一致，请重新加载。')
-      emit({ status: 'ready', selection, expectation, confirmedMutation, resourceOpen: false, item })
+      emit({ status: 'ready', selection: { ...selection, detailContext: item.detailContext }, expectation, confirmedMutation, resourceOpen: false, item })
       return item
     } catch (error) {
       if (!current()) return null
@@ -38,6 +40,10 @@ export function createRecommendationDetailController(client) {
     open(item) {
       if (disposed || !Number.isInteger(item?.bangumiId) || item.bangumiId < 1) return Promise.resolve(null)
       const selection = { bangumiId: item.bangumiId, title: item.title, season: item.season, session: ++session }
+      if (item.detailContext !== undefined) {
+        selection.detailContext = item.detailContext
+        selection.executionContext = item.evidenceContext
+      }
       return load(selection, { token: item.evidenceToken, context: item.evidenceContext })
     },
     afterWant(result) {

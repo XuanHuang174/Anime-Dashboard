@@ -1,4 +1,5 @@
 // Dependency injection keeps test fixtures out of the production bundle.
+import { validDetailContext } from '../utils/recommendationExecution.js'
 export function createRecommendationClient(client) {
   return {
     capabilities: signal => client.get('recommendations/capabilities/', { signal }).then(r => r.data),
@@ -22,11 +23,13 @@ export function createRecommendationClient(client) {
         min_score: filters.minScore, hide_recorded: filters.hideRecorded, page_size: 12,
         ...(filters.yearFrom ? { year_from: filters.yearFrom } : {}),
         ...(filters.yearTo ? { year_to: filters.yearTo } : {}) } }).then(r => r.data),
-    detail: (identity, signal, evidenceToken) => {
+    detail: (identity, signal, evidenceToken, detailContext) => {
       if (!Number.isInteger(identity) || identity < 1) return Promise.reject(new Error('无效作品身份'))
       if (evidenceToken !== undefined && !/^[a-f0-9]{64}$/.test(evidenceToken)) return Promise.reject(new Error('推荐依据合同不兼容'))
+      if (detailContext !== undefined && !validDetailContext(detailContext)) return Promise.reject(new Error('推荐依据合同不兼容'))
       return client.get(`recommendations/${identity}/`, { signal,
-        ...(evidenceToken ? { params: { evidence_token: evidenceToken } } : {}) }).then((r) => r.data)
+        ...(evidenceToken || detailContext ? { params: { ...(evidenceToken ? { evidence_token: evidenceToken } : {}),
+          ...(detailContext ? { detail_context: detailContext } : {}) } } : {}) }).then((r) => r.data)
     },
   }
 }

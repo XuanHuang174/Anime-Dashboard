@@ -40,6 +40,13 @@ MAX_CURSOR_LENGTH = 8192
 CATALOG_FIELDS = ('bangumi_id', 'title_zh', 'title_jp', 'tags', 'score', 'season',
                   'status_type', 'cover_url', 'nsfw', 'synopsis', 'updated_at')
 PUBLIC_CACHE_NAMESPACE = 'recommendations.browse.public.v1'
+PREPARED_CONTRACT = 'recommendations.browse.v2'
+PREPARED_SALT = 'recommendations.browse.cursor.v2'
+
+
+def _scope(recipe=None):
+    return (PREPARED_CONTRACT, PREPARED_SALT, recipe['control_policy_version'], recipe['algorithm_version']) if recipe else (
+        BROWSE_CONTRACT_VERSION, CURSOR_SALT, CONTROL_POLICY_VERSION, engine.ALGORITHM_VERSION)
 
 
 class BrowseDisabled(engine.RecommendationUnavailable):
@@ -63,7 +70,7 @@ def capabilities():
             'browse_contract_version': BROWSE_CONTRACT_VERSION, 'legacy_contract_version': engine.CONTRACT_VERSION}
 
 
-def public_browse_index(revision, metrics):
+def public_browse_index(revision, metrics, *, recipe=None):
     """Only exact-revision PUBLIC fields/features; never user/profile/results.
 
     Current transaction always hashes live catalog FIRST. Missing cache or cache
@@ -71,6 +78,8 @@ def public_browse_index(revision, metrics):
     """
     key = ':'.join((PUBLIC_CACHE_NAMESPACE, revision, rollout_revision(), engine.TAXONOMY_VERSION,
                     engine.FEATURE_VERSION, engine.FEATURE_RULE_VERSION))
+    if recipe:
+        key = 'recommendations.browse.public.v2:' + _digest([recipe['recipe_revision'], key])
     use_cache = getattr(settings, 'RECOMMENDATION_BROWSE_PUBLIC_CACHE_ENABLED', True)
     metrics['public_cache'] = 'disabled' if not use_cache else 'miss'
     if use_cache:
@@ -124,10 +133,11 @@ def catalog_revision():
     return _digest(rows)
 
 
-def live_context(user, options, metrics):
+def live_context(user, options, metrics, *, recipe=None):
     started = perf_counter()
     context = engine.user_context(user)
-    context['algorithm_version'] = engine.ALGORITHM_VERSION
+    contract, salt, policy, algorithm = _scope(recipe)
+    context['algorithm_version'] = algorithm
     # Read only the authenticated owner's recommendation-relevant fields plus
     # timestamps/progress. NEVER select review/private_description text.
     journal = list(UserAnimeRecord.objects.filter(user=user).order_by('pk').values(
@@ -141,27 +151,40 @@ def live_context(user, options, metrics):
              'feedback': {'version': context['feedback']['version'],
                           'hidden_ids': sorted(context['feedback']['hidden_ids'])},
              'journal': journal, 'catalog': catalog, 'options': options, 'rollout_revision': rollout_revision(),
-             'algorithm': engine.ALGORITHM_VERSION, 'policy': CONTROL_POLICY_VERSION,
+             'algorithm': algorithm, 'policy': policy,
              'feature': engine.FEATURE_VERSION, 'taxonomy': engine.TAXONOMY_VERSION,
              'feature_rule': engine.FEATURE_RULE_VERSION, 'evidence': EVIDENCE_CONTRACT_VERSION,
              'selection': SELECTION_RULE_VERSION,
              'limits': [engine.MAX_RESULTS, engine.CANDIDATE_POOL, BATCH_SIZE]}
-    return context, _token(CURSOR_SALT + '.context', state), catalog
+    if recipe:
+        state['execution_recipe'] = recipe
+    return context, _token(salt + '.context', state), catalog
 
 
-def _decode(cursor, user):
+def _decode(cursor, user, *, recipe=None):
+    contract, salt, policy, algorithm = _scope(recipe)
     if not isinstance(cursor, str) or not 1 <= len(cursor) <= MAX_CURSOR_LENGTH:
         raise ValidationError({'cursor': '浏览游标长度无效。'})
     try:
-        body = signing.loads(cursor, salt=CURSOR_SALT, max_age=SNAPSHOT_TTL_SECONDS)
+        body = signing.loads(cursor, salt=salt, max_age=SNAPSHOT_TTL_SECONDS)
     except signing.SignatureExpired:
         raise engine.RecommendationSnapshotChanged('浏览快照已过期，请重新加载第一批。') from None
     except (signing.BadSignature, ValueError, TypeError):
+        # Rolling rollback/upgrade: a valid OTHER namespace is stale, never
+        # consumed as the current algorithm's continuation.
+        try:
+            signing.loads(cursor, salt=CURSOR_SALT if recipe else PREPARED_SALT)
+        except (signing.BadSignature, ValueError, TypeError):
+            pass
+        else:
+            raise engine.RecommendationSnapshotChanged('浏览版本已变化，请重新加载第一批。') from None
         raise ValidationError({'cursor': '浏览游标无效或已被修改。'}) from None
     try:
-        if body['owner'] != _token(CURSOR_SALT + '.owner', user.pk):
+        if body['owner'] != _token(salt + '.owner', user.pk):
             raise engine.RecommendationSnapshotChanged()
-        if (body['contract'] != BROWSE_CONTRACT_VERSION or body['policy'] != CONTROL_POLICY_VERSION
+        if (body['contract'] != contract or body['policy'] != policy
+                or recipe is not None and body.get('execution_recipe') != recipe
+                or recipe is None and 'execution_recipe' in body
                 or body.get('rollout_revision') != rollout_revision()
                 or body['expires'] <= int(time.time())):
             raise engine.RecommendationSnapshotChanged('浏览快照已失效，请重新加载第一批。')
@@ -192,22 +215,29 @@ def _decode(cursor, user):
 
 def _cursor(body, offset):
     value = signing.dumps({**body, 'offset': offset, 'batch': offset // BATCH_SIZE + 1},
-                          salt=CURSOR_SALT, compress=True)
+                          salt=PREPARED_SALT if 'execution_recipe' in body else CURSOR_SALT, compress=True)
     if len(value) > MAX_CURSOR_LENGTH:
         raise engine.RecommendationUnavailable('浏览快照超过安全大小限制，请联系管理员。')
     return value
 
 
-def browse_page(user, validated, supplied, *, metrics=None):
+def browse_page(user, validated, supplied, *, metrics=None, _recipe=None):
+    # Internal D2 adapter only. Production views NEVER pass a recipe. D3 must
+    # separately approve serving; a query parameter cannot select this path.
+    if _recipe is not None:
+        from .execution import recipe_descriptor
+        if _recipe != recipe_descriptor():
+            raise engine.RecommendationSnapshotChanged('执行配方已变化，请重新加载。')
+    contract, salt, policy, algorithm = _scope(_recipe)
     metrics = metrics if metrics is not None else {}
-    metrics.update(public_cache='not_used', algorithm_version='content.v1')
+    metrics.update(public_cache='not_used', algorithm_version=algorithm)
     if not enabled():
         if getattr(settings, 'RECOMMENDATION_ALGORITHM_VERSION', 'content.v1') != 'content.v1':
             raise engine.RecommendationUnavailable('当前配置不是 V1，不能自动回退。')
         raise BrowseDisabled(continuation='cursor' in validated)
     if connection.vendor != 'postgresql' or connection.in_atomic_block:
         raise engine.RecommendationUnavailable('浏览快照需要独立的 PostgreSQL 只读事务。')
-    body = _decode(validated['cursor'], user) if 'cursor' in validated else None
+    body = _decode(validated['cursor'], user, recipe=_recipe) if 'cursor' in validated else None
     if getattr(settings, 'RECOMMENDATION_ALGORITHM_VERSION', engine.ALGORITHM_VERSION) != engine.ALGORITHM_VERSION:
         if body:
             raise engine.RecommendationSnapshotChanged('推荐算法已变化，请重新加载。')
@@ -219,7 +249,7 @@ def browse_page(user, validated, supplied, *, metrics=None):
                 raise engine.RecommendationSnapshotChanged('浏览条件已变化，请重新加载第一批。')
         options = body['options']
     with readonly_snapshot():
-        context, revision, catalog = live_context(user, options, metrics)
+        context, revision, catalog = live_context(user, options, metrics, recipe=_recipe)
         if body and not hmac.compare_digest(revision, body['revision']):
             raise engine.RecommendationSnapshotChanged('画像、手账或目录已变化，请重新加载第一批。')
         if body is None:
@@ -227,20 +257,27 @@ def browse_page(user, validated, supplied, *, metrics=None):
             if context['mode'] == 'cold_start':
                 ranked, weights = [], {}
             else:
-                rows, index = public_browse_index(catalog, metrics)
+                rows, index = public_browse_index(catalog, metrics, recipe=_recipe)
                 metrics['public_index_ms'] = round((perf_counter() - started) * 1000, 3)
                 started = perf_counter()
-                ranked, weights = rank_controlled(context, options, filter_index(index, rows, options))
+                if _recipe:
+                    from .execution import execute_v2
+                    ranked, weights, execution = execute_v2(user, options, index, context=context)
+                    context['_ranking_trace'] = execution['trace']
+                else:
+                    ranked, weights = rank_controlled(context, options, filter_index(index, rows, options))
             metrics['rank_ms'] = round((perf_counter() - started) * 1000, 3)
             metrics.update(context.get('_ranking_trace', {}))
             ids = [item['anime'].bangumi_id for item in ranked]
-            body = {'contract': BROWSE_CONTRACT_VERSION, 'policy': CONTROL_POLICY_VERSION,
-                    'owner': _token(CURSOR_SALT + '.owner', user.pk), 'revision': revision,
+            body = {'contract': contract, 'policy': policy,
+                    'owner': _token(salt + '.owner', user.pk), 'revision': revision,
                     'snapshot': uuid.uuid4().hex, 'expires': int(time.time()) + SNAPSHOT_TTL_SECONDS,
                     'rollout_revision': rollout_revision(),
                     'options': options, 'ids': ids, 'offset': 0, 'batch': 1,
                     # Evidence needs exactly the original whole-catalog weights.
                     'weights': weights if isinstance(weights, dict) else {}}
+            if _recipe:
+                body['execution_recipe'] = _recipe
         else:
             weights = body['weights']
         ids, offset = body['ids'], body['offset']
@@ -248,7 +285,8 @@ def browse_page(user, validated, supplied, *, metrics=None):
             bangumi_id__in=ids).defer('synopsis', 'source_cover_url')}
         if len(current) != len(ids):
             raise engine.RecommendationSnapshotChanged('作品安全状态已变化，请重新加载。')
-        presenter = EvidencePresenter(user, context, weights, engine.ALGORITHM_VERSION)
+        presenter = EvidencePresenter(user, context, weights, algorithm,
+            execution_scope={'recipe': _recipe, 'browse_revision': revision} if _recipe else None)
         presenter.ensure_safe(list(current.values()))
         batch_start = offset // BATCH_SIZE * BATCH_SIZE
         batch_end = min(batch_start + BATCH_SIZE, len(ids))
@@ -261,9 +299,13 @@ def browse_page(user, validated, supplied, *, metrics=None):
             data.update(EvidenceEnvelopeSerializer(presenter.present(anime, engine.feature_tags(
                 anime.tags, (anime.title_zh, anime.title_jp)))).data)
             data.update(content_rating='non_adult', watch_status=context['owned'].get(identity))
+            if _recipe:
+                from .v2_browsing import issue_detail_context
+                data['detail_context'] = issue_detail_context(body, identity)
             results.append(data)
-        return {'contract_version': engine.CONTRACT_VERSION, 'browse_contract_version': BROWSE_CONTRACT_VERSION,
-                'algorithm_version': engine.ALGORITHM_VERSION, 'control_policy_version': CONTROL_POLICY_VERSION,
+        return {**({'execution_recipe': _recipe} if _recipe else {}),
+                'contract_version': engine.CONTRACT_VERSION, 'browse_contract_version': contract,
+                'algorithm_version': algorithm, 'control_policy_version': policy,
                 'style': options['style'], 'effective_conditions': options, 'snapshot_id': body['snapshot'],
                 'snapshot_expires_at': body['expires'], 'batch': offset // BATCH_SIZE + 1,
                 'batch_size': BATCH_SIZE, 'batch_count': batch_end - batch_start,

@@ -17,16 +17,28 @@ const context = await browser.newContext({ viewport: { width: 1440, height: 1000
 const page = await context.newPage(), errors = [], external = [], requests = [], snapshots = new Map(), owned = new Set()
 let epoch = 0, serial = 0, hold = false, held = [], failure = null, resourceHold = false, resourceRoutes = []
 let browseEnabled = true
-const phase9c = process.env.BROWSE_ACCEPTANCE_PHASE === '9c'
-const artifacts = path.resolve(phase9c ? '../.tools/acceptance-9c-browser' : '../.tools/acceptance-9b-browser')
+const phaseD2 = process.env.BROWSE_ACCEPTANCE_PHASE === 'v2d2'
+const phase9c = process.env.BROWSE_ACCEPTANCE_PHASE === '9c' || phaseD2
+const recipe = { contract_version: 'recommendations.execution.v1', algorithm_version: 'content.v2',
+  ranking_policy_version: 'balanced-rerank.v3', recall_policy_version: 'source-pattern-recall.v2',
+  runtime_version: 'pattern-prefix-runtime.v1', control_policy_version: 'browse-controls.v2',
+  candidate_limit: 400, result_limit: 120, batch_size: 24, default_page_size: 12,
+  control_policy_sha256: 'c'.repeat(64), recipe_revision: 'd'.repeat(64), serving_enabled: false }
+const prepared = () => phaseD2 && browseEnabled
+const artifacts = path.resolve(phaseD2 ? '../.tools/acceptance-v2d2-browser' : phase9c ? '../.tools/acceptance-9c-browser' : '../.tools/acceptance-9b-browser')
 await mkdir(artifacts, { recursive: true })
 page.setDefaultTimeout(10000)
 page.on('pageerror', error => errors.push(error.message))
 const finish = async (route, options) => { try { await route.fulfill(options) } catch (error) { if (!route.request().failure()) throw error } }
-const evidenceContext = () => ({ algorithm_version: 'content.v1', profile_version: epoch.toString(16).padStart(64, '0'), preference_version: 0, feedback_version: 0 })
+const evidenceContext = () => ({ algorithm_version: prepared() ? 'content.v2' : 'content.v1', profile_version: epoch.toString(16).padStart(64, '0'), preference_version: 0, feedback_version: 0,
+  ...(prepared() ? { ranking_policy_version: recipe.ranking_policy_version, recall_policy_version: recipe.recall_policy_version,
+    runtime_version: recipe.runtime_version, control_policy_version: recipe.control_policy_version,
+    recipe_revision: recipe.recipe_revision, browse_context_version: epoch.toString(16).padStart(64, '0'),
+    catalog_feature_version: 'f'.repeat(64) } : {}) })
 const row = id => ({ bangumi_id: id, content_rating: 'non_adult', title_zh: `作品${id}`, title_jp: '', tags: ['音乐'], score: 7.5,
   season: '2026-04', status_type: 'TV', synopsis: '隔离测试正文。'.repeat(100), evidence: null, reason: '',
-  evidence_context: evidenceContext(), evidence_token: epoch.toString(16).padStart(64, '0'), watch_status: owned.has(id) ? 'plan' : null })
+  evidence_context: evidenceContext(), evidence_token: epoch.toString(16).padStart(64, '0'), watch_status: owned.has(id) ? 'plan' : null,
+  ...(prepared() ? { detail_context: `prepared-${epoch}-${id}` } : {}) })
 await context.route('**/*', async route => {
   const url = new URL(route.request().url()), method = route.request().method()
   if (url.origin !== origin) { external.push(url.origin); return route.abort() }
@@ -38,8 +50,9 @@ await context.route('**/*', async route => {
   requests.push({ path: url.pathname, params: Object.fromEntries(url.searchParams), method })
   const suffix = url.pathname.slice('/__9bqa__/recommendations/'.length)
   if (suffix === 'capabilities/') return route.fulfill({ json: {
-    contract_version: 'recommendations.capabilities.v1', algorithm_version: 'content.v1',
-    browse_enabled: browseEnabled, rollout_revision: 'a'.repeat(64) } })
+    contract_version: 'recommendations.capabilities.v1', algorithm_version: prepared() ? 'content.v2' : 'content.v1',
+    browse_enabled: browseEnabled, rollout_revision: 'a'.repeat(64),
+    ...(prepared() ? { execution_recipe: recipe, browse_contract_version: 'recommendations.browse.v2' } : {}) } })
   if (suffix === 'profile/') return route.fulfill({ json: { contract_version: 'recommendations.3a.v1', eligible_sample_count: 3, usable_sample_count: 3,
     cold_start: false, sample_policy: { minimum_score: '8.5' }, tag_summary: [{ tag: '音乐', sample_count: 3 }] } })
   if (suffix === 'preferences/') return route.fulfill({ json: { contract_version: 'recommendations.3a.v1', version: 0, tags: [], available_tags: ['音乐'] } })
@@ -81,11 +94,13 @@ await context.route('**/*', async route => {
   const listRow = id => { const { synopsis, ...rest } = row(id); return rest }
   const response = browsePage({ ...snapshot, snapshot: snapshot.id, offset, context: evidenceContext(), row: listRow,
     makeCursor: position => `${snapshot.id}:${position}` })
+  if (prepared()) Object.assign(response, { algorithm_version: 'content.v2', execution_recipe: recipe,
+    browse_contract_version: 'recommendations.browse.v2', control_policy_version: recipe.control_policy_version })
   if (hold) await new Promise(resolve => held.push(resolve))
   if (failure) return finish(route, { status: failure, json: {} })
   return finish(route, { json: response })
 })
-const report = { scope: '9b-isolated-component-integration', live_writes: false, checks: [] }
+const report = { scope: phaseD2 ? 'v2d2-isolated-component-integration' : '9b-isolated-component-integration', live_writes: false, checks: [] }
 const check = name => { report.checks.push({ name, passed: true }); console.log('PASS: ' + name) }
 const listCalls = () => requests.filter(request => request.path.endsWith('/recommendations/'))
 const openFilter = () => page.getByRole('button', { name: /☷ 筛选/ }).click()

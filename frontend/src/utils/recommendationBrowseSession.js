@@ -2,24 +2,28 @@ import { createLatestRequestGate, mapRecommendationPage, recommendationError, re
 import { requireNextRecommendationEpoch } from './recommendationEpoch.js'
 import { loadRecommendationSnapshot } from './recommendationSnapshot.js'
 import { BROWSE_UPDATED, browseConditions, mapBrowsePage, requireBrowseTransition, sameConditions } from './recommendationBrowse.js'
+import { validExecutionRecipe, sameExecutionRecipe } from './recommendationExecution.js'
 
-const discardEvidence = item => ({ ...item, evidence: null, reason: '', evidenceToken: undefined, evidenceContext: undefined })
+const discardEvidence = item => ({ ...item, evidence: null, reason: '', evidenceToken: undefined, evidenceContext: undefined, detailContext: undefined })
 const rollbackSignal = error => [409, 503].includes(error?.response?.status)
   && error.response.data?.code === 'browse_disabled' && error.response.data?.fallback === 'legacy_v1'
   && error.response.data?.algorithm_version === 'content.v1'
 
 async function transportMode(client, signal) {
-  if (!client.capabilities) return 'browse' // Injected fixtures/older server capability route.
+  if (!client.capabilities) return { transport: 'browse' } // Injected fixtures/older server capability route.
   let data
   try { data = await client.capabilities(signal) } catch (error) {
-    if (error?.response?.status === 404) return 'browse' // Pre-9C server still supports 9A.
+    if (error?.response?.status === 404) return { transport: 'browse' } // Pre-9C server still supports 9A.
     throw error
   }
-  if (data?.contract_version !== 'recommendations.capabilities.v1' || data.algorithm_version !== 'content.v1'
+  const prepared = data?.algorithm_version === 'content.v2' && validExecutionRecipe(data.execution_recipe)
+    && data.browse_contract_version === 'recommendations.browse.v2' && data.browse_enabled === true
+  if (data?.contract_version !== 'recommendations.capabilities.v1' || !prepared && data.algorithm_version !== 'content.v1'
+    || !prepared && data.execution_recipe !== undefined
     || typeof data.browse_enabled !== 'boolean' || !/^[a-f0-9]{64}$/.test(data.rollout_revision)) {
     throw new Error('推荐浏览合同不兼容，请重新加载。')
   }
-  return data.browse_enabled ? 'browse' : 'legacy'
+  return { transport: data.browse_enabled ? 'browse' : 'legacy', recipe: prepared ? data.execution_recipe : undefined }
 }
 
 // Authenticated workspace state only. No private persistence or resource cache.
@@ -39,7 +43,8 @@ export function createBrowseController(client) {
     const epoch = generation, request = root.begin()
     emit({ key: selection.key, status: 'loading', items: [], confirmedPreferences, confirmedFeedback })
     try {
-      const transport = forcedTransport || await transportMode(client, request.signal)
+      const mode = forcedTransport ? { transport: forcedTransport } : await transportMode(client, request.signal)
+      const { transport } = mode
       if (!active || epoch !== generation || !request.isCurrent()) return
       const effectiveSelection = transport === 'legacy' ? { ...selection, style: 'balanced',
         filters: { ...selection.filters, yearFrom: '', yearTo: '' } } : selection
@@ -47,6 +52,7 @@ export function createBrowseController(client) {
         confirmedPreferences, minimumFeedbackVersion: confirmedFeedback?.version })
       if (!active || epoch !== generation || !request.isCurrent()) return
       if (transport === 'browse' && (!sameConditions(snapshot.data.effective_conditions, browseConditions(selection))
+        || !sameExecutionRecipe(mode.recipe, snapshot.data.execution_recipe)
         || snapshot.data.page !== 1 || snapshot.data.batch !== 1)) throw new Error('推荐浏览合同不兼容，请重新加载。')
       if (transport === 'legacy' && (snapshot.data.algorithm_version !== 'content.v1' || snapshot.data.page !== 1)) {
         throw new Error('推荐浏览合同不兼容，请重新加载。')
@@ -86,7 +92,9 @@ export function createBrowseController(client) {
     } catch (error) {
       if (!active || epoch !== generation || !request.isCurrent()) return false
       if (!legacy && rollbackSignal(error)) { await start(selection, {}, 'legacy'); return false }
-      const expired = error?.response?.status === 409 || error?.snapshotChanged || /^推荐.*合同不兼容/.test(error?.message || '')
+      // A pre-D2 server returns 400 for a correctly signed V2 cursor it cannot
+      // decode. Continuations send ONLY that cursor: restart, never loop retries.
+      const expired = [400, 409].includes(error?.response?.status) || error?.snapshotChanged || /^推荐.*合同不兼容/.test(error?.message || '')
       emit({ ...state, moreLoading: false, batchLoading: false, snapshotExpired: expired,
         ...(expired ? { moreError: '', batchError: '', error: BROWSE_UPDATED,
           // Keep the old batch's layout, but stop presenting invalid evidence.
