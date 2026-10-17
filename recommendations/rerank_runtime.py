@@ -6,6 +6,7 @@ ID. This preserves even subtraction-rounding ties between nearby base scores.
 Pair memo lives for one call, is bounded, and is never shared across users.
 """
 from collections import Counter
+import math
 
 from . import ranking_v2
 
@@ -23,9 +24,11 @@ def runtime_contract():
             'online_enabled': False}
 
 
-def rerank_candidates(items, vector, weights, *, category, limit=120):
+def rerank_candidates(items, vector, weights, *, category, limit=120, repetition_strength=None):
     """Return identical row objects/order/values/evidence plus count-only stats."""
-    strength = ranking_v2.REPETITION_STRENGTH[category]
+    strength = ranking_v2.REPETITION_STRENGTH[category] if repetition_strength is None else repetition_strength
+    if type(strength) not in (int, float) or not math.isfinite(strength) or not 0 <= strength <= 1:
+        raise ValueError('Invalid internal repetition strength')
     ordered, preferred = ranking_v2._related_unique(items, vector)
     if category == 'explore':
         ordered = [item for item in ordered if item['tags'] - preferred]

@@ -211,7 +211,7 @@ def output_digest(rows):
 
 
 def traced_rank(user, context, index, filters, algorithm, category, *, target=None, recall_policy_version=None,
-                observer_type=PipelineObserver, runtime_version=None):
+                observer_type=PipelineObserver, runtime_version=None, prepared_executor=None):
     """Unobserved control vs observed run, actual functions on the same snapshot.
 
     Extra presentation checking is timed separately, NEVER hidden in ranking
@@ -224,7 +224,10 @@ def traced_rank(user, context, index, filters, algorithm, category, *, target=No
         clone, counter = deepcopy(context), QueryCounter()
         started, cpu = perf_counter(), process_time()
         with connection.execute_wrapper(counter):
-            if recall_policy_version is not None:
+            if prepared_executor is not None:
+                ranked, weights, recipe = prepared_executor(user, options, index, context=clone, observer=instrument)
+                clone['_ranking_trace'] = recipe['trace']
+            elif recall_policy_version is not None:
                 from .recall_v2 import VERSION, PREVIOUS_VERSION
                 if algorithm != 'content.v2' or recall_policy_version not in (VERSION, PREVIOUS_VERSION):
                     raise ValueError('Invalid offline recall comparison arm')

@@ -275,6 +275,23 @@ class EvidenceVersionsSerializer(serializers.Serializer):
     catalog_feature_version = serializers.CharField(read_only=True)
 
 
+class ExecutionRecipeSerializer(serializers.Serializer):
+    """Prepared D1 contract only; not added to serving responses until D2."""
+    contract_version = serializers.CharField(read_only=True)
+    algorithm_version = serializers.CharField(read_only=True)
+    ranking_policy_version = serializers.CharField(read_only=True)
+    recall_policy_version = serializers.CharField(read_only=True)
+    runtime_version = serializers.CharField(read_only=True)
+    control_policy_version = serializers.CharField(read_only=True)
+    control_policy_sha256 = serializers.CharField(read_only=True)
+    recipe_revision = serializers.CharField(read_only=True)
+    candidate_limit = serializers.IntegerField(read_only=True)
+    result_limit = serializers.IntegerField(read_only=True)
+    batch_size = serializers.IntegerField(read_only=True)
+    default_page_size = serializers.IntegerField(read_only=True)
+    serving_enabled = serializers.BooleanField(read_only=True)
+
+
 class StrictFeedbackInteger(serializers.IntegerField):
     def to_internal_value(self, data):
         if isinstance(data, bool) or not isinstance(data, int):

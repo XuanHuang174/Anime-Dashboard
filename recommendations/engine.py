@@ -341,6 +341,8 @@ class V2RequestScorer:
 
 
 def _v2_item(row, context, options, weights, vector, seed_ids, scorer, *, verified_tags=None):
+    if hasattr(scorer, 'accepts_row') and not scorer.accepts_row(row):
+        return None
     identity = row['bangumi_id']
     if identity in context.get('feedback', {}).get('hidden_ids', ()) or identity in seed_ids or (
             options['hide_recorded'] and identity in context['owned']):
@@ -356,23 +358,35 @@ def _v2_item(row, context, options, weights, vector, seed_ids, scorer, *, verifi
 
 
 def _rank_context_v2(context, options, index, *, policy_version=None, observer=None, recall_policy_version=None,
-                     runtime_version=None):
+                     runtime_version=None, browse_control_version=None):
     if context['mode'] == 'cold_start':
         return [], []
     weights, vector = index['weights'], taste_vector(context, deterministic=True)
     seed_ids = {seed['bangumi_id'] for seed in context['seeds']}
-    scorer = V2RequestScorer(context, options, weights, vector, index.get('taxonomy_version'), policy_version=policy_version)
+    if browse_control_version is not None:
+        from . import v2_controls
+        if browse_control_version != v2_controls.VERSION:
+            raise RecommendationUnavailable('不支持的浏览控制版本。')
+        scorer = v2_controls.ControlledScorer(context, options, weights, vector, index.get('taxonomy_version'), policy_version=policy_version)
+    else:
+        scorer = V2RequestScorer(context, options, weights, vector, index.get('taxonomy_version'), policy_version=policy_version)
     # Cached tags are usable ONLY after an exact CURRENT SHA256 input match.
     # Safety and scores are live even when the feature fingerprint is unchanged.
     query = safe_catalog().filter(score__gte=options['min_score'])
     if options['type'] != 'all':
         query = query.filter(status_type=options['type'])
     fields = ('bangumi_id', 'tags', 'title_zh', 'title_jp', 'score', 'status_type')
+    if browse_control_version is not None:
+        fields += ('season',)
     started = perf_counter()
     # Compact live revisions avoid retransmitting full titles/tags on every
     # request. Bounded client-side fetch, not per-row or server-cursor round trips.
-    public_rows = list(query.annotate(feature_revision=public_feature_expression()).order_by('bangumi_id').values_list(
-        'bangumi_id', 'score', 'feature_revision')[:MAX_CATALOG_ROWS + 1])
+    if browse_control_version is not None:
+        public_rows, scorer.live_metadata = v2_controls.live_public_rows(query, options,
+            public_feature_expression(), MAX_CATALOG_ROWS)
+    else:
+        public_rows = list(query.annotate(feature_revision=public_feature_expression()).order_by('bangumi_id').values_list(
+            'bangumi_id', 'score', 'feature_revision')[:MAX_CATALOG_ROWS + 1])
     fetched = perf_counter()
     if len(public_rows) > MAX_CATALOG_ROWS:
         raise RecommendationUnavailable()
@@ -445,7 +459,12 @@ def _rank_context_v2(context, options, index, *, policy_version=None, observer=N
     context['_ranking_trace']['evidence_patterns'] = len(scorer.patterns)
     context['_ranking_trace']['changed_public_rows'] = len(changed)
     hydrated = perf_counter()
-    if runtime_version is not None:
+    if browse_control_version is not None:
+        ranked, runtime_stats = v2_controls.rerank(current, vector, weights, options)
+        context['_ranking_trace']['runtime'] = runtime_stats
+        context['_ranking_trace']['control_policy_version'] = browse_control_version
+        context['_ranking_trace']['style'] = options['style']
+    elif runtime_version is not None:
         from . import rerank_runtime
         if runtime_version != rerank_runtime.VERSION:
             raise RecommendationUnavailable('不支持的离线运行时。')

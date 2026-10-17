@@ -74,14 +74,19 @@ class RecallConfigurationTests(SimpleTestCase):
                 if ast.dump(node.test, include_attributes=False) == ast.dump(ast.parse('observer is not None').body[0].value, include_attributes=False):
                     return None
                 if any(ast.dump(node.test, include_attributes=False) == ast.dump(ast.parse(test).body[0].value, include_attributes=False)
-                       for test in ('recall_policy_version is not None', 'runtime_version is not None')):
+                       for test in ('recall_policy_version is not None', 'runtime_version is not None',
+                                    'browse_control_version is not None')):
                     # V2-B is an explicit offline opt-in. Verify the DEFAULT
                     # else branch remains byte-for-AST identical to frozen A.
-                    return [self.visit(statement) for statement in node.orelse]
+                    result = []
+                    for statement in node.orelse:
+                        visited = self.visit(statement)
+                        result.extend(visited if isinstance(visited, list) else [visited] if visited is not None else [])
+                    return result
                 return self.generic_visit(node)
             def visit_arguments(self, node):
                 pairs = [(arg, default) for arg, default in zip(node.kwonlyargs, node.kw_defaults)
-                         if arg.arg not in ('observer', 'pipeline_observer', 'recall_policy_version', 'runtime_version')]
+                         if arg.arg not in ('observer', 'pipeline_observer', 'recall_policy_version', 'runtime_version', 'browse_control_version')]
                 node.kwonlyargs = [pair[0] for pair in pairs]; node.kw_defaults = [pair[1] for pair in pairs]
                 return self.generic_visit(node)
             def visit_Call(self, node):

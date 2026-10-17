@@ -1,0 +1,11 @@
+{
+  "version": "browse-controls.v2",
+  "balanced": "exact-corrected-recall-and-v2c-runtime",
+  "close_related_bonus": 0.03,
+  "repetition_multipliers": {"balanced": 1.0, "close": 0.7, "open": 1.15},
+  "categories": {"all": 0.25, "familiar": 0.005, "explore": 0.18},
+  "eligibility": "unchanged-real-association-and-category-gates",
+  "year_parser": "browse_controls.season_year",
+  "year_sources": "live-season-only-never-title-or-synopsis",
+  "idf_scope": "whole-safe-catalog-not-filtered-subset"
+}
