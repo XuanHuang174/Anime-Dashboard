@@ -416,4 +416,3 @@ class BrowseAPITests(TransactionTestCase):
             self.assertEqual(self.get(browse=True).status_code, 503)
         with transaction.atomic():
             self.assertEqual(self.get(browse=True).status_code, 503)
-
