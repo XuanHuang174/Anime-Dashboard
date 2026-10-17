@@ -56,6 +56,11 @@ class OwnRecommendationAPIView(APIView):
         return response
 
     def handle_exception(self, exc):
+        from .browsing import BrowseDisabled
+        if isinstance(exc, BrowseDisabled):
+            response = Response(exc.payload, status=exc.status_code)
+            response.exception = True
+            return response
         if isinstance(exc, FeedbackConflict):
             response = Response(exc.payload, status=exc.status_code)
             response.exception = True
@@ -74,6 +79,13 @@ class RecommendationProfileView(OwnRecommendationAPIView):
     def get(self, request):
         self.check_query_contract(request)
         return Response(RecommendationProfileSerializer(profile_contract(request.user)).data)
+
+
+class RecommendationCapabilitiesView(OwnRecommendationAPIView):
+    def get(self, request):
+        self.check_query_contract(request)
+        from .browsing import capabilities
+        return Response(capabilities())
 
 
 class RecommendationFeedbackView(OwnRecommendationAPIView):

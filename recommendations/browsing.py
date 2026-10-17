@@ -11,9 +11,11 @@ import math
 import re
 import time
 import uuid
+from time import perf_counter
 
 from django.conf import settings
 from django.core import signing
+from django.core.cache import cache
 from django.db import connection
 from django.db.models import TextField, Value
 from django.db.models.functions import Cast, Coalesce, Concat, Length
@@ -37,6 +39,57 @@ SNAPSHOT_TTL_SECONDS = 900
 MAX_CURSOR_LENGTH = 8192
 CATALOG_FIELDS = ('bangumi_id', 'title_zh', 'title_jp', 'tags', 'score', 'season',
                   'status_type', 'cover_url', 'nsfw', 'synopsis', 'updated_at')
+PUBLIC_CACHE_NAMESPACE = 'recommendations.browse.public.v1'
+
+
+class BrowseDisabled(engine.RecommendationUnavailable):
+    def __init__(self, *, continuation=False):
+        super().__init__('增强 9 已关闭，正在恢复原有 V1 推荐。')
+        self.status_code = 409 if continuation else 503
+        self.payload = {'code': 'browse_disabled', 'fallback': 'legacy_v1',
+                        'algorithm_version': engine.ALGORITHM_VERSION,
+                        'detail': str(self.detail)}
+
+
+def rollout_revision():
+    return _token(CURSOR_SALT + '.rollout', str(getattr(settings, 'RECOMMENDATION_BROWSE_EPOCH', '1')))
+
+
+def capabilities():
+    if getattr(settings, 'RECOMMENDATION_ALGORITHM_VERSION', 'content.v1') != 'content.v1':
+        raise engine.RecommendationUnavailable('浏览控制仅支持 V1，不会自动切换 V2。')
+    return {'contract_version': 'recommendations.capabilities.v1', 'algorithm_version': 'content.v1',
+            'browse_enabled': enabled(), 'rollout_revision': rollout_revision(),
+            'browse_contract_version': BROWSE_CONTRACT_VERSION, 'legacy_contract_version': engine.CONTRACT_VERSION}
+
+
+def public_browse_index(revision, metrics):
+    """Only exact-revision PUBLIC fields/features; never user/profile/results.
+
+    Current transaction always hashes live catalog FIRST. Missing cache or cache
+    outage builds fresh; a cache hit cannot bypass current safety/revision reads.
+    """
+    key = ':'.join((PUBLIC_CACHE_NAMESPACE, revision, rollout_revision(), engine.TAXONOMY_VERSION,
+                    engine.FEATURE_VERSION, engine.FEATURE_RULE_VERSION))
+    use_cache = getattr(settings, 'RECOMMENDATION_BROWSE_PUBLIC_CACHE_ENABLED', True)
+    metrics['public_cache'] = 'disabled' if not use_cache else 'miss'
+    if use_cache:
+        try:
+            value = cache.get(key)
+            if value and value.get('revision') == revision:
+                metrics['public_cache'] = 'hit'
+                return value['rows'], value['index']
+        except Exception:
+            metrics['public_cache'] = 'unavailable'
+    rows = list(engine.safe_catalog().order_by('bangumi_id').values(
+        'bangumi_id', 'tags', 'title_zh', 'title_jp', 'score', 'status_type', 'season')[:engine.MAX_CATALOG_ROWS + 1])
+    index = engine.build_feature_index(rows)
+    if use_cache:
+        try:
+            cache.set(key, {'revision': revision, 'rows': rows, 'index': index}, timeout=60)
+        except Exception:
+            metrics['public_cache'] = 'unavailable'
+    return rows, index
 
 
 def browse_requested(params, supplied):
@@ -71,24 +124,29 @@ def catalog_revision():
     return _digest(rows)
 
 
-def live_context(user, options):
+def live_context(user, options, metrics):
+    started = perf_counter()
     context = engine.user_context(user)
     context['algorithm_version'] = engine.ALGORITHM_VERSION
     # Read only the authenticated owner's recommendation-relevant fields plus
     # timestamps/progress. NEVER select review/private_description text.
     journal = list(UserAnimeRecord.objects.filter(user=user).order_by('pk').values(
         *RECORD_FIELDS, *LINK_FIELDS, 'updated_at', 'watched_eps', 'total_eps'))
+    metrics['profile_journal_ms'] = round((perf_counter() - started) * 1000, 3)
+    started = perf_counter()
+    catalog = catalog_revision()
+    metrics['catalog_revision_ms'] = round((perf_counter() - started) * 1000, 3)
     state = {'user': user.pk, 'profile': context['profile'], 'preferences': context['preferences'],
              'owned': sorted(context['owned'].items()),
              'feedback': {'version': context['feedback']['version'],
                           'hidden_ids': sorted(context['feedback']['hidden_ids'])},
-             'journal': journal, 'catalog': catalog_revision(), 'options': options,
+             'journal': journal, 'catalog': catalog, 'options': options, 'rollout_revision': rollout_revision(),
              'algorithm': engine.ALGORITHM_VERSION, 'policy': CONTROL_POLICY_VERSION,
              'feature': engine.FEATURE_VERSION, 'taxonomy': engine.TAXONOMY_VERSION,
              'feature_rule': engine.FEATURE_RULE_VERSION, 'evidence': EVIDENCE_CONTRACT_VERSION,
              'selection': SELECTION_RULE_VERSION,
              'limits': [engine.MAX_RESULTS, engine.CANDIDATE_POOL, BATCH_SIZE]}
-    return context, _token(CURSOR_SALT + '.context', state)
+    return context, _token(CURSOR_SALT + '.context', state), catalog
 
 
 def _decode(cursor, user):
@@ -104,6 +162,7 @@ def _decode(cursor, user):
         if body['owner'] != _token(CURSOR_SALT + '.owner', user.pk):
             raise engine.RecommendationSnapshotChanged()
         if (body['contract'] != BROWSE_CONTRACT_VERSION or body['policy'] != CONTROL_POLICY_VERSION
+                or body.get('rollout_revision') != rollout_revision()
                 or body['expires'] <= int(time.time())):
             raise engine.RecommendationSnapshotChanged('浏览快照已失效，请重新加载第一批。')
         ids = body['ids']
@@ -139,9 +198,13 @@ def _cursor(body, offset):
     return value
 
 
-def browse_page(user, validated, supplied):
+def browse_page(user, validated, supplied, *, metrics=None):
+    metrics = metrics if metrics is not None else {}
+    metrics.update(public_cache='not_used', algorithm_version='content.v1')
     if not enabled():
-        raise engine.RecommendationUnavailable('浏览控制暂未开放；请使用原有推荐入口。')
+        if getattr(settings, 'RECOMMENDATION_ALGORITHM_VERSION', 'content.v1') != 'content.v1':
+            raise engine.RecommendationUnavailable('当前配置不是 V1，不能自动回退。')
+        raise BrowseDisabled(continuation='cursor' in validated)
     if connection.vendor != 'postgresql' or connection.in_atomic_block:
         raise engine.RecommendationUnavailable('浏览快照需要独立的 PostgreSQL 只读事务。')
     body = _decode(validated['cursor'], user) if 'cursor' in validated else None
@@ -156,18 +219,25 @@ def browse_page(user, validated, supplied):
                 raise engine.RecommendationSnapshotChanged('浏览条件已变化，请重新加载第一批。')
         options = body['options']
     with readonly_snapshot():
-        context, revision = live_context(user, options)
+        context, revision, catalog = live_context(user, options, metrics)
         if body and not hmac.compare_digest(revision, body['revision']):
             raise engine.RecommendationSnapshotChanged('画像、手账或目录已变化，请重新加载第一批。')
         if body is None:
-            rows = list(engine.safe_catalog().order_by('bangumi_id').values(
-                'bangumi_id', 'tags', 'title_zh', 'title_jp', 'score', 'status_type', 'season')[:engine.MAX_CATALOG_ROWS + 1])
-            index = engine.build_feature_index(rows)
-            ranked, weights = rank_controlled(context, options, filter_index(index, rows, options))
+            started = perf_counter()
+            if context['mode'] == 'cold_start':
+                ranked, weights = [], {}
+            else:
+                rows, index = public_browse_index(catalog, metrics)
+                metrics['public_index_ms'] = round((perf_counter() - started) * 1000, 3)
+                started = perf_counter()
+                ranked, weights = rank_controlled(context, options, filter_index(index, rows, options))
+            metrics['rank_ms'] = round((perf_counter() - started) * 1000, 3)
+            metrics.update(context.get('_ranking_trace', {}))
             ids = [item['anime'].bangumi_id for item in ranked]
             body = {'contract': BROWSE_CONTRACT_VERSION, 'policy': CONTROL_POLICY_VERSION,
                     'owner': _token(CURSOR_SALT + '.owner', user.pk), 'revision': revision,
                     'snapshot': uuid.uuid4().hex, 'expires': int(time.time()) + SNAPSHOT_TTL_SECONDS,
+                    'rollout_revision': rollout_revision(),
                     'options': options, 'ids': ids, 'offset': 0, 'batch': 1,
                     # Evidence needs exactly the original whole-catalog weights.
                     'weights': weights if isinstance(weights, dict) else {}}

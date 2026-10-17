@@ -55,6 +55,8 @@ function RecommendationWorkspace({ client, sessionScope }) {
   const resultsRef = useRef(null)
   const { detail, controller: detailController } = useRecommendationDetail(client)
   const state = useRecommendations(category, filters, client, style)
+  const legacy = state.transport === 'legacy'
+  const visibleFilters = legacy ? { ...filters, yearFrom: '', yearTo: '' } : filters
   const writeGate = useMemo(() => createRecommendationWriteGate({ isCurrent: () => {
     try { return recommendationSessionScope(getAccessToken()) === sessionScope } catch { return sessionScope === 'anonymous' }
   } }), [client, sessionScope])
@@ -112,6 +114,13 @@ function RecommendationWorkspace({ client, sessionScope }) {
     }
   }, [category, style, filters.type, filters.minScore, filters.hideRecorded, filters.yearFrom, filters.yearTo, detailController])
   useEffect(() => { if (state.snapshotExpired) discardDetail() }, [state.snapshotExpired, detailController])
+  useLayoutEffect(() => {
+    if (legacy) {
+      discardDetail()
+      if (style !== 'balanced') setStyle('balanced')
+      if (filters.yearFrom || filters.yearTo) setFilters(current => ({ ...current, yearFrom: '', yearTo: '' }))
+    }
+  }, [legacy, style, filters.yearFrom, filters.yearTo, detailController])
 
   useEffect(() => {
     const previous = document.title
@@ -213,7 +222,8 @@ function RecommendationWorkspace({ client, sessionScope }) {
           : state.data?.mode === 'personalized' ? '参考高分作品，并结合你的明确偏好；只展示已有数据支持的推荐理由。'
             : '仅使用安全、已确认身份的作品和明确偏好；数据未加载时不会假装已有画像。'}
           {' '}加入想看不会覆盖已有评分、长评或观看状态。</p></section>
-      <RecommendationBrowseControls category={category} style={style} filters={filters}
+      {legacy && <p className="rec-muted" role="status">增强浏览已关闭，已恢复原有 V1 推荐与分页。你的手账、偏好和反馈均未改变。</p>}
+      <RecommendationBrowseControls category={category} style={style} filters={visibleFilters} legacy={legacy}
         onCategory={next => { if (next !== category) { discardDetail(); state.cancelBrowse(); setCategory(next) } }}
         onStyle={next => { if (next !== style) { discardDetail(); state.cancelBrowse(); setStyle(next) } }}
         onFilter={openFilters} onRemove={removeFilter} onReset={reset} />
@@ -256,7 +266,7 @@ function RecommendationWorkspace({ client, sessionScope }) {
         <RecommendationHiddenWorks state={feedback.hiddenState} feedback={feedback.state}
         onPage={feedback.hidden.load} onUndo={feedback.controller.undo} onReload={() => { feedback.controller.clearErrors(); feedback.hidden.refresh() }}
         writeBusy={id => want.operations[id]?.status === 'adding'} />{feedbackToast}</>
-        : panel.kind === 'filters' ? <RecommendationFilterPanel initialFilters={filters} onApply={applyFilters} />
+        : panel.kind === 'filters' ? <RecommendationFilterPanel initialFilters={visibleFilters} onApply={applyFilters} legacy={legacy} />
         : panel.kind === 'preferences' ? <RecommendationPreferencesPanel editor={preferenceEditor.editor} profile={panel.profile}
         onTag={preferenceEditor.setTag} onClear={preferenceEditor.clearDraft} onSave={preferenceEditor.save}
         onReloadLatest={preferenceEditor.reloadLatest} onResolveConflict={preferenceEditor.resolveConflict} onClose={closePanel} />

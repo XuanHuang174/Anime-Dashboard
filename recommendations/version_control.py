@@ -22,6 +22,8 @@ CHECK_MODULES = ('recommendations.tests.test_contracts_api', 'recommendations.te
                  'recommendations.tests.test_interaction_contract')
 SOURCE_PATHS = (
     'recommendations/browsing.py', 'recommendations/browse_controls.py', 'recommendations/tests/test_browsing.py',
+    'recommendations/tests/test_browse_closure.py',
+    'recommendations/management/commands/profile_recommendation_browse.py',
     'recommendations/evidence.py', 'recommendations/feedback.py',
     'recommendations/diagnostics.py', 'recommendations/management/commands/diagnose_recommendations.py',
     'recommendations/tests/test_preference_discovery.py',

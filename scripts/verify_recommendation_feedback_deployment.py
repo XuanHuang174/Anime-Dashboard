@@ -24,6 +24,7 @@ class FeedbackDeploymentAudit(Audit):
     def request(self, path, *, method='GET', public=False, **kwargs):
         allowed = (path in ('/api/token/', '/api/user/profile/', '/api/recommendations/',
                            '/api/recommendations/profile/', '/api/recommendations/preferences/',
+                           '/api/recommendations/capabilities/',
                            '/api/recommendations/feedback/', '/api/recommendations/feedback/undo/',
                            '/api/recommendations/feedback/hidden/')
                    or re.fullmatch(r'/api/recommendations/[1-9]\d*/', path))

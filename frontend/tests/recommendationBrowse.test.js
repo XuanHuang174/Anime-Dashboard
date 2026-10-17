@@ -171,3 +171,56 @@ test('9B year drafts and chip counts are deterministic without changing explicit
   assert.equal(filterChips(DEFAULT_BROWSE_FILTERS).length, 1)
   assert.equal(filterChips({ ...DEFAULT_BROWSE_FILTERS, type: 'TV', minScore: '7', yearFrom: '2015', yearTo: '2026' }).length, 4)
 })
+
+const legacyPage = (page = 1) => ({ contract_version: 'recommendations.3b.v1', algorithm_version: 'content.v1',
+  mode: 'personalized', count: 24, page, page_size: 12, next_page: page === 1 ? 2 : null,
+  state_token: 'c'.repeat(64), evidence_context: browsePage().evidence_context,
+  results: browsePage({ offset: (page - 1) * 12 }).results })
+const capability = enabled => ({ contract_version: 'recommendations.capabilities.v1', algorithm_version: 'content.v1',
+  browse_enabled: enabled, rollout_revision: 'a'.repeat(64) })
+
+test('9C explicit disabled capability restores old V1 list and state-token pagination', async () => {
+  const env = service(), calls = []
+  env.client.capabilities = async () => capability(false)
+  env.client.list = async options => { calls.push(options); return legacyPage(options.page || 1) }
+  await env.controller.start(selection({ style: 'open', filters: { ...DEFAULT_BROWSE_FILTERS, yearFrom: '2020' } }))
+  assert.equal(env.controller.getSnapshot().transport, 'legacy')
+  assert.equal(env.calls.length, 0)
+  assert.equal(calls[0].filters.yearFrom, '')
+  await env.controller.loadMore()
+  assert.equal(calls[1].stateToken, 'c'.repeat(64))
+  assert.equal(env.controller.getSnapshot().items.length, 24)
+  assert.equal(await env.controller.nextBatch(), false)
+})
+
+test('9C in-flight rollback drops old cursors and late responses without writing', async () => {
+  const env = service(); await env.controller.start(selection())
+  const old = env.controller.getSnapshot().data.snapshot_id
+  env.client.list = async () => legacyPage()
+  env.behavior.request = async () => { throw { response: { status: 409,
+    data: { code: 'browse_disabled', fallback: 'legacy_v1', algorithm_version: 'content.v1' } } } }
+  await env.controller.loadMore()
+  const current = env.controller.getSnapshot()
+  assert.equal(current.transport, 'legacy')
+  assert.notEqual(current.data.snapshot_id, old)
+  assert.equal(current.data.next_page_cursor, undefined)
+  assert.equal(current.items.length, 12)
+})
+
+test('9C generic errors and V2 capability are never disguised as safe rollback', async () => {
+  for (const status of [401, 429, 500, 503]) {
+    const env = service(); env.behavior.request = async () => { throw { response: { status } } }
+    await env.controller.start(selection())
+    assert.equal(env.controller.getSnapshot().status, 'error')
+    assert.notEqual(env.controller.getSnapshot().transport, 'legacy')
+  }
+  const env = service(); env.client.capabilities = async () => ({ ...capability(false), algorithm_version: 'content.v2' })
+  await env.controller.start(selection())
+  assert.equal(env.controller.getSnapshot().status, 'error')
+})
+
+test('9C capability 404 permits a rolling pre-9C server but does not select legacy by guessing', async () => {
+  const env = service(); env.client.capabilities = async () => { throw { response: { status: 404 } } }
+  await env.controller.start(selection())
+  assert.equal(env.controller.getSnapshot().transport, 'browse')
+})

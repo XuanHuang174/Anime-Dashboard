@@ -16,7 +16,9 @@ const browser = await chromium.launch({ headless: true, channel: process.env.PLA
 const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } })
 const page = await context.newPage(), errors = [], external = [], requests = [], snapshots = new Map(), owned = new Set()
 let epoch = 0, serial = 0, hold = false, held = [], failure = null, resourceHold = false, resourceRoutes = []
-const artifacts = path.resolve('../.tools/acceptance-9b-browser')
+let browseEnabled = true
+const phase9c = process.env.BROWSE_ACCEPTANCE_PHASE === '9c'
+const artifacts = path.resolve(phase9c ? '../.tools/acceptance-9c-browser' : '../.tools/acceptance-9b-browser')
 await mkdir(artifacts, { recursive: true })
 page.setDefaultTimeout(10000)
 page.on('pageerror', error => errors.push(error.message))
@@ -35,6 +37,9 @@ await context.route('**/*', async route => {
   if (!url.pathname.startsWith('/__9bqa__/')) return route.continue()
   requests.push({ path: url.pathname, params: Object.fromEntries(url.searchParams), method })
   const suffix = url.pathname.slice('/__9bqa__/recommendations/'.length)
+  if (suffix === 'capabilities/') return route.fulfill({ json: {
+    contract_version: 'recommendations.capabilities.v1', algorithm_version: 'content.v1',
+    browse_enabled: browseEnabled, rollout_revision: 'a'.repeat(64) } })
   if (suffix === 'profile/') return route.fulfill({ json: { contract_version: 'recommendations.3a.v1', eligible_sample_count: 3, usable_sample_count: 3,
     cold_start: false, sample_policy: { minimum_score: '8.5' }, tag_summary: [{ tag: '音乐', sample_count: 3 }] } })
   if (suffix === 'preferences/') return route.fulfill({ json: { contract_version: 'recommendations.3a.v1', version: 0, tags: [], available_tags: ['音乐'] } })
@@ -48,6 +53,16 @@ await context.route('**/*', async route => {
   if (/^\d+\/$/.test(suffix)) return route.fulfill({ json: row(Number(suffix.slice(0, -1))) })
   assert.equal(suffix, '')
   const params = Object.fromEntries(url.searchParams)
+  if (params.browse || params.cursor) {
+    if (!browseEnabled) return route.fulfill({ status: params.cursor ? 409 : 503, json: {
+      code: 'browse_disabled', fallback: 'legacy_v1', algorithm_version: 'content.v1' } })
+  } else {
+    const p = Number(params.page || 1)
+    const ids = Array.from({ length: 50 }, (_, n) => 101 + n).filter(id => !owned.has(id))
+    return route.fulfill({ json: { contract_version: 'recommendations.3b.v1', algorithm_version: 'content.v1',
+      mode: 'personalized', count: ids.length, page: p, page_size: 12, next_page: p * 12 < ids.length ? p + 1 : null,
+      state_token: 'c'.repeat(64), evidence_context: evidenceContext(), results: ids.slice((p - 1) * 12, p * 12).map(row) } })
+  }
   let snapshot, offset = 0
   if (params.cursor) {
     const [id, position] = params.cursor.split(':'); snapshot = snapshots.get(id); offset = Number(position)
@@ -207,6 +222,34 @@ try {
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
   await page.screenshot({ path: path.join(artifacts, 'mobile.png'), fullPage: true })
   check('mobile controls use a second row and native bottom-sheet focus/escape without horizontal overflow')
+  if (phase9c) {
+    await open(102); resourceHold = true
+    await page.getByRole('button', { name: '🧲 寻找资源', exact: true }).click()
+    browseEnabled = false
+    // Simulate an already scheduled background continuation while a native
+    // detail/resource dialog is open; don't bypass it for real user writes.
+    await page.getByRole('button', { name: '加载本批更多', exact: true }).evaluate(node => node.click())
+    await page.getByText('增强浏览已关闭，已恢复原有 V1 推荐与分页。你的手账、偏好和反馈均未改变。', { exact: true }).waitFor()
+    assert.equal(await page.locator('dialog').count(), 0)
+    for (const route of resourceRoutes.splice(0)) await finish(route, { json: { status: 'success', results: [] } })
+    resourceHold = false
+    assert.equal(await page.getByRole('combobox', { name: '推荐风格', exact: true }).count(), 0)
+    assert.equal(await cards(), 12)
+    await page.getByRole('button', { name: '再翻一页 →', exact: true }).click()
+    await page.getByRole('button', { name: '查看作品125详情', exact: true }).waitFor()
+    assert.equal(await cards(), 24)
+    await openFilter(); assert.equal(await page.getByRole('textbox', { name: '起始年份', exact: true }).count(), 0); await close()
+    assert.equal(requests.filter(request => request.method === 'POST').length, 1)
+    check('9C disabled flag automatically clears browse context and restores legacy V1 pagination without writes')
+    await page.reload()
+    await page.getByRole('button', { name: '再翻一页 →', exact: true }).waitFor()
+    assert.equal(await page.getByRole('combobox', { name: '推荐风格', exact: true }).count(), 0)
+    browseEnabled = true
+    await page.getByRole('button', { name: '恢复默认', exact: true }).click()
+    await page.getByRole('button', { name: '加载本批更多', exact: true }).waitFor()
+    assert.equal(await cards(), 12)
+    check('9C capability discovery handles cold rollback and explicit recovery to a new browse session')
+  }
   assert.deepEqual(errors, []); assert.deepEqual(external, [])
   report.result = 'passed'
 } catch (error) { report.result = 'failed'; report.failure = error.message; throw error }
