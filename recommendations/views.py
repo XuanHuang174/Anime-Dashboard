@@ -145,6 +145,11 @@ class RecommendationListView(OwnRecommendationAPIView):
         query = RecommendationQuerySerializer(data=request.query_params)
         query.is_valid(raise_exception=True)
         options = query.validated_data
+        from .browsing import browse_requested, browse_page
+        if browse_requested(options, request.query_params):
+            from .serializers import RecommendationBrowsePageSerializer
+            return Response(RecommendationBrowsePageSerializer(
+                browse_page(request.user, options, request.query_params)).data)
         context, ranked, token, weights = rank_candidates(request.user, options)
         if options['page'] > 1 and not hmac.compare_digest(token, options['state_token']):
             raise RecommendationSnapshotChanged()

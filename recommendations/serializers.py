@@ -1,4 +1,5 @@
 from collections.abc import Mapping
+import re
 
 from rest_framework import serializers
 
@@ -218,13 +219,38 @@ class RecommendationQuerySerializer(serializers.Serializer):
     page = serializers.IntegerField(min_value=1, max_value=1000, default=1)
     page_size = serializers.IntegerField(min_value=1, max_value=24, default=12)
     state_token = serializers.RegexField(regex=r'^[a-f0-9]{64}$', required=False)
+    # Opt-in contract; an old client without these controls keeps legacy paging.
+    browse = serializers.BooleanField(default=False)
+    style = serializers.ChoiceField(choices=('balanced', 'close', 'open'), default='balanced')
+    year_from = serializers.IntegerField(min_value=1000, max_value=9999, default=None, allow_null=False)
+    year_to = serializers.IntegerField(min_value=1000, max_value=9999, default=None, allow_null=False)
+    cursor = serializers.CharField(max_length=8192, required=False, trim_whitespace=False)
 
     def to_internal_value(self, data):
         if set(data) - set(self.fields) or any(len(data.getlist(key)) > 1 for key in data if hasattr(data, 'getlist')):
             raise serializers.ValidationError({'non_field_errors': ['查询包含未定义或重复的参数。']})
+        # HTML/query dicts otherwise treat an explicit empty input as a missing
+        # field and silently apply its default. A supplied invalid value is 400.
+        if any(value == '' for value in data.values()):
+            raise serializers.ValidationError({'non_field_errors': ['查询参数不能是空字符串；不限条件请省略参数。']})
+        for key in ('year_from', 'year_to'):
+            if key in data and not re.fullmatch(r'[1-9]\d{3}', str(data[key])):
+                raise serializers.ValidationError({key: '年份必须是四位整数。'})
         return super().to_internal_value(data)
 
     def validate(self, attrs):
+        from .browsing import browse_requested
+        if browse_requested(attrs, self.initial_data):
+            if 'browse' in self.initial_data and attrs['browse'] is False:
+                raise serializers.ValidationError('不能同时关闭浏览控制并提供浏览参数。')
+            if attrs['page'] != 1 or 'state_token' in attrs:
+                raise serializers.ValidationError('批次浏览只接受服务端游标，不能混用旧分页参数。')
+            if 'cursor' in attrs and 'page' in self.initial_data:
+                raise serializers.ValidationError('游标已包含页位置，不接受额外页码。')
+            if (attrs['year_from'] is not None and attrs['year_to'] is not None
+                    and attrs['year_from'] > attrs['year_to']):
+                raise serializers.ValidationError('年份起点不能大于终点。')
+            return attrs
         if attrs['page'] > 1 and 'state_token' not in attrs:
             raise serializers.ValidationError('加载下一页必须携带第一页的 state_token。')
         return attrs
@@ -349,6 +375,51 @@ class EvidenceEnvelopeSerializer(serializers.Serializer):
     evidence_context = EvidenceVersionsSerializer(read_only=True)
     evidence_token = serializers.CharField(read_only=True)
     evidence_disclaimer = serializers.CharField(read_only=True)
+
+
+class RecommendationBrowseResultSerializer(EvidenceEnvelopeSerializer):
+    bangumi_id = serializers.IntegerField(read_only=True)
+    title_zh = serializers.CharField(read_only=True)
+    title_jp = serializers.CharField(read_only=True)
+    score = serializers.FloatField(read_only=True, allow_null=True)
+    tags = serializers.ListField(child=serializers.CharField(), read_only=True)
+    cover_url = serializers.CharField(read_only=True)
+    season = serializers.CharField(read_only=True)
+    status_type = serializers.CharField(read_only=True)
+    content_rating = serializers.ChoiceField(choices=('non_adult',), read_only=True)
+    watch_status = serializers.CharField(read_only=True, allow_null=True)
+
+
+class RecommendationBrowsePageSerializer(serializers.Serializer):
+    contract_version = serializers.CharField(read_only=True)
+    browse_contract_version = serializers.CharField(read_only=True)
+    algorithm_version = serializers.CharField(read_only=True)
+    control_policy_version = serializers.CharField(read_only=True)
+    style = serializers.CharField(read_only=True)
+    effective_conditions = serializers.DictField(read_only=True)
+    snapshot_id = serializers.CharField(read_only=True)
+    snapshot_expires_at = serializers.IntegerField(read_only=True)
+    batch = serializers.IntegerField(read_only=True)
+    batch_size = serializers.IntegerField(read_only=True)
+    batch_count = serializers.IntegerField(read_only=True)
+    batch_hero_bangumi_id = serializers.IntegerField(read_only=True, allow_null=True)
+    page = serializers.IntegerField(read_only=True)
+    page_size = serializers.IntegerField(read_only=True)
+    count = serializers.IntegerField(read_only=True)
+    result_limit = serializers.IntegerField(read_only=True)
+    next_page_cursor = serializers.CharField(read_only=True, allow_null=True)
+    next_batch_cursor = serializers.CharField(read_only=True, allow_null=True)
+    batch_exhausted = serializers.BooleanField(read_only=True)
+    exhausted = serializers.BooleanField(read_only=True)
+    mode = serializers.CharField(read_only=True)
+    readiness = serializers.CharField(read_only=True)
+    cold_start_state = ColdStartStateSerializer(read_only=True)
+    feature_version = serializers.CharField(read_only=True)
+    taxonomy_version = serializers.CharField(read_only=True)
+    evidence_contract_version = serializers.CharField(read_only=True)
+    evidence_context = EvidenceVersionsSerializer(read_only=True)
+    evidence_disclaimer = serializers.CharField(read_only=True)
+    results = RecommendationBrowseResultSerializer(many=True, read_only=True)
 
 
 class RecommendationDetailQuerySerializer(serializers.Serializer):
