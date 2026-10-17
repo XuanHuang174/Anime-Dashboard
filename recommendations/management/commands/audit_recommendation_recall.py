@@ -28,6 +28,9 @@ from recommendations.recall_diagnostics import (CONTRACT, COHORT_CONTRACT, load_
 
 class Command(BaseCommand):
     help = 'V2-A：先冻结无结果选择的评测集，再只读审计。只接受两个以内明确授权账号，不启用V2。'
+    sample_auditor = staticmethod(audit_sample)
+    report_renderer = staticmethod(markdown_report)
+    report_metadata = staticmethod(lambda: {})
 
     def add_arguments(self, parser):
         parser.add_argument('--user-email', action='append', default=[])
@@ -98,7 +101,7 @@ class Command(BaseCommand):
                         for number, (user, context, summary) in enumerate(samples, 1):
                             def progress(message):
                                 self.stdout.write(f'sample_{number:03d}: {message}'); self.stdout.flush()
-                            reports.append(audit_sample(user, context, summary, index, catalog, states, config, progress))
+                            reports.append(self.sample_auditor(user, context, summary, index, catalog, states, config, progress))
                         report = {'contract_version': CONTRACT, 'created_at': datetime.now(timezone.utc).isoformat(),
                             'config_sha256': config_sha, 'configuration': config, 'catalog_sha256': catalog_sha,
                             'release_fingerprint': release, 'frozen_release_fingerprint': lock['frozen_release_fingerprint'],
@@ -109,6 +112,7 @@ class Command(BaseCommand):
                             'online_default': 'content.v1', 'approval_issued': False, 'eligible_for_manual_switch': False,
                             'privacy': {'no_review_reads': True, 'no_mutations': True, 'no_external_http': True},
                             'display_semantics': 'Returned top10 slice, not actual frontend impressions; V2 unavailable in production browse.'}
+                        report.update(self.report_metadata())
             if release != release_descriptor()['fingerprint'] or config_sha != load_config(options['config'])[1]:
                 raise ValueError('Code/config changed during audit; no complete report issued')
             directory.mkdir(parents=True)
@@ -118,7 +122,7 @@ class Command(BaseCommand):
             else:
                 report['audit_wall_ms'] = round((perf_counter() - started) * 1000, 3)
                 contents = {'recall-audit.json': json.dumps(report, ensure_ascii=False, indent=2, allow_nan=False) + '\n',
-                            'report.md': markdown_report(report)}
+                            'report.md': self.report_renderer(report)}
                 events = []
                 for number, sample in enumerate(report['samples'], 1):
                     for fold in sample['folds']:

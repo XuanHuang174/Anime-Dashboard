@@ -1,0 +1,16 @@
+{
+  "version": "source-pattern-recall.v1",
+  "relevance_head_fraction": 0.5,
+  "source_route_fraction": 0.25,
+  "relative_reserve_score_floor": 0.75,
+  "relative_source_overlap_floor": 0.75,
+  "route_order": "canonical-feature-set-round-robin",
+  "within_source_route": "weighted-overlap-then-frozen-base-score-then-id",
+  "within_direction_route": "frozen-base-score-then-id",
+  "pattern_rotation": true,
+  "unused_slots": "eligible-above-reserve-floor-only",
+  "ranking_policy": "balanced-rerank.v3",
+  "candidate_limit": 400,
+  "result_limit": 120,
+  "evaluation_k": 10
+}

@@ -355,7 +355,7 @@ def _v2_item(row, context, options, weights, vector, seed_ids, scorer, *, verifi
     return {'bangumi_id': identity, 'tags': tags, 'value': value, 'evidence': evidence, 'reason': reason}
 
 
-def _rank_context_v2(context, options, index, *, policy_version=None, observer=None):
+def _rank_context_v2(context, options, index, *, policy_version=None, observer=None, recall_policy_version=None):
     if context['mode'] == 'cold_start':
         return [], []
     weights, vector = index['weights'], taste_vector(context, deterministic=True)
@@ -394,11 +394,20 @@ def _rank_context_v2(context, options, index, *, policy_version=None, observer=N
         if item:
             eligible.append(item)
     extracted = perf_counter()
-    pool = ranking_v2.balanced_candidate_pool(eligible, vector, limit=CANDIDATE_POOL)
+    if recall_policy_version is not None:
+        from . import recall_v2
+        if recall_policy_version != recall_v2.VERSION or policy_version not in (None, ranking_v2.POLICY_VERSION):
+            raise RecommendationUnavailable('不支持的离线召回策略。')
+        pool = recall_v2.candidate_pool(eligible, vector, context, weights, limit=CANDIDATE_POOL)
+    else:
+        pool = ranking_v2.balanced_candidate_pool(eligible, vector, limit=CANDIDATE_POOL)
     if observer is not None:
         observer.stage('eligible', (item['bangumi_id'] for item in sorted(
             eligible, key=lambda item: (-item['value'], item['bangumi_id']))))
         observer.stage('pool', (item['bangumi_id'] for item in pool))
+        if hasattr(observer, 'audit_items'):
+            observer.audit_items('eligible', eligible)
+            observer.audit_items('pool', pool)
     balanced = perf_counter()
     context['_ranking_trace'] = {'eligible_candidates': len(eligible), 'candidate_pool': len(pool)}
     if '_diagnostic_target_id' in context:
@@ -458,6 +467,19 @@ def rank_context(context, options, index, *, algorithm_version=ALGORITHM_VERSION
             raise RecommendationUnavailable('不支持的 V2 评测策略。')
         return _rank_context_v2(context, options, index, policy_version=v2_policy_version, observer=pipeline_observer)
     raise RecommendationUnavailable('推荐算法配置暂不可用，请联系管理员。')
+
+
+def rank_recall_candidate(context, options, index, *, pipeline_observer=None):
+    """Trusted offline V2-B entry ONLY; no setting/HTTP parameter selects this.
+
+    The original rank_context/content.v2 path keeps its frozen pool. No private
+    result cache, browse cursor or production evidence token is issued here.
+    """
+    from .recall_v2 import VERSION
+    genre_rules(index.get('taxonomy_version'))
+    if context.get('taxonomy_version', vocabulary.TAXONOMY_VERSION) != index.get('taxonomy_version', vocabulary.TAXONOMY_VERSION):
+        raise RecommendationUnavailable('画像与候选题材版本不一致。')
+    return _rank_context_v2(context, options, index, recall_policy_version=VERSION, observer=pipeline_observer)
 
 
 def rank_candidates(user, options):

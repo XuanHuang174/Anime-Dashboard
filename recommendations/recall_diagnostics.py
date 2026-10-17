@@ -210,7 +210,8 @@ def output_digest(rows):
         sorted(row['tags']), row['evidence'], row['reason']) for row in rows])
 
 
-def traced_rank(user, context, index, filters, algorithm, category, *, target=None):
+def traced_rank(user, context, index, filters, algorithm, category, *, target=None, recall_policy_version=None,
+                observer_type=PipelineObserver):
     """Unobserved control vs observed run, actual functions on the same snapshot.
 
     Extra presentation checking is timed separately, NEVER hidden in ranking
@@ -218,16 +219,24 @@ def traced_rank(user, context, index, filters, algorithm, category, *, target=No
     """
     options = {**{key: filters[key] for key in ('type', 'min_score', 'hide_recorded')}, 'category': category}
     controls, runs, outputs = {}, {}, {}
-    observer = PipelineObserver(target)
+    observer = observer_type(target)
     for name, instrument in (('control', None), ('observed', observer)):
         clone, counter = deepcopy(context), QueryCounter()
         started, cpu = perf_counter(), process_time()
         with connection.execute_wrapper(counter):
-            ranked, weights = engine.rank_context(clone, options, index, algorithm_version=algorithm,
-                                                  **({'pipeline_observer': instrument} if instrument is not None else {}))
+            if recall_policy_version is not None:
+                from .recall_v2 import VERSION
+                if algorithm != 'content.v2' or recall_policy_version != VERSION:
+                    raise ValueError('Invalid offline recall comparison arm')
+                ranked, weights = engine.rank_recall_candidate(clone, options, index, pipeline_observer=instrument)
+            else:
+                ranked, weights = engine.rank_context(clone, options, index, algorithm_version=algorithm,
+                                                      **({'pipeline_observer': instrument} if instrument is not None else {}))
         runs[name] = {'wall_ms': round((perf_counter() - started) * 1000, 3),
                       'cpu_ms': round((process_time() - cpu) * 1000, 3), 'sql_count': counter.count,
                       'sql_execute_ms': round(counter.seconds * 1000, 3)}
+        if recall_policy_version is not None:
+            runs[name]['stage_trace'] = deepcopy(clone.get('_ranking_trace', {}))
         controls[name], outputs[name] = output_digest(ranked), ranked
     if controls['control'] != controls['observed'] or runs['control']['sql_count'] != runs['observed']['sql_count']:
         raise ValueError('Observer changed ordering/scores/evidence/SQL count; audit stopped')
@@ -249,7 +258,8 @@ def traced_rank(user, context, index, filters, algorithm, category, *, target=No
     pipeline = observer.export(cold_start=context['mode'] == 'cold_start')
     pipeline['stages'].update(presentation={'observed': True, 'count': len(rows), 'target_position': position},
         top_10={'observed': True, 'count': min(10, len(rows)), 'target_position': position if position and position <= 10 else None})
-    return rows, {'engine_path': 'rank_context', 'algorithm_version': algorithm,
+    return rows, {'engine_path': 'rank_recall_candidate' if recall_policy_version else 'rank_context', 'algorithm_version': algorithm,
+                  'recall_policy_version': recall_policy_version,
                   'v2_policy_version': ranking_v2.POLICY_VERSION if algorithm == 'content.v2' else None,
                   'pipeline': pipeline, 'target_returned_rank': position,
                   'noninterference': {'order_scores_evidence_equal': True, 'sql_count_equal': True,
@@ -258,7 +268,7 @@ def traced_rank(user, context, index, filters, algorithm, category, *, target=No
                                                       'sql_count': counter.count, 'passed': True}}
 
 
-def audit_sample(user, context, summary, index, catalog, states, config, progress=lambda message: None):
+def audit_sample(user, context, summary, index, catalog, states, config, progress=lambda message: None, *, ranker=traced_rank):
     features = {identity: tags for identity, tags, _, _ in index['features']}
     baseline, probes, folds = {}, {}, []
     filters = config['baseline_filters']
@@ -267,7 +277,7 @@ def audit_sample(user, context, summary, index, catalog, states, config, progres
         for category in config['categories']:
             repetitions, digests = [], []
             for repeat in range(config['repeats']):
-                rows, run = traced_rank(user, context, index, filters, algorithm, category)
+                rows, run = ranker(user, context, index, filters, algorithm, category)
                 repetitions.append(run); digests.append(run['noninterference']['output_hmac'])
                 progress(f'baseline {algorithm}/{category} {repeat + 1}/{config["repeats"]}')
             if len(set(digests)) != 1:
@@ -293,7 +303,7 @@ def audit_sample(user, context, summary, index, catalog, states, config, progres
             continue
         probes[probe['name']] = {'status': 'evaluated', 'results': {}}
         for algorithm in config['algorithms']:
-            rows, run = traced_rank(user, context, index, selected, algorithm, 'all')
+            rows, run = ranker(user, context, index, selected, algorithm, 'all')
             probes[probe['name']]['results'][algorithm] = {
                 'logical_census': census(context, selected, catalog, states, None), 'run': run}
             progress(f'filter probe {probe["name"]}/{algorithm}')
@@ -308,7 +318,7 @@ def audit_sample(user, context, summary, index, catalog, states, config, progres
         for algorithm in config['algorithms']:
             fold['arms'][algorithm] = {}
             for category in config['categories']:
-                rows, run = traced_rank(user, clone, index, filters, algorithm, category, target=target)
+                rows, run = ranker(user, clone, index, filters, algorithm, category, target=target)
                 rank = run['target_returned_rank']
                 code = destination(logical, run['pipeline'], category, rank, True)
                 fold['arms'][algorithm][category] = {**run, 'destination': code,
