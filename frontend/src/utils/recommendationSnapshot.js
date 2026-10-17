@@ -1,12 +1,13 @@
 import { mapRecommendationPage, validateRecommendationProfile, validateRecommendationPreferences,
   validateRecommendationSnapshot } from './recommendations.js'
+import { mapBrowsePage } from './recommendationBrowse.js'
 
-export async function loadRecommendationSnapshot(client, { category, filters, signal, confirmedPreferences, minimumFeedbackVersion }) {
+export async function loadRecommendationSnapshot(client, { category, filters, style, browse = false, signal, confirmedPreferences, minimumFeedbackVersion }) {
   const [profile, preferences, raw] = await Promise.all([client.profile(signal), client.preferences(signal),
-    client.list({ category, filters }, signal)])
+    browse ? client.browse({ category, style, filters }, signal) : client.list({ category, filters }, signal)])
   validateRecommendationProfile(profile)
   validateRecommendationPreferences(preferences)
-  const data = mapRecommendationPage(raw)
+  const data = browse ? mapBrowsePage(raw) : mapRecommendationPage(raw)
   validateRecommendationSnapshot(profile, preferences, data)
   if (minimumFeedbackVersion !== undefined && (!Number.isInteger(data.evidence_context?.feedback_version)
     || data.evidence_context.feedback_version < minimumFeedbackVersion)) {

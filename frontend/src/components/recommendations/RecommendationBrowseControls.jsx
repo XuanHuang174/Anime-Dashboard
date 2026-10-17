@@ -1,0 +1,68 @@
+import { useState } from 'react'
+import { REC_CATEGORIES } from '../../utils/recommendations.js'
+import { DEFAULT_BROWSE_FILTERS, REC_STYLES, filterChips, filterDraftError } from '../../utils/recommendationBrowse.js'
+
+export function RecommendationBrowseControls({ category, style, filters, onCategory, onStyle, onFilter, onRemove, onReset }) {
+  const chips = filterChips(filters)
+  return <>
+    <section className="rec-controls" aria-label="推荐类别与筛选">
+      <div className="rec-categories" role="group" aria-label="推荐类别" aria-describedby="rec-category-description">
+        {REC_CATEGORIES.map(option => <button type="button" key={option.id} aria-pressed={category === option.id}
+          className={`rec-category ${category === option.id ? 'is-selected' : ''}`} onClick={() => onCategory(option.id)}>{option.label}</button>)}
+      </div>
+      <div className="rec-browse-tools"><label className="rec-style-label">风格：<select aria-label="推荐风格" value={style}
+        onChange={event => onStyle(event.target.value)}>{REC_STYLES.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}</select></label>
+        <button type="button" className="rec-button rec-filter-button" onClick={onFilter}>☷ 筛选 {chips.length > 0 && <span className="rec-filter-count">{chips.length}</span>}</button></div>
+    </section>
+    <p className="rec-style-description">{REC_STYLES.find(option => option.id === style).description}</p>
+    <div className="rec-active-filters" aria-label="当前生效条件"><div className="rec-filter-chips">
+      {chips.map(chip => <button type="button" key={chip.id} className="rec-filter-chip" aria-label={`移除条件：${chip.label}`}
+        onClick={() => onRemove(chip.id)}>{chip.label}<span aria-hidden="true"> ×</span></button>)}
+      {!chips.length && <span>当前不限筛选条件</span>}</div>
+      <button type="button" className="rec-text-button" onClick={onReset}>恢复默认</button></div>
+  </>
+}
+
+export function RecommendationFilterPanel({ initialFilters, onApply }) {
+  const [draft, setDraft] = useState(() => ({ ...initialFilters }))
+  const [error, setError] = useState('')
+  const field = (key, value) => { setDraft(current => ({ ...current, [key]: value })); setError('') }
+  return <form onSubmit={event => { event.preventDefault(); const message = filterDraftError(draft); setError(message); if (!message) onApply(draft) }}>
+    <p className="rec-muted">成人及分级未知作品已由后端过滤。筛选只作用于本次浏览，不修改你的明确偏好。</p>
+    <label className="rec-field">作品类型<select aria-label="作品类型" value={draft.type} onChange={event => field('type', event.target.value)}>
+      <option value="all">全部类型</option>{['TV', '剧场版', 'OVA', 'WEB', '短片', '动态漫画'].map(type => <option key={type}>{type}</option>)}</select></label>
+    <fieldset className="rec-year-range"><legend>放送年份区间</legend>
+      <label className="rec-field">起始年份<input aria-label="起始年份" inputMode="numeric" maxLength={4} placeholder="不限" value={draft.yearFrom}
+        onChange={event => field('yearFrom', event.target.value)} /></label>
+      <label className="rec-field">结束年份<input aria-label="结束年份" inputMode="numeric" maxLength={4} placeholder="不限" value={draft.yearTo}
+        onChange={event => field('yearTo', event.target.value)} /></label>
+    </fieldset>
+    <label className="rec-field">最低 Bangumi 评分<select aria-label="最低 Bangumi 评分" value={draft.minScore} onChange={event => field('minScore', event.target.value)}>
+      <option value="0">不限评分</option>{['6', '7', '8', '9'].map(score => <option key={score} value={score}>{score}.0 及以上</option>)}</select></label>
+    <label className="rec-checkbox"><input type="checkbox" checked={draft.hideRecorded} onChange={event => field('hideRecorded', event.target.checked)} />隐藏手账中已记录的作品</label>
+    {error && <p role="alert" className="rec-inline-error">{error}</p>}
+    <div className="rec-dialog-actions"><button type="button" className="rec-button" onClick={() => { setDraft({ ...DEFAULT_BROWSE_FILTERS }); setError('') }}>恢复默认</button>
+      <button type="submit" className="rec-button rec-button--primary">应用筛选</button></div>
+  </form>
+}
+
+export function RecommendationBatchActions({ state, onMore, onBatch, onReload, onFilter, onRestart }) {
+  const busy = state.moreLoading || state.batchLoading, expired = state.snapshotExpired || state.snapshotDirty
+  return <div className="rec-batch-actions">
+    {expired ? <div className="rec-inline-error" role="alert"><p>浏览依据已更新，请重新加载推荐。</p>
+      <button type="button" className="rec-button" onClick={onReload}>重新加载推荐</button></div> : <>
+      {state.moreError && <p className="rec-inline-error" role="alert">加载本批更多失败。{state.moreError}</p>}
+      {state.batchError && <p className="rec-inline-error" role="alert">下一批加载失败，当前结果仍保留。{state.batchError}</p>}
+      <div className="rec-pagination">
+        {state.data.next_page_cursor && <button type="button" className="rec-button rec-button--primary" disabled={busy} onClick={onMore}>
+          {state.moreLoading ? '正在加载…' : state.moreError ? '重试加载本批更多' : '加载本批更多'}</button>}
+        {state.data.next_batch_cursor && <button type="button" className="rec-button" disabled={busy} onClick={onBatch}>
+          {state.batchLoading ? '正在换批…' : state.batchError ? '重试原目标批次 →' : '换一批，看看其他作品 →'}</button>}
+        <span>第 {state.data.batch} 批 · 本批已展示 {state.items.length} / {state.data.batch_count}</span>
+      </div>
+      {state.data.exhausted && <div className="rec-browse-end" role="status"><p>本轮符合条件的作品已展示完。可以调整筛选，或重新开始浏览。</p>
+        <button type="button" className="rec-text-button" onClick={onFilter}>调整筛选</button>
+        <button type="button" className="rec-text-button" onClick={onRestart}>重新开始浏览</button></div>}
+    </>}
+  </div>
+}

@@ -290,6 +290,26 @@
 }
 .memphis-rec-container .rec-pagination { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 16px; padding-top: 32px; }
 .memphis-rec-container .rec-pagination span { color: #555; font-size: 13px; }
+.memphis-rec-container .rec-browse-tools { display: flex; align-items: center; gap: 12px; margin-left: auto; }
+.memphis-rec-container .rec-style-label { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 800; white-space: nowrap; }
+.memphis-rec-container .rec-style-label select { min-height: 42px; padding: 7px 10px; box-shadow: 2px 2px 0 var(--rec-ink); }
+.memphis-rec-container .rec-style-label select:focus { background: var(--rec-yellow); }
+.memphis-rec-container .rec-style-description { font-size: 12px; color: var(--rec-muted); margin: 8px 0 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.memphis-rec-container .rec-filter-chips { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.memphis-rec-container .rec-filter-chip { border: 2px solid var(--rec-ink); background: #e6f3ec; color: var(--rec-ink); font: inherit; font-size: 12px; padding: 8px 10px; min-height: 40px; cursor: pointer; }
+.memphis-rec-container .rec-filter-chip:hover { background: var(--rec-yellow); }
+.memphis-rec-container .rec-year-range { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; border: 0; padding: 0; margin: 18px 0; min-width: 0; }
+.memphis-rec-container .rec-year-range legend { font-size: 13px; font-weight: 800; }
+.memphis-rec-container .rec-year-range .rec-field { min-width: 0; margin: 14px 0 0; }
+.memphis-rec-container .rec-year-range input { width: 100%; min-width: 0; border: 2px solid var(--rec-ink); background: white; padding: 10px; font: inherit; }
+.memphis-rec-container .rec-year-range input:focus { background: #fff0c4; outline: 2px solid var(--rec-ink); outline-offset: 2px; }
+.memphis-rec-container .rec-browse-end { text-align: center; margin-top: 20px; padding: 14px; font-size: 12px; line-height: 1.9; }
+.memphis-rec-container .rec-browse-end .rec-text-button { margin: 6px 12px; min-height: 40px; }
+@media (max-width: 767px) {
+  .memphis-rec-container .rec-browse-tools { width: 100%; justify-content: space-between; gap: 10px; }
+  .memphis-rec-container .rec-filter-chip { min-height: 44px; }
+  .memphis-rec-container .rec-active-filters { align-items: start; }
+}
 .memphis-rec-container .rec-inline-error { padding: 14px; border: 2px solid var(--rec-ink); background: #fff2cc; overflow-wrap: anywhere; }
 .memphis-rec-container .rec-want-error { font-size: 12px; line-height: 1.8; margin-bottom: 0; }
 .memphis-rec-container .rec-identity-notice { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; border: 2px solid var(--rec-ink); background: #fff2cc; padding: 16px; margin-bottom: 18px; }

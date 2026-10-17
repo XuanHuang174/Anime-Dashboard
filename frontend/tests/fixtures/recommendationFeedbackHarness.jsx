@@ -26,6 +26,13 @@ const client = {
   hideFeedback: (body, signal) => read('hide', 'POST', body, signal),
   undoFeedback: (body, signal) => read('undo', 'POST', body, signal),
 }
+client.browse = (options, signal) => {
+  if (options.cursor) {
+    const [, category, offset] = options.cursor.split('-')
+    return client.list({ category, page: Number(offset) / 12 + 1 }, signal)
+  }
+  return client.list(options, signal)
+}
 // Only synthetic auth; actual resource responses are intercepted by the runner.
 localStorage.setItem('anime_journal_access_token', 'synthetic-feedback-8b')
 function Harness() {

@@ -116,7 +116,7 @@ try {
   await page.getByRole('button', { name: '查看作品301详情', exact: true }).waitFor()
   await page.evaluate(() => loopQA.resolveLists())
   assert.equal(await page.getByRole('button', { name: '查看作品401详情', exact: true }).count(), 0)
-  await page.getByRole('button', { name: '再翻一页 →', exact: true }).click()
+  await page.getByRole('button', { name: '加载本批更多', exact: true }).click()
   await page.getByRole('button', { name: '查看作品303详情', exact: true }).waitFor()
   check('slow list, rapid category switch and pagination never append old-category items')
 

@@ -27,10 +27,10 @@ export function RecommendationMeta({ item }) {
     <RecommendationPublicScore score={item.score} /></p>
 }
 
-export function RecommendationActions({ item, onDetail, detailLabel = '查看详情', onWant, operation, onIdentity, writeBlocked = false }) {
+export function RecommendationActions({ item, onDetail, detailLabel = '查看详情', onWant, operation, onIdentity, writeBlocked = false, detailDisabled = false }) {
   const button = wantButtonState(item, operation)
   return <><div className="rec-card-actions">
-    <button type="button" className="rec-button rec-button--primary" onClick={() => onDetail(item)}
+    <button type="button" className="rec-button rec-button--primary" disabled={detailDisabled} onClick={() => onDetail(item)}
       aria-label={detailLabel === '查看详情' ? `查看${item.title}详情` : detailLabel}>{detailLabel} <span aria-hidden="true">↗</span></button>
     <button type="button" className="rec-button" disabled={writeBlocked || button.disabled || (!onWant && !button.confirm)}
       onClick={() => button.confirm ? onIdentity?.() : onWant?.(item)}
@@ -42,20 +42,20 @@ export function RecommendationActions({ item, onDetail, detailLabel = '查看详
 }
 
 export default function RecommendationCard({ item, hero = false, onDetail, onWant, operation, onIdentity, onReload,
-  onHide, feedbackOperation, feedbackDisabled, onFeedbackReload }) {
+  onHide, feedbackOperation, feedbackDisabled, onFeedbackReload, browseUnavailable = false }) {
   return <article className={`rec-card ${hero ? 'rec-card--hero' : ''}`}>
     <RecommendationCover item={item} priority={hero} />
     <div className="rec-card-body">
       {hero && <span className="rec-eyebrow">YOUR NEXT STORY <span className="rec-sticker">本期主推</span></span>}
       <div className="rec-card-title-row"><h3 className="rec-card-title" title={item.title}>{item.title}</h3>
         {onHide && <RecommendationFeedbackMenu item={item} onHide={onHide} operation={feedbackOperation}
-          disabled={feedbackDisabled || operation?.status === 'adding'} onReload={onFeedbackReload} />}</div>
+          disabled={browseUnavailable || feedbackDisabled || operation?.status === 'adding'} onReload={onFeedbackReload} />}</div>
       <RecommendationMeta item={item} />
       <RecommendationEvidence item={item} onReload={onReload} />
       {hero && <p className="rec-hero-synopsis">{item.synopsis}</p>}
       <div className="rec-card-tags" aria-label="作品标签">{item.tags?.slice(0, 2).map((tag) => <span key={tag}>{tag}</span>)}</div>
       <RecommendationActions item={item} onDetail={onDetail} onWant={onWant} operation={operation} onIdentity={onIdentity}
-        writeBlocked={feedbackOperation?.status === 'saving' || feedbackOperation?.uncertain} />
+        detailDisabled={browseUnavailable} writeBlocked={browseUnavailable || feedbackOperation?.status === 'saving' || feedbackOperation?.uncertain} />
     </div>
   </article>
 }

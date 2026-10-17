@@ -5,6 +5,7 @@ import { createServer } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'node:path'
 import { mkdir, writeFile } from 'node:fs/promises'
+import { browsePage } from '../tests/fixtures/browseContract.js'
 const { chromium } = createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE || 'playwright')
 const server = await createServer({ configFile: false, root: process.cwd(), plugins: [react()],
   server: { host: '127.0.0.1', port: 0 }, logLevel: 'error' })
@@ -43,9 +44,8 @@ await context.route('**/*', async route => {
     const start = category === 'familiar' ? 201 : category === 'explore' ? 301 : 101
     const ids = Array.from({ length: 30 }, (_, n) => start + n).filter(id => !hidden.has(id))
     const p = Number(url.searchParams.get('page') || 1)
-    const snapshot = { contract_version: 'recommendations.3b.v1', algorithm_version: 'content.v1', mode: 'preference_based',
-      count: ids.length, page: p, page_size: 12, next_page: p * 12 < ids.length ? p + 1 : null,
-      state_token: token(), evidence_context: epoch(), results: ids.slice((p - 1) * 12, p * 12).map(row) }
+    const snapshot = { ...browsePage({ ids, row, category, offset: (p - 1) * 12, context: epoch(),
+      snapshot: version.toString(16).padStart(32, '0'), makeCursor: offset => `feedback-${category}-${offset}` }), mode: 'preference_based' }
     if (holdCategory === category) await new Promise(resolve => { heldList = resolve })
     return finish(route, { json: snapshot })
   }
@@ -271,7 +271,7 @@ try {
     await menu(page, 301).waitFor()
     holdCategory = null; heldList(); heldList = null
     assert.equal(await menu(page, 201).count(), 0)
-    await page.getByRole('button', { name: '再翻一页 →', exact: true }).click()
+    await page.getByRole('button', { name: '加载本批更多', exact: true }).click()
     await menu(page, 313).waitFor()
     check('8C slow old-category list cannot replace a newer category or its next page')
 

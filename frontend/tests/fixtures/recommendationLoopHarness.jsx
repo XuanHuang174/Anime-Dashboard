@@ -3,6 +3,7 @@ import React, { StrictMode, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom'
 import Recommendations from '../../src/pages/Recommendations.jsx'
+import { browsePage } from './browseContract.js'
 
 const deferred = () => { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b }); return { promise, resolve, reject } }
 let epoch = 0
@@ -17,13 +18,14 @@ const preferences = { contract_version: 'recommendations.3a.v1', version: 0, tag
 const profile = { contract_version: 'recommendations.3a.v1', eligible_sample_count: 3, usable_sample_count: 3,
   cold_start: false, sample_policy: { minimum_score: '8.5' }, tag_summary: [{ tag: '音乐', sample_count: 3 }] }
 function list(options) {
-  const ids = (options.category === 'explore' ? [301, 302, 303] : options.category === 'familiar' ? [401, 402, 403] : [101, 202, 203])
+  const filler = base => Array.from({ length: 10 }, (_, n) => base + n)
+  const ids = (options.category === 'explore' ? [301, 302, ...filler(601), 303]
+    : options.category === 'familiar' ? [401, 402, ...filler(701), 403] : [101, 202, ...filler(501), 203])
     .filter(id => !options.filters?.hideRecorded || !owned.has(id))
-  const page = options.page || 1, rows = ids.slice((page - 1) * 2, page * 2)
-  return { contract_version: 'recommendations.3b.v1', mode: 'personalized', algorithm_version: 'content.v1',
-    taxonomy_version: 'genres.v4', feature_version: 'genres-idf.v4', evidence_contract_version: 'recommendations.evidence.v1',
-    evidence_context: context(), state_token: (epoch ? 'b' : 'a').repeat(64), count: ids.length,
-    page, page_size: 2, next_page: page * 2 < ids.length ? page + 1 : null, results: rows.map(row) }
+  return browsePage({ ids, row, pageSize: 12, offset: ((options.page || 1) - 1) * 12,
+    category: options.category || 'all', style: options.style || 'balanced', filters: options.filters,
+    context: context(), snapshot: (epoch ? 'b' : 'a').repeat(32),
+    makeCursor: offset => `loop-${options.category || 'all'}-${options.style || 'balanced'}-${offset}` })
 }
 const client = {
   profile: async signal => { calls.push({ kind: 'profile', signal }); return profile },
@@ -44,6 +46,13 @@ const client = {
     return snapshot
   },
   want: (id, signal) => { calls.push({ kind: 'want', id, signal }); const pending = deferred(); pendingWants.push({ ...pending, id }); return pending.promise },
+}
+client.browse = (options, signal) => {
+  if (options.cursor) {
+    const [, category, style, offset] = options.cursor.split('-')
+    return client.list({ category, style, page: Number(offset) / 12 + 1 }, signal)
+  }
+  return client.list(options, signal)
 }
 function App() {
   const navigate = useNavigate()

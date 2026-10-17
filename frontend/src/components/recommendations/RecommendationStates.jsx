@@ -9,7 +9,7 @@ export function RecommendationSkeleton() {
   </section>
 }
 
-export function RecommendationEmptyState({ state, onRetry, onReset, onPreferences, needsTags = false, needsIdentity = false, onIdentity }) {
+export function RecommendationEmptyState({ state, onRetry, onReset, onFilter, onPreferences, needsTags = false, needsIdentity = false, onIdentity }) {
   const content = {
     cold: ['✧', '让我们先认识你的口味', '请先给几部喜欢的番剧打分，或选择喜好。样本不足时，我们不会编造个性化结果。'],
     empty: ['⌕', '这次筛选，还没遇见心头好', '试着放宽评分或作品类型，给意外的心动留一点空间。'],
@@ -25,8 +25,10 @@ export function RecommendationEmptyState({ state, onRetry, onReset, onPreference
       {state === 'cold' ? <>{needsIdentity ? <button type="button" className="rec-button rec-button--primary" onClick={onIdentity}>核对旧作品</button>
         : <Link className="rec-button rec-button--primary" to="/dashboard">去手账评分</Link>}
         <button type="button" className="rec-button" onClick={onPreferences}>选择喜好</button></>
-        : <><button type="button" className="rec-button rec-button--primary" onClick={onRetry}>重新加载</button>
-          <button type="button" className="rec-button" onClick={onReset}>恢复筛选</button></>}
+        : state === 'empty' && onFilter ? <><button type="button" className="rec-button rec-button--primary" onClick={onFilter}>调整筛选</button>
+          <button type="button" className="rec-button" onClick={onReset}>清除本次筛选</button></>
+          : <><button type="button" className="rec-button rec-button--primary" onClick={onRetry}>重新加载</button>
+            <button type="button" className="rec-button" onClick={onReset}>恢复筛选</button></>}
     </div>
   </section>
 }
