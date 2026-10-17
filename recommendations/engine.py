@@ -396,9 +396,10 @@ def _rank_context_v2(context, options, index, *, policy_version=None, observer=N
     extracted = perf_counter()
     if recall_policy_version is not None:
         from . import recall_v2
-        if recall_policy_version != recall_v2.VERSION or policy_version not in (None, ranking_v2.POLICY_VERSION):
+        if recall_policy_version not in (recall_v2.VERSION, recall_v2.PREVIOUS_VERSION) or policy_version not in (None, ranking_v2.POLICY_VERSION):
             raise RecommendationUnavailable('不支持的离线召回策略。')
-        pool = recall_v2.candidate_pool(eligible, vector, context, weights, limit=CANDIDATE_POOL)
+        pool = recall_v2.candidate_pool(eligible, vector, context, weights, limit=CANDIDATE_POOL,
+                                      category=options['category'], policy_version=recall_policy_version)
     else:
         pool = ranking_v2.balanced_candidate_pool(eligible, vector, limit=CANDIDATE_POOL)
     if observer is not None:
@@ -469,7 +470,7 @@ def rank_context(context, options, index, *, algorithm_version=ALGORITHM_VERSION
     raise RecommendationUnavailable('推荐算法配置暂不可用，请联系管理员。')
 
 
-def rank_recall_candidate(context, options, index, *, pipeline_observer=None):
+def rank_recall_candidate(context, options, index, *, pipeline_observer=None, recall_policy_version=None):
     """Trusted offline V2-B entry ONLY; no setting/HTTP parameter selects this.
 
     The original rank_context/content.v2 path keeps its frozen pool. No private
@@ -479,7 +480,7 @@ def rank_recall_candidate(context, options, index, *, pipeline_observer=None):
     genre_rules(index.get('taxonomy_version'))
     if context.get('taxonomy_version', vocabulary.TAXONOMY_VERSION) != index.get('taxonomy_version', vocabulary.TAXONOMY_VERSION):
         raise RecommendationUnavailable('画像与候选题材版本不一致。')
-    return _rank_context_v2(context, options, index, recall_policy_version=VERSION, observer=pipeline_observer)
+    return _rank_context_v2(context, options, index, recall_policy_version=recall_policy_version or VERSION, observer=pipeline_observer)
 
 
 def rank_candidates(user, options):

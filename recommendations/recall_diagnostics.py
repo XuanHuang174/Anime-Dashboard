@@ -225,10 +225,11 @@ def traced_rank(user, context, index, filters, algorithm, category, *, target=No
         started, cpu = perf_counter(), process_time()
         with connection.execute_wrapper(counter):
             if recall_policy_version is not None:
-                from .recall_v2 import VERSION
-                if algorithm != 'content.v2' or recall_policy_version != VERSION:
+                from .recall_v2 import VERSION, PREVIOUS_VERSION
+                if algorithm != 'content.v2' or recall_policy_version not in (VERSION, PREVIOUS_VERSION):
                     raise ValueError('Invalid offline recall comparison arm')
-                ranked, weights = engine.rank_recall_candidate(clone, options, index, pipeline_observer=instrument)
+                ranked, weights = engine.rank_recall_candidate(clone, options, index, pipeline_observer=instrument,
+                                                              recall_policy_version=recall_policy_version)
             else:
                 ranked, weights = engine.rank_context(clone, options, index, algorithm_version=algorithm,
                                                       **({'pipeline_observer': instrument} if instrument is not None else {}))

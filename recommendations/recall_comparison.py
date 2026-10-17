@@ -18,11 +18,15 @@ from .version_control import canonical_bytes
 
 CONTRACT = 'recommendations.recall-comparison.v1'
 CANDIDATE_ARM = 'content.v2.recall-candidate'
-ARMS = ('content.v1', 'content.v2', CANDIDATE_ARM)
-POLICY_PATH = 'evaluation/v2b-recall-policy.v1.json'
+PREVIOUS_ARM = 'content.v2.recall-previous'
+ARMS = ('content.v1', 'content.v2', PREVIOUS_ARM, CANDIDATE_ARM)
+POLICY_PATH = 'evaluation/v2b-recall-policy.v2.json'
 
 
 def verify_policy():
+    previous = json.loads((Path(settings.BASE_DIR) / 'evaluation/v2b-recall-policy.v1.json').read_text(encoding='utf-8'))
+    if previous != recall_v2.policy_contract(recall_v2.PREVIOUS_VERSION):
+        raise ValueError('Predeclared previous recall policy differs from implementation')
     value = json.loads((Path(settings.BASE_DIR) / POLICY_PATH).read_text(encoding='utf-8'))
     if value != recall_v2.policy_contract():
         raise ValueError('Predeclared recall policy differs from implementation; no silent tuning')
@@ -33,6 +37,7 @@ class RecallObserver(PipelineObserver):
     def __init__(self, target=None):
         super().__init__(target)
         self.items = {}
+        self.reserve_probe = None
 
     def audit_items(self, stage, items):
         # Order-independent eligible digest checks scores + evidence, not only
@@ -40,17 +45,28 @@ class RecallObserver(PipelineObserver):
         self.items[stage] = _token(CONTRACT + '.items', [
             (row['bangumi_id'], float(row['value']).hex(), sorted(row['tags']), row['evidence'], row['reason'])
             for row in sorted(items, key=lambda row: row['bangumi_id'])])
+        if stage == 'eligible' and self.target is not None:
+            ordered = sorted(items, key=recall_v2.ranking_v2._order)
+            target = next((row for row in ordered if row['bangumi_id'] == self.target), None)
+            # Counterfactual old-policy gate, NOT a claim this gate is applied
+            # by the repaired exploration arm. No raw scores/identities export.
+            self.reserve_probe = {'contract': 'previous-recall-reserve-gate.v1',
+                'target_eligible': target is not None,
+                'previous_gate_excludes': bool(target and len(ordered) > 400
+                    and target not in ordered[:200]
+                    and target['value'] < ordered[0]['value'] * recall_v2.CONTRACT['relative_reserve_score_floor'])}
 
     def export(self, **kwargs):
-        return {**super().export(**kwargs), 'item_hmacs': dict(self.items)}
+        return {**super().export(**kwargs), 'item_hmacs': dict(self.items), 'previous_reserve_probe': self.reserve_probe}
 
 
 def rank_arm(user, context, index, filters, algorithm, category, *, target=None):
     if algorithm not in ARMS:
         raise ValueError('Unknown comparison arm')
-    candidate = algorithm == CANDIDATE_ARM
+    candidate = algorithm in (CANDIDATE_ARM, PREVIOUS_ARM)
     return traced_rank(user, context, index, filters, 'content.v2' if candidate else algorithm, category,
-        target=target, recall_policy_version=recall_v2.VERSION if candidate else None, observer_type=RecallObserver)
+        target=target, recall_policy_version=(recall_v2.PREVIOUS_VERSION if algorithm == PREVIOUS_ARM
+            else recall_v2.VERSION) if candidate else None, observer_type=RecallObserver)
 
 
 def assert_recall_only(left, right):
@@ -106,6 +122,16 @@ def compare_sample(user, context, summary, index, catalog, states, config, progr
     for fold in result['folds']:
         for category in config['categories']:
             assert_recall_only(fold['arms']['content.v2'][category], fold['arms'][CANDIDATE_ARM][category])
+    losses = []
+    for fold in result['folds']:
+        old = fold['arms']['content.v2']['explore']['pipeline']['stages']['pool']['target_position']
+        previous = fold['arms'][PREVIOUS_ARM]['explore']['pipeline']
+        if old is not None and previous['stages']['pool']['target_position'] is None:
+            losses.append({'target_ordinal': fold['target_ordinal'],
+                'cause': 'previous_relative_score_floor' if previous['previous_reserve_probe']['previous_gate_excludes']
+                         else 'previous_route_quota',
+                'repaired_pool_position': fold['arms'][CANDIDATE_ARM]['explore']['pipeline']['stages']['pool']['target_position']})
+    result['explore_regression_diagnosis'] = losses
     result['recall_only_invariant'] = 'pass'
     result['quality_review'] = review_quality(result)
     result['comparison_limits'] = 'Two authorized accounts; no human preference probability/online lift claims.'
@@ -115,6 +141,7 @@ def compare_sample(user, context, summary, index, catalog, states, config, progr
 def metadata():
     return {'contract_version': CONTRACT, 'comparison_arms': list(ARMS),
         'recall_policy': recall_v2.policy_contract(), 'recall_policy_sha256': verify_policy(),
+        'previous_recall_policy': recall_v2.policy_contract(recall_v2.PREVIOUS_VERSION),
         'frozen_scoring_and_reranking': True, 'candidate_not_served_or_cached': True,
         'decision': 'offline_evidence_only_not_release_approval'}
 
@@ -129,6 +156,7 @@ def markdown_report(report):
         lines += [f'## sample_{number:03d}', '',
             f"有效样本：{sample['summary']['state']['usable_sample_count']}；模式：{sample['summary']['mode']}；召回单变量约束：{sample['recall_only_invariant']}。", '',
             f"质量复核：**{sample['quality_review']['status']}**；命令执行成功仅代表审计完整，不等于优化通过。", '',
+            f"原探索退步定位：{sample['explore_regression_diagnosis']}（匿名固定目标序号，不替换目标）。", '',
             '| 集合 | 对照臂 | 分类 | 目标数 | Hit@10 | 条件池覆盖 | 去向 |',
             '| --- | --- | --- | ---: | ---: | ---: | --- |']
         for name, group in sample['holdout_sets'].items():

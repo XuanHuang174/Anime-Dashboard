@@ -2,16 +2,18 @@
 
 All inputs have already passed current safety, public filters, private exclusions
 and evidence generation. Routes are real feature sets, never titles/series IDs.
-No user/candidate/holdout ID is a policy input. No random fill or shared cache.
+No owner/holdout whitelist is used; canonical candidate IDs only break ties.
+No random fill or shared cache.
 """
 from collections import deque
 import math
 
 from . import ranking_v2
 
-VERSION = 'source-pattern-recall.v1'
+PREVIOUS_VERSION = 'source-pattern-recall.v1'
+VERSION = 'source-pattern-recall.v2'
 CONTRACT = {
-    'version': VERSION,
+    'version': PREVIOUS_VERSION,
     'relevance_head_fraction': .50,
     'source_route_fraction': .25,
     'relative_reserve_score_floor': .75,
@@ -26,8 +28,15 @@ CONTRACT = {
 }
 
 
-def policy_contract():
-    return dict(CONTRACT)
+def policy_contract(version=None):
+    version = version or VERSION
+    if version == PREVIOUS_VERSION:
+        return dict(CONTRACT)
+    if version != VERSION:
+        raise ValueError('Unknown recall policy')
+    return {**CONTRACT, 'version': VERSION, 'explore_policy': 'frozen-v2-full-candidate-pool',
+            'explore_reserve_score_floor': 'not-applied',
+            'scope': 'source-routes-for-discovery-and-familiar-only'}
 
 
 def _rotating_patterns(rows):
@@ -60,7 +69,7 @@ def _take_routes(routes, chosen, used, quota):
     return added
 
 
-def candidate_pool(items, vector, context, weights, *, limit=400):
+def previous_candidate_pool(items, vector, context, weights, *, limit=400):
     """50% relevance head; 25% source patterns; remaining topic directions.
 
     Reserves must score >=75% of the best frozen base score in this category.
@@ -119,3 +128,20 @@ def candidate_pool(items, vector, context, weights, *, limit=400):
         if row['bangumi_id'] not in used:
             chosen.append(row); used.add(row['bangumi_id'])
     return sorted(chosen, key=ranking_v2._order)
+
+
+def candidate_pool(items, vector, context, weights, *, limit=400, category='all', policy_version=None):
+    """Category-specific repair: explore uses the WHOLE frozen V2 pool.
+
+    This is an explicit exploration rollback, not a target-conditioned union or
+    a weaker safety/association threshold. It preserves every original explore
+    candidate for any input, including non-holdout works. Other categories and
+    the previous policy remain exactly reproducible. No scoring changes.
+    """
+    version = policy_version or VERSION
+    if (version not in (VERSION, PREVIOUS_VERSION) or category not in ('all', 'familiar', 'explore')
+            or type(limit) is not int or not 0 <= limit <= CONTRACT['candidate_limit']):
+        raise ValueError('Invalid recall policy/category/limit')
+    if version == VERSION and category == 'explore':
+        return ranking_v2.balanced_candidate_pool(items, vector, limit=limit)
+    return previous_candidate_pool(items, vector, context, weights, limit=limit)

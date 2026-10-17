@@ -20,7 +20,7 @@ from recommendations.models import RecommendationAnime, RecommendationPreference
 from recommendations.quality_audit import catalog_snapshot
 from recommendations.quality_readonly import readonly_snapshot
 from recommendations.recall_comparison import (ARMS, CANDIDATE_ARM, rank_arm,
-    compare_sample, assert_recall_only, verify_policy, review_quality)
+    compare_sample, assert_recall_only, verify_policy, review_quality, RecallObserver)
 from recommendations.recall_diagnostics import load_config
 from recommendations.diagnostics import public_index
 from recommendations.tests import test_diagnostics as fixtures
@@ -128,6 +128,36 @@ class RecallPoolTests(SimpleTestCase):
         self.assertEqual(review_quality(result)['status'], 'insufficient_holdout_evidence')
         with self.assertRaisesMessage(ValueError, 'Unknown comparison arm'):
             rank_arm(None, {}, {}, {}, 'content.v3', 'all')
+
+    def test_explore_repairs_old_floor_loss_by_preserving_complete_frozen_pool(self):
+        rows = [item(n, ('音乐', '成长'), 1.) for n in range(1, 201)]
+        rows += [item(n, ('音乐', '冒险'), .7) for n in range(201, 801)]
+        context, vector = self.context(), {'音乐': 1}
+        old = ranking_v2.balanced_candidate_pool(rows, vector)
+        previous = recall_v2.candidate_pool(rows, vector, context, {}, category='explore',
+                                           policy_version=recall_v2.PREVIOUS_VERSION)
+        fixed = recall_v2.candidate_pool(rows, vector, context, {}, category='explore')
+        self.assertEqual(len(previous), 200)
+        self.assertEqual(fixed, old); self.assertEqual(len(fixed), 400)
+        probe = RecallObserver(201); probe.audit_items('eligible', rows)
+        self.assertTrue(probe.reserve_probe['previous_gate_excludes'])
+        self.assertIn(201, [row['bangumi_id'] for row in fixed])
+        # The repair is category-wide, not a special case for a test identity.
+        self.assertTrue(set(row['bangumi_id'] for row in old) <= set(row['bangumi_id'] for row in fixed))
+
+    def test_repair_does_not_change_discovery_familiar_or_previous_policy(self):
+        rows = [item(n, ('音乐', '成长') if n % 3 else ('日常', '冒险'), .8 + (n % 20) / 1000)
+                for n in range(1, 1000)]
+        vector, context = {'音乐': 1, '日常': 1}, self.context([('音乐', '成长')])
+        previous = recall_v2.previous_candidate_pool(rows, vector, context, {})
+        for category in ('all', 'familiar'):
+            self.assertEqual(recall_v2.candidate_pool(rows, vector, context, {}, category=category), previous)
+        self.assertEqual(recall_v2.candidate_pool(rows, vector, context, {}, category='explore',
+                         policy_version=recall_v2.PREVIOUS_VERSION), previous)
+        with self.assertRaises(ValueError):
+            recall_v2.policy_contract('unknown')
+        with self.assertRaises(ValueError):
+            recall_v2.candidate_pool(rows, vector, context, {}, category='unknown')
 
 
 class RecallOptimizationPostgresTests(TransactionTestCase):
