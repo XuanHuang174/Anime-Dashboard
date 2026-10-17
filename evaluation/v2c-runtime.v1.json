@@ -1,0 +1,11 @@
+{
+  "version": "pattern-prefix-runtime.v1",
+  "ranking_policy": "balanced-rerank.v3",
+  "pair_cache_limit": 8192,
+  "micro_repeats": 5,
+  "state": "exact-prefix-accumulators-per-genre-set",
+  "winner": "every-original-float-score-and-id",
+  "memo_scope": "one-call-only",
+  "float_overlap": "frozen-sorted-weighted-overlap",
+  "online_enabled": false
+}

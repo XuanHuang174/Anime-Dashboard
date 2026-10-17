@@ -355,7 +355,8 @@ def _v2_item(row, context, options, weights, vector, seed_ids, scorer, *, verifi
     return {'bangumi_id': identity, 'tags': tags, 'value': value, 'evidence': evidence, 'reason': reason}
 
 
-def _rank_context_v2(context, options, index, *, policy_version=None, observer=None, recall_policy_version=None):
+def _rank_context_v2(context, options, index, *, policy_version=None, observer=None, recall_policy_version=None,
+                     runtime_version=None):
     if context['mode'] == 'cold_start':
         return [], []
     weights, vector = index['weights'], taste_vector(context, deterministic=True)
@@ -437,12 +438,25 @@ def _rank_context_v2(context, options, index, *, policy_version=None, observer=N
     context['_ranking_trace']['validated_candidates'] = len(current)
     if observer is not None:
         observer.stage('validated', (item['anime'].bangumi_id for item in current))
+        if hasattr(observer, 'audit_items'):
+            observer.audit_items('validated', current)
     _diagnostic_target_trace(context, validated=(item['bangumi_id'] for item in current))
     context['_ranking_trace']['public_tag_patterns'] = len(scorer.tags_cache)
     context['_ranking_trace']['evidence_patterns'] = len(scorer.patterns)
     context['_ranking_trace']['changed_public_rows'] = len(changed)
     hydrated = perf_counter()
-    ranked = ranking_v2.rerank_candidates(current, vector, weights, category=options['category'], limit=MAX_RESULTS)
+    if runtime_version is not None:
+        from . import rerank_runtime
+        if runtime_version != rerank_runtime.VERSION:
+            raise RecommendationUnavailable('不支持的离线运行时。')
+        ranked, runtime_stats = rerank_runtime.rerank_candidates(current, vector, weights,
+                                                               category=options['category'], limit=MAX_RESULTS)
+        context['_ranking_trace']['runtime'] = runtime_stats
+        runtime_stats.update(live_public_revision_rows=len(public_rows),
+                             exact_public_feature_reuses=len(public_rows) - len(changed),
+                             changed_public_rows=len(changed))
+    else:
+        ranked = ranking_v2.rerank_candidates(current, vector, weights, category=options['category'], limit=MAX_RESULTS)
     if observer is not None:
         observer.stage('returned', (item['anime'].bangumi_id for item in ranked))
     context['_ranking_trace']['stage_ms'] = dict(zip(
@@ -470,7 +484,8 @@ def rank_context(context, options, index, *, algorithm_version=ALGORITHM_VERSION
     raise RecommendationUnavailable('推荐算法配置暂不可用，请联系管理员。')
 
 
-def rank_recall_candidate(context, options, index, *, pipeline_observer=None, recall_policy_version=None):
+def rank_recall_candidate(context, options, index, *, pipeline_observer=None, recall_policy_version=None,
+                          runtime_version=None):
     """Trusted offline V2-B entry ONLY; no setting/HTTP parameter selects this.
 
     The original rank_context/content.v2 path keeps its frozen pool. No private
@@ -480,7 +495,8 @@ def rank_recall_candidate(context, options, index, *, pipeline_observer=None, re
     genre_rules(index.get('taxonomy_version'))
     if context.get('taxonomy_version', vocabulary.TAXONOMY_VERSION) != index.get('taxonomy_version', vocabulary.TAXONOMY_VERSION):
         raise RecommendationUnavailable('画像与候选题材版本不一致。')
-    return _rank_context_v2(context, options, index, recall_policy_version=recall_policy_version or VERSION, observer=pipeline_observer)
+    return _rank_context_v2(context, options, index, recall_policy_version=recall_policy_version or VERSION,
+                            observer=pipeline_observer, runtime_version=runtime_version)
 
 
 def rank_candidates(user, options):

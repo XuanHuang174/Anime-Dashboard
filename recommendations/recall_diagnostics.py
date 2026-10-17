@@ -211,7 +211,7 @@ def output_digest(rows):
 
 
 def traced_rank(user, context, index, filters, algorithm, category, *, target=None, recall_policy_version=None,
-                observer_type=PipelineObserver):
+                observer_type=PipelineObserver, runtime_version=None):
     """Unobserved control vs observed run, actual functions on the same snapshot.
 
     Extra presentation checking is timed separately, NEVER hidden in ranking
@@ -229,15 +229,17 @@ def traced_rank(user, context, index, filters, algorithm, category, *, target=No
                 if algorithm != 'content.v2' or recall_policy_version not in (VERSION, PREVIOUS_VERSION):
                     raise ValueError('Invalid offline recall comparison arm')
                 ranked, weights = engine.rank_recall_candidate(clone, options, index, pipeline_observer=instrument,
-                                                              recall_policy_version=recall_policy_version)
+                                                              recall_policy_version=recall_policy_version,
+                                                              runtime_version=runtime_version)
             else:
+                if runtime_version is not None:
+                    raise ValueError('Runtime experiment requires explicit offline recall context')
                 ranked, weights = engine.rank_context(clone, options, index, algorithm_version=algorithm,
                                                       **({'pipeline_observer': instrument} if instrument is not None else {}))
         runs[name] = {'wall_ms': round((perf_counter() - started) * 1000, 3),
                       'cpu_ms': round((process_time() - cpu) * 1000, 3), 'sql_count': counter.count,
                       'sql_execute_ms': round(counter.seconds * 1000, 3)}
-        if recall_policy_version is not None:
-            runs[name]['stage_trace'] = deepcopy(clone.get('_ranking_trace', {}))
+        runs[name]['stage_trace'] = deepcopy(clone.get('_ranking_trace', {}))
         controls[name], outputs[name] = output_digest(ranked), ranked
     if controls['control'] != controls['observed'] or runs['control']['sql_count'] != runs['observed']['sql_count']:
         raise ValueError('Observer changed ordering/scores/evidence/SQL count; audit stopped')
@@ -261,10 +263,12 @@ def traced_rank(user, context, index, filters, algorithm, category, *, target=No
         top_10={'observed': True, 'count': min(10, len(rows)), 'target_position': position if position and position <= 10 else None})
     return rows, {'engine_path': 'rank_recall_candidate' if recall_policy_version else 'rank_context', 'algorithm_version': algorithm,
                   'recall_policy_version': recall_policy_version,
+                  'runtime_version': runtime_version,
                   'v2_policy_version': ranking_v2.POLICY_VERSION if algorithm == 'content.v2' else None,
                   'pipeline': pipeline, 'target_returned_rank': position,
                   'noninterference': {'order_scores_evidence_equal': True, 'sql_count_equal': True,
-                                      'presentation_equal': True, 'output_hmac': controls['observed']},
+                                      'presentation_equal': True, 'output_hmac': controls['observed'],
+                                      'presentation_hmac': presentation['observed']},
                   'runs': runs, 'presentation_audit': {'wall_ms': round((perf_counter() - started) * 1000, 3),
                                                       'sql_count': counter.count, 'passed': True}}
 
