@@ -1,0 +1,15 @@
+{
+  "version": "dual-view-discovery.v1",
+  "scope": "offline-personalized-all-only",
+  "views": ["existing-v2-source-score", "existing-v1-aggregate-score"],
+  "pool": "equal-round-robin-existing-recall-per-view-deduplicate-400",
+  "fusion": "equal-normalized-reciprocal-ranks-after-current-hydration",
+  "rank_smoothing": 24,
+  "smoothing_origin": "existing-batch-size-not-fitted",
+  "rerank": "unchanged-v2-prefix-repetition",
+  "exploration": "association-novelty-explore.v3",
+  "other_categories_and_cold_start": "exact-protected-v2",
+  "evaluation_scope": "previously-revealed-development-targets-not-independent-validation",
+  "parameter_search": false,
+  "serving_enabled": false
+}

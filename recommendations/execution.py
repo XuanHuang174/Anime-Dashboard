@@ -39,11 +39,12 @@ def execute_v2(user, options, index, *, context=None, observer=None, serving_ena
     if not user.is_authenticated:
         raise NotAuthenticated()
     if discovery_policy_version is not None:
-        from . import discovery_candidate
+        from . import discovery_candidate, dual_discovery
         from .exploration_candidate import PROTECTED_VERSION
-        if (serving_enabled or discovery_policy_version != discovery_candidate.VERSION
+        if (serving_enabled or discovery_policy_version not in (discovery_candidate.VERSION, dual_discovery.VERSION)
                 or exploration_policy_version != PROTECTED_VERSION):
             raise engine.RecommendationUnavailable('发现候选仅允许离线对照，不能上线。')
+        discovery_candidate = dual_discovery if discovery_policy_version == dual_discovery.VERSION else discovery_candidate
         discovery_candidate.policy_contract()
     if exploration_policy_version is not None:
         from . import exploration_candidate

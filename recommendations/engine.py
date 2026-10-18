@@ -357,6 +357,8 @@ def _v2_item(row, context, options, weights, vector, seed_ids, scorer, *, verifi
     item = {'bangumi_id': identity, 'tags': tags, 'value': value, 'evidence': evidence, 'reason': reason}
     if hasattr(scorer, 'reference_value'):
         item['_recall_reference_value'] = scorer.reference_value(tags, row['score'])
+    if hasattr(scorer, 'aggregate_value') and scorer.context['mode'] == 'personalized' and options['category'] == 'all':
+        item['_aggregate_view_value'] = scorer.aggregate_value(tags, row['score'])
     return item
 
 
@@ -364,11 +366,12 @@ def _rank_context_v2(context, options, index, *, policy_version=None, observer=N
                      runtime_version=None, browse_control_version=None, exploration_policy_version=None,
                      discovery_policy_version=None):
     if discovery_policy_version is not None:
-        from . import discovery_candidate
+        from . import discovery_candidate, dual_discovery
         from .exploration_candidate import PROTECTED_VERSION
-        if (discovery_policy_version != discovery_candidate.VERSION or browse_control_version is None
+        if (discovery_policy_version not in (discovery_candidate.VERSION, dual_discovery.VERSION) or browse_control_version is None
                 or exploration_policy_version != PROTECTED_VERSION):
             raise RecommendationUnavailable('不支持的离线发现策略。')
+        discovery_candidate = dual_discovery if discovery_policy_version == dual_discovery.VERSION else discovery_candidate
         discovery_candidate.policy_contract()
     if context['mode'] == 'cold_start':
         return [], []
@@ -389,7 +392,8 @@ def _rank_context_v2(context, options, index, *, policy_version=None, observer=N
                 if exploration_policy_version in (exploration_candidate.DUAL_VERSION, exploration_candidate.PROTECTED_VERSION)
                 else exploration_candidate.ExplorationScorer)
         if discovery_policy_version is not None:
-            scorer_type = discovery_candidate.DiscoveryScorer
+            scorer_type = (dual_discovery.DualDiscoveryScorer if discovery_policy_version == dual_discovery.VERSION
+                           else discovery_candidate.DiscoveryScorer)
         scorer = scorer_type(context, options, weights, vector, index.get('taxonomy_version'), policy_version=policy_version)
     else:
         if exploration_policy_version is not None:
@@ -451,6 +455,9 @@ def _rank_context_v2(context, options, index, *, policy_version=None, observer=N
                 from . import protected_exploration
                 pool, scorer.protection_plan = protected_exploration.prepare_pool(
                     eligible, vector, weights, options, proposal_pool=pool, limit=CANDIDATE_POOL)
+    if discovery_policy_version is not None:
+        if discovery_policy_version == dual_discovery.VERSION and dual_discovery.active(context, options):
+            pool = dual_discovery.candidate_pool(eligible, vector, context, weights, limit=CANDIDATE_POOL)
     if observer is not None:
         observer.stage('eligible', (item['bangumi_id'] for item in sorted(
             eligible, key=lambda item: (-item['value'], item['bangumi_id']))))
@@ -494,6 +501,9 @@ def _rank_context_v2(context, options, index, *, policy_version=None, observer=N
     context['_ranking_trace']['changed_public_rows'] = len(changed)
     hydrated = perf_counter()
     if browse_control_version is not None:
+        if discovery_policy_version is not None:
+            if discovery_policy_version == dual_discovery.VERSION and dual_discovery.active(context, options):
+                current = dual_discovery.fuse(current)
         ranked, runtime_stats = v2_controls.rerank(current, vector, weights, options)
         if exploration_policy_version is not None:
             if hasattr(scorer, 'protection_plan'):

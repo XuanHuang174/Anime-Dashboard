@@ -21,6 +21,7 @@ if __name__ == '__main__':
         'recommendations.tests.test_runtime_optimization', 'recommendations.tests.test_v2_execution',
         'recommendations.tests.test_v2_browsing', 'recommendations.tests.test_v2_deployment',
         'recommendations.tests.test_exploration_candidate', 'recommendations.tests.test_protected_exploration',
-        'recommendations.tests.test_unused_validation', 'recommendations.tests.test_discovery_candidate'),
+        'recommendations.tests.test_unused_validation', 'recommendations.tests.test_discovery_candidate',
+        'recommendations.tests.test_dual_discovery'),
         scope='v2d3-gated-dispatch-and-rollback-isolated-postgresql', output_name='acceptance-v2d3',
         extra_race_class='FeedbackBoundaryConcurrencyTests', expected_extra_races=6))

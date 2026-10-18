@@ -13,8 +13,23 @@ from .comparison import QueryCounter, comparable_metrics
 from .discovery_candidate import execute_candidate
 from .recall_diagnostics import output_digest
 from .version_control import ARTIFACT_VERSION, canonical_bytes
+from .query_phases import QueryPhases
 
 ARMS = ('current_v1', 'reference_v2', 'protected_v2', 'candidate_v2')
+DUAL_ARMS = ('current_v1', 'reference_v2', 'protected_v2', 'aggregate_v2', 'candidate_v2')
+
+
+def frozen_input_status(lock, entries, catalog_revision, active_account_count):
+    """Explain a stop using counts only; do not export account handles/inputs."""
+    previous = {entry['account']: entry for entry in lock['entries']}
+    current = {entry['account']: entry for entry in entries}
+    shared = previous.keys() & current.keys()
+    return {'catalog_unchanged': lock['catalog_revision'] == catalog_revision,
+        'expected_active_accounts': lock['active_account_count'], 'current_active_accounts': active_account_count,
+        'expected_eligible_accounts': len(previous), 'current_eligible_accounts': len(current),
+        'changed_original_inputs': sum(previous[key] != current[key] for key in shared),
+        'missing_original_eligible_accounts': len(previous.keys() - current.keys()),
+        'new_eligible_accounts': len(current.keys() - previous.keys())}
 
 
 def read_archive(path, kind):
@@ -64,32 +79,39 @@ class DevelopmentObserver(validation.Observer):
             'base_head_score_mean': sum(row['value'] for row in rows) / len(rows) if rows else None}
 
 
-def run(user, context, index, category, arm, observer=None):
-    if arm != 'candidate_v2':
-        return validation.run_arm(user, context, index, category,
-            'candidate_v2' if arm == 'protected_v2' else arm, observer)
+def run(user, context, index, category, arm, observer=None, *, dual=False):
+    phases = QueryPhases()
+    if arm not in ('candidate_v2', 'aggregate_v2'):
+        with connection.execute_wrapper(phases):
+            rows, timing = validation.run_arm(user, context, index, category,
+                'candidate_v2' if arm == 'protected_v2' else arm, observer)
+        return rows, {**timing, 'sql_phases': phases.summary()}
+    executor = execute_candidate
+    if dual and arm == 'candidate_v2':
+        from .dual_discovery import execute_candidate as executor
     counter = QueryCounter()
     started, cpu = perf_counter(), process_time()
-    with connection.execute_wrapper(counter):
-        rows, _, metadata = execute_candidate(user, {'category': category}, index, context=context, observer=observer)
+    with connection.execute_wrapper(counter), connection.execute_wrapper(phases):
+        rows, _, metadata = executor(user, {'category': category}, index, context=context, observer=observer)
     return rows, {'compute_ms': round((perf_counter() - started) * 1000, 3),
         'process_cpu_ms': round((process_time() - cpu) * 1000, 3), 'sql_queries': counter.count,
-        'sql_execute_ms': round(counter.seconds * 1000, 3), 'candidate_pool': metadata['trace'].get('candidate_pool', 0)}
+        'sql_execute_ms': round(counter.seconds * 1000, 3), 'candidate_pool': metadata['trace'].get('candidate_pool', 0),
+        'sql_phases': phases.summary()}
 
 
-def evaluate(user, context, index, targets):
+def evaluate(user, context, index, targets, *, dual=False):
     training = validation.joint_training(context, targets)
     original = deepcopy(context)
     features = {identity: tags for identity, tags, _, _ in index['features']}
     samples, holdout, digests, destinations, summaries = {}, {}, {}, {}, {}
     safe_errors = evidence_errors = checked = 0
-    for arm in ARMS:
+    for arm in DUAL_ARMS if dual else ARMS:
         metrics, performance = {}, {}
         holdout[arm], destinations[arm], summaries[arm] = {}, {}, {}
         for category in ('all', 'familiar', 'explore'):
             observer = DevelopmentObserver(targets, training)
-            first, timing1 = run(user, training, index, category, arm)
-            rows, timing2 = run(user, training, index, category, arm, observer)
+            first, timing1 = run(user, training, index, category, arm, dual=dual)
+            rows, timing2 = run(user, training, index, category, arm, observer, dual=dual)
             digest = output_digest(rows)
             if digest != output_digest(first) or timing1['sql_queries'] != timing2['sql_queries']:
                 raise ValueError('Development instrumentation changed results or SQL')
@@ -127,6 +149,9 @@ def report_verdict(samples):
     result['serving_approval'] = False
     result['hits']['protected_v2'] = {category: sum(s['holdout']['protected_v2'][category]['hit_at_k'] * 4
         for s in samples) for category in ('all', 'familiar', 'explore')}
+    if samples and 'aggregate_v2' in samples[0]['holdout']:
+        result['hits']['aggregate_v2'] = {category: sum(s['holdout']['aggregate_v2'][category]['hit_at_k'] * 4
+            for s in samples) for category in ('all', 'familiar', 'explore')}
     if result['status'] == 'pass_on_target_disjoint_supplement':
         result['status'] = 'development_gates_passed_not_release_approval'
     return result
