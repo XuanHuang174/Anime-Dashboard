@@ -14,7 +14,8 @@ from rest_framework.exceptions import APIException
 from recommendations import browsing, engine
 from recommendations.deployment_evaluation import configuration, cohort_entry, evaluate_sample
 from recommendations.execution import recipe_descriptor as reference_recipe
-from recommendations.exploration_candidate import recipe_descriptor, execute_dual_candidate, DUAL_VERSION
+from recommendations.exploration_candidate import (recipe_descriptor, execute_candidate, execute_dual_candidate,
+    execute_protected_candidate, VERSION, DUAL_VERSION, PROTECTED_VERSION)
 from recommendations.exploration_audit import read_frozen_inputs, verify_inputs, trace_target
 from recommendations.management.commands.evaluate_recommendation_deployment import private_path
 from recommendations.quality_readonly import readonly_snapshot
@@ -28,6 +29,7 @@ class Command(BaseCommand):
         parser.add_argument('--confirm-sitewide-readonly', action='store_true')
         parser.add_argument('--cohort-lock', required=True, type=Path)
         parser.add_argument('--output-dir', required=True, type=Path)
+        parser.add_argument('--policy-version', choices=(VERSION, DUAL_VERSION, PROTECTED_VERSION), default=PROTECTED_VERSION)
 
     def handle(self, *args, **options):
         if (not options['confirm_sitewide_readonly'] or connection.vendor != 'postgresql'
@@ -40,7 +42,10 @@ class Command(BaseCommand):
                 raise ValueError('New output directory required; no overwrite')
             lock = read_frozen_inputs(options['cohort_lock'])
             fingerprint, config = release_descriptor()['fingerprint'], configuration()
-            recipe_descriptor(DUAL_VERSION)  # Verify fixed policy before data reads/ranking.
+            version = options['policy_version']
+            executor = {VERSION: execute_candidate, DUAL_VERSION: execute_dual_candidate,
+                        PROTECTED_VERSION: execute_protected_candidate}[version]
+            recipe_descriptor(version)  # Verify fixed policy before data reads/ranking.
             started = perf_counter()
             with patch('requests.sessions.Session.request', side_effect=AssertionError('No external HTTP')):
                 with readonly_snapshot():
@@ -65,12 +70,12 @@ class Command(BaseCommand):
                             if perf_counter() - started > config['maximum_wall_seconds']:
                                 raise ValueError('Budget exceeded; no partial success')
                         progress('three fixed arms, same four targets')
-                        samples.append(evaluate_sample(user, context, index, progress=progress, candidate_executor=execute_dual_candidate))
+                        samples.append(evaluate_sample(user, context, index, progress=progress, candidate_executor=executor))
                         # ALL frozen explore targets, not only the known lost hit.
                         for number, target in enumerate(sorted(s['bangumi_id'] for s in context['seeds'])[:4], 1):
                             destinations.append({'sample_ordinal': ordinal, 'target_ordinal': number,
-                                'trace': trace_target(user, context, index, target, 'explore')})
-                    body = {'reference_recipe': reference_recipe(), 'candidate_recipe': recipe_descriptor(DUAL_VERSION),
+                                'trace': trace_target(user, context, index, target, 'explore', candidate_executor=executor)})
+                    body = {'reference_recipe': reference_recipe(), 'candidate_recipe': recipe_descriptor(version),
                         'configuration': config, 'samples': samples, 'explore_destinations': destinations,
                         'frozen_cohort_sha256': hashlib.sha256(canonical_bytes(lock)).hexdigest(),
                         'frozen_release_fingerprint': lock['release_fingerprint'],

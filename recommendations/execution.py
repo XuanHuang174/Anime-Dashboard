@@ -39,7 +39,8 @@ def execute_v2(user, options, index, *, context=None, observer=None, serving_ena
         raise NotAuthenticated()
     if exploration_policy_version is not None:
         from . import exploration_candidate
-        if serving_enabled or exploration_policy_version not in (exploration_candidate.VERSION, exploration_candidate.DUAL_VERSION):
+        if serving_enabled or exploration_policy_version not in (exploration_candidate.VERSION, exploration_candidate.DUAL_VERSION,
+                                                                exploration_candidate.PROTECTED_VERSION):
             raise engine.RecommendationUnavailable('探索候选仅允许离线对照，不能上线。')
     options = v2_controls.validate_options(options)
     if connection.vendor != 'postgresql':

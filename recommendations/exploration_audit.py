@@ -50,7 +50,7 @@ def verify_inputs(lock, *, entries, catalog_revision, active_account_count):
         raise ValueError('Frozen cohort/catalog/private inputs drifted; stopped, no reselection')
 
 
-def trace_target(user, context, index, target, category):
+def trace_target(user, context, index, target, category, *, candidate_executor=execute_dual_candidate):
     clone = without_seed(context, target, minimum=settings.RECOMMENDATION_PROFILE_MIN_SAMPLES)
     if clone is None:
         raise ValueError('Frozen holdout lost training eligibility')
@@ -62,20 +62,21 @@ def trace_target(user, context, index, target, category):
         if arm == 'current_v1':
             rows, _ = engine.rank_context(deepcopy(clone), options, index, pipeline_observer=observer)
         else:
-            executor = execute_v2 if arm == 'current_v2' else execute_dual_candidate
+            executor = execute_v2 if arm == 'current_v2' else candidate_executor
             rows, _, _ = executor(user, options, index, context=clone, observer=observer)
         result[arm] = observer.export()
     return result
 
 
-def audit_history(user, context, summary, index, catalog, states, config, progress=lambda text: None):
+def audit_history(user, context, summary, index, catalog, states, config, progress=lambda text: None,
+                  *, candidate_executor=execute_dual_candidate):
     local = deepcopy(config)
     local['algorithms'] = ['content.v1', 'reference_v2', 'candidate_v2']
 
     def ranker(owner, private, public, filters, arm, category, *, target=None):
         if arm == 'content.v1':
             return traced_rank(owner, private, public, filters, arm, category, target=target)
-        executor = execute_v2 if arm == 'reference_v2' else execute_dual_candidate
+        executor = execute_v2 if arm == 'reference_v2' else candidate_executor
         return traced_rank(owner, private, public, filters, 'content.v2', category, target=target,
                            prepared_executor=executor)
 

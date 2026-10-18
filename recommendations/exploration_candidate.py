@@ -18,11 +18,12 @@ from .version_control import canonical_bytes
 
 VERSION = 'association-novelty-explore.v1'
 DUAL_VERSION = 'association-novelty-explore.v2'
+PROTECTED_VERSION = 'association-novelty-explore.v3'
 WEIGHTS = (.5, .4, .1)
 
 
 def policy_contract(version=VERSION):
-    if version not in (VERSION, DUAL_VERSION):
+    if version not in (VERSION, DUAL_VERSION, PROTECTED_VERSION):
         raise ValueError('Unknown offline exploration policy')
     body = {'version': version, 'scope': 'offline-personalized-explore-only',
         'weights': dict(zip(('related', 'novelty', 'public_quality'), WEIGHTS)),
@@ -34,6 +35,12 @@ def policy_contract(version=VERSION):
         'cohort': 'original-d3-lock-and-original-v2a-lock-no-reselection',
         'parameter_search': False, 'serving_enabled': False}
     suffix = 'v1' if version == VERSION else 'v2'
+    if version == PROTECTED_VERSION:
+        from . import protected_exploration
+        suffix = 'v3'
+        body.update(candidate_pool='dual-view-with-incumbent-and-reference-reserve-400',
+                    rerank='association-prefix-protection-and-incumbent-reserve',
+                    protection=protected_exploration.policy_contract())
     declared = json.loads((Path(settings.BASE_DIR) / f'evaluation/v2d-exploration.{suffix}.json').read_text(encoding='utf-8'))
     if body != declared:
         raise ValueError('Exploration preregistration changed; no silent tuning')
@@ -139,3 +146,9 @@ def execute_dual_candidate(user, options, index, *, context=None, observer=None)
     from .execution import execute_v2
     return execute_v2(user, options, index, context=context, observer=observer,
                       exploration_policy_version=DUAL_VERSION)
+
+
+def execute_protected_candidate(user, options, index, *, context=None, observer=None):
+    from .execution import execute_v2
+    return execute_v2(user, options, index, context=context, observer=observer,
+                      exploration_policy_version=PROTECTED_VERSION)

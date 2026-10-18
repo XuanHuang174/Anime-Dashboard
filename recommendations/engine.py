@@ -373,11 +373,13 @@ def _rank_context_v2(context, options, index, *, policy_version=None, observer=N
         scorer_type = v2_controls.ControlledScorer
         if exploration_policy_version is not None:
             from . import exploration_candidate
-            if exploration_policy_version not in (exploration_candidate.VERSION, exploration_candidate.DUAL_VERSION):
+            if exploration_policy_version not in (exploration_candidate.VERSION, exploration_candidate.DUAL_VERSION,
+                                                  exploration_candidate.PROTECTED_VERSION):
                 raise RecommendationUnavailable('不支持的离线探索策略。')
             exploration_candidate.policy_contract(exploration_policy_version)
             scorer_type = (exploration_candidate.DualExplorationScorer
-                if exploration_policy_version == exploration_candidate.DUAL_VERSION else exploration_candidate.ExplorationScorer)
+                if exploration_policy_version in (exploration_candidate.DUAL_VERSION, exploration_candidate.PROTECTED_VERSION)
+                else exploration_candidate.ExplorationScorer)
         scorer = scorer_type(context, options, weights, vector, index.get('taxonomy_version'), policy_version=policy_version)
     else:
         if exploration_policy_version is not None:
@@ -431,9 +433,14 @@ def _rank_context_v2(context, options, index, *, policy_version=None, observer=N
     else:
         pool = ranking_v2.balanced_candidate_pool(eligible, vector, limit=CANDIDATE_POOL)
     if exploration_policy_version is not None:
-        if (exploration_policy_version == exploration_candidate.DUAL_VERSION and context['mode'] == 'personalized'
+        if (exploration_policy_version in (exploration_candidate.DUAL_VERSION, exploration_candidate.PROTECTED_VERSION)
+                and context['mode'] == 'personalized'
                 and options['category'] == 'explore'):
             pool = exploration_candidate.dual_pool(eligible, vector, limit=CANDIDATE_POOL)
+            if exploration_policy_version == exploration_candidate.PROTECTED_VERSION:
+                from . import protected_exploration
+                pool, scorer.protection_plan = protected_exploration.prepare_pool(
+                    eligible, vector, weights, options, proposal_pool=pool, limit=CANDIDATE_POOL)
     if observer is not None:
         observer.stage('eligible', (item['bangumi_id'] for item in sorted(
             eligible, key=lambda item: (-item['value'], item['bangumi_id']))))
@@ -478,6 +485,10 @@ def _rank_context_v2(context, options, index, *, policy_version=None, observer=N
     hydrated = perf_counter()
     if browse_control_version is not None:
         ranked, runtime_stats = v2_controls.rerank(current, vector, weights, options)
+        if exploration_policy_version is not None:
+            if hasattr(scorer, 'protection_plan'):
+                ranked, protection = protected_exploration.rerank(current, ranked, scorer.protection_plan, context)
+                runtime_stats['protection'] = protection
         context['_ranking_trace']['runtime'] = runtime_stats
         context['_ranking_trace']['control_policy_version'] = browse_control_version
         context['_ranking_trace']['style'] = options['style']

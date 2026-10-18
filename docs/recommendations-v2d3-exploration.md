@@ -27,9 +27,10 @@
 真实账号只读；写入和并发只在本机独立 PostgreSQL。原历史 4／扩展 12 目标和全站 D3 17 账号／68 目标都不重新挑选。
 
 ```powershell
-# 全站冻结输入复测，当前命令固定使用双路 v2 候选。
+# 全站冻结输入复测，显式选择原双路 v2 候选以复现本阶段。
 .\.venv\Scripts\python.exe manage.py compare_recommendation_exploration `
   --confirm-sitewide-readonly `
+  --policy-version association-novelty-explore.v2 `
   --cohort-lock .tools/v2d3/20261018-expanded-freeze/cohort.lock.json `
   --output-dir .tools/v2d3-exploration/新的唯一目录
 
@@ -46,6 +47,8 @@
 D3 冻结锁来自旧代码，导入函数只允许验证其签名、有效期、原配方和原评测配置，再逐项比较实时输入。报告保留锁摘要及原发布指纹。这**仅是不可变实验输入的导入**，没有放宽测试、性能和上线审批凭据的当前代码校验；过期锁不能静默重新冻结或替换目标。
 
 完整输出在忽略的 `.tools`，不提交账号、作品清单、评分、长评或标签明细。单路候选函数 `execute_candidate` 与双路 `execute_dual_candidate` 均保留，可在明确只读实验中复用；不提供 HTTP 版本参数。
+
+后续相关性保护候选与当前默认离线复测版本见 [保护重排说明](recommendations-v2d3-protection.md)。旧版本规则和负向报告不覆盖；复现时显式指定版本。
 
 ## 隔离回归与回退边界
 
