@@ -19,6 +19,7 @@ if __name__ == '__main__':
         *('recommendations.tests.test_comparison.ComparisonDatabaseTests.' + name for name in COMPARE_CASES),
         'recommendations.tests.test_recall_diagnostics', 'recommendations.tests.test_recall_optimization',
         'recommendations.tests.test_runtime_optimization', 'recommendations.tests.test_v2_execution',
-        'recommendations.tests.test_v2_browsing', 'recommendations.tests.test_v2_deployment'),
+        'recommendations.tests.test_v2_browsing', 'recommendations.tests.test_v2_deployment',
+        'recommendations.tests.test_exploration_candidate'),
         scope='v2d3-gated-dispatch-and-rollback-isolated-postgresql', output_name='acceptance-v2d3',
         extra_race_class='FeedbackBoundaryConcurrencyTests', expected_extra_races=6))

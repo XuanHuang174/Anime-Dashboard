@@ -1,0 +1,12 @@
+{
+  "version": "association-novelty-explore.v1",
+  "scope": "offline-personalized-explore-only",
+  "weights": {"related": 0.5, "novelty": 0.4, "public_quality": 0.1},
+  "weight_origin": "existing-v1-explore-not-fitted-to-holdouts",
+  "candidate_pool": "unchanged-v2-balanced-400",
+  "rerank": "unchanged-v2-prefix-repetition",
+  "other_categories_and_preference_cold_start": "exact-existing-v2",
+  "cohort": "original-d3-lock-and-original-v2a-lock-no-reselection",
+  "parameter_search": false,
+  "serving_enabled": false
+}

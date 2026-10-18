@@ -21,6 +21,11 @@ CHECK_MODULES = ('recommendations.tests.test_contracts_api', 'recommendations.te
                  'recommendations.tests.test_evidence_contract', 'recommendations.tests.test_state_loop',
                  'recommendations.tests.test_interaction_contract')
 SOURCE_PATHS = (
+    'recommendations/exploration_candidate.py', 'recommendations/exploration_audit.py',
+    'evaluation/v2d-exploration.v1.json', 'evaluation/v2d-exploration.v2.json',
+    'recommendations/tests/test_exploration_candidate.py',
+    'recommendations/management/commands/compare_recommendation_exploration.py',
+    'recommendations/management/commands/audit_recommendation_exploration_history.py',
     'recommendations/browsing.py', 'recommendations/browse_controls.py', 'recommendations/tests/test_browsing.py',
     'recommendations/tests/test_browse_closure.py',
     'recommendations/management/commands/profile_recommendation_browse.py',

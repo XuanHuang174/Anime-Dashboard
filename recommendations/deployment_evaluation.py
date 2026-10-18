@@ -52,12 +52,15 @@ def cohort_entry(user, context):
                         for value in sorted(seed['bangumi_id'] for seed in context['seeds'])[:4]]}
 
 
-def measure(user, context, index, options, algorithm):
+def measure(user, context, index, options, algorithm, *, candidate_executor=None):
     clone, queries = deepcopy(context), QueryCounter()
     wall, cpu = perf_counter(), process_time()
     with connection.execute_wrapper(queries):
-        if algorithm == 'current_v2':
-            rows, _, metadata = execute_v2(user, options, index, context=clone)
+        if algorithm in ('current_v2', 'candidate_v2'):
+            executor = candidate_executor if algorithm == 'candidate_v2' else execute_v2
+            if executor is None:
+                raise ValueError('Explicit offline candidate executor required')
+            rows, _, metadata = executor(user, options, index, context=clone)
             clone['_ranking_trace'] = metadata['trace']
         else:
             rows, _ = engine.rank_context(clone, options, index)
@@ -67,19 +70,21 @@ def measure(user, context, index, options, algorithm):
         'sql_execute_ms': round(queries.seconds * 1000, 3), 'candidate_pool': trace.get('candidate_pool', 0)}
 
 
-def evaluate_sample(user, context, index, *, progress=lambda message: None):
+def evaluate_sample(user, context, index, *, progress=lambda message: None, candidate_executor=None):
     from .v2_controls import validate_options
     features = {identity: tags for identity, tags, _, _ in index['features']}
     safe = set(features)
     options = validate_options({})
     arms, baseline = {}, {}
     safety_errors = evidence_errors = evidence_rows = 0
-    for arm in ('current_v1', 'current_v2'):
+    versions = ('current_v1', 'current_v2') + (('candidate_v2',) if candidate_executor else ())
+    for arm in versions:
         metrics, performance, output = {}, {}, {}
         for category in CATEGORIES:
             runs, digests = [], []
             for _ in range(2):
-                rows, timing = measure(user, context, index, {**options, 'category': category}, arm)
+                rows, timing = measure(user, context, index, {**options, 'category': category}, arm,
+                                       candidate_executor=candidate_executor)
                 runs.append(timing); digests.append(output_digest(rows))
             safety_errors += sum(row['anime'].nsfw is not False or row['anime'].bangumi_id not in safe for row in rows)
             output[category] = rows
@@ -88,6 +93,10 @@ def evaluate_sample(user, context, index, *, progress=lambda message: None):
             performance[category] = {'runs': runs, 'stable_order_and_evidence': len(set(digests)) == 1,
                 'maximum_compute_ms': max(r['compute_ms'] for r in runs), 'maximum_sql_queries': max(r['sql_queries'] for r in runs)}
         baseline[arm] = output
+        if arm == 'candidate_v2':
+            for category in ('all', 'familiar'):
+                if output_digest(output[category]) != output_digest(baseline['current_v2'][category]):
+                    raise ValueError('Offline exploration candidate changed another category')
         arms[arm] = {'categories': metrics, 'performance': performance,
                      'category_differences': category_differences(output, top_k=10)}
     holdout = {arm: {category: [] for category in CATEGORIES} for arm in arms}
@@ -97,10 +106,16 @@ def evaluate_sample(user, context, index, *, progress=lambda message: None):
         clone = without_seed(context, target, minimum=settings.RECOMMENDATION_PROFILE_MIN_SAMPLES)
         if clone is None:
             raise ValueError('Frozen natural target lost minimum training samples')
+        fold_outputs = {}
         for arm in arms:
             for category in CATEGORIES:
-                rows, timing = measure(user, clone, index, {**options, 'category': category}, arm)
+                rows, timing = measure(user, clone, index, {**options, 'category': category}, arm,
+                                       candidate_executor=candidate_executor)
                 fold_performance[arm].append(timing)
+                fold_outputs[arm, category] = output_digest(rows)
+                if arm == 'candidate_v2' and category in ('all', 'familiar') and (
+                        fold_outputs[arm, category] != fold_outputs['current_v2', category]):
+                    raise ValueError('Offline exploration candidate changed another holdout category')
                 metrics = comparable_metrics(rows, clone, clone, features, 10)
                 evidence_errors += metrics['evidence_error_count']; evidence_rows += len(rows)
                 safety_errors += sum(row['anime'].nsfw is not False or row['anime'].bangumi_id not in safe for row in rows)

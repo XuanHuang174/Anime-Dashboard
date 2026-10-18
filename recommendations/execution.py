@@ -29,7 +29,7 @@ def recipe_descriptor(*, serving_enabled=False):
     return {**body, 'recipe_revision': hashlib.sha256(canonical_bytes(body)).hexdigest()}
 
 
-def execute_v2(user, options, index, *, context=None, observer=None, serving_enabled=False):
+def execute_v2(user, options, index, *, context=None, observer=None, serving_enabled=False, exploration_policy_version=None):
     """Own-user service; caller supplies fresh profile/index inside a snapshot.
 
     Does not mint cursors or feed any existing serving route. D2 must bind the
@@ -37,13 +37,18 @@ def execute_v2(user, options, index, *, context=None, observer=None, serving_ena
     """
     if not user.is_authenticated:
         raise NotAuthenticated()
+    if exploration_policy_version is not None:
+        from . import exploration_candidate
+        if serving_enabled or exploration_policy_version not in (exploration_candidate.VERSION, exploration_candidate.DUAL_VERSION):
+            raise engine.RecommendationUnavailable('探索候选仅允许离线对照，不能上线。')
     options = v2_controls.validate_options(options)
     if connection.vendor != 'postgresql':
         raise engine.RecommendationUnavailable('V2执行需要PostgreSQL只读快照。')
     if not connection.in_atomic_block:
         from .quality_readonly import readonly_snapshot
         with readonly_snapshot():
-            return execute_v2(user, options, index, context=context, observer=observer, serving_enabled=serving_enabled)
+            return execute_v2(user, options, index, context=context, observer=observer, serving_enabled=serving_enabled,
+                              exploration_policy_version=exploration_policy_version)
     with connection.cursor() as cursor:
         cursor.execute('SHOW transaction_read_only'); readonly = cursor.fetchone()[0]
         cursor.execute('SHOW transaction_isolation'); isolation = cursor.fetchone()[0]
@@ -57,11 +62,14 @@ def execute_v2(user, options, index, *, context=None, observer=None, serving_ena
         recipe = require_recipe()
     else:
         recipe = recipe_descriptor()
+        if exploration_policy_version is not None:
+            recipe = exploration_candidate.recipe_descriptor(exploration_policy_version)
     if context.get('taxonomy_version', engine.vocabulary.TAXONOMY_VERSION) != index.get('taxonomy_version', engine.vocabulary.TAXONOMY_VERSION):
         raise engine.RecommendationUnavailable('画像与目录题材规则不一致。')
     prepared = deepcopy(context)
     ranked, weights = engine._rank_context_v2(prepared, options, index,
         recall_policy_version=recipe['recall_policy_version'], runtime_version=recipe['runtime_version'],
-        browse_control_version=recipe['control_policy_version'], observer=observer)
+        browse_control_version=recipe['control_policy_version'], observer=observer,
+        exploration_policy_version=exploration_policy_version)
     return ranked, weights, {**recipe, 'effective_conditions': options,
                              'trace': deepcopy(prepared.get('_ranking_trace', {}))}

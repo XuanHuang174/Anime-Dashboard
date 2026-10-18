@@ -354,11 +354,14 @@ def _v2_item(row, context, options, weights, vector, seed_ids, scorer, *, verifi
     if scored is None:
         return None
     evidence, reason, value = scored
-    return {'bangumi_id': identity, 'tags': tags, 'value': value, 'evidence': evidence, 'reason': reason}
+    item = {'bangumi_id': identity, 'tags': tags, 'value': value, 'evidence': evidence, 'reason': reason}
+    if hasattr(scorer, 'reference_value'):
+        item['_recall_reference_value'] = scorer.reference_value(tags, row['score'])
+    return item
 
 
 def _rank_context_v2(context, options, index, *, policy_version=None, observer=None, recall_policy_version=None,
-                     runtime_version=None, browse_control_version=None):
+                     runtime_version=None, browse_control_version=None, exploration_policy_version=None):
     if context['mode'] == 'cold_start':
         return [], []
     weights, vector = index['weights'], taste_vector(context, deterministic=True)
@@ -367,8 +370,18 @@ def _rank_context_v2(context, options, index, *, policy_version=None, observer=N
         from . import v2_controls
         if browse_control_version != v2_controls.VERSION:
             raise RecommendationUnavailable('不支持的浏览控制版本。')
-        scorer = v2_controls.ControlledScorer(context, options, weights, vector, index.get('taxonomy_version'), policy_version=policy_version)
+        scorer_type = v2_controls.ControlledScorer
+        if exploration_policy_version is not None:
+            from . import exploration_candidate
+            if exploration_policy_version not in (exploration_candidate.VERSION, exploration_candidate.DUAL_VERSION):
+                raise RecommendationUnavailable('不支持的离线探索策略。')
+            exploration_candidate.policy_contract(exploration_policy_version)
+            scorer_type = (exploration_candidate.DualExplorationScorer
+                if exploration_policy_version == exploration_candidate.DUAL_VERSION else exploration_candidate.ExplorationScorer)
+        scorer = scorer_type(context, options, weights, vector, index.get('taxonomy_version'), policy_version=policy_version)
     else:
+        if exploration_policy_version is not None:
+            raise RecommendationUnavailable('离线探索策略需要完整浏览控制合同。')
         scorer = V2RequestScorer(context, options, weights, vector, index.get('taxonomy_version'), policy_version=policy_version)
     # Cached tags are usable ONLY after an exact CURRENT SHA256 input match.
     # Safety and scores are live even when the feature fingerprint is unchanged.
@@ -417,6 +430,10 @@ def _rank_context_v2(context, options, index, *, policy_version=None, observer=N
                                       category=options['category'], policy_version=recall_policy_version)
     else:
         pool = ranking_v2.balanced_candidate_pool(eligible, vector, limit=CANDIDATE_POOL)
+    if exploration_policy_version is not None:
+        if (exploration_policy_version == exploration_candidate.DUAL_VERSION and context['mode'] == 'personalized'
+                and options['category'] == 'explore'):
+            pool = exploration_candidate.dual_pool(eligible, vector, limit=CANDIDATE_POOL)
     if observer is not None:
         observer.stage('eligible', (item['bangumi_id'] for item in sorted(
             eligible, key=lambda item: (-item['value'], item['bangumi_id']))))
