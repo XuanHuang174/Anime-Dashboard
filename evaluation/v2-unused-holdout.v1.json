@@ -1,0 +1,22 @@
+{
+  "contract_version": "recommendations.unused-holdout.v1",
+  "selection": "unused-pair-hmac-order.v1",
+  "targets_per_account": 4,
+  "minimum_training_samples": 3,
+  "conservative_legacy_prefix": 5,
+  "exclude_historical_accounts": true,
+  "split": "joint-target-removal",
+  "top_k": 10,
+  "repeats": 2,
+  "maximum_accounts": 200,
+  "maximum_evaluation_accounts": 100,
+  "minimum_evaluation_accounts": 2,
+  "minimum_total_targets": 8,
+  "maximum_wall_seconds": 1200,
+  "candidate_policy": "association-novelty-explore.v3",
+  "arms": ["current_v1", "reference_v2", "candidate_v2"],
+  "single_attempt": true,
+  "strict_unseen_user_blind_test": false,
+  "zero_hits_is_success": false,
+  "serving_enabled": false
+}
