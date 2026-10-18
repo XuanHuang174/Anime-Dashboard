@@ -361,7 +361,15 @@ def _v2_item(row, context, options, weights, vector, seed_ids, scorer, *, verifi
 
 
 def _rank_context_v2(context, options, index, *, policy_version=None, observer=None, recall_policy_version=None,
-                     runtime_version=None, browse_control_version=None, exploration_policy_version=None):
+                     runtime_version=None, browse_control_version=None, exploration_policy_version=None,
+                     discovery_policy_version=None):
+    if discovery_policy_version is not None:
+        from . import discovery_candidate
+        from .exploration_candidate import PROTECTED_VERSION
+        if (discovery_policy_version != discovery_candidate.VERSION or browse_control_version is None
+                or exploration_policy_version != PROTECTED_VERSION):
+            raise RecommendationUnavailable('不支持的离线发现策略。')
+        discovery_candidate.policy_contract()
     if context['mode'] == 'cold_start':
         return [], []
     weights, vector = index['weights'], taste_vector(context, deterministic=True)
@@ -380,6 +388,8 @@ def _rank_context_v2(context, options, index, *, policy_version=None, observer=N
             scorer_type = (exploration_candidate.DualExplorationScorer
                 if exploration_policy_version in (exploration_candidate.DUAL_VERSION, exploration_candidate.PROTECTED_VERSION)
                 else exploration_candidate.ExplorationScorer)
+        if discovery_policy_version is not None:
+            scorer_type = discovery_candidate.DiscoveryScorer
         scorer = scorer_type(context, options, weights, vector, index.get('taxonomy_version'), policy_version=policy_version)
     else:
         if exploration_policy_version is not None:

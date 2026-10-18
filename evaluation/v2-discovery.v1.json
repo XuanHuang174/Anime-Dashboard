@@ -1,0 +1,14 @@
+{
+  "version": "aggregate-discovery.v1",
+  "scope": "offline-personalized-all-only",
+  "weights": {"aggregate_idf_cosine": 0.85, "public_quality": 0.1, "novelty": 0.05},
+  "weight_origin": "existing-v1-discovery-not-fitted",
+  "ablation": "base-score-only",
+  "candidate_pool": "unchanged-source-pattern-recall.v2",
+  "rerank": "unchanged-v2-prefix-repetition",
+  "exploration": "association-novelty-explore.v3",
+  "other_categories_and_cold_start": "exact-protected-v2",
+  "evaluation_scope": "previously-revealed-development-targets-not-independent-validation",
+  "parameter_search": false,
+  "serving_enabled": false
+}

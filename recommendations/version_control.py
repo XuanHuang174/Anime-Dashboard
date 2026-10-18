@@ -21,6 +21,9 @@ CHECK_MODULES = ('recommendations.tests.test_contracts_api', 'recommendations.te
                  'recommendations.tests.test_evidence_contract', 'recommendations.tests.test_state_loop',
                  'recommendations.tests.test_interaction_contract')
 SOURCE_PATHS = (
+    'recommendations/discovery_candidate.py', 'recommendations/discovery_development.py',
+    'evaluation/v2-discovery.v1.json', 'recommendations/tests/test_discovery_candidate.py',
+    'recommendations/management/commands/compare_recommendation_discovery.py',
     'recommendations/unused_validation.py', 'evaluation/v2-unused-holdout.v1.json',
     'recommendations/management/commands/validate_recommendation_holdouts.py',
     'recommendations/management/commands/verify_unused_holdout_validation.py',
