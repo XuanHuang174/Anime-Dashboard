@@ -364,7 +364,7 @@ def _v2_item(row, context, options, weights, vector, seed_ids, scorer, *, verifi
 
 def _rank_context_v2(context, options, index, *, policy_version=None, observer=None, recall_policy_version=None,
                      runtime_version=None, browse_control_version=None, exploration_policy_version=None,
-                     discovery_policy_version=None):
+                     discovery_policy_version=None, public_reader=None):
     if discovery_policy_version is not None:
         from . import discovery_candidate, dual_discovery
         from .exploration_candidate import PROTECTED_VERSION
@@ -411,8 +411,12 @@ def _rank_context_v2(context, options, index, *, policy_version=None, observer=N
     # Compact live revisions avoid retransmitting full titles/tags on every
     # request. Bounded client-side fetch, not per-row or server-cursor round trips.
     if browse_control_version is not None:
-        public_rows, scorer.live_metadata = v2_controls.live_public_rows(query, options,
-            public_feature_expression(), MAX_CATALOG_ROWS)
+        if public_reader is not None:
+            public_rows, scorer.live_metadata = public_reader.read(query, options,
+                public_feature_expression(), MAX_CATALOG_ROWS)
+        else:
+            public_rows, scorer.live_metadata = v2_controls.live_public_rows(query, options,
+                public_feature_expression(), MAX_CATALOG_ROWS)
     else:
         public_rows = list(query.annotate(feature_revision=public_feature_expression()).order_by('bangumi_id').values_list(
             'bangumi_id', 'score', 'feature_revision')[:MAX_CATALOG_ROWS + 1])
@@ -467,6 +471,8 @@ def _rank_context_v2(context, options, index, *, policy_version=None, observer=N
             observer.audit_items('pool', pool)
     balanced = perf_counter()
     context['_ranking_trace'] = {'eligible_candidates': len(eligible), 'candidate_pool': len(pool)}
+    if public_reader is not None:
+        context['_ranking_trace']['public_read'] = dict(public_reader.last_read)
     if '_diagnostic_target_id' in context:
         _diagnostic_target_trace(context,
             eligible=(item['bangumi_id'] for item in sorted(eligible, key=lambda item: (-item['value'], item['bangumi_id']))),

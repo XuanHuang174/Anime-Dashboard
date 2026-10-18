@@ -21,6 +21,9 @@ CHECK_MODULES = ('recommendations.tests.test_contracts_api', 'recommendations.te
                  'recommendations.tests.test_evidence_contract', 'recommendations.tests.test_state_loop',
                  'recommendations.tests.test_interaction_contract')
 SOURCE_PATHS = (
+    'recommendations/public_manifest.py', 'recommendations/refrozen_development.py',
+    'recommendations/tests/test_public_manifest.py',
+    'recommendations/management/commands/refreeze_recommendation_discovery.py',
     'recommendations/dual_discovery.py', 'recommendations/query_phases.py',
     'evaluation/v2-dual-discovery.v1.json', 'recommendations/tests/test_dual_discovery.py',
     'recommendations/management/commands/profile_recommendation_discovery.py',

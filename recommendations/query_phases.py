@@ -13,6 +13,8 @@ class QueryPhases:
         normalized = sql.strip().lower()
         if normalized.startswith('show transaction_'):
             return 'transaction_contract'
+        if normalized.startswith('with live as'):
+            return 'public_manifest_digest'
         if 'recommendations_recommendationanime' not in normalized:
             return 'other_read'
         if 'feature_revision' in normalized:

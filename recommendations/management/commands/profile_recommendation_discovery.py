@@ -28,6 +28,7 @@ class Command(BaseCommand):
         parser.add_argument('--confirm-sitewide-readonly', action='store_true')
         parser.add_argument('--prior-site-lock', required=True, type=Path)
         parser.add_argument('--output', required=True, type=Path)
+        parser.add_argument('--optimized-public-read', action='store_true')
 
     def handle(self, *args, **options):
         if (not options['confirm_sitewide_readonly'] or connection.vendor != 'postgresql'
@@ -64,6 +65,16 @@ class Command(BaseCommand):
                         if context != original:
                             raise ValueError('Timing diagnostic changed private inputs')
                         arms[arm] = {'runs': [timing1, timing2], 'stable_order_and_evidence': True}
+                    if options['optimized_public_read']:
+                        from recommendations.public_manifest import PublicManifestReader
+                        reader = PublicManifestReader()
+                        measured = []
+                        for _ in range(2):
+                            rows, timing = development.run(user, context, index, 'all', 'candidate_v2', dual=True, public_reader=reader)
+                            if output_digest(rows) != output_digest(rows2):
+                                raise ValueError('Optimized public reads changed ranking/evidence')
+                            measured.append(timing)
+                        arms['optimized_candidate_v2'] = {'runs': measured, 'stable_order_and_evidence': True}
                     data = {'scope': 'current-input-timing-only-not-frozen-quality-evaluation',
                         'selection': 'first-original-frozen-account-by-pk-not-outcome',
                         'accounts_read': 1, 'targets_selected': 0, 'quality_evaluated': False,

@@ -79,9 +79,9 @@ class DevelopmentObserver(validation.Observer):
             'base_head_score_mean': sum(row['value'] for row in rows) / len(rows) if rows else None}
 
 
-def run(user, context, index, category, arm, observer=None, *, dual=False):
+def run(user, context, index, category, arm, observer=None, *, dual=False, public_reader=None):
     phases = QueryPhases()
-    if arm not in ('candidate_v2', 'aggregate_v2'):
+    if arm not in ('candidate_v2', 'aggregate_v2') and (public_reader is None or arm == 'current_v1'):
         with connection.execute_wrapper(phases):
             rows, timing = validation.run_arm(user, context, index, category,
                 'candidate_v2' if arm == 'protected_v2' else arm, observer)
@@ -92,14 +92,24 @@ def run(user, context, index, category, arm, observer=None, *, dual=False):
     counter = QueryCounter()
     started, cpu = perf_counter(), process_time()
     with connection.execute_wrapper(counter), connection.execute_wrapper(phases):
-        rows, _, metadata = executor(user, {'category': category}, index, context=context, observer=observer)
+        if public_reader is None:
+            rows, _, metadata = executor(user, {'category': category}, index, context=context, observer=observer)
+        else:
+            from .execution import execute_v2
+            from .exploration_candidate import PROTECTED_VERSION
+            from . import dual_discovery, discovery_candidate
+            version = ((dual_discovery.VERSION if dual else discovery_candidate.VERSION) if arm == 'candidate_v2'
+                       else discovery_candidate.VERSION if arm == 'aggregate_v2' else None)
+            rows, _, metadata = execute_v2(user, {'category': category}, index, context=context, observer=observer,
+                exploration_policy_version=None if arm == 'reference_v2' else PROTECTED_VERSION,
+                discovery_policy_version=version, public_reader=public_reader)
     return rows, {'compute_ms': round((perf_counter() - started) * 1000, 3),
         'process_cpu_ms': round((process_time() - cpu) * 1000, 3), 'sql_queries': counter.count,
         'sql_execute_ms': round(counter.seconds * 1000, 3), 'candidate_pool': metadata['trace'].get('candidate_pool', 0),
-        'sql_phases': phases.summary()}
+        'sql_phases': phases.summary(), 'public_read': metadata['trace'].get('public_read')}
 
 
-def evaluate(user, context, index, targets, *, dual=False):
+def evaluate(user, context, index, targets, *, dual=False, public_reader=None):
     training = validation.joint_training(context, targets)
     original = deepcopy(context)
     features = {identity: tags for identity, tags, _, _ in index['features']}
@@ -110,10 +120,13 @@ def evaluate(user, context, index, targets, *, dual=False):
         holdout[arm], destinations[arm], summaries[arm] = {}, {}, {}
         for category in ('all', 'familiar', 'explore'):
             observer = DevelopmentObserver(targets, training)
-            first, timing1 = run(user, training, index, category, arm, dual=dual)
-            rows, timing2 = run(user, training, index, category, arm, observer, dual=dual)
+            first, timing1 = run(user, training, index, category, arm, dual=dual, public_reader=public_reader)
+            rows, timing2 = run(user, training, index, category, arm, observer, dual=dual, public_reader=public_reader)
             digest = output_digest(rows)
-            if digest != output_digest(first) or timing1['sql_queries'] != timing2['sql_queries']:
+            if digest != output_digest(first) or (timing1['sql_queries'] != timing2['sql_queries']
+                    and not (public_reader is not None and timing1['sql_queries'] == timing2['sql_queries'] + 1
+                        and timing1.get('public_read', {}).get('cache_hit') is False
+                        and timing2.get('public_read', {}).get('cache_hit') is True)):
                 raise ValueError('Development instrumentation changed results or SQL')
             digests[arm, category] = digest
             if arm == 'candidate_v2' and category != 'all' and digest != digests['protected_v2', category]:
