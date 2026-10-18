@@ -84,7 +84,7 @@ class RecommendationProfileView(OwnRecommendationAPIView):
 class RecommendationCapabilitiesView(OwnRecommendationAPIView):
     def get(self, request):
         self.check_query_contract(request)
-        from .browsing import capabilities
+        from .deployment import capabilities
         return Response(capabilities())
 
 
@@ -157,7 +157,8 @@ class RecommendationListView(OwnRecommendationAPIView):
         query = RecommendationQuerySerializer(data=request.query_params)
         query.is_valid(raise_exception=True)
         options = query.validated_data
-        from .browsing import browse_requested, browse_page
+        from .browsing import browse_requested
+        from .deployment import browse_page
         if browse_requested(options, request.query_params):
             from .serializers import RecommendationBrowsePageSerializer
             return Response(RecommendationBrowsePageSerializer(
@@ -197,9 +198,8 @@ class RecommendationDetailView(OwnRecommendationAPIView):
         query = RecommendationDetailQuerySerializer(data=request.query_params)
         query.is_valid(raise_exception=True)
         if 'detail_context' in query.validated_data:
-            # D2 prepared contexts are NOT routed to V2 in production. A rolling
-            # rollback must invalidate them, not reinterpret them as V1 details.
-            raise RecommendationSnapshotChanged('浏览版本已变化，请重新加载推荐。')
+            from .deployment import detail
+            return Response(detail(request.user, bangumi_id, query.validated_data))
         anime = safe_catalog().filter(bangumi_id=bangumi_id).first()
         if anime is None:
             raise NotFound('该作品不可用于推荐。')

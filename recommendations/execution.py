@@ -14,7 +14,7 @@ from .version_control import canonical_bytes
 CONTRACT = 'recommendations.execution.v1'
 
 
-def recipe_descriptor():
+def recipe_descriptor(*, serving_enabled=False):
     policy = v2_controls.policy_contract()
     declared = json.loads((Path(settings.BASE_DIR) / 'evaluation/v2d-controls.v1.json').read_text(encoding='utf-8'))
     if declared != policy:
@@ -25,11 +25,11 @@ def recipe_descriptor():
             'control_policy_version': v2_controls.VERSION,
             'control_policy_sha256': hashlib.sha256(canonical_bytes(policy)).hexdigest(),
             'candidate_limit': engine.CANDIDATE_POOL, 'result_limit': engine.MAX_RESULTS,
-            'batch_size': 24, 'default_page_size': 12, 'serving_enabled': False}
+            'batch_size': 24, 'default_page_size': 12, 'serving_enabled': serving_enabled}
     return {**body, 'recipe_revision': hashlib.sha256(canonical_bytes(body)).hexdigest()}
 
 
-def execute_v2(user, options, index, *, context=None, observer=None):
+def execute_v2(user, options, index, *, context=None, observer=None, serving_enabled=False):
     """Own-user service; caller supplies fresh profile/index inside a snapshot.
 
     Does not mint cursors or feed any existing serving route. D2 must bind the
@@ -43,7 +43,7 @@ def execute_v2(user, options, index, *, context=None, observer=None):
     if not connection.in_atomic_block:
         from .quality_readonly import readonly_snapshot
         with readonly_snapshot():
-            return execute_v2(user, options, index, context=context, observer=observer)
+            return execute_v2(user, options, index, context=context, observer=observer, serving_enabled=serving_enabled)
     with connection.cursor() as cursor:
         cursor.execute('SHOW transaction_read_only'); readonly = cursor.fetchone()[0]
         cursor.execute('SHOW transaction_isolation'); isolation = cursor.fetchone()[0]
@@ -52,7 +52,11 @@ def execute_v2(user, options, index, *, context=None, observer=None):
     context = engine.user_context(user) if context is None else context
     if context.get('_owner_id') != user.pk:
         raise PermissionDenied('执行上下文不属于当前用户。')
-    recipe = recipe_descriptor()
+    if serving_enabled:
+        from .deployment import require_recipe
+        recipe = require_recipe()
+    else:
+        recipe = recipe_descriptor()
     if context.get('taxonomy_version', engine.vocabulary.TAXONOMY_VERSION) != index.get('taxonomy_version', engine.vocabulary.TAXONOMY_VERSION):
         raise engine.RecommendationUnavailable('画像与目录题材规则不一致。')
     prepared = deepcopy(context)

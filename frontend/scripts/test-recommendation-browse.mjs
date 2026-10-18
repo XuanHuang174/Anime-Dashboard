@@ -17,15 +17,16 @@ const context = await browser.newContext({ viewport: { width: 1440, height: 1000
 const page = await context.newPage(), errors = [], external = [], requests = [], snapshots = new Map(), owned = new Set()
 let epoch = 0, serial = 0, hold = false, held = [], failure = null, resourceHold = false, resourceRoutes = []
 let browseEnabled = true
-const phaseD2 = process.env.BROWSE_ACCEPTANCE_PHASE === 'v2d2'
+const phaseD3 = process.env.BROWSE_ACCEPTANCE_PHASE === 'v2d3'
+const phaseD2 = process.env.BROWSE_ACCEPTANCE_PHASE === 'v2d2' || phaseD3
 const phase9c = process.env.BROWSE_ACCEPTANCE_PHASE === '9c' || phaseD2
 const recipe = { contract_version: 'recommendations.execution.v1', algorithm_version: 'content.v2',
   ranking_policy_version: 'balanced-rerank.v3', recall_policy_version: 'source-pattern-recall.v2',
   runtime_version: 'pattern-prefix-runtime.v1', control_policy_version: 'browse-controls.v2',
   candidate_limit: 400, result_limit: 120, batch_size: 24, default_page_size: 12,
-  control_policy_sha256: 'c'.repeat(64), recipe_revision: 'd'.repeat(64), serving_enabled: false }
+  control_policy_sha256: 'c'.repeat(64), recipe_revision: 'd'.repeat(64), serving_enabled: phaseD3 }
 const prepared = () => phaseD2 && browseEnabled
-const artifacts = path.resolve(phaseD2 ? '../.tools/acceptance-v2d2-browser' : phase9c ? '../.tools/acceptance-9c-browser' : '../.tools/acceptance-9b-browser')
+const artifacts = path.resolve(phaseD3 ? '../.tools/acceptance-v2d3-browser' : phaseD2 ? '../.tools/acceptance-v2d2-browser' : phase9c ? '../.tools/acceptance-9c-browser' : '../.tools/acceptance-9b-browser')
 await mkdir(artifacts, { recursive: true })
 page.setDefaultTimeout(10000)
 page.on('pageerror', error => errors.push(error.message))

@@ -226,8 +226,12 @@ def browse_page(user, validated, supplied, *, metrics=None, _recipe=None):
     # separately approve serving; a query parameter cannot select this path.
     if _recipe is not None:
         from .execution import recipe_descriptor
-        if _recipe != recipe_descriptor():
+        if _recipe != recipe_descriptor(serving_enabled=_recipe.get('serving_enabled', False)):
             raise engine.RecommendationSnapshotChanged('执行配方已变化，请重新加载。')
+        if _recipe['serving_enabled']:
+            from .deployment import require_recipe
+            if _recipe != require_recipe():
+                raise engine.RecommendationSnapshotChanged()
     contract, salt, policy, algorithm = _scope(_recipe)
     metrics = metrics if metrics is not None else {}
     metrics.update(public_cache='not_used', algorithm_version=algorithm)
@@ -262,7 +266,8 @@ def browse_page(user, validated, supplied, *, metrics=None, _recipe=None):
                 started = perf_counter()
                 if _recipe:
                     from .execution import execute_v2
-                    ranked, weights, execution = execute_v2(user, options, index, context=context)
+                    ranked, weights, execution = execute_v2(user, options, index, context=context,
+                        serving_enabled=_recipe['serving_enabled'])
                     context['_ranking_trace'] = execution['trace']
                 else:
                     ranked, weights = rank_controlled(context, options, filter_index(index, rows, options))

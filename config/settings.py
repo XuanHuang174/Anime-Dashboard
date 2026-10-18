@@ -347,6 +347,9 @@ RECOMMENDATION_PROFILE_MIN_SAMPLES = 3
 # 5B-2 opt-in only. Keep the frozen V1 live until same-snapshot 5B-3 evaluation.
 RECOMMENDATION_ALGORITHM_VERSION = env('RECOMMENDATION_ALGORITHM_VERSION', default='content.v1')
 RECOMMENDATION_V2_APPROVAL_FILE = env('RECOMMENDATION_V2_APPROVAL_FILE', default='')
+# D3 independent serving gate: old frozen-engine approvals cannot enable browse V2.
+RECOMMENDATION_V2_BROWSE_ENABLED = env.bool('RECOMMENDATION_V2_BROWSE_ENABLED', default=False)
+RECOMMENDATION_V2_BROWSE_APPROVAL_FILE = env('RECOMMENDATION_V2_BROWSE_APPROVAL_FILE', default='')
 # 9A opt-in browse contract. Disabling it leaves the original V1 requests intact.
 RECOMMENDATION_BROWSE_ENABLED = env.bool('RECOMMENDATION_BROWSE_ENABLED', default=True)
 RECOMMENDATION_BROWSE_EPOCH = env('RECOMMENDATION_BROWSE_EPOCH', default='1')

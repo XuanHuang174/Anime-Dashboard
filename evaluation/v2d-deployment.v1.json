@@ -1,0 +1,16 @@
+{
+  "contract_version": "recommendations.deployment-evaluation.v1",
+  "cohort": "all-active-personalized-minimum-plus-one",
+  "maximum_accounts": 200,
+  "maximum_eligible_accounts": 100,
+  "minimum_evaluation_accounts": 2,
+  "minimum_total_top10_hits": 1,
+  "target_selection": "ascending-bangumi-id-first-four-no-outcome-selection",
+  "maximum_holdouts": 4,
+  "top_k": 10,
+  "repeats": 2,
+  "maximum_wall_seconds": 1200,
+  "quality_limits": {"maximum_relevance_drop": 0.0, "maximum_holdout_drop": 0.0, "minimum_repeat_improvement": 0.001, "maximum_compute_ms": 5000, "maximum_sql_queries": 6, "minimum_novel_directions": 2},
+  "service_limits": {"maximum_wall_ms": 8000, "maximum_sql_queries": 32},
+  "performance_scope": "render-service-process-prepared-adapter-not-http-latency"
+}

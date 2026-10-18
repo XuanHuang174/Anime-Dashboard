@@ -68,7 +68,7 @@ class EvidencePresenter:
         if execution_scope is not None:
             from .execution import recipe_descriptor
             recipe = execution_scope['recipe']
-            if recipe != recipe_descriptor() or algorithm != recipe['algorithm_version']:
+            if recipe != recipe_descriptor(serving_enabled=recipe.get('serving_enabled', False)) or algorithm != recipe['algorithm_version']:
                 raise ValueError('Evidence execution recipe mismatch')
             self.versions.update({key: recipe[key] for key in ('recipe_revision', 'recall_policy_version',
                 'runtime_version', 'control_policy_version')})
