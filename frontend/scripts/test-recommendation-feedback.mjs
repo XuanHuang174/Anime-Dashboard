@@ -265,7 +265,7 @@ try {
     check('8C stale 409 never auto-writes or closes detail; explicit reload precedes a new decision')
 
     holdCategory = 'familiar'
-    await page.getByRole('button', { name: '熟悉的心动', exact: true }).click()
+    await page.getByRole('button', { name: '电波契合', exact: true }).click()
     await waitFor(() => heldList !== null)
     await page.getByRole('button', { name: '换一种口味', exact: true }).click()
     await menu(page, 301).waitFor()

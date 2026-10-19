@@ -1270,7 +1270,7 @@ def _build_record_stats(queryset):
             short_count += 1
         # Count the union once; an absent score is not a pending watch status.
         if (
-            record["watch_status"] == UserAnimeRecord.WatchStatus.PLAN_TO_WATCH
+            record["watch_status"] in (UserAnimeRecord.WatchStatus.PLAN_TO_WATCH, UserAnimeRecord.WatchStatus.ON_HOLD)
             or "待定" in period
             or "未定档" in period
         ):

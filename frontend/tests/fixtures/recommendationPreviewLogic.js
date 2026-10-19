@@ -2,7 +2,7 @@
 export const DEFAULT_REC_FILTERS = Object.freeze({ type: 'all', minScore: '0', hideRecorded: false })
 export const REC_CATEGORIES = [
   { id: 'all', label: '为你发现' },
-  { id: 'familiar', label: '熟悉的心动' },
+  { id: 'familiar', label: '电波契合' },
   { id: 'explore', label: '换一种口味' },
 ]
 export const REC_SCENARIOS = [

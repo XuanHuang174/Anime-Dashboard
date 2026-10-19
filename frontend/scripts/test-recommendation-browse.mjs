@@ -256,7 +256,7 @@ try {
   check('resource failure remains local; a late page cannot enter a changed-style session')
 
   await open(150); resourceHold = true; await page.getByRole('button', { name: '🧲 寻找资源', exact: true }).click()
-  await page.getByRole('button', { name: '熟悉的心动', exact: true }).evaluate(node => node.click())
+  await page.getByRole('button', { name: '电波契合', exact: true }).evaluate(node => node.click())
   await page.getByRole('button', { name: '查看作品350详情', exact: true }).waitFor()
   assert.equal(await page.locator('dialog').count(), 0)
   for (const route of resourceRoutes.splice(0)) await finish(route, { json: { status: 'success', results: [] } })
@@ -344,6 +344,23 @@ try {
       await page.screenshot({ path: path.join(artifacts, `r1-${width}.png`), fullPage: false })
     }
     check('R1 desktop first screen contains featured cover/title/actions beside taste note; unchanged hero plus 11 grid cards')
+    for (const width of [1440, 1024, 768, 390, 320]) {
+      await page.setViewportSize({ width, height: 900 })
+      const summary = page.locator('.rec-browse-help > summary')
+      await summary.scrollIntoViewIfNeeded()
+      const before = await summary.boundingBox(), center = { x: before.x + before.width / 2, y: before.y + before.height / 2 }
+      await page.mouse.click(center.x, center.y)
+      const after = await summary.boundingBox()
+      for (const key of ['x', 'y', 'width', 'height']) assert.ok(Math.abs(before[key] - after[key]) < 1, `help ${width}: ${key}`)
+      assert.equal(await page.locator('.rec-browse-help').evaluate(node => node.open), true)
+      await page.mouse.click(center.x, center.y)
+      assert.equal(await page.locator('.rec-browse-help').evaluate(node => node.open), false)
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+    }
+    await page.setViewportSize({ width: 1024, height: 768 })
+    assert.equal(await page.getByRole('heading', { name: '番剧探索', exact: true }).count(), 1)
+    assert.equal(await page.getByRole('button', { name: '电波契合', exact: true }).count(), 1)
+    check('polish: exploration naming and stable disclosure allow open/close at identical pointer position on desktop and mobile')
     count = listCalls().length
     const posts = requests.filter(request => request.method !== 'GET').length
     await page.getByText('浏览说明', { exact: true }).click()
@@ -441,6 +458,13 @@ try {
     assert.equal(await dialog.evaluate(node => getComputedStyle(node).backgroundColor), 'rgb(255, 255, 255)')
     await page.getByRole('button', { name: '🧲 寻找资源', exact: true }).click()
     await page.getByText('合成资源失败', { exact: false }).waitFor()
+    const keyword = page.locator('#recResourceDrawer-keyword')
+    await keyword.click()
+    assert.equal(await keyword.evaluate(node => getComputedStyle(node).outlineStyle), 'none')
+    await keyword.focus()
+    assert.equal(await keyword.evaluate(node => getComputedStyle(node).borderColor), 'rgb(103, 58, 183)')
+    assert.ok(await page.getByText(/打开 Magnet 需自行安装 BT 客户端。本站仅为数据索引与信息交流平台/).isVisible())
+    check('polish: reusable resource input has no extra black outline; visible focus and supplied notice remain')
     await page.keyboard.press('Escape')
     assert.equal(await dialog.count(), 1)
     assert.equal(await page.getByRole('button', { name: '🧲 寻找资源', exact: true }).evaluate(node => node === document.activeElement), true)
@@ -534,7 +558,7 @@ try {
     check('R3 append animates only new cards, while next batch replaces content and keeps result-region focus')
 
     hold = true
-    await page.getByRole('button', { name: '熟悉的心动', exact: true }).evaluate(node => node.click())
+    await page.getByRole('button', { name: '电波契合', exact: true }).evaluate(node => node.click())
     await waitHeld()
     await page.getByRole('button', { name: '换一种口味', exact: true }).evaluate(node => node.click())
     await restore()

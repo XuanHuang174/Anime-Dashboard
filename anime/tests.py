@@ -1604,6 +1604,7 @@ class AnimeApiTests(APITestCase):
             ("plan", "2027-待定", None),
             ("completed", "2026-4", None),
             ("on_hold", "2026-4", None),
+            ("on_hold", "未定档", Decimal("0.0")),
             ("completed", "未定档", Decimal("7.0")),
         ]
         for index, (watch_status, period, score) in enumerate(cases):
@@ -1622,9 +1623,9 @@ class AnimeApiTests(APITestCase):
         self.client.force_authenticate(self.user)
         response = self.client.get(reverse("anime_api:user-anime-record-stats"))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["total_count"], 7)
+        self.assertEqual(response.data["total_count"], 8)
         self.assertEqual(response.data["watching_count"], 2)
-        self.assertEqual(response.data["pending_count"], 4)
+        self.assertEqual(response.data["pending_count"], 6)
         self.assertEqual(response.data["completed_count"], 2)
 
     def test_private_records_support_bounded_all_page_size(self):

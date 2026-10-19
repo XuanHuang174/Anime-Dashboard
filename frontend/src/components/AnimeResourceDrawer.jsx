@@ -115,7 +115,7 @@ export default function AnimeResourceDrawer({ open, title = '', autoSearch = tru
           <input aria-label="手动复制 Magnet 链接" readOnly value={copyFallback}
             onFocus={(event) => event.target.select()} />
         </label>}
-        <p className="resource-hint">打开 Magnet 需安装 BT 客户端，请遵守版权及当地法规。</p>
+        <p className="resource-hint">打开 Magnet 需自行安装 BT 客户端。本站仅为数据索引与信息交流平台，所有资源均非本站上传或存储。请用户严格遵守当地法律法规与版权条例，下载内容仅限学习交流使用，请于下载后 24 小时内删除。一切资源真实性与版权归属概与本站无关，使用者须自行承担相关法律责任。</p>
       </div>
     </aside>
   )

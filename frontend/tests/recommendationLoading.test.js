@@ -18,7 +18,7 @@ const render = (component, props = {}) => renderToStaticMarkup(React.createEleme
 test('route fallback carries real navigation and truthful code-loading copy, without preference numbers or fake progress', () => {
   const html = render(RouteLoading)
   assert.match(html, /rec-loading-route/); assert.match(html, /返回我的手账/)
-  assert.match(html, /正在翻开番剧发现手账/); assert.match(html, /role="status"/)
+  assert.match(html, /正在翻开番剧探索手账/); assert.match(html, /role="status"/)
   assert.match(html, /rec-load-book/); assert.match(html, /rec-load-taste-lines/)
   assert.doesNotMatch(html, /正在读取你的口味|百分比|progressbar|0 部|0 个|这次加载较慢/)
 })

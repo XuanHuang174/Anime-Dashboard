@@ -110,7 +110,7 @@ try {
   check('route unmount cannot accept late resource response or reopen a dialog')
 
   await load(); await page.evaluate(() => { loopQA.config.list = 'hold' })
-  await page.getByRole('button', { name: '熟悉的心动', exact: true }).click()
+  await page.getByRole('button', { name: '电波契合', exact: true }).click()
   await page.evaluate(() => { loopQA.config.list = 'normal' })
   await page.getByRole('button', { name: '换一种口味', exact: true }).click()
   await page.getByRole('button', { name: '查看作品301详情', exact: true }).waitFor()

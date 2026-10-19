@@ -3,7 +3,7 @@ import { sameEvidenceContext } from './recommendationEpoch.js'
 export const DEFAULT_REC_FILTERS = Object.freeze({ type: 'all', minScore: '0', hideRecorded: true })
 export const REC_CATEGORIES = [
   { id: 'all', label: '为你发现', description: '优先与你的口味相关，兼顾不同题材组合。' },
-  { id: 'familiar', label: '熟悉的心动', description: '寻找更贴近已有口味的作品，允许题材适当集中。' },
+  { id: 'familiar', label: '电波契合', description: '寻找与你已有口味电波契合的作品，允许题材适当集中。' },
   { id: 'explore', label: '换一种口味', description: '保留喜好关联，探索一些新的题材方向。' },
 ]
 

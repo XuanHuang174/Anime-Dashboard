@@ -17,7 +17,7 @@ const filters = { type: 'TV', minScore: '7', yearFrom: '2015', yearTo: '2026', h
 
 test('R1 controls keep actual filter chips but fold explanation into a closed native disclosure', () => {
   const html = render(Controls, { category: 'all', style: 'balanced', filters, algorithmVersion: 'content.v1' })
-  assert.match(html, /为你发现/); assert.match(html, /熟悉的心动/); assert.match(html, /换一种口味/)
+  assert.match(html, /为你发现/); assert.match(html, /电波契合/); assert.match(html, /换一种口味/)
   assert.match(html, /aria-label="移除条件：2015—2026"/)
   assert.match(html, /aria-label="移除条件：Bangumi 评分 ≥ 7.0"/)
   const help = html.slice(html.indexOf('<details'))

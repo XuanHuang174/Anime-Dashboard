@@ -151,7 +151,7 @@ function RecommendationWorkspace({ client, sessionScope }) {
 
   useEffect(() => {
     const previous = document.title
-    document.title = '个性化推荐 · 番剧发现手账'
+    document.title = '个性化推荐 · 番剧探索手账'
     return () => { document.title = previous }
   }, [])
   useEffect(() => {
@@ -231,8 +231,8 @@ function RecommendationWorkspace({ client, sessionScope }) {
         <div className="rec-nav-tools"><button type="button" className="rec-text-button" onClick={openHidden}>已隐藏作品</button>
           <button type="button" className="rec-button rec-preferences" ref={preferenceTrigger} disabled={!preferences} onClick={openPreferences}>☷ 偏好设置</button></div></nav>
       <header className="rec-page-heading">
-        <span className="rec-chapter-label">我的手账 / 发现篇</span>
-        <h1>番剧发现</h1>
+        <span className="rec-chapter-label">我的手账 / 个性化推荐</span>
+        <h1>番剧探索</h1>
         <span className="rec-chapter-mark" aria-hidden="true">✦</span>
       </header>
       <RecommendationRefreshNotice confirmedPreferences={state.confirmedPreferences} status={state.status} onRetry={() => reload()} />
@@ -277,7 +277,7 @@ function RecommendationWorkspace({ client, sessionScope }) {
           <RecommendationBatchActions state={state} onMore={state.loadMore} onBatch={nextBatch}
             onReload={() => reload()} onFilter={openFilters} onRestart={() => reload()} /></>}
       </section>
-      <footer className="rec-footer"><span>我的手账 / 番剧发现</span></footer>
+      <footer className="rec-footer"><span>我的手账 / 番剧探索</span></footer>
     </div>
     <div className="rec-toast" role="status" aria-live="polite">{notice && <p>{notice}</p>}</div>
     {panel?.kind !== 'hidden' && feedbackToast}

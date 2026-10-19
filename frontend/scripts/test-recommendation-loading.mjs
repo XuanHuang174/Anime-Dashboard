@@ -57,7 +57,7 @@ await context.route('**/*', async route => {
 const url = `${origin}/tests/fixtures/recommendationLoadingHarness.html`
 try {
   await page.goto(url)
-  await page.getByText('正在翻开番剧发现手账…', { exact: true }).waitFor()
+  await page.getByText('正在翻开番剧探索手账…', { exact: true }).waitFor()
   assert.equal(requests.length, 0)
   const early = await page.locator('.rec-loading-route').evaluate(node => ({ bg: getComputedStyle(node).backgroundColor,
     hero: getComputedStyle(node.querySelector('.rec-load-hero')).borderTopWidth,
@@ -81,7 +81,7 @@ try {
   await page.screenshot({ path: path.join(artifacts, 'data-desktop.png'), fullPage: false })
   check('route hands off to matching data skeleton; no fake taste zeroes or actionable placeholder cards')
   await page.clock.fastForward(8100); await page.getByText(/这次加载较慢/).waitFor()
-  await page.getByRole('button', { name: '熟悉的心动', exact: true }).click()
+  await page.getByRole('button', { name: '电波契合', exact: true }).click()
   await page.getByText('正在读取你的口味与推荐…', { exact: true }).waitFor()
   assert.equal(await page.getByText(/这次加载较慢/).count(), 0)
   check('changing category resets slow-load timing rather than carrying stale waiting messages')
@@ -115,7 +115,7 @@ try {
   await page.locator('[data-rec-motion-id="101"]').waitFor()
   check('failed page module has an independent reload boundary and recovers on hard reload')
   blockModule = true; blockProfile = true; await page.goto(url)
-  await page.getByText('正在翻开番剧发现手账…', { exact: true }).waitFor()
+  await page.getByText('正在翻开番剧探索手账…', { exact: true }).waitFor()
   for (const width of [390, 320]) {
     await page.setViewportSize({ width, height: 844 })
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))

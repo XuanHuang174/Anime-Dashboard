@@ -12,7 +12,7 @@ export function RecommendationLoadingNotice({ phase = 'data' }) {
     return () => window.clearTimeout(timer)
   }, [])
   return <div className="rec-load-notice" role="status" aria-live="polite" aria-atomic="true">
-    <p>{phase === 'route' ? '正在翻开番剧发现手账…' : '正在读取你的口味与推荐…'}</p>
+    <p>{phase === 'route' ? '正在翻开番剧探索手账…' : '正在读取你的口味与推荐…'}</p>
     {slow && <small>这次加载较慢，请稍候。也可以返回手账后再试。</small>}
   </div>
 }
@@ -53,7 +53,7 @@ export function RecommendationRouteLoading({ failed = false }) {
     <div className="rec-load-page">
       <div className="rec-load-masthead"><nav aria-label="推荐加载导航"><Link to="/dashboard">← 返回我的手账</Link>
         <span className="rec-load-nav-placeholder" aria-hidden="true"><i /><i /></span></nav>
-        <header><span>我的手账 / 发现篇</span><h1>番剧发现</h1></header>
+        <header><span>我的手账 / 个性化推荐</span><h1>番剧探索</h1></header>
         <div className="rec-load-controls" aria-hidden="true"><span /><span /><span /><i /></div>
       </div>
       {failed ? <section className="rec-load-route-error" role="alert"><span aria-hidden="true">↻</span>

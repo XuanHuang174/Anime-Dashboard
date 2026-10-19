@@ -12,11 +12,19 @@ test('watching and planned-or-undated counts use distinct criteria', () => {
     { status: 'on_hold', period: '2026-4', score: null },
     { status: 'completed', period: '未定档', score: 7 },
   ]
-  assert.deepEqual(countJournalStatuses(records), { watchingCount: 2, pendingCount: 4 })
+  assert.deepEqual(countJournalStatuses(records), { watchingCount: 2, pendingCount: 5 })
 })
 
 test('empty or absent periods do not throw or imply pending', () => {
   assert.deepEqual(countJournalStatuses([]), { watchingCount: 0, pendingCount: 0 })
   assert.deepEqual(countJournalStatuses([{ status: 'watching' }, { status: 'plan', period: null }]),
     { watchingCount: 1, pendingCount: 1 })
+})
+
+test('on-hold is pending even when dated or scored and counts only once if also undated', () => {
+  assert.deepEqual(countJournalStatuses([
+    { status: 'on_hold', period: '2026-04', score: 0 },
+    { status: 'on_hold', period: '未定档', score: 9 },
+    { status: 'on_hold', period: '2026-待定', score: null },
+  ]), { watchingCount: 0, pendingCount: 3 })
 })
