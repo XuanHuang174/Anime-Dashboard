@@ -364,7 +364,13 @@ def _v2_item(row, context, options, weights, vector, seed_ids, scorer, *, verifi
 
 def _rank_context_v2(context, options, index, *, policy_version=None, observer=None, recall_policy_version=None,
                      runtime_version=None, browse_control_version=None, exploration_policy_version=None,
-                     discovery_policy_version=None, public_reader=None):
+                     discovery_policy_version=None, public_reader=None, recall_completion_version=None):
+    if recall_completion_version is not None:
+        from . import recall_completion
+        from .exploration_candidate import PROTECTED_VERSION
+        if (recall_completion_version != recall_completion.VERSION or exploration_policy_version != PROTECTED_VERSION
+                or discovery_policy_version is not None or browse_control_version is None):
+            raise RecommendationUnavailable('仅支持独立离线召回补全。')
     if discovery_policy_version is not None:
         from . import discovery_candidate, dual_discovery
         from .exploration_candidate import PROTECTED_VERSION
@@ -462,6 +468,8 @@ def _rank_context_v2(context, options, index, *, policy_version=None, observer=N
     if discovery_policy_version is not None:
         if discovery_policy_version == dual_discovery.VERSION and dual_discovery.active(context, options):
             pool = dual_discovery.candidate_pool(eligible, vector, context, weights, limit=CANDIDATE_POOL)
+    if recall_completion_version is not None:
+        pool = recall_completion.complete_pool(eligible, pool, vector, weights, context, options, limit=CANDIDATE_POOL)
     if observer is not None:
         observer.stage('eligible', (item['bangumi_id'] for item in sorted(
             eligible, key=lambda item: (-item['value'], item['bangumi_id']))))

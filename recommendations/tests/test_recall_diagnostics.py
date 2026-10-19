@@ -76,7 +76,8 @@ class RecallConfigurationTests(SimpleTestCase):
                 if any(ast.dump(node.test, include_attributes=False) == ast.dump(ast.parse(test).body[0].value, include_attributes=False)
                        for test in ('recall_policy_version is not None', 'runtime_version is not None',
                                     'browse_control_version is not None', 'exploration_policy_version is not None',
-                                    'discovery_policy_version is not None', 'public_reader is not None')):
+                                    'discovery_policy_version is not None', 'public_reader is not None',
+                                    'recall_completion_version is not None')):
                     # V2-B is an explicit offline opt-in. Verify the DEFAULT
                     # else branch remains byte-for-AST identical to frozen A.
                     result = []
@@ -88,7 +89,8 @@ class RecallConfigurationTests(SimpleTestCase):
             def visit_arguments(self, node):
                 pairs = [(arg, default) for arg, default in zip(node.kwonlyargs, node.kw_defaults)
                          if arg.arg not in ('observer', 'pipeline_observer', 'recall_policy_version', 'runtime_version',
-                                            'browse_control_version', 'exploration_policy_version', 'discovery_policy_version', 'public_reader')]
+                                            'browse_control_version', 'exploration_policy_version', 'discovery_policy_version',
+                                            'public_reader', 'recall_completion_version')]
                 node.kwonlyargs = [pair[0] for pair in pairs]; node.kw_defaults = [pair[1] for pair in pairs]
                 return self.generic_visit(node)
             def visit_Call(self, node):

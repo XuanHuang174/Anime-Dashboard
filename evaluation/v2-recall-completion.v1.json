@@ -1,0 +1,17 @@
+{
+  "version": "append-only-recall.v1",
+  "scope": "offline-personalized-discovery-only",
+  "selection": "fill-unused-slots-by-existing-aggregate-relatedness",
+  "original_candidates": "retain-all-no-eviction",
+  "candidate_limit": 400,
+  "result_limit": 120,
+  "base_scores_evidence_rerank": "unchanged-protected-v2",
+  "other_categories_and_cold_start": "exact-protected-v2",
+  "targets": "original-consumed-pairs-no-reselection",
+  "independent_validation": false,
+  "parameter_search": false,
+  "attempts": 1,
+  "failure_action": "stop-current-v2-route-keep-v1",
+  "success_requires": ["more-discovery-top10-hits-than-protected", "retain-every-v1-and-protected-top10-hit", "no-mean-topic-proxy-regression", "no-mean-repetition-regression", "zero-safety-and-evidence-errors"],
+  "serving_enabled": false
+}

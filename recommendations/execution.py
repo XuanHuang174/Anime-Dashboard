@@ -30,7 +30,7 @@ def recipe_descriptor(*, serving_enabled=False):
 
 
 def execute_v2(user, options, index, *, context=None, observer=None, serving_enabled=False, exploration_policy_version=None,
-               discovery_policy_version=None, public_reader=None):
+               discovery_policy_version=None, public_reader=None, recall_completion_version=None):
     """Own-user service; caller supplies fresh profile/index inside a snapshot.
 
     Does not mint cursors or feed any existing serving route. D2 must bind the
@@ -38,6 +38,13 @@ def execute_v2(user, options, index, *, context=None, observer=None, serving_ena
     """
     if not user.is_authenticated:
         raise NotAuthenticated()
+    if recall_completion_version is not None:
+        from . import recall_completion
+        from .exploration_candidate import PROTECTED_VERSION
+        if (serving_enabled or recall_completion_version != recall_completion.VERSION
+                or exploration_policy_version != PROTECTED_VERSION or discovery_policy_version is not None):
+            raise engine.RecommendationUnavailable('召回补全仅允许独立离线对照。')
+        recall_completion.policy_contract()
     if public_reader is not None:
         from .public_manifest import PublicManifestReader, recipe_with_reader
         from .cold_public import SeededPublicReader, recipe_with_seed
@@ -64,7 +71,8 @@ def execute_v2(user, options, index, *, context=None, observer=None, serving_ena
         with readonly_snapshot():
             return execute_v2(user, options, index, context=context, observer=observer, serving_enabled=serving_enabled,
                               exploration_policy_version=exploration_policy_version,
-                              discovery_policy_version=discovery_policy_version, public_reader=public_reader)
+                              discovery_policy_version=discovery_policy_version, public_reader=public_reader,
+                              recall_completion_version=recall_completion_version)
     with connection.cursor() as cursor:
         if public_reader is not None and type(public_reader) is SeededPublicReader:
             cursor.execute("SELECT current_setting('transaction_read_only'), current_setting('transaction_isolation')")
@@ -86,6 +94,8 @@ def execute_v2(user, options, index, *, context=None, observer=None, serving_ena
             recipe = exploration_candidate.recipe_descriptor(exploration_policy_version)
         if discovery_policy_version is not None:
             recipe = discovery_candidate.recipe_descriptor()
+        if recall_completion_version is not None:
+            recipe = recall_completion.recipe_descriptor()
     if public_reader is not None:
         recipe = recipe_with_seed(recipe) if type(public_reader) is SeededPublicReader else recipe_with_reader(recipe)
     if context.get('taxonomy_version', engine.vocabulary.TAXONOMY_VERSION) != index.get('taxonomy_version', engine.vocabulary.TAXONOMY_VERSION):
@@ -95,6 +105,6 @@ def execute_v2(user, options, index, *, context=None, observer=None, serving_ena
         recall_policy_version=recipe['recall_policy_version'], runtime_version=recipe['runtime_version'],
         browse_control_version=recipe['control_policy_version'], observer=observer,
         exploration_policy_version=exploration_policy_version, discovery_policy_version=discovery_policy_version,
-        public_reader=public_reader)
+        public_reader=public_reader, recall_completion_version=recall_completion_version)
     return ranked, weights, {**recipe, 'effective_conditions': options,
                              'trace': deepcopy(prepared.get('_ranking_trace', {}))}
