@@ -57,6 +57,19 @@ def build_feature_index(rows, *, signature=None, taxonomy_version=None):
             'taxonomy_version': taxonomy_version or vocabulary.TAXONOMY_VERSION}
 
 
+def _cached_public_features(key, signature):
+    """An optional public cache may fail; DB/feature errors must still surface."""
+    try:
+        value = cache.get(key)
+    except Exception:
+        return None
+    if (isinstance(value, dict) and value.get('signature') == signature
+            and isinstance(value.get('features'), list) and isinstance(value.get('weights'), dict)
+            and isinstance(value.get('source_fingerprints'), dict) and value.get('taxonomy_version')):
+        return value
+    return None
+
+
 def public_features(*, algorithm_version=ALGORITHM_VERSION):
     from .version_control import cache_namespace
     key = cache_namespace(algorithm_version, TAXONOMY_VERSION, FEATURE_VERSION, FEATURE_RULE_VERSION)
@@ -66,18 +79,21 @@ def public_features(*, algorithm_version=ALGORITHM_VERSION):
                  TAXONOMY_VERSION, FEATURE_VERSION, FEATURE_RULE_VERSION)
     if revision['count'] > MAX_CATALOG_ROWS:
         raise RecommendationUnavailable()
-    value = cache.get(key)
-    if value and value['signature'] == signature:
+    value = _cached_public_features(key, signature)
+    if value is not None:
         return value
     with _feature_lock:
-        value = cache.get(key)
-        if value and value['signature'] == signature:
+        value = _cached_public_features(key, signature)
+        if value is not None:
             return value
         rows = safe_catalog().order_by('bangumi_id').values(
             'bangumi_id', 'tags', 'title_zh', 'title_jp', 'score', 'status_type',
         )[:MAX_CATALOG_ROWS + 1]
         value = build_feature_index(rows, signature=signature)
-        cache.set(key, value, timeout=60)
+        try:
+            cache.set(key, value, timeout=60)
+        except Exception:
+            pass  # Fresh DB-derived public features remain usable without cache.
         return value
 
 

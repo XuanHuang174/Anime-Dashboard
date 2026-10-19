@@ -1,7 +1,6 @@
-"""6C end-to-end API transitions. Synthetic fixtures in isolated SQLite only."""
+"""6C end-to-end API transitions on independent local PostgreSQL only."""
 from unittest.mock import patch
 
-from django.conf import settings
 from django.core.cache import cache
 from django.db import connection
 from django.test import override_settings
@@ -19,8 +18,8 @@ from .test_contracts_api import ContractFixtures
 class StateLoopTests(ContractFixtures, APITestCase):
     def setUp(self):
         super().setUp()
-        self.assertEqual(settings.SETTINGS_MODULE, 'config.recommendation_test_settings')
-        self.assertEqual(connection.vendor, 'sqlite')
+        self.assertEqual(connection.vendor, 'postgresql')
+        self.assertEqual(connection.settings_dict['NAME'], 'test_recommendation_isolated_tests')
         cache.clear()
         self.client.force_authenticate(self.user)
         for identity in range(101, 111):
@@ -113,7 +112,10 @@ class StateLoopTests(ContractFixtures, APITestCase):
     def test_isolated_v2_switch_and_rollback_never_reuse_the_other_versions_tokens(self):
         self.trusted()
         v1 = self.page()
-        with override_settings(RECOMMENDATION_ALGORITHM_VERSION='content.v2'):
+        # Token compatibility only. PostgreSQL deliberately has no production
+        # approval bypass; mock that boundary HERE, not in application settings.
+        with (override_settings(RECOMMENDATION_ALGORITHM_VERSION='content.v2'),
+              patch('recommendations.version_control.require_v2_approval') as approval):
             self.assert_stale(v1)
             v2 = self.page()
             self.assertEqual(v2['algorithm_version'], 'content.v2')
@@ -121,6 +123,7 @@ class StateLoopTests(ContractFixtures, APITestCase):
             clear_version_cache('content.v2')
             key = cache_namespace('content.v1', engine.TAXONOMY_VERSION, engine.FEATURE_VERSION, engine.FEATURE_RULE_VERSION)
             self.assertIsNotNone(cache.get(key))
+            approval.assert_called()
         self.assert_stale(v2)
         rolled_back = self.page()
         self.assertEqual(rolled_back, v1)

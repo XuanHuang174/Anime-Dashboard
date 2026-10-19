@@ -6,7 +6,7 @@ from django.db import DatabaseError
 from django.utils.cache import patch_vary_headers
 
 from rest_framework import permissions
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import APIException, ValidationError
 from rest_framework.parsers import JSONParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -47,6 +47,17 @@ class BoundedPreferenceJSONParser(JSONParser):
 class OwnRecommendationAPIView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
     parser_classes = (BoundedPreferenceJSONParser,)
+
+    def check_throttles(self, request):
+        try:
+            return super().check_throttles(request)
+        except APIException:
+            raise  # Preserve genuine 429/Retry-After and other DRF decisions.
+        except Exception as exc:
+            # A shared limiter/cache outage must never silently allow writes.
+            # Log type only, not backend URLs, credentials or private payloads.
+            logger.warning('Recommendation limiter unavailable: %s', type(exc).__name__)
+            raise RecommendationUnavailable('请求频率检查暂不可用，请稍后重试。') from None
 
     def finalize_response(self, request, response, *args, **kwargs):
         response = super().finalize_response(request, response, *args, **kwargs)

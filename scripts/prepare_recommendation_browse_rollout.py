@@ -10,6 +10,7 @@ import secrets
 
 def environment_patch(enabled):
     return {'RECOMMENDATION_ALGORITHM_VERSION': 'content.v1',
+            'RECOMMENDATION_V2_BROWSE_ENABLED': 'False',
             'RECOMMENDATION_BROWSE_ENABLED': 'True' if enabled else 'False',
             'RECOMMENDATION_BROWSE_EPOCH': secrets.token_hex(16)}
 
