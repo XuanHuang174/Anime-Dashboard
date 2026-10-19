@@ -1,0 +1,109 @@
+/* Eager loading foundation: usable before the recommendation page chunk arrives. */
+.rec-loading-route { min-height: 100vh; padding: 0 28px; color: #111; background: #fff5ee radial-gradient(#11111120 1px, transparent 1px) 0 0 / 24px 24px; font-family: inherit; }
+.rec-loading-route *, .rec-loading-route *::before, .rec-loading-route *::after { box-sizing: border-box; }
+.rec-loading-route .rec-load-page { max-width: 1240px; margin: auto; padding: 16px 0 24px; }
+.rec-loading-route .rec-load-masthead { padding: 10px 18px 12px; margin-bottom: 22px; border: 3px solid #111; box-shadow: 4px 4px 0 #111; background-color: #ff6b6b; background-image: linear-gradient(#11111124 1px, transparent 1px), linear-gradient(90deg, #11111124 1px, transparent 1px); background-size: 32px 32px; }
+.rec-loading-route .rec-load-masthead nav { min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.rec-loading-route .rec-load-masthead a, .rec-loading-route .rec-load-route-error button { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 8px 12px; border: 2px solid #111; background: white; color: #111; box-shadow: 2px 2px 0 #111; font: inherit; font-size: 12px; font-weight: 800; text-decoration: none; cursor: pointer; }
+.rec-loading-route :is(a, button):focus-visible { outline: 3px solid #111; outline-offset: 4px; }
+.rec-loading-route .rec-load-nav-placeholder { display: flex; gap: 12px; }
+.rec-loading-route .rec-load-nav-placeholder i { width: 80px; height: 32px; border: 2px solid #11111155; background: #fff5eec4; }
+.rec-loading-route .rec-load-masthead header { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 10px 0 12px; }
+.rec-loading-route .rec-load-masthead header > span { padding: 6px 10px; border: 2px solid #111; background: #ffe66d; box-shadow: 2px 2px 0 #111; font-size: 11px; font-weight: 800; transform: rotate(-1deg); }
+.rec-loading-route .rec-load-masthead h1 { margin: 0; padding: 4px 12px 6px; font-size: 30px; line-height: 1.2; background: #111; color: white; letter-spacing: -.035em; }
+.rec-loading-route .rec-load-controls { min-height: 104px; display: flex; align-items: flex-start; gap: 14px; padding: 12px; border: 2px solid #111; background: white; }
+.rec-loading-route .rec-load-controls > span { width: 80px; height: 32px; background: #ecebe4; }
+.rec-loading-route .rec-load-controls > span:first-child { background: #f5e6a8; }
+.rec-loading-route .rec-load-controls > i { width: 150px; height: 32px; margin-left: auto; background: #ecebe4; }
+.rec-loading-route .rec-load-featured { display: grid; grid-template-columns: minmax(0, 1fr) 252px; gap: 20px; align-items: start; }
+.rec-loading-route .rec-load-taste { min-width: 0; padding: 18px; border: 3px solid #111; background: #effaf5; box-shadow: 4px 4px 0 #111; }
+.rec-loading-route .rec-load-taste h2 { margin: 0 0 16px; width: fit-content; padding: 2px 8px; border: 2px solid #111; background: #4ecdc4; box-shadow: 2px 2px 0 #111; font-size: 18px; }
+:is(.rec-loading-route, .memphis-rec-container) .rec-load-hero.rec-skeleton-hero { display: grid; grid-template-columns: 250px minmax(0, 1fr); min-width: 0; min-height: 350px; margin-bottom: 0; border: 3px solid #111; background: white; box-shadow: 4px 4px 0 #111; }
+:is(.rec-loading-route, .memphis-rec-container) .rec-load-hero > .rec-load-poster { display: grid; place-items: center; min-height: 350px; padding: 10px; border-right: 3px solid #111; background-color: #e3f1e9; background-image: linear-gradient(#9baf9c30 1px, transparent 1px), linear-gradient(90deg, #9baf9c30 1px, transparent 1px); background-size: 24px 24px; }
+:is(.rec-loading-route, .memphis-rec-container) .rec-load-book { position: relative; display: flex; width: min(112px, 80%); height: 86px; border: 3px solid #111; background: #fff5ee; box-shadow: 3px 3px 0 #111; transform: rotate(-4deg); }
+:is(.rec-loading-route, .memphis-rec-container) .rec-load-book > span { flex: 1; margin: 10px 7px; background: repeating-linear-gradient(transparent 0 9px, #c9c6b6 9px 11px); }
+:is(.rec-loading-route, .memphis-rec-container) .rec-load-book::before { content: ''; position: absolute; top: 0; bottom: 0; left: 50%; border-left: 2px solid #111; }
+:is(.rec-loading-route, .memphis-rec-container) .rec-load-hero .rec-load-book > i { position: absolute; top: -6px; right: 15px; display: block; width: 14px; height: 40px; margin: 0; background: #ffe66d; clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 80%, 0 100%); animation: rec-loading-bookmark 2s ease-in-out infinite; }
+:is(.rec-loading-route, .memphis-rec-container) .rec-load-hero > .rec-load-body { display: flex; flex-direction: column; min-width: 0; padding: 20px 22px; }
+:is(.rec-loading-route, .memphis-rec-container) .rec-load-notice { font-size: 14px; line-height: 1.7; color: #33463e; }
+:is(.rec-loading-route, .memphis-rec-container) .rec-load-notice p { margin: 0; font-weight: 800; }
+:is(.rec-loading-route, .memphis-rec-container) .rec-load-notice small { display: block; margin-top: 6px; font-size: 12px; font-weight: 400; color: #57534e; }
+:is(.rec-loading-route, .memphis-rec-container) .rec-load-copy { display: flex; flex-direction: column; gap: 14px; padding-top: 20px; }
+:is(.rec-loading-route, .memphis-rec-container) .rec-load-block { display: block; height: 12px; border-radius: 0; background: #dce3da; animation: rec-loading-breathe 1.8s ease-in-out infinite; }
+:is(.rec-loading-route, .memphis-rec-container) .rec-load-title { width: 85%; height: 24px; }
+:is(.rec-loading-route, .memphis-rec-container) .rec-load-meta { width: 52%; height: 10px; }
+:is(.rec-loading-route, .memphis-rec-container) .rec-load-reason { display: grid; gap: 8px; padding: 12px 10px; border-left: 3px solid #9fcbbf; background: #edf8f4; }
+:is(.rec-loading-route, .memphis-rec-container) .rec-load-reason > span:last-child { width: 72%; }
+:is(.rec-loading-route, .memphis-rec-container) .rec-load-tags { display: flex; gap: 8px; padding: 2px 0; }
+:is(.rec-loading-route, .memphis-rec-container) .rec-load-tags > span { width: 44px; height: 18px; border-radius: 999px; background: #d3e7dd; }
+:is(.rec-loading-route, .memphis-rec-container) .rec-load-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: auto; padding-top: 20px; }
+:is(.rec-loading-route, .memphis-rec-container) .rec-load-actions > span { width: 100px; height: 40px; border: 2px solid #b3b8ab; background: #f5e6a8; }
+:is(.rec-loading-route, .memphis-rec-container) .rec-load-actions > span:last-child { background: #f4f3ed; }
+:is(.rec-loading-route, .memphis-rec-container) .rec-load-taste-lines { grid-column: 1 / -1; display: grid; gap: 16px; margin: 20px 0 16px; }
+:is(.rec-loading-route, .memphis-rec-container) .rec-load-taste-lines > div:not(.rec-load-tags) { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+:is(.rec-loading-route, .memphis-rec-container) .rec-load-taste-lines > div:not(.rec-load-tags) > span:first-child { width: 60%; }
+:is(.rec-loading-route, .memphis-rec-container) .rec-load-taste-lines > div:not(.rec-load-tags) > span:last-child { width: 16%; }
+:is(.rec-loading-route, .memphis-rec-container) .rec-load-grid-shell { margin-top: 28px; }
+:is(.rec-loading-route, .memphis-rec-container) .rec-load-section-title { width: 100px; height: 22px; margin-bottom: 20px; }
+.rec-loading-route .rec-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 22px; }
+:is(.rec-loading-route, .memphis-rec-container) .rec-load-grid-card { min-width: 0; border: 2px solid #c3c5b9; background: #fffdf9; }
+:is(.rec-loading-route, .memphis-rec-container) .rec-load-grid-cover { aspect-ratio: 3 / 4; background-color: #ecebe4; background-image: linear-gradient(#c7c9bb22 1px, transparent 1px), linear-gradient(90deg, #c7c9bb22 1px, transparent 1px); background-size: 24px 24px; }
+:is(.rec-loading-route, .memphis-rec-container) .rec-load-grid-copy { display: grid; gap: 14px; padding: 16px; }
+:is(.rec-loading-route, .memphis-rec-container) .rec-load-grid-copy > span:nth-child(2) { width: 60%; }
+.rec-loading-route .rec-load-route-error { padding: 40px 24px; border: 3px solid #111; background: white; box-shadow: 4px 4px 0 #111; text-align: center; }
+.rec-loading-route .rec-load-route-error > span { font-size: 36px; }
+.rec-loading-route .rec-load-route-error p { line-height: 1.8; color: #57534e; }
+.rec-loading-route .rec-load-route-error button { margin-top: 12px; background: #ffe66d; }
+@keyframes rec-loading-breathe { 0%, 100% { opacity: .62; } 50% { opacity: .9; } }
+@keyframes rec-loading-bookmark { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(3px); } }
+@media (max-width: 1199px) and (min-width: 1024px) {
+  .rec-loading-route .rec-load-featured { grid-template-columns: minmax(0, 1fr) 220px; gap: 16px; }
+  .rec-loading-route .rec-load-hero.rec-skeleton-hero { grid-template-columns: 210px minmax(0, 1fr); }
+}
+@media (max-width: 1099px) {
+  .rec-loading-route .rec-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+  :is(.rec-loading-route, .memphis-rec-container) .rec-load-grid-card:nth-child(n+4) { display: none; }
+}
+@media (max-width: 1023px) {
+  .rec-loading-route .rec-load-featured { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .rec-loading-route .rec-load-taste { padding: 14px 16px; }
+  .rec-loading-route .rec-load-taste h2 { font-size: 15px; }
+}
+@media (max-width: 767px) {
+  .rec-loading-route { padding: 0 18px; }
+  .rec-loading-route .rec-load-page { padding-top: 12px; }
+  .rec-loading-route .rec-load-masthead { padding: 8px 10px 10px; margin-bottom: 18px; background-size: 24px 24px; }
+  .rec-loading-route .rec-load-masthead nav { flex-wrap: wrap; }
+  .rec-loading-route .rec-load-masthead a { padding: 6px 8px; font-size: 11px; }
+  .rec-loading-route .rec-load-nav-placeholder { gap: 8px; }
+  .rec-loading-route .rec-load-nav-placeholder i { width: 50px; }
+  .rec-loading-route .rec-load-masthead header { gap: 8px; }
+  .rec-loading-route .rec-load-masthead header > span { padding: 5px 7px; font-size: 9px; }
+  .rec-loading-route .rec-load-masthead h1 { font-size: 24px; padding: 4px 8px; }
+  .rec-loading-route .rec-load-controls { min-height: 172px; gap: 8px; flex-wrap: wrap; }
+  .rec-loading-route .rec-load-controls > span { width: 26%; }
+  .rec-loading-route .rec-load-controls > i { width: 100%; height: 24px; margin: 0; }
+  :is(.rec-loading-route, .memphis-rec-container) .rec-load-hero.rec-skeleton-hero { grid-template-columns: 112px minmax(0, 1fr); min-height: 300px; }
+  :is(.rec-loading-route, .memphis-rec-container) .rec-load-hero > .rec-load-poster { min-height: 300px; padding: 6px; }
+  :is(.rec-loading-route, .memphis-rec-container) .rec-load-hero > .rec-load-body { padding: 14px 12px; }
+  :is(.rec-loading-route, .memphis-rec-container) .rec-load-book { height: 66px; }
+  :is(.rec-loading-route, .memphis-rec-container) .rec-load-notice { font-size: 12px; }
+  :is(.rec-loading-route, .memphis-rec-container) .rec-load-notice small { font-size: 11px; }
+  :is(.rec-loading-route, .memphis-rec-container) .rec-load-copy { padding-top: 16px; gap: 12px; }
+  :is(.rec-loading-route, .memphis-rec-container) .rec-load-actions > span { width: 76px; height: 36px; }
+  .rec-loading-route .rec-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  :is(.rec-loading-route, .memphis-rec-container) .rec-load-grid-card:nth-child(n+3) { display: none; }
+}
+@media (max-width: 359px) {
+  .rec-loading-route { padding: 0 12px; }
+  .rec-loading-route .rec-load-masthead { padding: 8px; }
+  .rec-loading-route .rec-load-nav-placeholder i { width: 42px; }
+  .rec-loading-route .rec-load-masthead h1 { font-size: 22px; }
+  :is(.rec-loading-route, .memphis-rec-container) .rec-load-hero.rec-skeleton-hero { grid-template-columns: 88px minmax(0, 1fr); }
+  .rec-loading-route .rec-grid { grid-template-columns: minmax(0, 1fr); }
+  :is(.rec-loading-route, .memphis-rec-container) .rec-load-grid-card:nth-child(n+2) { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  :is(.rec-loading-route, .memphis-rec-container) .rec-load-block,
+  :is(.rec-loading-route, .memphis-rec-container) .rec-load-hero .rec-load-book > i { animation: none; }
+}

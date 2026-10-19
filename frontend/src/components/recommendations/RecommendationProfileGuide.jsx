@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { identitySummary } from '../../utils/recommendations.js'
+import { RecommendationTasteSkeleton } from './RecommendationLoading.jsx'
 
 export function RecommendationRefreshNotice({ confirmedPreferences, status, onRetry }) {
   if (!confirmedPreferences) return null
@@ -15,8 +16,8 @@ export function RecommendationTasteNote({ profile, preferences, status, onPrefer
   const pending = profile?.diagnostics?.pending_identity_count || 0
   return <aside className="rec-taste-note" aria-labelledby="rec-taste-title" aria-busy={status === 'loading'}>
     <h2 id="rec-taste-title">我的口味</h2>
-    {unavailable ? <p className="rec-muted" role="status">{status === 'error'
-      ? '口味摘要暂未加载，不能据此判断你的手账或喜好。' : '正在读取你的真实喜好…'}</p>
+    {unavailable ? status === 'error' ? <p className="rec-muted" role="status">口味摘要暂未加载，不能据此判断你的手账或喜好。</p>
+      : <><RecommendationTasteSkeleton /><p className="rec-muted">正在读取你的真实喜好…</p></>
       : <><dl className="rec-taste-metrics">
         <div><dt>可分析样本</dt><dd>{profile.usable_sample_count ?? '—'} 部</dd></div>
         <div><dt>自动识别题材</dt><dd>{profile.tag_summary.length} 个</dd></div>

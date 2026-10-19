@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import RecommendationCard, { RecommendationCover, RecommendationMeta } from '../components/recommendations/RecommendationCard.jsx'
+import { RecommendationGridSkeleton } from '../components/recommendations/RecommendationLoading.jsx'
 import RecommendationDialog from '../components/recommendations/RecommendationDialog.jsx'
 import RecommendationEvidence from '../components/recommendations/RecommendationEvidence.jsx'
 import RecommendationIdentityReview from '../components/recommendations/RecommendationIdentityReview.jsx'
@@ -231,7 +232,7 @@ function RecommendationWorkspace({ client, sessionScope }) {
         {state.error && state.status !== 'ready' && <p className="rec-inline-error" role="alert">{state.error}</p>}
         <div className="rec-featured-layout">
           <div className="rec-featured-main">
-            {state.status === 'loading' ? <RecommendationSkeleton featuredOnly /> : state.status === 'cold'
+            {state.status === 'loading' ? <RecommendationSkeleton key={state.key || 'initial'} featuredOnly /> : state.status === 'cold'
               ? profile?.cold_start ? <RecommendationColdStartGuide profile={profile} status={state.status} preferencesReady={!!preferences}
                   onPreferences={openPreferences} onIdentity={() => setPanel({ kind: 'identity' })} />
                 : <RecommendationEmptyState state="cold" onPreferences={openPreferences} />
@@ -244,6 +245,7 @@ function RecommendationWorkspace({ client, sessionScope }) {
           <RecommendationTasteNote profile={profile} preferences={preferences} status={state.status} confirmedPreferences={state.confirmedPreferences}
             onPreferences={openPreferences} onRetry={reload} onIdentity={() => setPanel({ kind: 'identity' })} />
         </div>
+        {state.status === 'loading' && <RecommendationGridSkeleton />}
         {profile?.cold_start && ['ready', 'empty'].includes(state.status) && <details className="rec-profile-guide">
           <summary>完善高分作品画像</summary>
           <RecommendationColdStartGuide profile={profile} status={state.status} preferencesReady={!!preferences}

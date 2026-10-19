@@ -1,11 +1,10 @@
 import { Link } from 'react-router-dom'
+import { RecommendationHeroSkeleton, RecommendationGridSkeleton } from './RecommendationLoading.jsx'
 
 export function RecommendationSkeleton({ featuredOnly = false }) {
   return <section className="rec-skeleton" aria-busy="true" aria-label="正在加载推荐">
-    <p className="rec-muted" role="status">正在整理下一次心动…</p>
-    <div className="rec-skeleton-hero" aria-hidden="true"><span /><div><i /><i /><i /></div></div>
-    {!featuredOnly && <div className="rec-grid" aria-hidden="true">{Array.from({ length: 4 }, (_, index) =>
-      <div className="rec-skeleton-card" key={index}><span /><i /><i /><i /></div>)}</div>}
+    <RecommendationHeroSkeleton />
+    {!featuredOnly && <RecommendationGridSkeleton />}
   </section>
 }
 
