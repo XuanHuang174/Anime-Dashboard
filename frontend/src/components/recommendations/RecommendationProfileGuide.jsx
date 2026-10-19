@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { identitySummary } from '../../utils/recommendations.js'
 
 export function RecommendationRefreshNotice({ confirmedPreferences, status, onRetry }) {
   if (!confirmedPreferences) return null
@@ -9,11 +10,11 @@ export function RecommendationRefreshNotice({ confirmedPreferences, status, onRe
   </section>
 }
 
-export function RecommendationTasteNote({ profile, preferences, status, onPreferences, onRetry, confirmedPreferences }) {
+export function RecommendationTasteNote({ profile, preferences, status, onPreferences, onRetry, confirmedPreferences, onIdentity }) {
   const unavailable = !profile || status === 'loading' || status === 'error'
+  const pending = profile?.diagnostics?.pending_identity_count || 0
   return <aside className="rec-taste-note" aria-labelledby="rec-taste-title" aria-busy={status === 'loading'}>
-    <span className="rec-eyebrow">A NOTE ABOUT YOUR TASTE</span>
-    <h2 id="rec-taste-title">我的口味 <span aria-hidden="true">↗</span></h2>
+    <h2 id="rec-taste-title">我的口味</h2>
     {unavailable ? <p className="rec-muted" role="status">{status === 'error'
       ? '口味摘要暂未加载，不能据此判断你的手账或喜好。' : '正在读取你的真实喜好…'}</p>
       : <><dl className="rec-taste-metrics">
@@ -27,7 +28,18 @@ export function RecommendationTasteNote({ profile, preferences, status, onPrefer
         <p className="rec-muted">你的明确选择</p>
         <div className="rec-card-tags">{preferences?.tags.slice(0, 3).map(tag => <span key={tag}>{tag}</span>)}</div>
         {!preferences?.tags.length && <small>尚未选择；不会自动替你勾选</small>}
-      </div></>}
+      </div>
+      {pending > 0 && !profile.cold_start && <div className="rec-taste-review" aria-label="旧数据关联提示">
+        <p>{pending} 条高分记录待核对</p>
+        <button type="button" className="rec-text-button" disabled={profile.identity_service_ready === false} onClick={onIdentity}>核对旧作品 →</button>
+      </div>}
+      {(pending > 0 || profile.identity_service_ready === false || profile.diagnostics?.unavailable_identity_count > 0) && <details className="rec-profile-notes">
+        <summary>画像说明</summary>
+        {pending > 0 && <p>{identitySummary(profile)}</p>}
+        {profile.identity_service_ready === false && <p>关联工具尚待完成部署。旧手账记录仍完整保留，当前不会自动修改数据。</p>}
+        {profile.diagnostics?.unavailable_identity_count > 0 && <p>另有 {profile.diagnostics.unavailable_identity_count} 条高分记录因未收录或分级限制未计入推荐画像。</p>}
+      </details>}
+      </>}
     {unavailable && confirmedPreferences && <p className="rec-muted">手动偏好已保存 {confirmedPreferences.tags.length} 个；自动画像等待重新读取。</p>}
     {status === 'error' ? <button type="button" className="rec-text-button" onClick={onRetry}>重试读取 →</button>
       : <button type="button" className="rec-text-button" disabled={!preferences} onClick={onPreferences}>调整明确喜好 →</button>}

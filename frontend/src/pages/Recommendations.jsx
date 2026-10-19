@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom'
 import RecommendationCard, { RecommendationCover, RecommendationMeta } from '../components/recommendations/RecommendationCard.jsx'
 import RecommendationDialog from '../components/recommendations/RecommendationDialog.jsx'
 import RecommendationEvidence from '../components/recommendations/RecommendationEvidence.jsx'
-import RecommendationCategoryGuide from '../components/recommendations/RecommendationCategoryGuide.jsx'
 import RecommendationIdentityReview from '../components/recommendations/RecommendationIdentityReview.jsx'
 import { RecommendationTasteNote, RecommendationColdStartGuide, RecommendationRefreshNotice } from '../components/recommendations/RecommendationProfileGuide.jsx'
 import { RecommendationEmptyState, RecommendationSkeleton } from '../components/recommendations/RecommendationStates.jsx'
@@ -25,11 +24,10 @@ import RecommendationFeedbackToast from '../components/recommendations/Recommend
 import RecommendationHiddenWorks from '../components/recommendations/RecommendationHiddenWorks.jsx'
 import { getAccessToken } from '../auth/tokenStorage.js'
 import { recommendationSessionScope } from '../utils/recommendationSession.js'
-import { recommendationAlgorithmLabel } from '../utils/recommendationExplanation.js'
-import { identitySummary } from '../utils/recommendations.js'
 import { DEFAULT_BROWSE_FILTERS } from '../utils/recommendationBrowse.js'
 import { RecommendationBrowseControls, RecommendationFilterPanel, RecommendationBatchActions } from '../components/recommendations/RecommendationBrowseControls.jsx'
 import '../styles/recommendations.css'
+import '../styles/recommendations-layout.css'
 
 export default function Recommendations({ client = recommendationApi }) {
   const readScope = () => { try { return recommendationSessionScope(getAccessToken()) } catch { return 'anonymous' } }
@@ -194,7 +192,6 @@ function RecommendationWorkspace({ client, sessionScope }) {
     onReload: () => reload(),
     onDetail: (chosen) => { detailController.open(chosen); setPanel({ kind: 'detail', item: chosen }) } })
   const profile = state.profile
-  const pending = profile?.diagnostics?.pending_identity_count || 0
   const feedbackToast = <RecommendationFeedbackToast toast={feedback.state.toast} busy={feedback.state.pending}
     operation={feedback.state.operations[feedback.state.toast?.item.bangumiId]}
     onUndo={feedback.controller.undo} onManage={openHidden} onDismiss={feedback.controller.dismissToast} onReload={reloadFeedback} />
@@ -205,50 +202,51 @@ function RecommendationWorkspace({ client, sessionScope }) {
       <nav className="rec-nav" aria-label="推荐页面导航"><Link className="rec-back" to="/dashboard">← 返回我的手账</Link>
         <div className="rec-nav-tools"><button type="button" className="rec-text-button" onClick={openHidden}>已隐藏作品</button>
           <button type="button" className="rec-button rec-preferences" disabled={!preferences} onClick={openPreferences}>☷ 偏好设置</button></div></nav>
-      <header className="rec-intro">
-        <div className="rec-intro-copy"><span className="rec-eyebrow">YOUR NEXT FAVORITE <span className="rec-preview-badge">{recommendationAlgorithmLabel(state.data?.algorithm_version)}</span></span>
-          <h1>找到你的下一部<br /><span>心头好<span className="rec-title-star" aria-hidden="true">✦</span></span></h1>
-          <p>从喜欢的故事出发，把下一次心动写进手账。</p></div>
-        <RecommendationTasteNote profile={profile} preferences={preferences} status={state.status} confirmedPreferences={state.confirmedPreferences}
-          onPreferences={openPreferences} onRetry={reload} />
+      <header className="rec-page-heading">
+        <span className="rec-chapter-label">我的手账 / 发现篇</span>
+        <h1>番剧发现</h1>
       </header>
       <RecommendationRefreshNotice confirmedPreferences={state.confirmedPreferences} status={state.status} onRetry={() => reload()} />
       {(state.confirmedFeedback && state.status === 'error' || feedback.state.syncError) && <section className="rec-feedback-refresh" role="alert">
         <p>反馈已保存，推荐更新失败。</p><button type="button" className="rec-button" onClick={() => { feedback.controller.clearErrors(); reload() }}>重新加载推荐</button></section>}
       {feedback.state.uncertain && <section className="rec-feedback-refresh" role="alert"><p>上次反馈结果尚未确认。请先确认原操作，暂不提交新的反馈。</p>
         <button type="button" className="rec-button" disabled={feedback.state.pending} onClick={feedback.controller.retry}>重试确认原操作</button></section>}
-      <RecommendationColdStartGuide profile={profile} status={state.status} preferencesReady={!!preferences}
-        onPreferences={openPreferences} onIdentity={() => setPanel({ kind: 'identity' })} />
-      {pending > 0 && !profile.cold_start && <section className="rec-identity-notice" aria-label="旧数据关联提示"><p>{identitySummary(profile)}</p>
-        <button type="button" className="rec-button rec-button--primary" disabled={profile.identity_service_ready === false} onClick={() => setPanel({ kind: 'identity' })}>核对旧作品 →</button></section>}
-      {profile?.identity_service_ready === false && <p className="rec-muted">关联工具尚待完成部署。旧手账记录仍完整保留，当前不会自动修改数据。</p>}
-      {profile?.diagnostics?.unavailable_identity_count > 0 && <p className="rec-muted">另有 {profile.diagnostics.unavailable_identity_count} 条高分记录因未收录或分级限制未计入推荐画像。</p>}
-      <section className="rec-demo-note" aria-label="推荐依据"><span className="rec-demo-dot" aria-hidden="true" />
-        <p>{state.data?.mode === 'preference_based' ? '根据你选择的题材推荐，尚未形成高分作品画像。'
-          : state.data?.mode === 'personalized' ? '参考高分作品，并结合你的明确偏好；只展示已有数据支持的推荐理由。'
-            : '仅使用安全、已确认身份的作品和明确偏好；数据未加载时不会假装已有画像。'}
-          {' '}加入想看不会覆盖已有评分、长评或观看状态。</p></section>
       {legacy && <p className="rec-muted" role="status">增强浏览已关闭，已恢复原有 V1 推荐与分页。你的手账、偏好和反馈均未改变。</p>}
-      <RecommendationBrowseControls category={category} style={style} filters={visibleFilters} legacy={legacy} algorithmVersion={state.data?.algorithm_version}
+      <RecommendationBrowseControls category={category} style={style} filters={visibleFilters} legacy={legacy} algorithmVersion={state.data?.algorithm_version} mode={state.data?.mode}
         onCategory={next => { if (next !== category) { discardDetail(); state.cancelBrowse(); setCategory(next) } }}
         onStyle={next => { if (next !== style) { discardDetail(); state.cancelBrowse(); setStyle(next) } }}
         onFilter={openFilters} onRemove={removeFilter} onReset={reset} />
-      <RecommendationCategoryGuide category={category} mode={state.data?.mode} />
       <section id="rec-results" ref={resultsRef} className="rec-results" tabIndex={-1} aria-labelledby="rec-results-title">
-        <div className="rec-section-heading"><div><span className="rec-eyebrow">PICK A STORY, START A JOURNEY</span>
-          <h2 id="rec-results-title">下一次心动，从这里开始</h2></div>
-          <span className="rec-result-count">{state.data ? `本轮 ${state.data.count} 部作品` : state.status === 'error' ? '暂未加载结果' : '正在读取数据'}</span></div>
+        <h2 id="rec-results-title" className="rec-sr-only">推荐作品</h2>
         {state.error && state.status !== 'ready' && <p className="rec-inline-error" role="alert">{state.error}</p>}
-        {state.status === 'loading' ? <RecommendationSkeleton /> : state.status === 'cold'
-          ? <p className="rec-muted">完成上方口味设置后，再来翻开推荐故事。你的原有手账不会被修改。</p> : state.status !== 'ready'
-          ? <RecommendationEmptyState state={state.status} onRetry={reload} onReset={resetFilters} onFilter={openFilters} />
-          : <><RecommendationCard {...cardProps(state.items[0])} hero />
-            {state.items.length > 1 && <><div className="rec-more-heading"><h3>还有这些故事，值得翻开</h3><span>不止一种心动</span></div>
-              <div className="rec-grid">{state.items.slice(1).map((item) => <RecommendationCard key={item.id} {...cardProps(item)} />)}</div></>}
-            <RecommendationBatchActions state={state} onMore={state.loadMore} onBatch={nextBatch}
-              onReload={() => reload()} onFilter={openFilters} onRestart={() => reload()} /></>}
+        <div className="rec-featured-layout">
+          <div className="rec-featured-main">
+            {state.status === 'loading' ? <RecommendationSkeleton featuredOnly /> : state.status === 'cold'
+              ? profile?.cold_start ? <RecommendationColdStartGuide profile={profile} status={state.status} preferencesReady={!!preferences}
+                  onPreferences={openPreferences} onIdentity={() => setPanel({ kind: 'identity' })} />
+                : <RecommendationEmptyState state="cold" onPreferences={openPreferences} />
+              : state.status !== 'ready'
+                ? <RecommendationEmptyState state={state.status} onRetry={reload} onReset={resetFilters} onFilter={openFilters} />
+                : <><span className="rec-sr-only">本批首推</span>
+                  {state.data?.mode === 'preference_based' && <p className="rec-explicit-basis">根据你选择的题材推荐</p>}
+                  <RecommendationCard {...cardProps(state.items[0])} hero /></>}
+          </div>
+          <RecommendationTasteNote profile={profile} preferences={preferences} status={state.status} confirmedPreferences={state.confirmedPreferences}
+            onPreferences={openPreferences} onRetry={reload} onIdentity={() => setPanel({ kind: 'identity' })} />
+        </div>
+        {profile?.cold_start && ['ready', 'empty'].includes(state.status) && <details className="rec-profile-guide">
+          <summary>完善高分作品画像</summary>
+          <RecommendationColdStartGuide profile={profile} status={state.status} preferencesReady={!!preferences}
+            onPreferences={openPreferences} onIdentity={() => setPanel({ kind: 'identity' })} />
+        </details>}
+        {state.status === 'ready' && <>
+          {state.items.length > 1 && <><div className="rec-more-heading"><h2>继续发现</h2>
+            <span className="rec-result-count">{state.data ? `本轮 ${state.data.count} 部作品` : ''}</span></div>
+            <div className="rec-grid">{state.items.slice(1).map((item) => <RecommendationCard key={item.id} {...cardProps(item)} />)}</div></>}
+          <RecommendationBatchActions state={state} onMore={state.loadMore} onBatch={nextBatch}
+            onReload={() => reload()} onFilter={openFilters} onRestart={() => reload()} /></>}
       </section>
-      <footer className="rec-footer"><span>给每一次喜欢，一个值得停留的位置。</span><span>DISCOVERY JOURNAL / {recommendationAlgorithmLabel(state.data?.algorithm_version)}</span></footer>
+      <footer className="rec-footer"><span>我的手账 / 番剧发现</span></footer>
     </div>
     <div className="rec-toast" role="status" aria-live="polite">{notice && <p>{notice}</p>}</div>
     {panel?.kind !== 'hidden' && feedbackToast}

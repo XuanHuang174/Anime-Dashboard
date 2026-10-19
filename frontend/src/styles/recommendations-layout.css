@@ -1,0 +1,106 @@
+/* R1: layout and information hierarchy only. Keep card/evidence/dialog contracts. */
+.memphis-rec-container .rec-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+.memphis-rec-container .rec-nav { min-height: 60px; }
+.memphis-rec-container .rec-page-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 20px; padding: 18px 0 12px; }
+.memphis-rec-container .rec-chapter-label { display: inline-block; border: 2px solid var(--rec-ink); background: var(--rec-yellow); padding: 6px 10px; font-size: 11px; font-weight: 800; }
+.memphis-rec-container .rec-page-heading h1 { margin: 0; font-size: clamp(26px, 3vw, 32px); line-height: 1.2; font-weight: 900; letter-spacing: -.025em; }
+.memphis-rec-container .rec-controls { padding: 10px 0 12px; }
+.memphis-rec-container .rec-control-summary { display: flex; flex-wrap: wrap; align-items: start; gap: 0 16px; margin-bottom: 16px; }
+.memphis-rec-container .rec-active-filters { display: flex; flex: 1 1 380px; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; min-width: 0; }
+.memphis-rec-container .rec-filter-chips { gap: 6px; font-size: 12px; }
+.memphis-rec-container .rec-filter-chip { min-height: 34px; padding: 5px 8px; }
+.memphis-rec-container .rec-active-filters > .rec-text-button { flex-shrink: 0; }
+.memphis-rec-container .rec-browse-help { flex: 0 0 auto; padding: 8px 0; font-size: 12px; }
+.memphis-rec-container .rec-browse-help > summary { cursor: pointer; min-height: 34px; display: flex; align-items: center; gap: 6px; font-weight: 700; }
+.memphis-rec-container .rec-browse-help > summary::after { content: '+'; }
+.memphis-rec-container .rec-browse-help[open] { flex-basis: 100%; }
+.memphis-rec-container .rec-browse-help[open] > summary::after { content: '−'; }
+.memphis-rec-container .rec-browse-help-body { padding: 10px 14px; border: 1px solid #ded6c9; background: white; line-height: 1.8; }
+.memphis-rec-container .rec-browse-help-body p { margin: 5px 0; }
+.memphis-rec-container .rec-browse-help-body .rec-category-guide { margin: 0; padding: 0; }
+.memphis-rec-container .rec-results { scroll-margin-top: 16px; }
+.memphis-rec-container .rec-featured-layout { display: grid; grid-template-columns: minmax(0, 1fr) 252px; gap: 20px; align-items: start; }
+.memphis-rec-container .rec-featured-main { min-width: 0; }
+.memphis-rec-container .rec-featured-main > .rec-empty { margin: 0; min-height: 350px; padding: 24px; }
+.memphis-rec-container .rec-featured-main > .rec-cold-guide { margin: 0; }
+.memphis-rec-container .rec-featured-main > .rec-skeleton { padding: 0; }
+.memphis-rec-container .rec-featured-main .rec-skeleton-hero { min-height: 350px; grid-template-columns: 250px minmax(0, 1fr); }
+.memphis-rec-container .rec-featured-main .rec-card--hero { grid-template-columns: 250px minmax(0, 1fr); min-height: 350px; }
+.memphis-rec-container .rec-featured-main .rec-card--hero > .rec-cover { min-height: 350px; }
+.memphis-rec-container .rec-featured-main .rec-card--hero .rec-card-body { padding: 22px 24px; justify-content: flex-start; }
+.memphis-rec-container .rec-featured-main .rec-card--hero .rec-card-title { font-size: 27px; line-height: 1.35; margin-top: 10px; }
+.memphis-rec-container .rec-featured-main .rec-card--hero .rec-card-actions { margin-top: auto; padding-top: 18px; flex-wrap: wrap; }
+.memphis-rec-container .rec-featured-main .rec-card--hero .rec-card-actions .rec-button { padding: 9px 16px; }
+.memphis-rec-container .rec-explicit-basis { display: inline-block; margin: 0 0 10px; padding: 5px 10px; border-left: 3px solid var(--rec-ink); background: #e6f3ec; font-size: 12px; font-weight: 700; }
+.memphis-rec-container .rec-featured-layout > .rec-taste-note { min-width: 0; padding: 18px; transform: none; }
+.memphis-rec-container .rec-featured-layout > .rec-taste-note::before { display: none; }
+.memphis-rec-container .rec-featured-layout .rec-taste-note h2 { margin: 0 0 12px; font-size: 19px; }
+.memphis-rec-container .rec-taste-metrics { margin: 8px 0 12px; }
+.memphis-rec-container .rec-taste-genres p { margin-top: 8px; }
+.memphis-rec-container .rec-taste-review { border-top: 1px solid #c9d9ce; margin-top: 12px; padding-top: 10px; font-size: 12px; }
+.memphis-rec-container .rec-taste-review p { margin: 0; }
+.memphis-rec-container .rec-profile-notes { margin: 8px 0; font-size: 12px; line-height: 1.8; }
+.memphis-rec-container .rec-profile-notes > summary, .memphis-rec-container .rec-profile-guide > summary { cursor: pointer; font-weight: 700; padding: 6px 0; }
+.memphis-rec-container .rec-profile-notes p { margin: 6px 0; }
+.memphis-rec-container .rec-profile-guide { margin-top: 16px; border-bottom: 1px solid #ded6c9; font-size: 12px; }
+.memphis-rec-container .rec-profile-guide .rec-cold-guide { margin-top: 10px; }
+.memphis-rec-container .rec-more-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 26px 0 14px; }
+.memphis-rec-container .rec-more-heading h2 { margin: 0; font-size: 20px; font-weight: 900; }
+.memphis-rec-container .rec-batch-actions { margin-top: 24px; padding: 16px 0; border-top: 2px solid var(--rec-ink); }
+.memphis-rec-container .rec-pagination { padding: 0; justify-content: space-between; gap: 12px; }
+.memphis-rec-container .rec-pagination-buttons { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 12px; }
+.memphis-rec-container .rec-batch-progress { font-variant-numeric: tabular-nums; }
+.memphis-rec-container .rec-footer { border-top: 1px solid #ded6c9; padding: 14px 0; }
+@media (max-width: 1199px) and (min-width: 1024px) {
+  .memphis-rec-container .rec-featured-layout { grid-template-columns: minmax(0, 1fr) 220px; gap: 16px; }
+  .memphis-rec-container .rec-featured-main .rec-card--hero, .memphis-rec-container .rec-featured-main .rec-skeleton-hero { grid-template-columns: 210px minmax(0, 1fr); }
+  .memphis-rec-container .rec-featured-main .rec-card--hero .rec-card-body { padding: 20px; }
+  .memphis-rec-container .rec-featured-main .rec-card--hero .rec-card-title { font-size: 24px; }
+}
+@media (max-width: 1023px) {
+  .memphis-rec-container .rec-featured-layout { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .memphis-rec-container .rec-featured-layout > .rec-taste-note { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; align-items: center; padding: 14px 16px; }
+  .memphis-rec-container .rec-featured-layout .rec-taste-note h2 { font-size: 16px; margin: 0; }
+  .memphis-rec-container .rec-taste-metrics { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0; }
+  .memphis-rec-container .rec-taste-metrics > div { gap: 6px; }
+  .memphis-rec-container .rec-taste-genres { display: none; }
+  .memphis-rec-container .rec-taste-note > .rec-text-button { grid-column: 2; grid-row: 1; min-height: 36px; }
+  .memphis-rec-container .rec-taste-note > .rec-muted { grid-column: 1 / -1; }
+  .memphis-rec-container .rec-taste-review, .memphis-rec-container .rec-profile-notes { grid-column: 1 / -1; margin: 4px 0 0; }
+  .memphis-rec-container .rec-taste-review { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding-top: 6px; }
+}
+@media (max-width: 767px) {
+  .memphis-rec-container .rec-nav { min-height: 58px; gap: 8px; }
+  .memphis-rec-container .rec-back { font-size: 12px; }
+  .memphis-rec-container .rec-nav-tools { gap: 10px; }
+  .memphis-rec-container .rec-preferences { padding: 7px 10px; font-size: 12px; }
+  .memphis-rec-container .rec-page-heading { padding: 16px 0 10px; gap: 10px; }
+  .memphis-rec-container .rec-chapter-label { font-size: 10px; }
+  .memphis-rec-container .rec-controls { gap: 8px; padding: 8px 0 10px; }
+  .memphis-rec-container .rec-control-summary { gap: 0 10px; margin-bottom: 12px; }
+  .memphis-rec-container .rec-active-filters { flex-basis: 100%; gap: 8px; padding-bottom: 0; }
+  .memphis-rec-container .rec-filter-chip, .memphis-rec-container .rec-active-filters > .rec-text-button { min-height: 44px; }
+  .memphis-rec-container .rec-browse-help { padding: 0; }
+  .memphis-rec-container .rec-browse-help > summary { min-height: 36px; }
+  .memphis-rec-container .rec-featured-main .rec-card--hero { display: grid; grid-template-columns: 112px minmax(0, 1fr); min-height: 280px; }
+  .memphis-rec-container .rec-featured-main .rec-card--hero > .rec-cover { aspect-ratio: auto; height: 100%; min-height: 280px; border-right: 3px solid var(--rec-ink); border-bottom: 0; }
+  .memphis-rec-container .rec-featured-main .rec-cover-placeholder { padding: 12px 6px; gap: 12px; }
+  .memphis-rec-container .rec-featured-main .rec-cover-placeholder strong { font-size: 13px; line-height: 1.8; }
+  .memphis-rec-container .rec-featured-main .rec-cover-placeholder > span:nth-child(2) { display: none; }
+  .memphis-rec-container .rec-featured-main .rec-cover-placeholder small { font-size: 9px; }
+  .memphis-rec-container .rec-featured-main .rec-card--hero .rec-card-body { padding: 14px; }
+  .memphis-rec-container .rec-featured-main .rec-card--hero .rec-card-title { font-size: 20px; }
+  .memphis-rec-container .rec-featured-main .rec-card--hero .rec-card-actions { padding-top: 12px; }
+  .memphis-rec-container .rec-featured-main .rec-card--hero .rec-card-actions .rec-button { min-height: 44px; padding: 8px 10px; }
+  .memphis-rec-container .rec-featured-main .rec-skeleton-hero { min-height: 280px; grid-template-columns: 112px minmax(0, 1fr); }
+  .memphis-rec-container .rec-featured-main > .rec-empty { min-height: 280px; padding: 20px 16px; }
+  .memphis-rec-container .rec-more-heading { margin-top: 22px; }
+  .memphis-rec-container .rec-more-heading > span { display: block; }
+  .memphis-rec-container .rec-pagination-buttons { width: 100%; justify-content: flex-start; }
+}
+@media (max-width: 359px) {
+  .memphis-rec-container { padding-right: 12px; padding-left: 12px; }
+  .memphis-rec-container .rec-featured-main .rec-card--hero { grid-template-columns: 88px minmax(0, 1fr); }
+  .memphis-rec-container .rec-featured-main .rec-cover-placeholder strong { font-size: 11px; }
+  .memphis-rec-container .rec-nav-tools { gap: 6px; }
+}

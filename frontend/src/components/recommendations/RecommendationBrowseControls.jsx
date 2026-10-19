@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { REC_CATEGORIES } from '../../utils/recommendations.js'
 import { DEFAULT_BROWSE_FILTERS, REC_STYLES, filterChips, filterDraftError } from '../../utils/recommendationBrowse.js'
+import RecommendationCategoryGuide from './RecommendationCategoryGuide.jsx'
+import { recommendationAlgorithmLabel } from '../../utils/recommendationExplanation.js'
 
-export function RecommendationBrowseControls({ category, style, filters, onCategory, onStyle, onFilter, onRemove, onReset, legacy = false, algorithmVersion = 'content.v1' }) {
+export function RecommendationBrowseControls({ category, style, filters, onCategory, onStyle, onFilter, onRemove, onReset, legacy = false, algorithmVersion, mode }) {
   const chips = filterChips(filters)
   return <>
     <section className="rec-controls" aria-label="推荐类别与筛选">
@@ -14,12 +16,19 @@ export function RecommendationBrowseControls({ category, style, filters, onCateg
         onChange={event => onStyle(event.target.value)}>{REC_STYLES.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}</select></label>}
         <button type="button" className="rec-button rec-filter-button" onClick={onFilter}>☷ 筛选 {chips.length > 0 && <span className="rec-filter-count">{chips.length}</span>}</button></div>
     </section>
-    {!legacy && <p className="rec-style-description">{REC_STYLES.find(option => option.id === style).description.replace('V1', algorithmVersion === 'content.v2' ? 'V2' : 'V1')}</p>}
-    <div className="rec-active-filters" aria-label="当前生效条件"><div className="rec-filter-chips">
+    <div className="rec-control-summary"><div className="rec-active-filters" aria-label="当前生效条件"><div className="rec-filter-chips">
       {chips.map(chip => <button type="button" key={chip.id} className="rec-filter-chip" aria-label={`移除条件：${chip.label}`}
         onClick={() => onRemove(chip.id)}>{chip.label}<span aria-hidden="true"> ×</span></button>)}
       {!chips.length && <span>当前不限筛选条件</span>}</div>
       <button type="button" className="rec-text-button" onClick={onReset}>恢复默认</button></div>
+      <details className="rec-browse-help"><summary>浏览说明</summary><div className="rec-browse-help-body">
+        <RecommendationCategoryGuide category={category} mode={mode} />
+        {!legacy && <p>{REC_STYLES.find(option => option.id === style).description.replace('V1', algorithmVersion === 'content.v2' ? 'V2' : 'V1')}</p>}
+        <p>推荐理由只使用已有数据支持的题材关联，不代表喜欢概率。</p>
+        <p>加入想看不会覆盖已有评分、长评或观看状态。</p>
+        <small>{recommendationAlgorithmLabel(algorithmVersion)}</small>
+      </div></details>
+    </div>
   </>
 }
 
@@ -54,13 +63,15 @@ export function RecommendationBatchActions({ state, onMore, onBatch, onReload, o
       {state.moreError && <p className="rec-inline-error" role="alert">{state.transport === 'legacy' ? '加载下一页失败。' : '加载本批更多失败。'}{state.moreError}</p>}
       {state.batchError && <p className="rec-inline-error" role="alert">下一批加载失败，当前结果仍保留。{state.batchError}</p>}
       <div className="rec-pagination">
+        <span className="rec-batch-progress" role="status">{state.transport === 'legacy' ? `已展示 ${state.items.length} / ${state.data.count}` : `第 ${state.data.batch} 批 · 本批已展示 ${state.items.length} / ${state.data.batch_count}`}</span>
+        <div className="rec-pagination-buttons">
         {state.transport === 'legacy' && state.data.next_page && <button type="button" className="rec-button rec-button--primary" disabled={busy} onClick={onMore}>
           {state.moreLoading ? '正在加载…' : state.moreError ? '重试加载下一页' : '再翻一页 →'}</button>}
         {state.data.next_page_cursor && <button type="button" className="rec-button rec-button--primary" disabled={busy} onClick={onMore}>
           {state.moreLoading ? '正在加载…' : state.moreError ? '重试加载本批更多' : '加载本批更多'}</button>}
         {state.data.next_batch_cursor && <button type="button" className="rec-button" disabled={busy} onClick={onBatch}>
           {state.batchLoading ? '正在换批…' : state.batchError ? '重试原目标批次 →' : '换一批，看看其他作品 →'}</button>}
-        <span>{state.transport === 'legacy' ? `已展示 ${state.items.length} / ${state.data.count}` : `第 ${state.data.batch} 批 · 本批已展示 ${state.items.length} / ${state.data.batch_count}`}</span>
+        </div>
       </div>
       {state.data.exhausted && <div className="rec-browse-end" role="status"><p>本轮符合条件的作品已展示完。可以调整筛选，或重新开始浏览。</p>
         <button type="button" className="rec-text-button" onClick={onFilter}>调整筛选</button>

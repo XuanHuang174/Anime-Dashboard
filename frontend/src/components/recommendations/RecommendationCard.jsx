@@ -46,13 +46,13 @@ export default function RecommendationCard({ item, hero = false, onDetail, onWan
   return <article className={`rec-card ${hero ? 'rec-card--hero' : ''}`}>
     <RecommendationCover item={item} priority={hero} />
     <div className="rec-card-body">
-      {hero && <span className="rec-eyebrow">YOUR NEXT STORY <span className="rec-sticker">本期主推</span></span>}
+      {hero && <span className="rec-eyebrow"><span className="rec-sticker">本批首推</span></span>}
       <div className="rec-card-title-row"><h3 className="rec-card-title" title={item.title}>{item.title}</h3>
         {onHide && <RecommendationFeedbackMenu item={item} onHide={onHide} operation={feedbackOperation}
           disabled={browseUnavailable || feedbackDisabled || operation?.status === 'adding'} onReload={onFeedbackReload} />}</div>
       <RecommendationMeta item={item} />
       <RecommendationEvidence item={item} onReload={onReload} />
-      {hero && <p className="rec-hero-synopsis">{item.synopsis}</p>}
+      {hero && item.synopsis && <p className="rec-hero-synopsis">{item.synopsis}</p>}
       <div className="rec-card-tags" aria-label="作品标签">{item.tags?.slice(0, 2).map((tag) => <span key={tag}>{tag}</span>)}</div>
       <RecommendationActions item={item} onDetail={onDetail} onWant={onWant} operation={operation} onIdentity={onIdentity}
         detailDisabled={browseUnavailable} writeBlocked={browseUnavailable || feedbackOperation?.status === 'saving' || feedbackOperation?.uncertain} />

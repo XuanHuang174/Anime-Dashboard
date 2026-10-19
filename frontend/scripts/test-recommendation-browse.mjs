@@ -17,16 +17,31 @@ const context = await browser.newContext({ viewport: { width: 1440, height: 1000
 const page = await context.newPage(), errors = [], external = [], requests = [], snapshots = new Map(), owned = new Set()
 let epoch = 0, serial = 0, hold = false, held = [], failure = null, resourceHold = false, resourceRoutes = []
 let browseEnabled = true
+const phaseR1 = process.env.BROWSE_ACCEPTANCE_PHASE === 'r1'
+let layoutCase = 'ready', profileHold = false, profileHeld = []
+const coldState = () => ({ contract_version: 'recommendations.cold-start.v1', code: 'empty_journal', reasons: ['empty_journal'],
+  minimum_samples: 3, explicit_preference_count: layoutCase === 'explicit' ? 1 : 0, journal_record_count: 0,
+  rated_record_count: 0, unrated_record_count: 0, high_score_record_count: 0, eligible_sample_count: 0,
+  usable_sample_count: 0, pending_identity_count: 0, missing_genre_count: 0, unavailable_sample_count: 0,
+  is_cold_start: true, recommendation_basis: layoutCase === 'explicit' ? 'explicit_preferences' : 'none' })
+const layoutProfile = () => ({ contract_version: 'recommendations.3a.v1', eligible_sample_count: 63, usable_sample_count: 63,
+  cold_start: false, sample_policy: { minimum_score: '8.5', minimum_samples: 3 },
+  tag_summary: ['音乐', '日常', '治愈'].map(tag => ({ tag, sample_count: 20 })), identity_service_ready: true,
+  diagnostics: { high_score_record_count: 77, pending_identity_count: 14, linked_high_score_record_count: 63,
+    unavailable_identity_count: 0, stale_identity_count: 0, conflict_identity_count: 0 },
+  ...(['cold', 'explicit'].includes(layoutCase) ? { eligible_sample_count: 0, usable_sample_count: 0,
+    cold_start: true, tag_summary: [], diagnostics: undefined, cold_start_state: coldState(),
+    extraction: { explicit_preferences: { tags: layoutCase === 'explicit' ? ['音乐'] : [], version: 0 } } } : {}) })
 const phaseD3 = process.env.BROWSE_ACCEPTANCE_PHASE === 'v2d3'
 const phaseD2 = process.env.BROWSE_ACCEPTANCE_PHASE === 'v2d2' || phaseD3
-const phase9c = process.env.BROWSE_ACCEPTANCE_PHASE === '9c' || phaseD2
+const phase9c = process.env.BROWSE_ACCEPTANCE_PHASE === '9c' || phaseD2 || phaseR1
 const recipe = { contract_version: 'recommendations.execution.v1', algorithm_version: 'content.v2',
   ranking_policy_version: 'balanced-rerank.v3', recall_policy_version: 'source-pattern-recall.v2',
   runtime_version: 'pattern-prefix-runtime.v1', control_policy_version: 'browse-controls.v2',
   candidate_limit: 400, result_limit: 120, batch_size: 24, default_page_size: 12,
   control_policy_sha256: 'c'.repeat(64), recipe_revision: 'd'.repeat(64), serving_enabled: phaseD3 }
 const prepared = () => phaseD2 && browseEnabled
-const artifacts = path.resolve(phaseD3 ? '../.tools/acceptance-v2d3-browser' : phaseD2 ? '../.tools/acceptance-v2d2-browser' : phase9c ? '../.tools/acceptance-9c-browser' : '../.tools/acceptance-9b-browser')
+const artifacts = path.resolve(phaseR1 ? '../.tools/acceptance-r1-browser' : phaseD3 ? '../.tools/acceptance-v2d3-browser' : phaseD2 ? '../.tools/acceptance-v2d2-browser' : phase9c ? '../.tools/acceptance-9c-browser' : '../.tools/acceptance-9b-browser')
 await mkdir(artifacts, { recursive: true })
 page.setDefaultTimeout(10000)
 page.on('pageerror', error => errors.push(error.message))
@@ -36,7 +51,7 @@ const evidenceContext = () => ({ algorithm_version: prepared() ? 'content.v2' : 
     runtime_version: recipe.runtime_version, control_policy_version: recipe.control_policy_version,
     recipe_revision: recipe.recipe_revision, browse_context_version: epoch.toString(16).padStart(64, '0'),
     catalog_feature_version: 'f'.repeat(64) } : {}) })
-const row = id => ({ bangumi_id: id, content_rating: 'non_adult', title_zh: `作品${id}`, title_jp: '', tags: ['音乐'], score: 7.5,
+const row = id => ({ bangumi_id: id, content_rating: 'non_adult', title_zh: phaseR1 && layoutCase === 'long' && id === 101 ? '长标题边界作品'.repeat(70) : `作品${id}`, title_jp: '', tags: ['音乐'], score: 7.5,
   season: '2026-04', status_type: 'TV', synopsis: '隔离测试正文。'.repeat(100), evidence: null, reason: '',
   evidence_context: evidenceContext(), evidence_token: epoch.toString(16).padStart(64, '0'), watch_status: owned.has(id) ? 'plan' : null,
   ...(prepared() ? { detail_context: `prepared-${epoch}-${id}` } : {}) })
@@ -54,9 +69,16 @@ await context.route('**/*', async route => {
     contract_version: 'recommendations.capabilities.v1', algorithm_version: prepared() ? 'content.v2' : 'content.v1',
     browse_enabled: browseEnabled, rollout_revision: 'a'.repeat(64),
     ...(prepared() ? { execution_recipe: recipe, browse_contract_version: 'recommendations.browse.v2' } : {}) } })
+  if (suffix === 'profile/' && phaseR1) {
+    const payload = layoutProfile()
+    if (profileHold) await new Promise(resolve => profileHeld.push(resolve))
+    return finish(route, layoutCase === 'error' ? { status: 503, json: {} } : { json: payload })
+  }
+  if (suffix === 'identities/' && phaseR1) return route.fulfill({ json: { count: 0, page: 1, next_page: null, results: [] } })
   if (suffix === 'profile/') return route.fulfill({ json: { contract_version: 'recommendations.3a.v1', eligible_sample_count: 3, usable_sample_count: 3,
     cold_start: false, sample_policy: { minimum_score: '8.5' }, tag_summary: [{ tag: '音乐', sample_count: 3 }] } })
-  if (suffix === 'preferences/') return route.fulfill({ json: { contract_version: 'recommendations.3a.v1', version: 0, tags: [], available_tags: ['音乐'] } })
+  if (suffix === 'preferences/') return route.fulfill({ json: { contract_version: 'recommendations.3a.v1', version: 0,
+    tags: phaseR1 && layoutCase === 'explicit' ? ['音乐'] : [], available_tags: ['音乐'] } })
   if (suffix === 'feedback/hidden/') return route.fulfill({ json: { contract_version: 'recommendations.feedback.v1', feedback_version: 0,
     count: 0, results: [], page: 1, page_size: 12, next_page: null } })
   if (/^\d+\/want\/$/.test(suffix)) {
@@ -88,20 +110,22 @@ await context.route('**/*', async route => {
     const style = params.style || 'balanced'
     if (style === 'open') ids.reverse()
     const id = (++serial).toString(16).padStart(32, '0')
-    snapshot = { id, ids: params.year_from === '2099' ? [] : ids, category, style, epoch,
+    snapshot = { id, ids: params.year_from === '2099' || (phaseR1 && layoutCase === 'cold') ? [] : ids, category, style, epoch,
       filters: { type: params.type || 'all', minScore: params.min_score || '0', yearFrom: params.year_from || '', yearTo: params.year_to || '', hideRecorded: params.hide_recorded === 'true' } }
     snapshots.set(id, snapshot)
   }
   const listRow = id => { const { synopsis, ...rest } = row(id); return rest }
   const response = browsePage({ ...snapshot, snapshot: snapshot.id, offset, context: evidenceContext(), row: listRow,
     makeCursor: position => `${snapshot.id}:${position}` })
+  if (phaseR1 && ['cold', 'explicit'].includes(layoutCase)) Object.assign(response, {
+    mode: layoutCase === 'cold' ? 'cold_start' : 'preference_based', cold_start_state: coldState() })
   if (prepared()) Object.assign(response, { algorithm_version: 'content.v2', execution_recipe: recipe,
     browse_contract_version: 'recommendations.browse.v2', control_policy_version: recipe.control_policy_version })
   if (hold) await new Promise(resolve => held.push(resolve))
   if (failure) return finish(route, { status: failure, json: {} })
   return finish(route, { json: response })
 })
-const report = { scope: phaseD2 ? 'v2d2-isolated-component-integration' : '9b-isolated-component-integration', live_writes: false, checks: [] }
+const report = { scope: phaseR1 ? 'r1-layout-and-existing-browse-regression' : phaseD2 ? 'v2d2-isolated-component-integration' : '9b-isolated-component-integration', live_writes: false, checks: [] }
 const check = name => { report.checks.push({ name, passed: true }); console.log('PASS: ' + name) }
 const listCalls = () => requests.filter(request => request.path.endsWith('/recommendations/'))
 const openFilter = () => page.getByRole('button', { name: /☷ 筛选/ }).click()
@@ -265,6 +289,78 @@ try {
     await page.getByRole('button', { name: '加载本批更多', exact: true }).waitFor()
     assert.equal(await cards(), 12)
     check('9C capability discovery handles cold rollback and explicit recovery to a new browse session')
+  }
+  if (phaseR1) {
+    owned.clear()
+    const reloadLayout = async (variant, width = 1440, height = 900) => {
+      layoutCase = variant; await page.setViewportSize({ width, height }); await page.goto(`${origin}/tests/fixtures/recommendationBrowseHarness.html`)
+    }
+    for (const [width, height] of [[1440, 900], [1366, 768], [1024, 768]]) {
+      await reloadLayout('ready', width, height)
+      await page.locator('.rec-card--hero').waitFor()
+      const geometry = await page.locator('.rec-featured-layout').evaluate(node => {
+        const hero = node.querySelector('.rec-card--hero').getBoundingClientRect(), note = node.querySelector('.rec-taste-note').getBoundingClientRect()
+        const actions = node.querySelector('.rec-card-actions').getBoundingClientRect()
+        return { hero: { top: hero.top, right: hero.right, bottom: hero.bottom }, note: { left: note.left, top: note.top }, actionsBottom: actions.bottom, height: innerHeight }
+      })
+      assert.ok(geometry.hero.top < 300, JSON.stringify(geometry))
+      assert.ok(geometry.actionsBottom < height && geometry.hero.bottom < height, JSON.stringify(geometry))
+      assert.ok(geometry.note.left > geometry.hero.right)
+      assert.equal(await cards(), 12); assert.equal(await page.locator('.rec-grid .rec-card').count(), 11)
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+      await page.screenshot({ path: path.join(artifacts, `r1-${width}.png`), fullPage: false })
+    }
+    check('R1 desktop first screen contains featured cover/title/actions beside taste note; unchanged hero plus 11 grid cards')
+    count = listCalls().length
+    const posts = requests.filter(request => request.method !== 'GET').length
+    await page.getByText('浏览说明', { exact: true }).click()
+    assert.ok(await page.getByText('加入想看不会覆盖已有评分、长评或观看状态。', { exact: true }).isVisible())
+    await page.getByText('浏览说明', { exact: true }).click()
+    await page.getByText('画像说明', { exact: true }).click()
+    assert.ok(await page.getByText(/手账已有 77 条高分记录/).isVisible())
+    await page.getByText('画像说明', { exact: true }).click()
+    await page.getByRole('button', { name: '核对旧作品 →', exact: true }).click()
+    await page.locator('dialog[open]').waitFor(); await close()
+    assert.equal(listCalls().length, count)
+    assert.equal(requests.filter(request => request.method !== 'GET').length, posts)
+    check('R1 folded help and identity review remain accessible without recommendation refresh or business writes')
+    for (const width of [768, 390, 320]) {
+      await reloadLayout('ready', width, 844); await page.locator('.rec-card--hero').waitFor()
+      const hero = await page.locator('.rec-card--hero').boundingBox(), note = await page.locator('.rec-taste-note').boundingBox()
+      assert.ok(note.y >= hero.y + hero.height)
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+      await page.screenshot({ path: path.join(artifacts, `r1-${width}.png`), fullPage: false })
+    }
+    check('R1 tablet and 390/320px mobile put featured card before compact taste note without overflow')
+    await reloadLayout('long'); await page.locator('.rec-card--hero').waitFor()
+    const title = await page.locator('.rec-card--hero .rec-card-title').evaluate(node => ({ height: node.clientHeight, line: parseFloat(getComputedStyle(node).lineHeight) }))
+    assert.ok(title.height <= title.line * 2 + 2)
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+    check('R1 very long featured titles stay at two lines without horizontal overflow')
+    await reloadLayout('cold'); await page.locator('.rec-featured-main .rec-cold-guide').waitFor()
+    assert.equal(await cards(), 0)
+    assert.ok(await page.getByRole('button', { name: '选择 3–5 个喜欢的题材', exact: true }).isVisible())
+    await reloadLayout('explicit'); await page.locator('.rec-card--hero').waitFor()
+    assert.ok(await page.locator('.rec-explicit-basis').isVisible())
+    assert.equal(await page.locator('.rec-profile-guide').getAttribute('open'), null)
+    await openFilter(); await page.getByRole('textbox', { name: '起始年份', exact: true }).fill('2099')
+    await page.getByRole('button', { name: '应用筛选', exact: true }).click()
+    await page.getByRole('button', { name: '调整筛选', exact: true }).waitFor()
+    assert.equal(await page.locator('.rec-featured-main .rec-cold-guide').count(), 0)
+    check('R1 cold start, explicit preference basis and filtered empty state stay distinct with original recovery actions')
+    profileHold = true; await reloadLayout('ready')
+    await page.getByLabel('正在加载推荐', { exact: true }).waitFor()
+    assert.equal(await page.locator('.rec-taste-metrics').count(), 0)
+    assert.equal(await page.locator('.rec-skeleton .rec-grid').count(), 0)
+    profileHold = false; for (const done of profileHeld.splice(0)) done()
+    await page.locator('.rec-card--hero').waitFor()
+    await reloadLayout('error'); await page.getByRole('button', { name: '重新加载', exact: true }).waitFor()
+    assert.equal(await page.locator('.rec-taste-metrics').count(), 0)
+    assert.equal(await page.locator('.rec-cold-guide').count(), 0)
+    assert.equal(await cards(), 0)
+    layoutCase = 'ready'; await page.getByRole('button', { name: '重新加载', exact: true }).click()
+    await page.locator('.rec-card--hero').waitFor()
+    check('R1 loading and failed profile never display fake zero counts or cold-start guidance; read retry recovers')
   }
   assert.deepEqual(errors, []); assert.deepEqual(external, [])
   report.result = 'passed'
