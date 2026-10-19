@@ -17,7 +17,8 @@ const context = await browser.newContext({ viewport: { width: 1440, height: 1000
 const page = await context.newPage(), errors = [], external = [], requests = [], snapshots = new Map(), owned = new Set()
 let epoch = 0, serial = 0, hold = false, held = [], failure = null, resourceHold = false, resourceRoutes = []
 let browseEnabled = true
-const phaseR1 = process.env.BROWSE_ACCEPTANCE_PHASE === 'r1'
+const phaseR2 = process.env.BROWSE_ACCEPTANCE_PHASE === 'r2'
+const phaseR1 = process.env.BROWSE_ACCEPTANCE_PHASE === 'r1' || phaseR2
 let layoutCase = 'ready', profileHold = false, profileHeld = []
 const coldState = () => ({ contract_version: 'recommendations.cold-start.v1', code: 'empty_journal', reasons: ['empty_journal'],
   minimum_samples: 3, explicit_preference_count: layoutCase === 'explicit' ? 1 : 0, journal_record_count: 0,
@@ -41,12 +42,14 @@ const recipe = { contract_version: 'recommendations.execution.v1', algorithm_ver
   candidate_limit: 400, result_limit: 120, batch_size: 24, default_page_size: 12,
   control_policy_sha256: 'c'.repeat(64), recipe_revision: 'd'.repeat(64), serving_enabled: phaseD3 }
 const prepared = () => phaseD2 && browseEnabled
-const artifacts = path.resolve(phaseR1 ? '../.tools/acceptance-r1-browser' : phaseD3 ? '../.tools/acceptance-v2d3-browser' : phaseD2 ? '../.tools/acceptance-v2d2-browser' : phase9c ? '../.tools/acceptance-9c-browser' : '../.tools/acceptance-9b-browser')
+const artifacts = path.resolve(phaseR2 ? '../.tools/acceptance-r2-browser' : phaseR1 ? '../.tools/acceptance-r1-browser' : phaseD3 ? '../.tools/acceptance-v2d3-browser' : phaseD2 ? '../.tools/acceptance-v2d2-browser' : phase9c ? '../.tools/acceptance-9c-browser' : '../.tools/acceptance-9b-browser')
 await mkdir(artifacts, { recursive: true })
 page.setDefaultTimeout(10000)
 page.on('pageerror', error => errors.push(error.message))
 const finish = async (route, options) => { try { await route.fulfill(options) } catch (error) { if (!route.request().failure()) throw error } }
 const evidenceContext = () => ({ algorithm_version: prepared() ? 'content.v2' : 'content.v1', profile_version: epoch.toString(16).padStart(64, '0'), preference_version: 0, feedback_version: 0,
+  ...(phaseR2 ? { ranking_policy_version: 'content-ranking.v1', taxonomy_version: 'genres.v4', feature_version: 'genres-idf.v4',
+    feature_rule_version: 'journal-genres.v3', selection_rule_version: 'evidence-selection.v1', catalog_feature_version: 'f'.repeat(64) } : {}),
   ...(prepared() ? { ranking_policy_version: recipe.ranking_policy_version, recall_policy_version: recipe.recall_policy_version,
     runtime_version: recipe.runtime_version, control_policy_version: recipe.control_policy_version,
     recipe_revision: recipe.recipe_revision, browse_context_version: epoch.toString(16).padStart(64, '0'),
@@ -54,9 +57,23 @@ const evidenceContext = () => ({ algorithm_version: prepared() ? 'content.v2' : 
 const row = id => ({ bangumi_id: id, content_rating: 'non_adult', title_zh: phaseR1 && layoutCase === 'long' && id === 101 ? '长标题边界作品'.repeat(70) : `作品${id}`, title_jp: '', tags: ['音乐'], score: 7.5,
   season: '2026-04', status_type: 'TV', synopsis: '隔离测试正文。'.repeat(100), evidence: null, reason: '',
   evidence_context: evidenceContext(), evidence_token: epoch.toString(16).padStart(64, '0'), watch_status: owned.has(id) ? 'plan' : null,
+  ...(phaseR2 && layoutCase === 'surface' ? { title_zh: id === 101 ? '海风与放课后的合奏' : ['放学后的星空', '春日的长信', '风经过的街角'][id % 3],
+    cover_url: `https://media.xh-anime.com/covers/${id}.jpg`, tags: ['音乐', '日常'],
+    reason: '因为你给《合成来源作品》打了 9.1 分，这部作品同样包含“音乐”和“日常”题材。',
+    evidence: { contract_version: 'recommendations.evidence.v1', kind: 'rated_work',
+      source: { bangumi_id: 81, title: '合成来源作品', personal_score: '9.1' }, shared_tags: ['音乐', '日常'],
+      feature_rule_version: 'journal-genres.v3', interpretation: 'shared_genre_association',
+      is_probability: false, is_exhaustive_ranking_explanation: false, versions: evidenceContext() } } : {}),
   ...(prepared() ? { detail_context: `prepared-${epoch}-${id}` } : {}) })
 await context.route('**/*', async route => {
   const url = new URL(route.request().url()), method = route.request().method()
+  if (phaseR2 && url.origin === 'https://media.xh-anime.com' && /^\/covers\/\d+\.jpg$/.test(url.pathname)) {
+    const id = Number(url.pathname.split('/').at(-1).split('.')[0])
+    if (id === 105) return route.fulfill({ status: 404, body: '' })
+    const colors = ['#4ecdc4', '#ffe66d', '#ff8fab', '#aacbe4']
+    // Test-only vector poster: fulfilled locally, never downloaded or shipped.
+    return route.fulfill({ contentType: 'image/svg+xml', body: `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800" viewBox="0 0 600 800"><rect width="600" height="800" fill="${colors[id % 4]}"/><circle cx="490" cy="130" r="150" fill="#fff5ee"/><path d="M0 600L600 250V800H0Z" fill="#111"/><path d="M50 70H350M50 90H250" stroke="#111" stroke-width="5"/><circle cx="190" cy="370" r="110" fill="#fff5ee" stroke="#111" stroke-width="5"/><path d="M150 405V325L235 305V385M150 325L235 305" fill="none" stroke="#111" stroke-width="12"/><circle cx="130" cy="405" r="25" fill="#111"/><circle cx="215" cy="385" r="25" fill="#111"/><text x="40" y="650" fill="white" font-size="30" font-family="sans-serif">合成验收海报 / ${id}</text><text x="40" y="700" fill="white" font-size="17" font-family="sans-serif">LOCAL VISUAL FIXTURE</text></svg>` })
+  }
   if (url.origin !== origin) { external.push(url.origin); return route.abort() }
   if (url.pathname === '/api/utils/anime-search/') {
     if (resourceHold) { resourceRoutes.push(route); return }
@@ -125,7 +142,7 @@ await context.route('**/*', async route => {
   if (failure) return finish(route, { status: failure, json: {} })
   return finish(route, { json: response })
 })
-const report = { scope: phaseR1 ? 'r1-layout-and-existing-browse-regression' : phaseD2 ? 'v2d2-isolated-component-integration' : '9b-isolated-component-integration', live_writes: false, checks: [] }
+const report = { scope: phaseR2 ? 'r2-journal-visual-and-interaction-regression' : phaseR1 ? 'r1-layout-and-existing-browse-regression' : phaseD2 ? 'v2d2-isolated-component-integration' : '9b-isolated-component-integration', live_writes: false, checks: [] }
 const check = name => { report.checks.push({ name, passed: true }); console.log('PASS: ' + name) }
 const listCalls = () => requests.filter(request => request.path.endsWith('/recommendations/'))
 const openFilter = () => page.getByRole('button', { name: /☷ 筛选/ }).click()
@@ -361,6 +378,93 @@ try {
     layoutCase = 'ready'; await page.getByRole('button', { name: '重新加载', exact: true }).click()
     await page.locator('.rec-card--hero').waitFor()
     check('R1 loading and failed profile never display fake zero counts or cold-start guidance; read retry recovers')
+  }
+  if (phaseR2) {
+    layoutCase = 'surface'; await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto(`${origin}/tests/fixtures/recommendationBrowseHarness.html`)
+    const hero = page.locator('.rec-card--hero')
+    await hero.locator('img').waitFor()
+    await page.waitForFunction(() => document.querySelector('.rec-card--hero img')?.naturalWidth > 0)
+    const theme = await page.locator('.memphis-rec-container').evaluate(node => {
+      const css = getComputedStyle(node), head = getComputedStyle(node.querySelector('.rec-masthead'))
+      return { ink: css.getPropertyValue('--rec-ink').trim(), teal: css.getPropertyValue('--rec-teal').trim(),
+        coral: head.backgroundColor, texture: css.backgroundImage, grid: head.backgroundImage }
+    })
+    assert.equal(theme.ink, '#111'); assert.equal(theme.teal, '#4ecdc4'); assert.equal(theme.coral, 'rgb(255, 107, 107)')
+    assert.match(theme.texture, /radial-gradient/); assert.match(theme.grid, /linear-gradient/)
+    const geometry = await hero.boundingBox(); assert.ok(geometry.y < 300 && geometry.y + geometry.height < 900)
+    assert.equal(await hero.locator('.rec-card-actions > button').count(), 2)
+    await page.screenshot({ path: path.join(artifacts, 'r2-featured-desktop.png'), fullPage: false })
+    check('R2 journal coral grid, paper dots and color tokens render with hosted-image fixture and unchanged two primary actions')
+    count = listCalls().length
+    await hero.locator('.rec-evidence > summary').click()
+    await hero.getByText('你对《合成来源作品》的评分：', { exact: false }).waitFor()
+    assert.ok(await hero.getByText('9.1 分', { exact: true }).isVisible())
+    assert.ok(await hero.getByText('Bangumi 评分', { exact: true }).isVisible())
+    assert.equal(listCalls().length, count)
+    await hero.locator('.rec-evidence > summary').click()
+    await hero.getByRole('button', { name: /的更多操作/ }).click()
+    const menu = page.getByRole('menuitem', { name: '不感兴趣', exact: true })
+    assert.ok(await menu.isVisible()); assert.equal(await menu.evaluate(node => node === document.activeElement), true)
+    await page.keyboard.press('Escape')
+    assert.equal(await hero.locator('.rec-feedback-trigger').evaluate(node => node === document.activeElement), true)
+    check('R2 evidence preserves distinct public/personal scores; feedback menu remains unclipped with Escape focus return')
+    await page.locator('.rec-grid').scrollIntoViewIfNeeded()
+    await page.waitForFunction(() => [...document.querySelectorAll('.rec-grid img')].some(img => img.naturalWidth > 0))
+    await page.getByRole('button', { name: '查看放学后的星空详情', exact: true }).first().scrollIntoViewIfNeeded()
+    await page.screenshot({ path: path.join(artifacts, 'r2-grid-desktop.png'), fullPage: false })
+    assert.ok(await page.locator('.rec-cover-placeholder').count() >= 1)
+    check('R2 regular cards retain safe missing-image fallback alongside loaded posters and readable evidence')
+    await hero.getByRole('button', { name: '查看海风与放课后的合奏详情', exact: true }).click()
+    const dialog = page.locator('dialog[open]')
+    await dialog.locator('.rec-detail-content').waitFor()
+    assert.equal(await dialog.evaluate(node => node.matches(':modal')), true)
+    assert.equal(await dialog.evaluate(node => getComputedStyle(node).backgroundColor), 'rgb(255, 255, 255)')
+    await page.getByRole('button', { name: '🧲 寻找资源', exact: true }).click()
+    await page.getByText('合成资源失败', { exact: false }).waitFor()
+    await page.keyboard.press('Escape')
+    assert.equal(await dialog.count(), 1)
+    assert.equal(await page.getByRole('button', { name: '🧲 寻找资源', exact: true }).evaluate(node => node === document.activeElement), true)
+    await dialog.locator('.rec-dialog-main').evaluate(node => { node.scrollTop = 0 })
+    await page.screenshot({ path: path.join(artifacts, 'r2-detail-desktop.png'), fullPage: false })
+    await close()
+    check('R2 white native detail dialog preserves resource-local failure, Escape priority and trigger focus')
+    for (const width of [768, 390, 320]) {
+      await page.setViewportSize({ width, height: 844 }); await page.evaluate(() => scrollTo(0, 0))
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+      const first = page.locator('.rec-grid .rec-card').first()
+      const size = await first.locator('.rec-feedback-trigger').boundingBox()
+      assert.ok(size.width >= 44 && size.height >= 44)
+      await page.screenshot({ path: path.join(artifacts, `r2-featured-${width}.png`), fullPage: false })
+      await first.scrollIntoViewIfNeeded()
+      await page.screenshot({ path: path.join(artifacts, `r2-grid-${width}.png`), fullPage: false })
+    }
+    check('R2 768/390/320px hosted covers and grid controls remain responsive with 44px touch targets')
+    await page.setViewportSize({ width: 390, height: 844 })
+    await hero.getByRole('button', { name: '查看海风与放课后的合奏详情', exact: true }).click()
+    await dialog.locator('.rec-detail-content').waitFor()
+    await page.getByRole('button', { name: '🧲 寻找资源', exact: true }).click()
+    await page.getByRole('button', { name: '返回详情', exact: false }).waitFor()
+    // Wait for the existing slide transition to settle, not merely `visible`.
+    await page.waitForFunction(() => {
+      const workspace = document.querySelector('dialog[open] .rec-dialog-workspace')?.getBoundingClientRect()
+      const resource = document.querySelector('dialog[open] .rec-dialog-resource')?.getBoundingClientRect()
+      return workspace && resource && Math.abs(workspace.left - resource.left) < 1 && Math.abs(workspace.width - resource.width) < 1
+    })
+    assert.equal(await dialog.locator('.rec-dialog-main').getAttribute('inert'), '')
+    assert.ok(await dialog.evaluate(node => node.scrollWidth <= node.clientWidth))
+    await page.screenshot({ path: path.join(artifacts, 'r2-resource-mobile.png'), fullPage: false })
+    await page.keyboard.press('Escape')
+    assert.equal(await dialog.count(), 1)
+    assert.equal(await page.getByRole('button', { name: '🧲 寻找资源', exact: true }).evaluate(node => node === document.activeElement), true)
+    await page.keyboard.press('Escape'); await page.locator('dialog').waitFor({ state: 'detached' })
+    check('R2 mobile resource panel keeps native modal/inert boundaries and Escape closes resource before detail')
+    const isolated = await page.evaluate(() => {
+      const probe = document.createElement('button'); probe.className = 'rec-button'; document.body.append(probe)
+      const css = getComputedStyle(probe), result = { shadow: css.boxShadow, bg: css.backgroundColor }; probe.remove(); return result
+    })
+    assert.equal(isolated.shadow, 'none'); assert.notEqual(isolated.bg, 'rgb(255, 230, 109)')
+    check('R2 namespaced styling does not decorate same-named controls outside the recommendation page')
   }
   assert.deepEqual(errors, []); assert.deepEqual(external, [])
   report.result = 'passed'

@@ -28,6 +28,7 @@ import { DEFAULT_BROWSE_FILTERS } from '../utils/recommendationBrowse.js'
 import { RecommendationBrowseControls, RecommendationFilterPanel, RecommendationBatchActions } from '../components/recommendations/RecommendationBrowseControls.jsx'
 import '../styles/recommendations.css'
 import '../styles/recommendations-layout.css'
+import '../styles/recommendations-theme.css'
 
 export default function Recommendations({ client = recommendationApi }) {
   const readScope = () => { try { return recommendationSessionScope(getAccessToken()) } catch { return 'anonymous' } }
@@ -199,12 +200,14 @@ function RecommendationWorkspace({ client, sessionScope }) {
   return <main className="memphis-rec-container">
     <a className="rec-skip-link" href="#rec-results">跳到推荐内容</a>
     <div className="rec-page">
+      <div className="rec-masthead">
       <nav className="rec-nav" aria-label="推荐页面导航"><Link className="rec-back" to="/dashboard">← 返回我的手账</Link>
         <div className="rec-nav-tools"><button type="button" className="rec-text-button" onClick={openHidden}>已隐藏作品</button>
           <button type="button" className="rec-button rec-preferences" disabled={!preferences} onClick={openPreferences}>☷ 偏好设置</button></div></nav>
       <header className="rec-page-heading">
         <span className="rec-chapter-label">我的手账 / 发现篇</span>
         <h1>番剧发现</h1>
+        <span className="rec-chapter-mark" aria-hidden="true">✦</span>
       </header>
       <RecommendationRefreshNotice confirmedPreferences={state.confirmedPreferences} status={state.status} onRetry={() => reload()} />
       {(state.confirmedFeedback && state.status === 'error' || feedback.state.syncError) && <section className="rec-feedback-refresh" role="alert">
@@ -216,6 +219,7 @@ function RecommendationWorkspace({ client, sessionScope }) {
         onCategory={next => { if (next !== category) { discardDetail(); state.cancelBrowse(); setCategory(next) } }}
         onStyle={next => { if (next !== style) { discardDetail(); state.cancelBrowse(); setStyle(next) } }}
         onFilter={openFilters} onRemove={removeFilter} onReset={reset} />
+      </div>
       <section id="rec-results" ref={resultsRef} className="rec-results" tabIndex={-1} aria-labelledby="rec-results-title">
         <h2 id="rec-results-title" className="rec-sr-only">推荐作品</h2>
         {state.error && state.status !== 'ready' && <p className="rec-inline-error" role="alert">{state.error}</p>}
