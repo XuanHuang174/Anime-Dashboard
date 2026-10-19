@@ -8,6 +8,7 @@ export function createRecommendationClient(client) {
     savePreferences: (changes, signal) => client.patch('recommendations/preferences/', changes, { signal }).then((r) => r.data),
     identities: (params, signal) => client.get('recommendations/identities/', { params, signal }).then((r) => r.data),
     confirmIdentity: (changes, signal) => client.patch('recommendations/identities/', changes, { signal }).then((r) => r.data),
+    confirmIdentities: (changes, signal) => client.post('recommendations/identities/batch/', changes, { signal }).then(r => r.data),
     hideFeedback: (changes, signal) => client.post('recommendations/feedback/', changes, { signal }).then(r => r.data),
     undoFeedback: (changes, signal) => client.post('recommendations/feedback/undo/', changes, { signal }).then(r => r.data),
     hiddenFeedback: (params, signal) => client.get('recommendations/feedback/hidden/', { params, signal }).then(r => r.data),

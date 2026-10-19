@@ -490,3 +490,18 @@ class IdentityConfirmationSerializer(serializers.Serializer):
         if value is not True:
             raise serializers.ValidationError('须明确确认作品身份。')
         return value
+
+
+class IdentityBatchSerializer(serializers.Serializer):
+    batch_id = serializers.UUIDField()
+    items = IdentityConfirmationSerializer(many=True, allow_empty=False, max_length=20)
+
+    def to_internal_value(self, data):
+        if not isinstance(data, Mapping) or set(data) - set(self.fields):
+            raise serializers.ValidationError({'non_field_errors': ['不支持的批量关联字段。']})
+        return super().to_internal_value(data)
+
+    def validate_items(self, items):
+        if len({item['record_id'] for item in items}) != len(items):
+            raise serializers.ValidationError('同一手账记录不能在一批中重复提交。')
+        return items

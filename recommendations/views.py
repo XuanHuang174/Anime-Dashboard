@@ -21,7 +21,8 @@ from .evidence import EvidencePresenter, EVIDENCE_CONTRACT_VERSION, EVIDENCE_DIS
 from .identity import safe_catalog
 from .serializers import RecommendationPublicAnimeSerializer, RecommendationListAnimeSerializer, RecommendationQuerySerializer
 from .taxonomy import TAXONOMY_VERSION
-from .serializers import IdentityReviewQuerySerializer, IdentityConfirmationSerializer
+from .serializers import IdentityReviewQuerySerializer, IdentityConfirmationSerializer, IdentityBatchSerializer
+from .identity_batch import confirm_identity_batch
 from .binding import bind_record
 from .review import review_contract
 from .want import add_want, WantConflict
@@ -247,3 +248,23 @@ class RecommendationIdentityReviewView(OwnRecommendationAPIView):
         result = bind_record(record_id=data['record_id'], user_id=request.user.pk, target_id=data['bangumi_id'],
                              source='user_confirmed', expected_version=data['expected_version'], ticket=data['ticket'])
         return Response(result)
+
+
+class BoundedIdentityBatchParser(JSONParser):
+    def parse(self, stream, media_type=None, parser_context=None):
+        data = stream.read(64 * 1024 + 1)
+        if len(data) > 64 * 1024:
+            raise ValidationError('批量关联请求不能超过 64 KiB。')
+        return super().parse(BytesIO(data), media_type=media_type, parser_context=parser_context)
+
+
+class RecommendationIdentityBatchView(OwnRecommendationAPIView):
+    parser_classes = (BoundedIdentityBatchParser,)
+    throttle_classes = (UserRateThrottle, ScopedRateThrottle)
+    throttle_scope = 'recommendation_identity'
+
+    def post(self, request):
+        self.check_query_contract(request)
+        serializer = IdentityBatchSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(confirm_identity_batch(request.user, serializer.validated_data))

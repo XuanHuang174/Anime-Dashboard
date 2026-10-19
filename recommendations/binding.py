@@ -57,9 +57,18 @@ def bind_record(*, record_id, user_id, target_id, source, expected_version=None,
     if expected_catalog_fp is not None and target_fp != expected_catalog_fp:
         raise IdentityConflict()
     version = link.version if link else 0
+    expired = False
     if ticket is not None:
         try:
             proof = signing.loads(ticket, salt=SALT, max_age=900)
+        except signing.SignatureExpired:
+            # Only an already committed event from THIS batch may be acknowledged
+            # after expiry. Authentic proof, ownership, current safety/metadata and
+            # exact applied version are still checked; this path can never write.
+            if batch_id is None or source != 'user_confirmed':
+                raise IdentityConflict() from None
+            proof = signing.loads(ticket, salt=SALT)
+            expired = True
         except signing.BadSignature:
             raise IdentityConflict() from None
         if (proof.get('owner') != user_id or proof.get('record') != record_id or proof.get('target') != target_id
@@ -68,7 +77,12 @@ def bind_record(*, record_id, user_id, target_id, source, expected_version=None,
             raise IdentityConflict()
     # Safe retry after a committed request whose response was lost; do not create another event.
     if link and link.active and link.catalog_anime_id == target.pk and link.record_fingerprint == fp and link.catalog_fingerprint == target_fp:
+        if expired and not RecommendationIdentityEvent.objects.filter(record=record, batch_id=batch_id,
+                action='linked', applied_version=link.version).exists():
+            raise IdentityConflict()
         return {'status': 'already_linked', 'version': version}
+    if expired:
+        raise IdentityConflict()
     if expected_version is not None and version != expected_version:
         raise IdentityConflict()
     if version >= 2_147_483_647:

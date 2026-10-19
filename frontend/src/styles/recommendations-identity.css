@@ -1,0 +1,54 @@
+.memphis-rec-container .rec-dialog.rec-dialog--identity { width: min(1120px, calc(100% - 40px)); height: min(880px, calc(100dvh - 40px)); overflow: hidden; }
+.memphis-rec-container .rec-dialog--identity[open] { display: flex; flex-direction: column; }
+.memphis-rec-container .rec-dialog--identity > .rec-dialog-header { flex-shrink: 0; padding: 16px 20px; }
+.memphis-rec-container .rec-dialog--identity > .rec-dialog-body { flex: 1; min-height: 0; display: flex; padding: 0; overflow: hidden; }
+.memphis-rec-container .rec-identity-workbench { display: flex; flex-direction: column; width: 100%; min-width: 0; min-height: 0; }
+.memphis-rec-container .rec-identity-intro { flex-shrink: 0; margin: 0; padding: 14px 20px; font-size: 12px; line-height: 1.8; border-bottom: 1px solid #ded6c9; }
+.memphis-rec-container .rec-identity-content { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 20px 20px; scrollbar-gutter: stable; }
+.memphis-rec-container .rec-identity-pagination { display: flex; align-items: center; justify-content: end; flex-wrap: wrap; gap: 8px; padding: 14px 0; font-size: 12px; }
+.memphis-rec-container .rec-identity-pagination > span { margin-right: auto; }
+.memphis-rec-container .rec-identity-heading { display: flex; justify-content: space-between; gap: 12px; align-items: start; }
+.memphis-rec-container .rec-identity-heading h3 { margin-top: 0; }
+.memphis-rec-container .rec-identity-badge { flex-shrink: 0; padding: 4px 8px; font-size: 11px; border: 1px solid var(--rec-ink); background: #e6f3ec; }
+.memphis-rec-container .rec-identity-workbench .rec-identity-row { margin: 0 0 16px; padding: 18px; }
+.memphis-rec-container .rec-identity-workbench .rec-identity-search { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; margin: 14px 0; }
+.memphis-rec-container .rec-identity-workbench .rec-identity-search .rec-field { min-width: 0; margin: 0; }
+.memphis-rec-container .rec-identity-workbench .rec-identity-search button { min-height: 44px; margin: 0; }
+.memphis-rec-container .rec-identity-workbench .rec-identity-search input { min-height: 44px; }
+.memphis-rec-container .rec-identity-workbench .rec-identity-candidates { margin-top: 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 10px; }
+.memphis-rec-container .rec-identity-workbench .rec-identity-candidate { min-height: 60px; padding: 12px; margin: 0; }
+.memphis-rec-container .rec-identity-workbench .rec-checkbox { min-height: 44px; font-size: 12px; }
+.memphis-rec-container .rec-identity-difference { padding: 8px 10px; background: #fff2cc; border-left: 3px solid var(--rec-ink); font-size: 12px; line-height: 1.7; }
+.memphis-rec-container .rec-identity-footer { flex-shrink: 0; padding: 12px 20px; border-top: 2px solid var(--rec-ink); background: white; font-size: 12px; }
+.memphis-rec-container .rec-identity-footer > p { margin: 6px 0; line-height: 1.7; }
+.memphis-rec-container .rec-identity-savebar { display: flex; align-items: center; justify-content: end; flex-wrap: wrap; gap: 10px; }
+.memphis-rec-container .rec-identity-savebar > span { margin-right: auto; }
+.memphis-rec-container .rec-identity-footer .rec-button, .memphis-rec-container .rec-identity-footer .rec-text-button { min-height: 44px; }
+.memphis-rec-container .rec-identity-drafts summary { min-height: 36px; cursor: pointer; font-weight: 800; }
+.memphis-rec-container .rec-identity-drafts ul { max-height: 18dvh; overflow-y: auto; padding: 0 10px; margin: 0 0 10px; background: #edf7f2; list-style: none; }
+.memphis-rec-container .rec-identity-drafts li { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-bottom: 1px solid #c5d9d0; }
+.memphis-rec-container .rec-identity-drafts li span { min-width: 0; overflow-wrap: anywhere; }
+.memphis-rec-container .rec-identity-drafts li > div { display: flex; flex-shrink: 0; gap: 10px; }
+.memphis-rec-container .rec-identity-drafts small { display: block; font-size: 11px; color: var(--rec-muted); }
+.memphis-rec-container .rec-identity-discard { max-height: 30dvh; overflow-y: auto; }
+.memphis-rec-container .rec-identity-discard .rec-button { margin-right: 8px; }
+@media (max-width: 639px) {
+  .memphis-rec-container .rec-dialog.rec-dialog--identity { width: 100%; inset: auto 0 0; margin: 0; height: 96dvh; max-height: 96dvh; border-bottom: 0; box-shadow: none; }
+  .memphis-rec-container .rec-dialog--identity > .rec-dialog-header { padding: 10px 12px; }
+  .memphis-rec-container .rec-identity-intro { padding: 10px 12px; font-size: 11px; }
+  .memphis-rec-container .rec-identity-content { padding: 0 10px 12px; }
+  .memphis-rec-container .rec-identity-workbench .rec-identity-row { padding: 12px; }
+  .memphis-rec-container .rec-identity-heading { flex-wrap: wrap; gap: 4px; }
+  .memphis-rec-container .rec-identity-heading .rec-muted { font-size: 11px; }
+  .memphis-rec-container .rec-identity-workbench .rec-identity-search button { padding: 8px; font-size: 11px; }
+  .memphis-rec-container .rec-identity-footer { padding: 8px 10px max(8px, env(safe-area-inset-bottom)); }
+  .memphis-rec-container .rec-identity-savebar { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .memphis-rec-container .rec-identity-savebar > span { grid-column: 1 / -1; }
+  .memphis-rec-container .rec-identity-savebar .rec-text-button { grid-column: 1 / -1; min-height: 30px; justify-self: start; }
+  .memphis-rec-container .rec-identity-savebar .rec-button { padding: 8px 6px; font-size: 11px; }
+}
+@media (max-height: 540px) {
+  .memphis-rec-container .rec-dialog.rec-dialog--identity { inset: 0; margin: auto; height: calc(100dvh - 12px); max-height: calc(100dvh - 12px); }
+  .memphis-rec-container .rec-dialog--identity > .rec-dialog-header { padding-block: 6px; }
+  .memphis-rec-container .rec-identity-intro { padding-block: 6px; }
+}

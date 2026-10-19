@@ -221,7 +221,10 @@ class EvidenceContractTests(APITestCase):
         self.assertNotIn('作品101', str(response.data))
 
     @override_settings(RECOMMENDATION_ALGORITHM_VERSION='content.v2')
-    def test_v2_detail_parity_and_v1_rollback_invalidate_old_evidence(self):
+    @patch('recommendations.version_control.require_v2_approval', return_value=None)
+    def test_v2_detail_parity_and_v1_rollback_invalidate_old_evidence(self, _approval):
+        # This isolated compatibility test is not a serving approval. PostgreSQL
+        # correctly has no production V2 bypass; simulate approval in this method only.
         row = self.listed()['results'][0]
         self.assertEqual(row['evidence_context']['algorithm_version'], 'content.v2')
         self.assertEqual(self.detail(row, evidence_token=row['evidence_token']).data['evidence'], row['evidence'])
