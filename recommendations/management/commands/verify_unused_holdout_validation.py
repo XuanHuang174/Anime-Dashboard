@@ -40,18 +40,19 @@ class Command(BaseCommand):
             discovery_cases = [name for name in report.get('passed_cases', []) if '.test_discovery_candidate.' in name]
             dual_cases = [name for name in report.get('passed_cases', []) if '.test_dual_discovery.' in name]
             manifest_cases = [name for name in report.get('passed_cases', []) if '.test_public_manifest.' in name]
+            cold_cases = [name for name in report.get('passed_cases', []) if '.test_cold_public.' in name]
             if (report.get('result') != 'passed' or report.get('production_access') is not False
                     or report.get('failed_cases') or report.get('error_cases') or report.get('skipped_cases')
                     or [report.get(k) for k in ('feedback_concurrency_passed', 'want_concurrency_passed',
                                                'additional_concurrency_passed')] != [6, 4, 6] or len(cases) < 8
-                    or len(discovery_cases) < 8 or len(dual_cases) < 8 or len(manifest_cases) < 8):
+                    or len(discovery_cases) < 8 or len(dual_cases) < 8 or len(manifest_cases) < 8 or len(cold_cases) < 8):
                 raise ValueError('Incomplete isolated validation suite')
             if fingerprint != release_descriptor()['fingerprint']:
                 raise ValueError('Code changed during tests')
             data = sign_artifact('unused-holdout-tests', {'status': 'pass', 'database': 'local_isolated_postgresql',
                 'backend_tests': report['tests_run'], 'unused_validation_tests': len(cases), 'skipped': 0,
                 'discovery_development_tests': len(discovery_cases), 'dual_discovery_tests': len(dual_cases),
-                'public_manifest_tests': len(manifest_cases), 'locks': [6, 4, 6]})
+                'public_manifest_tests': len(manifest_cases), 'cold_public_tests': len(cold_cases), 'locks': [6, 4, 6]})
             path.parent.mkdir(parents=True, exist_ok=True)
             with path.open('x', encoding='utf-8') as file:
                 json.dump(data, file, indent=2)

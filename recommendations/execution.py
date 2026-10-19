@@ -40,7 +40,8 @@ def execute_v2(user, options, index, *, context=None, observer=None, serving_ena
         raise NotAuthenticated()
     if public_reader is not None:
         from .public_manifest import PublicManifestReader, recipe_with_reader
-        if serving_enabled or type(public_reader) is not PublicManifestReader:
+        from .cold_public import SeededPublicReader, recipe_with_seed
+        if serving_enabled or type(public_reader) not in (PublicManifestReader, SeededPublicReader):
             raise engine.RecommendationUnavailable('公共目录摘要读取仅允许显式离线诊断。')
     if discovery_policy_version is not None:
         from . import discovery_candidate, dual_discovery
@@ -65,8 +66,12 @@ def execute_v2(user, options, index, *, context=None, observer=None, serving_ena
                               exploration_policy_version=exploration_policy_version,
                               discovery_policy_version=discovery_policy_version, public_reader=public_reader)
     with connection.cursor() as cursor:
-        cursor.execute('SHOW transaction_read_only'); readonly = cursor.fetchone()[0]
-        cursor.execute('SHOW transaction_isolation'); isolation = cursor.fetchone()[0]
+        if public_reader is not None and type(public_reader) is SeededPublicReader:
+            cursor.execute("SELECT current_setting('transaction_read_only'), current_setting('transaction_isolation')")
+            readonly, isolation = cursor.fetchone()
+        else:
+            cursor.execute('SHOW transaction_read_only'); readonly = cursor.fetchone()[0]
+            cursor.execute('SHOW transaction_isolation'); isolation = cursor.fetchone()[0]
     if readonly != 'on' or isolation != 'repeatable read':
         raise engine.RecommendationUnavailable('V2执行必须使用一致的数据库只读快照。')
     context = engine.user_context(user) if context is None else context
@@ -82,7 +87,7 @@ def execute_v2(user, options, index, *, context=None, observer=None, serving_ena
         if discovery_policy_version is not None:
             recipe = discovery_candidate.recipe_descriptor()
     if public_reader is not None:
-        recipe = recipe_with_reader(recipe)
+        recipe = recipe_with_seed(recipe) if type(public_reader) is SeededPublicReader else recipe_with_reader(recipe)
     if context.get('taxonomy_version', engine.vocabulary.TAXONOMY_VERSION) != index.get('taxonomy_version', engine.vocabulary.TAXONOMY_VERSION):
         raise engine.RecommendationUnavailable('画像与目录题材规则不一致。')
     prepared = deepcopy(context)

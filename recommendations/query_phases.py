@@ -11,7 +11,7 @@ class QueryPhases:
     @staticmethod
     def classify(sql):
         normalized = sql.strip().lower()
-        if normalized.startswith('show transaction_'):
+        if normalized.startswith('show transaction_') or normalized.startswith("select current_setting('transaction_read_only')"):
             return 'transaction_contract'
         if normalized.startswith('with live as'):
             return 'public_manifest_digest'

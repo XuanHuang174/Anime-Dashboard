@@ -21,6 +21,8 @@ CHECK_MODULES = ('recommendations.tests.test_contracts_api', 'recommendations.te
                  'recommendations.tests.test_evidence_contract', 'recommendations.tests.test_state_loop',
                  'recommendations.tests.test_interaction_contract')
 SOURCE_PATHS = (
+    'recommendations/cold_public.py', 'recommendations/tests/test_cold_public.py',
+    'recommendations/management/commands/profile_recommendation_cold_read.py',
     'recommendations/public_manifest.py', 'recommendations/refrozen_development.py',
     'recommendations/tests/test_public_manifest.py',
     'recommendations/management/commands/refreeze_recommendation_discovery.py',
