@@ -1,0 +1,13 @@
+/* Static visibility is the default. GSAP temporarily owns only opacity/transform. */
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .memphis-rec-container .rec-card > .rec-cover img { transition: transform 240ms ease-out; }
+  .memphis-rec-container .rec-card:hover > .rec-cover img { transform: scale(1.025); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .memphis-rec-container .rec-button,
+  .memphis-rec-container .rec-card > .rec-cover img,
+  .memphis-rec-container .rec-dialog--detail[open],
+  .memphis-rec-container .rec-dialog-workspace,
+  .memphis-rec-container .rec-dialog-main,
+  .memphis-rec-container .rec-dialog-resource { transition: none; }
+}

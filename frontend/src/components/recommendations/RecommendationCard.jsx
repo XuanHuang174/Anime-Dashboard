@@ -43,7 +43,7 @@ export function RecommendationActions({ item, onDetail, detailLabel = '查看详
 
 export default function RecommendationCard({ item, hero = false, onDetail, onWant, operation, onIdentity, onReload,
   onHide, feedbackOperation, feedbackDisabled, onFeedbackReload, browseUnavailable = false }) {
-  return <article className={`rec-card ${hero ? 'rec-card--hero' : ''}`}>
+  return <article className={`rec-card ${hero ? 'rec-card--hero' : ''}`} data-rec-motion-id={item.bangumiId}>
     <RecommendationCover item={item} priority={hero} />
     <div className="rec-card-body">
       {hero && <span className="rec-eyebrow"><span className="rec-sticker">本批首推</span></span>}

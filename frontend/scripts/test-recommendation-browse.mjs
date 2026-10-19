@@ -17,7 +17,8 @@ const context = await browser.newContext({ viewport: { width: 1440, height: 1000
 const page = await context.newPage(), errors = [], external = [], requests = [], snapshots = new Map(), owned = new Set()
 let epoch = 0, serial = 0, hold = false, held = [], failure = null, resourceHold = false, resourceRoutes = []
 let browseEnabled = true
-const phaseR2 = process.env.BROWSE_ACCEPTANCE_PHASE === 'r2'
+const phaseR3 = process.env.BROWSE_ACCEPTANCE_PHASE === 'r3'
+const phaseR2 = process.env.BROWSE_ACCEPTANCE_PHASE === 'r2' || phaseR3
 const phaseR1 = process.env.BROWSE_ACCEPTANCE_PHASE === 'r1' || phaseR2
 let layoutCase = 'ready', profileHold = false, profileHeld = []
 const coldState = () => ({ contract_version: 'recommendations.cold-start.v1', code: 'empty_journal', reasons: ['empty_journal'],
@@ -42,7 +43,7 @@ const recipe = { contract_version: 'recommendations.execution.v1', algorithm_ver
   candidate_limit: 400, result_limit: 120, batch_size: 24, default_page_size: 12,
   control_policy_sha256: 'c'.repeat(64), recipe_revision: 'd'.repeat(64), serving_enabled: phaseD3 }
 const prepared = () => phaseD2 && browseEnabled
-const artifacts = path.resolve(phaseR2 ? '../.tools/acceptance-r2-browser' : phaseR1 ? '../.tools/acceptance-r1-browser' : phaseD3 ? '../.tools/acceptance-v2d3-browser' : phaseD2 ? '../.tools/acceptance-v2d2-browser' : phase9c ? '../.tools/acceptance-9c-browser' : '../.tools/acceptance-9b-browser')
+const artifacts = path.resolve(phaseR3 ? '../.tools/acceptance-r3-browser' : phaseR2 ? '../.tools/acceptance-r2-browser' : phaseR1 ? '../.tools/acceptance-r1-browser' : phaseD3 ? '../.tools/acceptance-v2d3-browser' : phaseD2 ? '../.tools/acceptance-v2d2-browser' : phase9c ? '../.tools/acceptance-9c-browser' : '../.tools/acceptance-9b-browser')
 await mkdir(artifacts, { recursive: true })
 page.setDefaultTimeout(10000)
 page.on('pageerror', error => errors.push(error.message))
@@ -142,12 +143,24 @@ await context.route('**/*', async route => {
   if (failure) return finish(route, { status: failure, json: {} })
   return finish(route, { json: response })
 })
-const report = { scope: phaseR2 ? 'r2-journal-visual-and-interaction-regression' : phaseR1 ? 'r1-layout-and-existing-browse-regression' : phaseD2 ? 'v2d2-isolated-component-integration' : '9b-isolated-component-integration', live_writes: false, checks: [] }
+const report = { scope: phaseR3 ? 'r3-motion-and-existing-interaction-regression' : phaseR2 ? 'r2-journal-visual-and-interaction-regression' : phaseR1 ? 'r1-layout-and-existing-browse-regression' : phaseD2 ? 'v2d2-isolated-component-integration' : '9b-isolated-component-integration', live_writes: false, checks: [] }
 const check = name => { report.checks.push({ name, passed: true }); console.log('PASS: ' + name) }
 const listCalls = () => requests.filter(request => request.path.endsWith('/recommendations/'))
-const openFilter = () => page.getByRole('button', { name: /☷ 筛选/ }).click()
+const settleDialog = () => page.waitForFunction(() => {
+  const node = document.querySelector('dialog[open]')
+  return node && getComputedStyle(node).transform === 'none' && getComputedStyle(node).opacity === '1'
+})
+const settleMotion = async () => {
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+  await page.waitForFunction(() => window.browseQA.motion().length === 0)
+}
+const openFilter = async () => { await page.getByRole('button', { name: /☷ 筛选/ }).click(); await settleDialog() }
 const close = () => page.getByRole('button', { name: '关闭面板', exact: true }).click()
-const open = id => page.getByRole('button', { name: `查看作品${id}详情`, exact: true }).click()
+const open = async id => { await page.getByRole('button', { name: `查看作品${id}详情`, exact: true }).click(); await settleDialog() }
+const waitList = async predicate => {
+  const deadline = Date.now() + 10000
+  while (!predicate(listCalls().at(-1))) { assert.ok(Date.now() < deadline, 'expected recommendation request did not arrive'); await new Promise(resolve => setTimeout(resolve, 10)) }
+}
 const waitHeld = async () => { while (!held.length) await new Promise(resolve => setTimeout(resolve, 20)) }
 const restore = async () => { hold = false; for (const done of held.splice(0)) done() }
 const cards = () => page.locator('.rec-card').count()
@@ -178,9 +191,11 @@ try {
   await page.getByLabel('最低 Bangumi 评分', { exact: true }).selectOption('7')
   await page.getByRole('button', { name: '应用筛选', exact: true }).click()
   await page.getByRole('button', { name: '移除条件：2015—2026', exact: true }).waitFor()
+  await waitList(request => request?.params.year_from === '2015')
   assert.equal(listCalls().at(-1).params.year_from, '2015')
   await page.getByRole('button', { name: '移除条件：2015—2026', exact: true }).click()
   await page.getByRole('button', { name: '查看作品101详情', exact: true }).waitFor()
+  await waitList(request => request?.params.year_from === undefined)
   assert.equal(listCalls().at(-1).params.year_from, undefined)
   await page.getByRole('button', { name: '恢复默认', exact: true }).click()
   await page.getByRole('button', { name: '查看作品101详情', exact: true }).waitFor()
@@ -315,6 +330,7 @@ try {
     for (const [width, height] of [[1440, 900], [1366, 768], [1024, 768]]) {
       await reloadLayout('ready', width, height)
       await page.locator('.rec-card--hero').waitFor()
+      await settleMotion()
       const geometry = await page.locator('.rec-featured-layout').evaluate(node => {
         const hero = node.querySelector('.rec-card--hero').getBoundingClientRect(), note = node.querySelector('.rec-taste-note').getBoundingClientRect()
         const actions = node.querySelector('.rec-card-actions').getBoundingClientRect()
@@ -343,6 +359,7 @@ try {
     check('R1 folded help and identity review remain accessible without recommendation refresh or business writes')
     for (const width of [768, 390, 320]) {
       await reloadLayout('ready', width, 844); await page.locator('.rec-card--hero').waitFor()
+      await settleMotion()
       const hero = await page.locator('.rec-card--hero').boundingBox(), note = await page.locator('.rec-taste-note').boundingBox()
       assert.ok(note.y >= hero.y + hero.height)
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
@@ -350,6 +367,7 @@ try {
     }
     check('R1 tablet and 390/320px mobile put featured card before compact taste note without overflow')
     await reloadLayout('long'); await page.locator('.rec-card--hero').waitFor()
+    await settleMotion()
     const title = await page.locator('.rec-card--hero .rec-card-title').evaluate(node => ({ height: node.clientHeight, line: parseFloat(getComputedStyle(node).lineHeight) }))
     assert.ok(title.height <= title.line * 2 + 2)
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
@@ -385,6 +403,7 @@ try {
     const hero = page.locator('.rec-card--hero')
     await hero.locator('img').waitFor()
     await page.waitForFunction(() => document.querySelector('.rec-card--hero img')?.naturalWidth > 0)
+    await settleMotion()
     const theme = await page.locator('.memphis-rec-container').evaluate(node => {
       const css = getComputedStyle(node), head = getComputedStyle(node.querySelector('.rec-masthead'))
       return { ink: css.getPropertyValue('--rec-ink').trim(), teal: css.getPropertyValue('--rec-teal').trim(),
@@ -465,6 +484,92 @@ try {
     })
     assert.equal(isolated.shadow, 'none'); assert.notEqual(isolated.bg, 'rgb(255, 230, 109)')
     check('R2 namespaced styling does not decorate same-named controls outside the recommendation page')
+  }
+  if (phaseR3) {
+    const writes = requests.filter(request => request.method !== 'GET').length
+    layoutCase = 'ready'; await page.setViewportSize({ width: 1440, height: 900 })
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
+    await page.goto(`${origin}/tests/fixtures/recommendationBrowseHarness.html`)
+    await page.waitForFunction(() => window.browseQA?.motion().some(target => target.active && target.connected))
+    await page.locator('[data-rec-motion-id="101"]').waitFor(); await settleMotion()
+    const cleanStyles = () => page.locator('.rec-masthead, .rec-taste-note, .rec-card').evaluateAll(nodes =>
+      nodes.every(node => !node.style.transform && !node.style.opacity && !node.style.willChange))
+    assert.equal(await cleanStyles(), true)
+    await page.screenshot({ path: path.join(artifacts, 'r3-settled-desktop.png'), fullPage: false })
+    check('R3 real GSAP plays in StrictMode and restores original inline styles/will-change after completion')
+
+    await page.emulateMedia({ reducedMotion: 'reduce' }); await page.reload()
+    await page.locator('[data-rec-motion-id="101"]').waitFor()
+    assert.deepEqual(await page.evaluate(() => window.browseQA.motion()), [])
+    assert.equal(await cleanStyles(), true)
+    await openFilter()
+    assert.equal(await page.locator('dialog').evaluate(node => getComputedStyle(node).transform), 'none')
+    await close(); const reads = listCalls().length
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
+    assert.deepEqual(await page.evaluate(() => window.browseQA.motion()), [])
+    assert.equal(listCalls().length, reads)
+    check('R3 initial reduced motion is immediate/static; opting into motion does not replay cards or refetch data')
+
+    await page.reload()
+    await page.waitForFunction(() => window.browseQA?.motion().some(target => target.active))
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await page.locator('[data-rec-motion-id="101"]').waitFor(); await settleMotion()
+    assert.equal(await cleanStyles(), true)
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
+    await page.screenshot({ path: path.join(artifacts, 'r3-reduced-motion.png'), fullPage: false })
+    check('R3 changing reduced-motion during entry cancels motion and keeps every card visible without residual transforms')
+
+    await page.evaluate(() => window.browseQA.beginMotionRecording())
+    await page.getByRole('button', { name: '加载本批更多', exact: true }).click()
+    await page.locator('[data-rec-motion-id="124"]').waitFor()
+    await page.locator('[data-rec-motion-id="113"]').evaluate(node => node.scrollIntoView({ block: 'center', behavior: 'instant' }))
+    await settleMotion()
+    const appendedFrames = (await page.evaluate(() => window.browseQA.endMotionRecording())).filter(target => target.id)
+    assert.ok(appendedFrames.length > 0 && appendedFrames.every(target => Number(target.id) >= 113))
+    assert.equal(await cards(), 24)
+    await page.getByRole('button', { name: /换一批，看看/ }).click()
+    await page.locator('[data-rec-motion-id="125"]').waitFor(); await settleMotion()
+    assert.equal(await cards(), 12)
+    assert.equal(await page.locator('#rec-results').evaluate(node => node === document.activeElement), true)
+    check('R3 append animates only new cards, while next batch replaces content and keeps result-region focus')
+
+    hold = true
+    await page.getByRole('button', { name: '熟悉的心动', exact: true }).evaluate(node => node.click())
+    await waitHeld()
+    await page.getByRole('button', { name: '换一种口味', exact: true }).evaluate(node => node.click())
+    await restore()
+    await page.locator('[data-rec-motion-id="501"]').waitFor(); await settleMotion()
+    const currentIds = await page.locator('[data-rec-motion-id]').evaluateAll(nodes => nodes.map(node => Number(node.dataset.recMotionId)))
+    assert.ok(currentIds.every(id => id >= 501 && id <= 512))
+    assert.deepEqual(await page.evaluate(() => window.browseQA.motion()), [])
+    check('R3 late requests and old animation/observer callbacks cannot contaminate a changed category')
+
+    await page.getByRole('button', { name: '查看作品501详情', exact: true }).evaluate(node => { node.focus(); node.click() })
+    await page.locator('dialog[open]').waitFor()
+    await page.keyboard.press('Escape'); await page.locator('dialog').waitFor({ state: 'detached' })
+    await settleMotion()
+    assert.equal(await page.getByRole('button', { name: '查看作品501详情', exact: true }).evaluate(node => node === document.activeElement), true)
+    assert.equal(await page.evaluate(() => document.body.style.overflow), '')
+    assert.ok((await page.evaluate(() => window.browseQA.motion())).every(target => target.connected))
+    check('R3 closing during dialog entry is immediate, cancels local motion and restores focus/scroll lock')
+
+    await page.reload()
+    await page.waitForFunction(() => window.browseQA?.motion().some(target => target.active))
+    await page.evaluate(() => { window.browseQA.startOutsideMotion(); window.browseQA.navigate('/dashboard') })
+    await page.getByRole('heading', { name: '9B 隔离手账', exact: true }).waitFor()
+    const remaining = await page.evaluate(() => window.browseQA.motion())
+    assert.ok(remaining.length > 0 && remaining.every(target => target.className === 'qa-motion-outside' && target.connected))
+    await page.evaluate(() => { window.browseQA.clearOutsideMotion(); window.browseQA.navigate('/recommendations') })
+    await page.locator('[data-rec-motion-id="101"]').waitFor(); await settleMotion()
+    assert.equal(await cleanStyles(), true)
+    check('R3 unmount removes only recommendation animations; unrelated GSAP work survives and re-entry remains clean')
+
+    await page.addInitScript(() => { if (location.search.includes('noio')) window.IntersectionObserver = undefined })
+    await page.goto(`${origin}/tests/fixtures/recommendationBrowseHarness.html?noio=1`)
+    await page.locator('[data-rec-motion-id="101"]').waitFor(); await settleMotion()
+    assert.equal(await cleanStyles(), true); assert.equal(await cards(), 12)
+    assert.equal(requests.filter(request => request.method !== 'GET').length, writes)
+    check('R3 missing IntersectionObserver degrades to visible cards; motion adds no business writes')
   }
   assert.deepEqual(errors, []); assert.deepEqual(external, [])
   report.result = 'passed'

@@ -1,4 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import gsap from 'gsap'
+import { createRecommendationMotion } from '../../utils/recommendationMotion.js'
 
 // Native modal dialog supplies top-layer stacking, inert background and focus trap.
 export default function RecommendationDialog({ title, children, onClose, kind = 'detail', busy = false,
@@ -31,7 +33,10 @@ export default function RecommendationDialog({ title, children, onClose, kind = 
     document.body.style.overflow = 'hidden'
     node.showModal()
     node.querySelector('[data-initial-focus]')?.focus()
+    const motion = createRecommendationMotion({ root: node, gsap, media: window.matchMedia('(prefers-reduced-motion: reduce)') })
+    motion.enterDialog(kind)
     return () => {
+      motion.dispose()
       node.close()
       document.body.style.overflow = previousOverflow
       if (previousFocus?.isConnected) previousFocus.focus()

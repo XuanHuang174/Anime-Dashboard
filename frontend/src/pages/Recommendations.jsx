@@ -9,6 +9,7 @@ import { RecommendationEmptyState, RecommendationSkeleton } from '../components/
 import RecommendationPreferencesPanel from '../components/recommendations/RecommendationPreferencesPanel.jsx'
 import recommendationApi from '../api/recommendations.js'
 import useRecommendations from '../hooks/useRecommendations.js'
+import useRecommendationMotion from '../hooks/useRecommendationMotion.js'
 import useRecommendationWant from '../hooks/useRecommendationWant.js'
 import useRecommendationDetail from '../hooks/useRecommendationDetail.js'
 import RecommendationDetailActions from '../components/recommendations/RecommendationDetailActions.jsx'
@@ -29,6 +30,7 @@ import { RecommendationBrowseControls, RecommendationFilterPanel, Recommendation
 import '../styles/recommendations.css'
 import '../styles/recommendations-layout.css'
 import '../styles/recommendations-theme.css'
+import '../styles/recommendations-motion.css'
 
 export default function Recommendations({ client = recommendationApi }) {
   const readScope = () => { try { return recommendationSessionScope(getAccessToken()) } catch { return 'anonymous' } }
@@ -52,8 +54,12 @@ function RecommendationWorkspace({ client, sessionScope }) {
   const resourceTrigger = useRef(null)
   const detailQuery = useRef('')
   const resultsRef = useRef(null)
+  const pageRef = useRef(null)
   const { detail, controller: detailController } = useRecommendationDetail(client)
   const state = useRecommendations(category, filters, client, style)
+  useRecommendationMotion(pageRef, { status: state.status,
+    epoch: JSON.stringify([state.key, state.data?.snapshot_id, state.data?.state_token, state.data?.batch]),
+    ids: state.items.map(item => item.bangumiId).join(','), blocked: state.snapshotExpired || state.snapshotDirty })
   const legacy = state.transport === 'legacy'
   const visibleFilters = legacy ? { ...filters, yearFrom: '', yearTo: '' } : filters
   const writeGate = useMemo(() => createRecommendationWriteGate({ isCurrent: () => {
@@ -197,7 +203,7 @@ function RecommendationWorkspace({ client, sessionScope }) {
     operation={feedback.state.operations[feedback.state.toast?.item.bangumiId]}
     onUndo={feedback.controller.undo} onManage={openHidden} onDismiss={feedback.controller.dismissToast} onReload={reloadFeedback} />
 
-  return <main className="memphis-rec-container">
+  return <main ref={pageRef} className="memphis-rec-container">
     <a className="rec-skip-link" href="#rec-results">跳到推荐内容</a>
     <div className="rec-page">
       <div className="rec-masthead">
