@@ -1,0 +1,85 @@
+/* One native dialog, three existing data contracts. No global or detail styles. */
+.memphis-rec-container .rec-dialog.rec-dialog--preferences {
+  width: min(1320px, calc(100% - 48px)); height: min(840px, calc(100dvh - 48px));
+  overflow: hidden;
+}
+.memphis-rec-container .rec-dialog--preferences[open] { display: flex; flex-direction: column; }
+.memphis-rec-container .rec-dialog--preferences > .rec-dialog-header { flex-shrink: 0; padding: 16px 22px; }
+.memphis-rec-container .rec-dialog--preferences > .rec-dialog-body {
+  display: flex; flex: 1; min-height: 0; overflow: hidden; padding: 0;
+}
+.memphis-rec-container .rec-preference-panel {
+  display: flex; flex-direction: column; width: 100%; min-width: 0; min-height: 0; overflow: hidden;
+}
+.memphis-rec-container .rec-preference-panel .rec-preference-basis {
+  flex-shrink: 0; margin: 0; padding: 16px 22px; line-height: 1.65; border-bottom: 1px solid #ded6c9;
+}
+.memphis-rec-container .rec-preference-panel .rec-preference-basis span { margin-top: 4px; font-size: 12px; }
+.memphis-rec-container .rec-preference-columns {
+  display: grid; grid-template-columns: minmax(0, 1.2fr) repeat(2, minmax(0, 1fr));
+  flex: 1; min-height: 0; gap: 16px; padding: 20px 22px;
+}
+.memphis-rec-container .rec-preference-panel .rec-preference-section {
+  display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden;
+  margin: 0; padding: 0; border: 2px solid var(--rec-ink); box-shadow: 3px 3px 0 var(--rec-ink);
+}
+.memphis-rec-container .rec-preference-panel .rec-preference-section > h3 {
+  display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; gap: 6px;
+  flex-shrink: 0; margin: 0; padding: 14px; border-bottom: 2px solid var(--rec-ink); font-size: 15px;
+}
+.memphis-rec-container .rec-preference-panel .rec-preference-section h3 small {
+  margin: 0; padding: 2px 6px; border: 1px solid currentColor; font-size: 10px;
+}
+.memphis-rec-container .rec-preference-scroll {
+  flex: 1; min-height: 0; overflow-y: auto; padding: 0 14px 14px; overscroll-behavior-y: contain;
+  scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: #77766e transparent;
+  overflow-wrap: anywhere; scroll-padding-block: 12px;
+}
+.memphis-rec-container .rec-preference-scroll:focus-visible { outline: 2px solid var(--rec-ink); outline-offset: -4px; }
+.memphis-rec-container .rec-preference-panel .rec-taste-options { margin: 18px 0 14px; gap: 8px; min-width: 0; }
+.memphis-rec-container .rec-preference-panel .rec-taste-option { min-height: 44px; padding: 9px 8px; gap: 7px; cursor: pointer; overflow-wrap: anywhere; }
+.memphis-rec-container .rec-preference-panel .rec-taste-option input { flex-shrink: 0; width: 17px; height: 17px; accent-color: var(--rec-ink); }
+.memphis-rec-container .rec-preference-panel .rec-taste-option:has(input:focus-visible) { outline: 2px solid var(--rec-ink); outline-offset: 2px; }
+.memphis-rec-container .rec-preference-panel .rec-taste-option:has(input:disabled) { cursor: default; }
+.memphis-rec-container .rec-preference-panel .rec-text-button { min-height: 44px; text-align: left; }
+.memphis-rec-container .rec-preference-panel .rec-topic-list li { align-items: flex-start; gap: 6px; padding: 12px 0; }
+.memphis-rec-container .rec-preference-section--trusted .rec-topic-list li > strong,
+.memphis-rec-container .rec-preference-section--trusted .rec-topic-list li > span { flex-basis: 100%; }
+.memphis-rec-container .rec-preference-section--observed .rec-topic-list .rec-button { min-height: 44px; }
+.memphis-rec-container .rec-preference-footer { flex-shrink: 0; padding: 0 22px 18px; background: white; border-top: 2px solid var(--rec-ink); }
+.memphis-rec-container .rec-preference-feedback { max-height: min(220px, 28dvh); overflow-y: auto; overscroll-behavior: contain; overflow-wrap: anywhere; }
+.memphis-rec-container .rec-preference-feedback:empty { display: none; }
+.memphis-rec-container .rec-preference-feedback > p { margin: 10px 0; font-size: 12px; }
+.memphis-rec-container .rec-preference-feedback .rec-preference-conflict { margin: 12px 3px 4px 0; padding: 12px; }
+.memphis-rec-container .rec-preference-savebar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px 20px; padding-top: 14px; }
+.memphis-rec-container .rec-preference-draft { margin: 0; color: var(--rec-muted); font-size: 12px; }
+.memphis-rec-container .rec-preference-draft strong { color: var(--rec-ink); }
+.memphis-rec-container .rec-preference-savebar .rec-dialog-actions { margin: 0 0 0 auto; border: 0; padding: 0; gap: 10px; }
+.memphis-rec-container .rec-preference-savebar .rec-button { min-height: 44px; }
+@media (max-width: 1099px) {
+  .memphis-rec-container .rec-dialog.rec-dialog--preferences { width: min(760px, calc(100% - 40px)); }
+  /* One scroll surface on touch/tablet, not three nested scrolling columns. */
+  .memphis-rec-container .rec-preference-columns { display: block; overflow-y: auto; overscroll-behavior: contain; scroll-padding-block: 16px; }
+  .memphis-rec-container .rec-preference-panel .rec-preference-section { overflow: visible; margin-bottom: 18px; }
+  .memphis-rec-container .rec-preference-panel .rec-preference-section:last-child { margin-bottom: 0; }
+  .memphis-rec-container .rec-preference-scroll { overflow: visible; scrollbar-gutter: auto; }
+}
+@media (max-width: 639px) {
+  .memphis-rec-container .rec-dialog.rec-dialog--preferences {
+    inset: auto 0 0; margin: 0; width: 100%; height: 94dvh; max-height: 94dvh; border-bottom: 0; box-shadow: none;
+  }
+  .memphis-rec-container .rec-dialog--preferences > .rec-dialog-header { padding: 12px 14px; }
+  .memphis-rec-container .rec-preference-panel .rec-preference-basis { padding: 12px 14px; font-size: 12px; }
+  .memphis-rec-container .rec-preference-columns { padding: 16px 14px; }
+  .memphis-rec-container .rec-preference-footer { padding: 0 14px max(12px, env(safe-area-inset-bottom)); }
+  .memphis-rec-container .rec-preference-savebar { gap: 8px; padding-top: 10px; }
+  .memphis-rec-container .rec-preference-draft { width: 100%; font-size: 11px; }
+  .memphis-rec-container .rec-preference-savebar .rec-dialog-actions { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .memphis-rec-container .rec-preference-savebar .rec-button { padding: 8px; font-size: 12px; }
+}
+@media (max-height: 540px) {
+  .memphis-rec-container .rec-dialog.rec-dialog--preferences { inset: 0; margin: auto; height: calc(100dvh - 12px); max-height: calc(100dvh - 12px); }
+  .memphis-rec-container .rec-dialog--preferences > .rec-dialog-header { padding: 6px 14px; }
+  .memphis-rec-container .rec-preference-panel .rec-preference-basis { padding: 6px 14px; }
+  .memphis-rec-container .rec-preference-feedback { max-height: 22dvh; }
+}

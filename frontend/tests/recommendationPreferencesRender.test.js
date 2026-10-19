@@ -4,6 +4,7 @@ import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { createServer } from 'vite'
 import react from '@vitejs/plugin-react'
+import { readFileSync } from 'node:fs'
 
 const server = await createServer({ configFile: false, plugins: [react()],
   server: { middlewareMode: true, hmr: false, ws: false }, appType: 'custom' })
@@ -57,4 +58,51 @@ test('saved-but-refresh-failed has a read retry, never a misleading save failure
   }))
   assert.match(html, /偏好已保存，推荐更新失败/); assert.match(html, /重试更新推荐/)
   assert.doesNotMatch(html, /保存失败|重试保存/)
+})
+
+test('workbench keeps three named keyboard scroll regions before a single save footer', () => {
+  const html = render()
+  assert.match(html, /class="rec-preference-columns"/)
+  for (const name of ['我的明确偏好内容', '高分作品画像内容', '手账常见题材内容']) {
+    assert.ok(html.includes(`role="region" aria-label="${name}" tabindex="0"`))
+  }
+  assert.equal((html.match(/class="rec-preference-scroll"/g) || []).length, 3)
+  assert.equal((html.match(/>保存喜好</g) || []).length, 1)
+  const footer = html.slice(html.indexOf('<footer'))
+  assert.match(footer, /草稿已选 <strong>1<\/strong> \/ 20/)
+  assert.match(footer, /取消，不保存/)
+  assert.ok(html.indexOf('rec-observed-title') < html.indexOf('<footer'))
+})
+
+test('all recovery states stay outside column scrolling and retain drafts', () => {
+  for (const status of ['error', 'conflict', 'uncertain', 'conflict_review', 'saved_refresh_failed']) {
+    const html = render({ editor: { ...editor, status, error: '隔离测试错误',
+      remotePreferences: { tags: ['科幻'] } } })
+    const footer = html.slice(html.indexOf('<footer'))
+    assert.match(footer, /隔离测试错误/); assert.match(footer, /role="alert"/)
+    assert.match(footer, /草稿已选 <strong>1/)
+    assert.equal((html.match(/checked=""/g) || []).length, 1)
+  }
+})
+
+test('workbench max-tag limit disables only new choices, observed actions and saving lock as before', () => {
+  const available = Array.from({ length: 23 }, (_, i) => `题材${i}`)
+  const html = render({ editor: { ...editor, draftTags: available.slice(0, 20),
+    preferences: { tags: [], version: 1, available_tags: available } } })
+  assert.equal((html.match(/checked=""/g) || []).length, 20)
+  assert.equal((html.match(/type="checkbox" disabled=""/g) || []).length, 3)
+  const saving = render({ editor: { ...editor, status: 'saving' } })
+  assert.match(saving, /fieldset class="rec-taste-options" disabled=""/)
+  assert.match(saving, /disabled="">正在保存…/)
+})
+
+test('workbench layout is scoped to preferences; desktop columns and touch single-scroll are separate', () => {
+  const css = readFileSync(new URL('../src/styles/recommendations-preferences.css', import.meta.url), 'utf8')
+  assert.match(css, /grid-template-columns: minmax\(0, 1\.2fr\) repeat\(2, minmax\(0, 1fr\)\)/)
+  assert.match(css, /@media \(max-width: 1099px\)/)
+  assert.match(css, /rec-preference-scroll \{ overflow: visible/)
+  assert.match(css, /rec-preference-footer \{ flex-shrink: 0/)
+  assert.match(css, /safe-area-inset-bottom/)
+  assert.doesNotMatch(css, /\.rec-dialog--detail|!important|position: fixed|animation:|transition:/)
+  assert.match(readFileSync(new URL('../src/pages/Recommendations.jsx', import.meta.url), 'utf8'), /import '..\/styles\/recommendations-preferences.css'/)
 })

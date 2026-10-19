@@ -32,6 +32,7 @@ import '../styles/recommendations.css'
 import '../styles/recommendations-layout.css'
 import '../styles/recommendations-theme.css'
 import '../styles/recommendations-motion.css'
+import '../styles/recommendations-preferences.css'
 
 export default function Recommendations({ client = recommendationApi }) {
   const readScope = () => { try { return recommendationSessionScope(getAccessToken()) } catch { return 'anonymous' } }
@@ -53,6 +54,9 @@ function RecommendationWorkspace({ client, sessionScope }) {
   const [panel, setPanel] = useState(null)
   const [notice, setNotice] = useState('')
   const resourceTrigger = useRef(null)
+  const preferenceTrigger = useRef(null)
+  const preferenceReturnFocus = useRef(null)
+  const preferenceFocusPending = useRef(false)
   const detailQuery = useRef('')
   const resultsRef = useRef(null)
   const pageRef = useRef(null)
@@ -67,12 +71,23 @@ function RecommendationWorkspace({ client, sessionScope }) {
     try { return recommendationSessionScope(getAccessToken()) === sessionScope } catch { return sessionScope === 'anonymous' }
   } }), [client, sessionScope])
   const preferenceEditor = useRecommendationPreferences(client, confirmedPreferences => {
+    preferenceFocusPending.current = true
     setPanel(null); setNotice('偏好已保存，正在重新读取画像与推荐。')
     reload({ confirmedPreferences })
     notifyRecommendationChange({ local: false })
   })
   const saving = ['saving', 'reloading'].includes(preferenceEditor.editor.status)
   const preferences = state.preferences || state.confirmedPreferences
+  useLayoutEffect(() => {
+    if (!preferenceFocusPending.current || panel || state.status === 'loading') return
+    preferenceFocusPending.current = false
+    // Closing rereads preferences, briefly disabling the original trigger. Restore
+    // after that read, but never steal focus from a subsequent user interaction.
+    const previous = preferenceReturnFocus.current
+    if (document.activeElement !== document.body && document.activeElement !== previous) return
+    const target = previous?.isConnected && !previous.disabled ? previous : preferenceTrigger.current
+    if (target && !target.disabled) target.focus({ preventScroll: true })
+  }, [panel, state.status, preferences])
   const acknowledgeReload = useRecommendationReload(options => reload(options), Boolean(panel) || state.status === 'loading')
   const discardDetail = () => { detailController.close(); setPanel(current => current?.kind === 'detail' ? null : current) }
   const reload = options => { if (!options?.preserveDetail) discardDetail(); acknowledgeReload(); state.retry(options) }
@@ -168,12 +183,16 @@ function RecommendationWorkspace({ client, sessionScope }) {
     }
   }
   const openPreferences = () => {
-    if (preferences && preferenceEditor.open(preferences)) setPanel({ kind: 'preferences', profile: state.profile })
+    if (preferences && preferenceEditor.open(preferences)) {
+      preferenceReturnFocus.current = document.activeElement
+      preferenceFocusPending.current = false
+      setPanel({ kind: 'preferences', profile: state.profile })
+    }
   }
   const closePanel = () => {
     if (panel?.kind === 'preferences' && !preferenceEditor.close()) return
     // Cancelling still performs no write; a conflict read may have learned a newer version.
-    if (panel?.kind === 'preferences') reload()
+    if (panel?.kind === 'preferences') { preferenceFocusPending.current = true; reload() }
     detailController.close()
     setPanel(null)
   }
@@ -210,7 +229,7 @@ function RecommendationWorkspace({ client, sessionScope }) {
       <div className="rec-masthead">
       <nav className="rec-nav" aria-label="推荐页面导航"><Link className="rec-back" to="/dashboard">← 返回我的手账</Link>
         <div className="rec-nav-tools"><button type="button" className="rec-text-button" onClick={openHidden}>已隐藏作品</button>
-          <button type="button" className="rec-button rec-preferences" disabled={!preferences} onClick={openPreferences}>☷ 偏好设置</button></div></nav>
+          <button type="button" className="rec-button rec-preferences" ref={preferenceTrigger} disabled={!preferences} onClick={openPreferences}>☷ 偏好设置</button></div></nav>
       <header className="rec-page-heading">
         <span className="rec-chapter-label">我的手账 / 发现篇</span>
         <h1>番剧发现</h1>
@@ -264,7 +283,7 @@ function RecommendationWorkspace({ client, sessionScope }) {
     {panel?.kind !== 'hidden' && feedbackToast}
     {panel?.kind === 'identity' && <RecommendationIdentityReview client={client} scope={panel.scope || 'high-score'} onClose={() => setPanel(null)}
       onChanged={() => { want.resetFailures(); reload(); notifyRecommendationChange({ local: false }) }} />}
-    {panel && panel.kind !== 'identity' && <RecommendationDialog kind={panel.kind} busy={saving} title={panel.kind === 'filters' ? '给心动留一点范围' : panel.kind === 'preferences' ? '我的口味' : panel.kind === 'hidden' ? '已隐藏作品' : panel.item.title}
+    {panel && panel.kind !== 'identity' && <RecommendationDialog kind={panel.kind} busy={saving} fallbackFocusRef={panel.kind === 'preferences' ? preferenceTrigger : undefined} title={panel.kind === 'filters' ? '给心动留一点范围' : panel.kind === 'preferences' ? '我的口味' : panel.kind === 'hidden' ? '已隐藏作品' : panel.item.title}
       headerActions={panel.kind === 'detail' && detail.status === 'ready' ? <RecommendationFeedbackMenu
         item={detail.item} onHide={feedback.controller.hide} operation={feedback.state.operations[detail.item.bangumiId]}
         disabled={feedback.state.pending || feedback.state.uncertain || feedback.state.version === null || want.operations[detail.item.bangumiId]?.status === 'adding'}

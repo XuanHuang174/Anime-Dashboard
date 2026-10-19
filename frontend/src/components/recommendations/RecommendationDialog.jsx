@@ -4,7 +4,7 @@ import { createRecommendationMotion } from '../../utils/recommendationMotion.js'
 
 // Native modal dialog supplies top-layer stacking, inert background and focus trap.
 export default function RecommendationDialog({ title, children, onClose, kind = 'detail', busy = false,
-  resourceOpen = false, resourcePanel, onResourceClose, resourceTriggerRef, headerActions }) {
+  resourceOpen = false, resourcePanel, onResourceClose, resourceTriggerRef, headerActions, fallbackFocusRef }) {
   const ref = useRef(null)
   const wasResourceOpen = useRef(false)
   const [compact, setCompact] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches)
@@ -40,7 +40,7 @@ export default function RecommendationDialog({ title, children, onClose, kind = 
       node.close()
       document.body.style.overflow = previousOverflow
       if (previousFocus?.isConnected) previousFocus.focus()
-      else document.querySelector('.memphis-rec-container .rec-nav-tools button')?.focus()
+      else (fallbackFocusRef?.current || document.querySelector('.memphis-rec-container .rec-nav-tools button'))?.focus()
     }
   }, [])
   function keepResourceFocus(event) {
