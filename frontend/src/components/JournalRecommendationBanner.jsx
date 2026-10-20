@@ -6,7 +6,7 @@ export default function JournalRecommendationBanner() {
   return (
     <Link to="/recommendations" className="journal-recommendation-banner journal-recommendation-banner--link memphis-pressable" aria-labelledby="journalRecommendationTitle">
       <div className="journal-recommendation-banner__inner">
-        <span className="journal-recommendation-banner__icon" aria-hidden="true"><i className="cta-spark-icon fa-solid fa-wand-magic-sparkles" /></span>
+        <span className="journal-recommendation-banner__icon" aria-hidden="true"><span className="cta-spark-icon">✨</span></span>
         <div className="journal-recommendation-banner__copy">
           <div className="journal-recommendation-banner__eyebrow">
             <span>YOUR NEXT FAVORITE</span><span className="journal-recommendation-banner__badge">推荐 V1</span>

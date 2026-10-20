@@ -271,7 +271,7 @@ function RecommendationWorkspace({ client, sessionScope }) {
             onPreferences={openPreferences} onIdentity={() => setPanel({ kind: 'identity' })} />
         </details>}
         {state.status === 'ready' && <>
-          {state.items.length > 1 && <><div className="rec-more-heading"><h2>继续发现</h2>
+          {state.items.length > 1 && <><div className="rec-more-heading"><h2>还有更多</h2>
             <span className="rec-result-count">{state.data ? `本轮 ${state.data.count} 部作品` : ''}</span></div>
             <div className="rec-grid">{state.items.slice(1).map((item) => <RecommendationCard key={item.id} {...cardProps(item)} />)}</div></>}
           <RecommendationBatchActions state={state} onMore={state.loadMore} onBatch={nextBatch}

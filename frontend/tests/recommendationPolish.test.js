@@ -34,15 +34,23 @@ test('loaded page and lazy-route shell share the new exploration naming', () => 
   assert.match(page, /我的手账 \/ 番剧探索/)
 })
 
-test('journal banner shares homepage spark animation and boxed arrow without duplicate inline arrow', () => {
+test('journal banner preserves its own sparkle icon with shared animation and boxed arrow', () => {
   const banner = render(Banner), header = render(Header)
   assert.match(banner, /发现下一部宝藏番剧，翻开/); assert.match(banner, /番剧探索手账/)
   assert.match(banner, /to=|href="\/recommendations"/)
+  assert.match(banner, /class="cta-spark-icon">✨<\/span>/)
+  assert.doesNotMatch(banner, /fa-wand-magic-sparkles/)
+  assert.match(header, /cta-spark-icon fa-solid fa-wand-magic-sparkles/)
   for (const html of [banner, header]) {
-    assert.match(html, /memphis-pressable/); assert.match(html, /cta-spark-icon fa-solid fa-wand-magic-sparkles/)
+    assert.match(html, /memphis-pressable/); assert.match(html, /cta-spark-icon/)
     assert.match(html, /cta-arrow-box/); assert.match(html, /fa-solid fa-arrow-right/)
   }
   assert.doesNotMatch(banner, /心头好|番剧发现|手账 →/)
+})
+
+test('recommendation continuation heading is 还有更多', () => {
+  const page = read('../src/pages/Recommendations.jsx')
+  assert.match(page, /<h2>还有更多<\/h2>/); assert.doesNotMatch(page, /继续发现/)
 })
 
 test('resource notice uses the exact supplied copy and stays within reusable drawer', () => {

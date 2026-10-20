@@ -72,6 +72,7 @@
 }
 .journal-recommendation-banner__inner { display: flex; align-items: center; gap: 14px; min-width: 0; padding: 12px; border: 2px dashed rgba(26, 26, 26, .5); background: #fff1bd; }
 .journal-recommendation-banner__icon { display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; flex-shrink: 0; border: 3px solid #1a1a1a; background: #ff8fab; box-shadow: 3px 3px 0 #1a1a1a; font-size: 24px; transform: rotate(-3deg); }
+.journal-recommendation-banner__icon .cta-spark-icon { display: inline-block; }
 .journal-recommendation-banner__copy { min-width: 0; flex: 1; }
 .journal-recommendation-banner__eyebrow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: 9px; font-weight: 900; letter-spacing: .12em; }
 .journal-recommendation-banner__badge { padding: 1px 4px; border: 1px solid #1a1a1a; background: white; font-size: 9px; letter-spacing: normal; }
