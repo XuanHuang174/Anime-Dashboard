@@ -33,6 +33,9 @@ class SamplingFrontendContractTests(APITransactionTestCase):
         payload = {key: response.data for key, response in (
             ('preferences', prefs), ('profile', profile), ('preview', preview), ('page', page), ('detail', detail))}
         payload['score'] = score
+        context = self.client.get('/api/recommendations/context/')
+        self.assertEqual(context.status_code, 200, context.data)
+        payload['context'] = context.data
         result = subprocess.run([node, '--input-type=module', '-e', '''
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -40,11 +43,13 @@ import { validateRecommendationPreferences, validateRecommendationProfile,
   validateRecommendationSnapshot, mapRecommendationPage, mapRecommendationItem } from './frontend/src/utils/recommendations.js';
 import { validateProfilePreview } from './frontend/src/utils/recommendationSampling.js';
 import { recommendationEvidence } from './frontend/src/utils/recommendationExplanation.js';
+import { contextChanged } from './frontend/src/utils/recommendationContext.js';
 const data = JSON.parse(readFileSync(0, 'utf8'));
 const prefs = validateRecommendationPreferences(data.preferences);
 const profile = validateRecommendationProfile(data.profile);
 const page = mapRecommendationPage(data.page);
 validateRecommendationSnapshot(profile, prefs, page);
+assert.equal(contextChanged(data.context, {context: page.evidence_context}), false);
 validateProfilePreview(data.preview, data.score, prefs);
 const detail = mapRecommendationItem(data.detail);
 assert.deepEqual(recommendationEvidence(detail), recommendationEvidence(page.items[0]));

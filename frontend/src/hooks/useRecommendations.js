@@ -15,5 +15,6 @@ export default function useRecommendations(category, filters, client = recommend
   }, [controller, key])
   return { ...(snapshot.key === key ? snapshot : { status: 'loading', items: [] }),
     retry: controller.retry, recordChanged: controller.recordChanged,
-    loadMore: controller.loadMore, nextBatch: controller.nextBatch, cancelBrowse: controller.cancel }
+    loadMore: controller.loadMore, nextBatch: controller.nextBatch, cancelBrowse: controller.cancel,
+    contextChanged: controller.contextChanged }
 }

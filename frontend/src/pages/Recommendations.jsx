@@ -88,8 +88,12 @@ function RecommendationWorkspace({ client, sessionScope }) {
     const target = previous?.isConnected && !previous.disabled ? previous : preferenceTrigger.current
     if (target && !target.disabled) target.focus({ preventScroll: true })
   }, [panel, state.status, preferences])
-  const acknowledgeReload = useRecommendationReload(options => reload(options), Boolean(panel) || state.status === 'loading')
   const discardDetail = () => { detailController.close(); setPanel(current => current?.kind === 'detail' ? null : current) }
+  const externalChange = reason => { discardDetail(); state.contextChanged(reason) }
+  const acknowledgeReload = useRecommendationReload(externalChange,
+    panel?.kind === 'preferences' || saving || state.status === 'loading', client,
+    state.data && { context: state.data.evidence_context, rollout_revision: state.rolloutRevision,
+      browse_enabled: !legacy, expires_at: state.data.snapshot_expires_at })
   const reload = options => { if (!options?.preserveDetail) discardDetail(); acknowledgeReload(); state.retry(options) }
   const feedback = useRecommendationFeedback(client, result => {
     // Discard the entire old detail/resource context ONLY after server acknowledgement.
@@ -98,7 +102,7 @@ function RecommendationWorkspace({ client, sessionScope }) {
     reload({ confirmedFeedback: { version: feedback.controller.getSnapshot().version } })
     feedback.hidden.refresh()
     notifyFeedbackChange()
-  }, writeGate, version => feedbackReload.current?.(version, false))
+  }, writeGate, () => externalChange())
   const want = useRecommendationWant(client, result => {
     const refreshedDetail = detailController.afterWant(result) // synchronous invalidation BEFORE other reloads
     state.recordChanged(result.bangumi_id, result.watch_status)
@@ -121,7 +125,13 @@ function RecommendationWorkspace({ client, sessionScope }) {
   useEffect(() => {
     if (!client.hiddenFeedback) return undefined
     return subscribeFeedbackChanges({ client, getVersion: () => feedback.controller.getSnapshot().version,
-      onChanged: version => feedbackReload.current(version) })
+      checkForeground: !client.context,
+      onChanged: version => {
+        feedback.controller.observeVersion(version)
+        const toast = feedback.controller.getSnapshot().toast
+        if (toast) feedback.controller.dismissToast(toast.key)
+        externalChange()
+      } })
   }, [client, feedback.controller])
   useEffect(() => { if (panel?.kind !== 'hidden') feedback.hidden.close() }, [panel?.kind, feedback.hidden])
   useEffect(() => { want.reconcile(state.items) }, [state.items, want.reconcile])
@@ -248,6 +258,10 @@ function RecommendationWorkspace({ client, sessionScope }) {
       </div>
       <section id="rec-results" ref={resultsRef} className="rec-results" tabIndex={-1} aria-labelledby="rec-results-title">
         <h2 id="rec-results-title" className="rec-sr-only">推荐作品</h2>
+        {state.contextUpdated && <section id="rec-context-update" className="rec-feedback-refresh rec-context-update" role="status">
+          <p>{state.contextExpired ? '浏览快照已到期，已保留当前浏览位置。重新加载后继续浏览。'
+            : '推荐依据已更新，已保留当前浏览位置。重新加载后查看最新推荐。'}</p>
+          <button type="button" className="rec-button" onClick={() => reload()}>重新加载推荐</button></section>}
         {state.error && state.status !== 'ready' && <p className="rec-inline-error" role="alert">{state.error}</p>}
         <div className="rec-featured-layout">
           <div className="rec-featured-main">

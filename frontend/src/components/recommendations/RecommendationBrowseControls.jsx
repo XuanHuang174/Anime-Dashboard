@@ -58,7 +58,8 @@ export function RecommendationFilterPanel({ initialFilters, onApply, legacy = fa
 export function RecommendationBatchActions({ state, onMore, onBatch, onReload, onFilter, onRestart }) {
   const busy = state.moreLoading || state.batchLoading, expired = state.snapshotExpired || state.snapshotDirty
   return <div className="rec-batch-actions">
-    {expired ? <div className="rec-inline-error" role="alert"><p>浏览依据已更新，请重新加载推荐。</p>
+    {state.contextUpdated ? <p className="rec-muted" role="status">{state.transport === 'legacy' ? '当前列表仍保留' : `第 ${state.data.batch} 批浏览位置仍保留`} · <a href="#rec-context-update">前往更新提示 ↑</a></p>
+      : expired ? <div className="rec-inline-error" role="alert"><p>浏览依据已更新，请重新加载推荐。</p>
       <button type="button" className="rec-button" onClick={onReload}>重新加载推荐</button></div> : <>
       {state.moreError && <p className="rec-inline-error" role="alert">{state.transport === 'legacy' ? '加载下一页失败。' : '加载本批更多失败。'}{state.moreError}</p>}
       {state.batchError && <p className="rec-inline-error" role="alert">下一批加载失败，当前结果仍保留。{state.batchError}</p>}

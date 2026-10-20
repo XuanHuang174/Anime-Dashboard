@@ -3,6 +3,7 @@ import { validDetailContext } from '../utils/recommendationExecution.js'
 export function createRecommendationClient(client) {
   return {
     capabilities: signal => client.get('recommendations/capabilities/', { signal }).then(r => r.data),
+    context: signal => client.get('recommendations/context/', { signal }).then(r => r.data),
     profile: (signal) => client.get('recommendations/profile/', { signal }).then((r) => r.data),
     previewProfile: (profileMinScore, signal) => client.get('recommendations/profile/preview/', {
       params: { profile_min_score: profileMinScore }, signal }).then(r => r.data),

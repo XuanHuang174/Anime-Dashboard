@@ -23,7 +23,8 @@ async function transportMode(client, signal) {
     || typeof data.browse_enabled !== 'boolean' || !/^[a-f0-9]{64}$/.test(data.rollout_revision)) {
     throw new Error('推荐浏览合同不兼容，请重新加载。')
   }
-  return { transport: data.browse_enabled ? 'browse' : 'legacy', recipe: prepared ? data.execution_recipe : undefined }
+  return { transport: data.browse_enabled ? 'browse' : 'legacy', recipe: prepared ? data.execution_recipe : undefined,
+    rolloutRevision: data.rollout_revision }
 }
 
 // Authenticated workspace state only. No private persistence or resource cache.
@@ -59,7 +60,8 @@ export function createBrowseController(client) {
       }
       seen = new Set(snapshot.items.map(item => item.bangumiId))
       confirmedPreferences = null; confirmedFeedback = null
-      emit({ key: selection.key, transport, status: recommendationResultState(snapshot.data), ...snapshot, moreLoading: false, batchLoading: false })
+      emit({ key: selection.key, transport, rolloutRevision: mode.rolloutRevision,
+        status: recommendationResultState(snapshot.data), ...snapshot, moreLoading: false, batchLoading: false })
     } catch (error) {
       if (!active || epoch !== generation || !request.isCurrent()) return
       if (!forcedTransport && rollbackSignal(error)) return start(selection, acknowledged, 'legacy')
@@ -108,6 +110,12 @@ export function createBrowseController(client) {
     getSnapshot: () => state,
     activate() { active = true }, start, retry: acknowledged => start(selection, acknowledged),
     loadMore: () => advance('more'), nextBatch: () => advance('batch'), cancel,
+    contextChanged(reason = 'changed') {
+      if (!state.data || state.status === 'loading' || state.contextUpdated) return
+      cancel()
+      emit({ ...state, contextUpdated: true, contextExpired: reason === 'expired', snapshotDirty: true, moreLoading: false, batchLoading: false,
+        moreError: '', batchError: '', items: state.items.map(discardEvidence) })
+    },
     recordChanged(identity, watchStatus) {
       cancel()
       emit({ ...state, snapshotDirty: true, moreLoading: false, batchLoading: false,

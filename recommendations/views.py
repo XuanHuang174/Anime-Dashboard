@@ -114,6 +114,16 @@ class RecommendationCapabilitiesView(OwnRecommendationAPIView):
         return Response(capabilities())
 
 
+class RecommendationContextView(OwnRecommendationAPIView):
+    throttle_classes = (UserRateThrottle, ScopedRateThrottle)
+    throttle_scope = 'recommendation_read'
+
+    def get(self, request):
+        self.check_query_contract(request)
+        from .context_probe import context_contract
+        return Response(context_contract(request.user))
+
+
 class RecommendationFeedbackView(OwnRecommendationAPIView):
     throttle_classes = (UserRateThrottle, ScopedRateThrottle)
     throttle_scope = 'recommendation_write'

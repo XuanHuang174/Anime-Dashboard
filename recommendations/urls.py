@@ -4,12 +4,14 @@ from .views import RecommendationFeedbackView, RecommendationFeedbackUndoView, R
 from .views import RecommendationCapabilitiesView
 from .views import RecommendationIdentityBatchView
 from .views import RecommendationProfilePreviewView
+from .views import RecommendationContextView
 
 app_name = 'recommendations'
 
 urlpatterns = [
     path('', RecommendationListView.as_view(), name='list'),
     path('capabilities/', RecommendationCapabilitiesView.as_view(), name='capabilities'),
+    path('context/', RecommendationContextView.as_view(), name='context'),
     path('profile/', RecommendationProfileView.as_view(), name='profile'),
     path('profile/preview/', RecommendationProfilePreviewView.as_view(), name='profile-preview'),
     path('preferences/', RecommendationPreferenceView.as_view(), name='preferences'),

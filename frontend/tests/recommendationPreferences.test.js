@@ -179,7 +179,7 @@ test('an explicit reload consumes a deferred notification without a redundant fo
   const sync = subscribeRecommendationReload({ ...env, onReload: () => calls++ })
   notifyRecommendationChange({}, env.target)
   sync.acknowledge(); env.run(); assert.equal(calls, 0)
-  env.target.dispatchEvent(new Event('focus')); env.run(); assert.equal(calls, 1)
+  env.target.dispatchEvent(new Event('focus')); env.run(); assert.equal(calls, 0)
   sync.dispose()
 })
 

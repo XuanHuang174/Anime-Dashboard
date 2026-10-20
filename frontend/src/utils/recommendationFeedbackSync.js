@@ -9,10 +9,12 @@ export function notifyFeedbackChange(target = globalThis.window) {
 }
 
 export function subscribeFeedbackChanges({ client, getVersion, onChanged, target = globalThis.window,
-  document = globalThis.document, delay = 200 }) {
-  let timer, request, generation = 0, disposed = false, channel
+  document = globalThis.document, delay = 200, checkForeground = true }) {
+  let timer, request, generation = 0, disposed = false, channel, wanted = false
   const check = () => {
-    if (disposed || document.visibilityState === 'hidden') return
+    if (disposed) return
+    if (document.visibilityState === 'hidden') { wanted = true; return }
+    wanted = false
     target.clearTimeout(timer)
     // Invalidate a previous verification immediately, not when debounce fires.
     generation++; request?.abort()
@@ -28,12 +30,13 @@ export function subscribeFeedbackChanges({ client, getVersion, onChanged, target
   }
   const storage = event => { if (event.key === KEY) check() }
   const message = event => { if (event.data === 'invalidate') check() }
-  target.addEventListener('storage', storage); target.addEventListener('focus', check)
-  document.addEventListener('visibilitychange', check)
+  const foreground = () => { if (checkForeground || wanted) check() }
+  target.addEventListener('storage', storage)
+  target.addEventListener('focus', foreground); document.addEventListener('visibilitychange', foreground)
   try { channel = new target.BroadcastChannel(KEY); channel.onmessage = message } catch { /* no channel */ }
   return () => {
     disposed = true; generation++; target.clearTimeout(timer); request?.abort(); channel?.close()
-    target.removeEventListener('storage', storage); target.removeEventListener('focus', check)
-    document.removeEventListener('visibilitychange', check)
+    target.removeEventListener('storage', storage); target.removeEventListener('focus', foreground)
+    document.removeEventListener('visibilitychange', foreground)
   }
 }
