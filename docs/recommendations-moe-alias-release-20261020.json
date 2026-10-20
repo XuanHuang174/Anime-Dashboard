@@ -1,0 +1,25 @@
+{
+  "contract_version": "recommendations.moe-alias-release-audit.v1",
+  "created_at": "2026-10-20T04:13:03.511310+00:00",
+  "approval": "evaluation/tag-moe-aliases.20261020.approved.json",
+  "before_taxonomy": "genres.v6",
+  "after_taxonomy": "genres.v7",
+  "algorithm_version": "content.v1",
+  "aliases": {"萌": "萌系", "废萌": "萌系", "萌豚": "萌系"},
+  "active_preset_count": 41,
+  "max_selected_preferences": 20,
+  "identical_catalog_snapshot": true,
+  "catalog_fingerprint": "5f476f5250292c8561cb1ed3da807828451410b66413ed872bfbaf7f8a75d1b5",
+  "scope": {"total": 31104, "non_adult": 28636, "adult": 2468, "unknown": 0},
+  "before": {"with_effective_genres": 12731, "without_effective_genres": 15905, "coverage_fraction": 0.44458024863807794, "moe_effective_works": 88},
+  "after": {"with_effective_genres": 12789, "without_effective_genres": 15847, "coverage_fraction": 0.4466056711831261, "moe_effective_works": 353},
+  "deduplicated_impact": {"newly_eligible": 58, "new_moe_feature": 265, "already_covered_but_new_moe_feature": 207},
+  "source_document_frequency_overlaps": {"萌": 274, "废萌": 10, "萌豚": 14},
+  "source_sha256": {
+    "features": "727c15a6c332dac11b88c1522ddbba5eb889667bcbc179bcbff8d58262d2740c",
+    "taxonomy": "6e53b0610d80baf81db212ff53a3b76ebb9fc1c14f964e1f01cb62b7a19a391d",
+    "review_rules": "3b86581ae10951fdfaf76141cac283aaeda1e93a2ac62d4f30f21e5e00183594",
+    "tag_coverage": "86069e095941bc59c648bbe3344ea35ef54c5dc5bb8998814a456ba087f40fcb"
+  },
+  "policy": {"private_tables_read": false, "source_data_modified": false, "ranking_formula_changed": false, "v2_enabled": false, "other_new_genres_enabled": false, "database_transaction_read_only": true}
+}

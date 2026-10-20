@@ -24,7 +24,7 @@ from recommendations.tag_coverage import (_coverage, analyze_public_tags, attach
                                            coverage_markdown, write_coverage_reports)
 from recommendations.tag_review_rules import GENRE_CANDIDATES, PENDING_ALIASES
 from recommendations.taxonomy import (ALIASES, APPROVED_ALIASES, PREVIOUS_APPROVED_ALIASES,
-                                      APPROVED_ALIAS_BATCH, AVAILABLE_TAGS, TAXONOMY_VERSION,
+                                      APPROVED_ALIAS_BATCH, APPROVED_MOE_ALIASES, AVAILABLE_TAGS, TAXONOMY_VERSION,
                                       canonical_tag, validate_preference_tags)
 
 EXPECTED_APPROVED = {'治愈系': '治愈', '治癒': '治愈', 'comedy': '喜剧', '日常系': '日常',
@@ -33,12 +33,12 @@ EXPECTED_APPROVED = {'治愈系': '治愈', '治癒': '治愈', 'comedy': '喜�
 
 
 class AliasReleasePrimitiveTests(SimpleTestCase):
-    def test_original_11_aliases_retained_with_only_reviewed_nine_added(self):
+    def test_original_11_aliases_retained_with_only_approved_batches_added(self):
         self.assertEqual(PREVIOUS_APPROVED_ALIASES, EXPECTED_APPROVED)
-        self.assertEqual(APPROVED_ALIASES, EXPECTED_APPROVED | APPROVED_ALIAS_BATCH)
-        self.assertEqual(len(ALIASES), 30)  # 10 original + 11 previous + 9 reviewed.
+        self.assertEqual(APPROVED_ALIASES, EXPECTED_APPROVED | APPROVED_ALIAS_BATCH | APPROVED_MOE_ALIASES)
+        self.assertEqual(len(ALIASES), 33)
         self.assertEqual(len(AVAILABLE_TAGS), 41)
-        self.assertEqual(TAXONOMY_VERSION, 'genres.v6')
+        self.assertEqual(TAXONOMY_VERSION, 'genres.v7')
         self.assertEqual(FEATURE_RULE_VERSION, 'journal-genres.v3')
         self.assertEqual(engine.ALGORITHM_VERSION, 'content.v1')
         for source, target in EXPECTED_APPROVED.items():

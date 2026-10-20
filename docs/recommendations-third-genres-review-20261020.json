@@ -1,0 +1,36 @@
+{
+  "contract_version": "recommendations.third-genres-review-summary.v1",
+  "created_at": "2026-10-20T04:13:06.946436+00:00",
+  "status": "pending_human_review",
+  "apply_to_production": false,
+  "proposal": "evaluation/tag-genres-third.20261020.review.json",
+  "proposal_sha256": "b20ee12c80fac9145faeea0a572c6367aa23161ad0ba7727bb268e0cd714d06e",
+  "baseline_taxonomy": "genres.v7",
+  "algorithm_version": "content.v1",
+  "active_preset_count": 41,
+  "max_selected_preferences": 20,
+  "catalog_fingerprint": "5f476f5250292c8561cb1ed3da807828451410b66413ed872bfbaf7f8a75d1b5",
+  "scope": {"total": 31104, "non_adult": 28636, "adult": 2468, "unknown": 0},
+  "safety_metadata_review_works": 588,
+  "items": [
+    {"tag": "竞技", "document_frequency": 99, "zero_genre_works": 7, "decision": "pending_review", "example_bangumi_ids": [508, 605]},
+    {"tag": "动物", "document_frequency": 93, "zero_genre_works": 40, "decision": "pending_review", "example_bangumi_ids": [3250, 8248]},
+    {"tag": "惊悚", "document_frequency": 76, "zero_genre_works": 16, "decision": "pending_review", "example_bangumi_ids": [288, 289]},
+    {"tag": "讽刺", "document_frequency": 71, "zero_genre_works": 47, "decision": "pending_review", "example_bangumi_ids": [299, 300]},
+    {"tag": "科普", "document_frequency": 63, "zero_genre_works": 19, "decision": "pending_review", "example_bangumi_ids": [7033, 8294]},
+    {"tag": "吸血鬼", "document_frequency": 59, "zero_genre_works": 13, "decision": "pending_review", "example_bangumi_ids": [493, 973]},
+    {"tag": "妖怪", "document_frequency": 55, "zero_genre_works": 11, "decision": "pending_review", "example_bangumi_ids": [259, 891]},
+    {"tag": "家庭", "document_frequency": 38, "zero_genre_works": 7, "decision": "pending_review", "example_bangumi_ids": [503, 1905]},
+    {"tag": "末世", "document_frequency": 34, "zero_genre_works": 2, "decision": "pending_review", "example_bangumi_ids": [9713, 10416]},
+    {"tag": "公路片", "document_frequency": 18, "zero_genre_works": 1, "decision": "pending_review", "example_bangumi_ids": [919, 3489]}
+  ],
+  "hypothetical_all_ten_only": {
+    "feature_enriched_works_deduplicated": 600,
+    "newly_eligible_works_deduplicated": 162,
+    "covered_before": 12789,
+    "covered_after_if_approved": 12951,
+    "coverage_fraction_before": 0.4466056711831261,
+    "coverage_fraction_after_if_approved": 0.4522628858779159
+  },
+  "policy": {"private_tables_read": false, "source_data_modified": false, "ranking_changed": false, "new_genres_only_hypothetical": true, "counts_are_not_accuracy": true}
+}

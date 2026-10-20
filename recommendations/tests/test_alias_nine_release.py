@@ -17,7 +17,7 @@ from recommendations.evidence import EvidencePresenter
 from recommendations.features import extract_genres, feature_tags
 from recommendations.models import RecommendationAnime, RecommendationPreference
 from recommendations.taxonomy import (
-    ALIASES, AVAILABLE_TAGS, APPROVED_ALIAS_BATCH, APPROVED_ALIAS_RELEASE,
+    ALIASES, AVAILABLE_TAGS, APPROVED_ALIAS_BATCH,
     PREVIOUS_ALIASES, PREVIOUS_AVAILABLE_TAGS, APPROVED_GENRE_BATCH, TAXONOMY_VERSION, canonical_tag,
 )
 from recommendations.version_control import cache_namespace
@@ -32,19 +32,19 @@ class AliasNineRuleTests(SimpleTestCase):
         manifest = json.loads((Path(settings.BASE_DIR) / 'evaluation/tag-aliases.20261020.approved.json').read_text(encoding='utf-8'))
         self.assertEqual(manifest['aliases'], EXPECTED)
         self.assertEqual(APPROVED_ALIAS_BATCH, EXPECTED)
-        self.assertEqual(manifest['release_version'], APPROVED_ALIAS_RELEASE)
+        self.assertEqual(manifest['release_version'], 'aliases.2026-10-20.approved-9')
         self.assertEqual(manifest['taxonomy_version'], 'genres.v5')  # Frozen release approval.
         self.assertEqual(len(AVAILABLE_TAGS), 41)
         self.assertEqual(AVAILABLE_TAGS, PREVIOUS_AVAILABLE_TAGS + tuple(APPROVED_GENRE_BATCH))
-        self.assertEqual(len(ALIASES), 30)
-        self.assertEqual(dict(PREVIOUS_ALIASES), {key: value for key, value in ALIASES.items() if key not in EXPECTED})
+        self.assertEqual(len(ALIASES), 33)
+        self.assertEqual(dict(PREVIOUS_ALIASES), {key: value for key, value in ALIASES.items() if key not in (*EXPECTED, '萌', '废萌', '萌豚')})
         for raw, target in EXPECTED.items():
             self.assertEqual(canonical_tag(raw), target)
             self.assertIsNone(canonical_tag(raw, taxonomy_version='genres.v4'))
         for raw in APPROVED_GENRE_BATCH:
             self.assertIsNone(canonical_tag(raw, taxonomy_version='genres.v5'))
             self.assertEqual(canonical_tag(raw), raw)
-        for raw in ('萌', '萌豚', 'SF', '萝卜', '爱情向', '运动番2', '搞笑日常', '治愈系神作'):
+        for raw in ('SF', '萝卜', '爱情向', '运动番2', '搞笑日常', '治愈系神作'):
             self.assertIsNone(canonical_tag(raw), raw)
 
     def test_feature_copy_deduplicates_and_keeps_source_and_target_title_guards(self):

@@ -1,0 +1,15 @@
+{
+  "release_version": "aliases.2026-10-20.approved-moe-3",
+  "status": "approved_by_user",
+  "approval_scope": "only_moe_three_exact_aliases",
+  "previous_taxonomy": "genres.v6",
+  "taxonomy_version": "genres.v7",
+  "algorithm_version": "content.v1",
+  "aliases": {"萌": "萌系", "废萌": "萌系", "萌豚": "萌系"},
+  "new_genres_approved": [],
+  "excluded_from_this_release": ["卖萌", "美少女", "SF", "萝卜", "竞技", "动物", "惊悚", "讽刺", "科普", "吸血鬼", "妖怪", "家庭", "末世", "公路片"],
+  "preset_count": 41,
+  "max_selected_preferences": 20,
+  "raw_data_rewrite": false,
+  "interpretation": "用户明确指定的产品归类规则，不声称三个词与萌系在通用语言中完全同义；不推断用户讨厌其他题材。"
+}

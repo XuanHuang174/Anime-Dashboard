@@ -29,14 +29,14 @@ class GenreEightRulesTests(SimpleTestCase):
         manifest = json.loads((Path(settings.BASE_DIR) / 'evaluation/tag-genres.20261020.approved.json').read_text(encoding='utf-8'))
         self.assertEqual(manifest['new_genres'], list(NEW))
         self.assertEqual(manifest['release_version'], APPROVED_GENRE_RELEASE)
-        self.assertEqual(manifest['taxonomy_version'], TAXONOMY_VERSION)
+        self.assertEqual(manifest['taxonomy_version'], 'genres.v6')  # Frozen approval.
         self.assertEqual(tuple(APPROVED_GENRE_BATCH), NEW)
         self.assertEqual(len(AVAILABLE_TAGS), 41)
         for tag in NEW:
             self.assertEqual(feature_tags(tag), {tag})
             for version in ('genres.v2', 'genres.v4', 'genres.v5'):
                 self.assertIsNone(canonical_tag(tag, taxonomy_version=version))
-        for rejected in ('萌', '萌豚', '废萌', '卖萌', '美少女', '童话改', '动作番', '战争片',
+        for rejected in ('卖萌', '美少女', '童话改', '动作番', '战争片',
                          '赛博', 'SF', '萝卜', '科普', 'BL', '耽美'):
             self.assertIsNone(canonical_tag(rejected), rejected)
         self.assertEqual(engine.ALGORITHM_VERSION, 'content.v1')
@@ -142,7 +142,7 @@ class GenreEightAPITests(APITransactionTestCase):
             page = self.client.get('/api/recommendations/').data
         self.assertEqual(profile['usable_sample_count'], 3)
         self.assertEqual({item['tag'] for item in profile['tag_summary']}, set(NEW))
-        self.assertEqual(page['taxonomy_version'], 'genres.v6')
+        self.assertEqual(page['taxonomy_version'], TAXONOMY_VERSION)
         self.assertEqual(len(page['results']), 8)
         for item in page['results']:
             self.assertEqual(item['evidence']['source']['personal_score'], '9.0')

@@ -1,0 +1,23 @@
+{
+  "proposal_version": "tag-genres.third.2026-10-20.review.1",
+  "baseline_taxonomy": "genres.v7",
+  "status": "pending_human_review",
+  "apply_to_production": false,
+  "review_scope": "third_batch_ten_candidates_only_not_activation",
+  "synonyms": [],
+  "new_genres": [
+    {"source": "竞技", "target": "竞技", "rationale": "围绕规则、胜负与竞争的题材特征，可包括非体育竞技；不自动等同运动，不补棒球、足球等子类。", "approval": "pending_user_confirmation"},
+    {"source": "动物", "target": "动物", "rationale": "明确动物相关题材或表达特征；不因为出现宠物、兽耳或拟人角色就推断此标签，也不视为子供向或安全评级。", "approval": "pending_user_confirmation"},
+    {"source": "惊悚", "target": "惊悚", "rationale": "强调紧张、威胁和不安体验的叙事气质；独立于恐怖、悬疑，不相互自动补标签。", "approval": "pending_user_confirmation"},
+    {"source": "讽刺", "target": "讽刺", "rationale": "讽刺性表达特征；不自动合并喜剧、吐槽、黑色幽默，也不从文案或长评判断讽刺对象。", "approval": "pending_user_confirmation"},
+    {"source": "科普", "target": "科普", "rationale": "明确知识介绍或科学普及表达；需确认教育表达维度可进入统一偏好词表，不保证知识准确性，不合并科幻或教育片。", "approval": "pending_user_confirmation"},
+    {"source": "吸血鬼", "target": "吸血鬼", "rationale": "明确吸血鬼相关设定；不自动补恐怖、奇幻、恋爱、成人等特征，不从作品名称判断。", "approval": "pending_user_confirmation"},
+    {"source": "妖怪", "target": "妖怪", "rationale": "明确妖怪相关设定；不合并所有超自然、奇幻、神话、治愈或恐怖题材。", "approval": "pending_user_confirmation"},
+    {"source": "家庭", "target": "家庭", "rationale": "明确家庭生活或家庭关系题材；不等同亲情，也不因角色有家人就推断。", "approval": "pending_user_confirmation"},
+    {"source": "末世", "target": "末世", "rationale": "明确末世世界设定；不自动合并末日、灾难、生存或科幻，也不从简介补标签。", "approval": "pending_user_confirmation"},
+    {"source": "公路片", "target": "公路片", "rationale": "明确公路片叙事形式；与旅行分开，不因角色出行或出现道路就推断。", "approval": "pending_user_confirmation"}
+  ],
+  "deferred": [],
+  "excluded_examples": [],
+  "activation_requirements": ["用户单独确认后才实施；本次全部保持未启用", "仅精确标签，不从名称、简介或私人长评推断", "成人及未知分级继续由后端过滤，题材不等于内容分级", "将来实施仍保留个人最多选择20项，不改原始标签和评分"]
+}

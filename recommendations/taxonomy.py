@@ -2,8 +2,8 @@
 import unicodedata
 from types import MappingProxyType
 
-TAXONOMY_VERSION = 'genres.v6'
-APPROVED_ALIAS_RELEASE = 'aliases.2026-10-20.approved-9'
+TAXONOMY_VERSION = 'genres.v7'
+APPROVED_ALIAS_RELEASE = 'aliases.2026-10-20.approved-moe-3'
 APPROVED_GENRE_RELEASE = 'genres.2026-10-20.approved-8'
 MAX_PREFERENCE_TAGS = 20
 # These definitions document exact labels only; they are NOT classification
@@ -18,7 +18,7 @@ PREVIOUS_APPROVED_GENRES = {
     '武侠': '以武者、武学、江湖及侠义关系为题材；不自动等同于战斗、历史或修仙。',
 }
 APPROVED_GENRE_BATCH = {
-    '萌系': '可爱角色及其审美体验的明确特征；不等同角色年龄、日常、治愈或安全评级，不自动吸收萌、卖萌、萌豚、废萌、美少女。',
+    '萌系': '可爱角色及其审美体验的明确特征；按用户批准的产品规则接纳萌、废萌、萌豚三个精确别名，不代表这些词在通用语义上完全同义；不推断角色年龄、日常、治愈或安全评级，不吸收卖萌、美少女。',
     '战争': '战争冲突、经历及影响；不把战斗、历史、军事或兵器自动视为战争。',
     '动作': '动态动作场面的表现特征；独立于战斗，可共存但不相互生成标签。',
     '励志': '面对困难、努力追求目标的激励叙事气质；不自动等同成长、热血或运动。',
@@ -46,7 +46,10 @@ APPROVED_ALIAS_BATCH = {
     '美食番': '美食', '日常番': '日常', '推理系': '推理', '恋爱番': '恋爱',
     '搞笑类': '喜剧',
 }
-APPROVED_ALIASES = {**PREVIOUS_APPROVED_ALIASES, **APPROVED_ALIAS_BATCH}
+PRE_MOE_APPROVED_ALIASES = {**PREVIOUS_APPROVED_ALIASES, **APPROVED_ALIAS_BATCH}
+# Explicit product decision, not learned semantics or substring matching.
+APPROVED_MOE_ALIASES = {'萌': '萌系', '废萌': '萌系', '萌豚': '萌系'}
+APPROVED_ALIASES = {**PRE_MOE_APPROVED_ALIASES, **APPROVED_MOE_ALIASES}
 ALIASES = {
     '搞笑': '喜剧', '真百': '百合', '真百合': '百合',
     '轻百': '百合', '轻百合': '百合', 'ゆり': '百合',
@@ -79,7 +82,24 @@ ALIAS_NINE_ALIASES = MappingProxyType({
     '爱情': '恋爱', '治癒系': '治愈', '运动番': '运动', '运动系': '运动',
     '美食番': '美食', '日常番': '日常', '推理系': '推理', '恋爱番': '恋爱', '搞笑类': '喜剧',
 })
-AUDIT_TAXONOMY_VERSIONS = (TAXONOMY_VERSION, PREVIOUS_TAXONOMY_VERSION, ALIAS_NINE_TAXONOMY_VERSION)
+GENRE_EIGHT_TAXONOMY_VERSION = 'genres.v6'
+GENRE_EIGHT_AVAILABLE_TAGS = ALIAS_NINE_AVAILABLE_TAGS + (
+    '萌系', '战争', '动作', '励志', '超能力', '童话', '犯罪', '赛博朋克',
+)
+GENRE_EIGHT_ALIASES = ALIAS_NINE_ALIASES  # Immutable: v5/v6 have identical aliases.
+GENRE_EIGHT_DEFINITIONS = MappingProxyType({
+    **PREVIOUS_APPROVED_GENRES,
+    '萌系': '可爱角色及其审美体验的明确特征；不等同角色年龄、日常、治愈或安全评级，不自动吸收萌、卖萌、萌豚、废萌、美少女。',
+    '战争': '战争冲突、经历及影响；不把战斗、历史、军事或兵器自动视为战争。',
+    '动作': '动态动作场面的表现特征；独立于战斗，可共存但不相互生成标签。',
+    '励志': '面对困难、努力追求目标的激励叙事气质；不自动等同成长、热血或运动。',
+    '超能力': '角色具有超常能力的明确设定；不自动等同魔法、科幻、奇幻或战斗。',
+    '童话': '明确标识的童话题材或表达；不合并童话改，不推导子供向或全年龄分级。',
+    '犯罪': '围绕犯罪行为及相关关系的题材；不自动等同推理、悬疑、暴力或成人。',
+    '赛博朋克': '明确赛博朋克设定或审美；不根据科幻、都市、机器人或视觉推断，不自动补科幻父级。',
+})
+AUDIT_TAXONOMY_VERSIONS = (TAXONOMY_VERSION, PREVIOUS_TAXONOMY_VERSION,
+                           ALIAS_NINE_TAXONOMY_VERSION, GENRE_EIGHT_TAXONOMY_VERSION)
 
 # Frozen pre-5B-1 vocabulary, verified against the 5A baseline (eca457f).
 # Explicit copies, NOT derived by subtracting future releases. Offline only.
@@ -104,6 +124,8 @@ def genre_rules(version=None):
         return PREVIOUS_AVAILABLE_TAGS, PREVIOUS_ALIASES
     if version == ALIAS_NINE_TAXONOMY_VERSION:
         return ALIAS_NINE_AVAILABLE_TAGS, ALIAS_NINE_ALIASES
+    if version == GENRE_EIGHT_TAXONOMY_VERSION:
+        return GENRE_EIGHT_AVAILABLE_TAGS, GENRE_EIGHT_ALIASES
     raise ValueError('Unsupported genre-rule version')
 
 
