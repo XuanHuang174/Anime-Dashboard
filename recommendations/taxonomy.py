@@ -2,9 +2,9 @@
 import unicodedata
 from types import MappingProxyType
 
-TAXONOMY_VERSION = 'genres.v7'
+TAXONOMY_VERSION = 'genres.v8'
 APPROVED_ALIAS_RELEASE = 'aliases.2026-10-20.approved-moe-3'
-APPROVED_GENRE_RELEASE = 'genres.2026-10-20.approved-8'
+APPROVED_GENRE_RELEASE = 'genres.2026-10-20.approved-third-10'
 MAX_PREFERENCE_TAGS = 20
 # These definitions document exact labels only; they are NOT classification
 # prompts, parent relationships, synonyms, or rules for mining titles/reviews.
@@ -27,14 +27,26 @@ APPROVED_GENRE_BATCH = {
     '犯罪': '围绕犯罪行为及相关关系的题材；不自动等同推理、悬疑、暴力或成人。',
     '赛博朋克': '明确赛博朋克设定或审美；不根据科幻、都市、机器人或视觉推断，不自动补科幻父级。',
 }
-APPROVED_GENRES = {**PREVIOUS_APPROVED_GENRES, **APPROVED_GENRE_BATCH}
+APPROVED_THIRD_GENRES = {
+    '竞技': '围绕规则、胜负与竞争的题材特征，可包括非体育竞技；不自动等同运动，不补棒球、足球等子类。',
+    '动物': '明确动物相关题材或表达特征；不因为出现宠物、兽耳或拟人角色就推断此标签，也不视为子供向或安全评级。',
+    '惊悚': '强调紧张、威胁和不安体验的叙事气质；独立于恐怖、悬疑，不相互自动补标签。',
+    '讽刺': '讽刺性表达特征；不自动合并喜剧、吐槽、黑色幽默，也不从文案或长评判断讽刺对象。',
+    '科普': '明确知识介绍或科学普及表达；作为知识表达题材，不保证知识准确性，不合并科幻或教育片。',
+    '吸血鬼': '明确吸血鬼相关设定；不自动补恐怖、奇幻、恋爱、成人等特征，不从作品名称判断。',
+    '妖怪': '明确妖怪相关设定；不合并所有超自然、奇幻、神话、治愈或恐怖题材。',
+    '家庭': '明确家庭生活或家庭关系题材；不等同亲情，也不因角色有家人就推断。',
+    '末世': '明确末世世界设定；不自动合并末日、废土、灾难、生存或科幻，也不从简介补标签。',
+    '公路片': '明确公路片叙事形式；与旅行分开，不因角色出行或出现道路就推断。',
+}
+APPROVED_GENRES = {**PREVIOUS_APPROVED_GENRES, **APPROVED_GENRE_BATCH, **APPROVED_THIRD_GENRES}
 AVAILABLE_TAGS = (
     '日常', '治愈', '喜剧', '校园', '恋爱', '百合', '科幻', '奇幻', '冒险', '悬疑',
     '推理', '战斗', '机战', '音乐', '运动', '历史', '职场', '亲情', '成长', '友情',
     '青春', '魔法', '异世界', '偶像', '美食', '旅行',
     *APPROVED_GENRES,
 )
-# Preserve the previous approval and append ONLY the nine reviewed exact labels.
+# Preserve the approved alias batches; adding genres does not introduce aliases.
 # This does not strip generic suffixes or split compound/free-form labels.
 PREVIOUS_APPROVED_ALIASES = {
     '治愈系': '治愈', '治癒': '治愈', 'comedy': '喜剧', '日常系': '日常',
@@ -98,8 +110,16 @@ GENRE_EIGHT_DEFINITIONS = MappingProxyType({
     '犯罪': '围绕犯罪行为及相关关系的题材；不自动等同推理、悬疑、暴力或成人。',
     '赛博朋克': '明确赛博朋克设定或审美；不根据科幻、都市、机器人或视觉推断，不自动补科幻父级。',
 })
+MOE_TAXONOMY_VERSION = 'genres.v7'
+MOE_AVAILABLE_TAGS = GENRE_EIGHT_AVAILABLE_TAGS
+MOE_ALIASES = MappingProxyType({**GENRE_EIGHT_ALIASES, '萌': '萌系', '废萌': '萌系', '萌豚': '萌系'})
+MOE_DEFINITIONS = MappingProxyType({
+    **GENRE_EIGHT_DEFINITIONS,
+    '萌系': '可爱角色及其审美体验的明确特征；按用户批准的产品规则接纳萌、废萌、萌豚三个精确别名，不代表这些词在通用语义上完全同义；不推断角色年龄、日常、治愈或安全评级，不吸收卖萌、美少女。',
+})
 AUDIT_TAXONOMY_VERSIONS = (TAXONOMY_VERSION, PREVIOUS_TAXONOMY_VERSION,
-                           ALIAS_NINE_TAXONOMY_VERSION, GENRE_EIGHT_TAXONOMY_VERSION)
+                           ALIAS_NINE_TAXONOMY_VERSION, GENRE_EIGHT_TAXONOMY_VERSION,
+                           MOE_TAXONOMY_VERSION)
 
 # Frozen pre-5B-1 vocabulary, verified against the 5A baseline (eca457f).
 # Explicit copies, NOT derived by subtracting future releases. Offline only.
@@ -126,6 +146,8 @@ def genre_rules(version=None):
         return ALIAS_NINE_AVAILABLE_TAGS, ALIAS_NINE_ALIASES
     if version == GENRE_EIGHT_TAXONOMY_VERSION:
         return GENRE_EIGHT_AVAILABLE_TAGS, GENRE_EIGHT_ALIASES
+    if version == MOE_TAXONOMY_VERSION:
+        return MOE_AVAILABLE_TAGS, MOE_ALIASES
     raise ValueError('Unsupported genre-rule version')
 
 

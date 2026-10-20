@@ -37,7 +37,7 @@ class TagCoveragePrimitiveTests(SimpleTestCase):
             self.assertIsNone(canonical_tag(source))
             self.assertEqual(feature_tags(source), frozenset())
         self.assertEqual(ALIASES, before)
-        self.assertEqual(TAXONOMY_VERSION, 'genres.v7')
+        self.assertEqual(TAXONOMY_VERSION, 'genres.v8')
         self.assertEqual(canonical_tag('搞笑'), '喜剧')
 
     def test_actual_coverage_unchanged_but_hypothesis_is_labelled_and_deduplicated(self):

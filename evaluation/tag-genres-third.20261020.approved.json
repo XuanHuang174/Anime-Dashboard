@@ -1,0 +1,19 @@
+{
+  "release_version": "genres.2026-10-20.approved-third-10",
+  "status": "approved_by_user",
+  "approval_scope": "third_batch_ten_exact_independent_genres_only",
+  "approval_date": "2026-10-20",
+  "source_review": "evaluation/tag-genres-third.20261020.review.json",
+  "previous_taxonomy": "genres.v7",
+  "taxonomy_version": "genres.v8",
+  "algorithm_version": "content.v1",
+  "new_genres": ["竞技", "动物", "惊悚", "讽刺", "科普", "吸血鬼", "妖怪", "家庭", "末世", "公路片"],
+  "new_aliases": {},
+  "preset_count": 51,
+  "max_selected_preferences": 20,
+  "display_order": "safe-catalog-topic-frequency.v1",
+  "raw_data_rewrite": false,
+  "automatic_parent_expansion": false,
+  "excluded_aliases": ["末日", "废土", "灾难", "生存", "黑色幽默", "教育片", "宠物", "兽耳", "惊悚向", "吸血鬼番"],
+  "configuration_note": "用户确认后的批准凭据，不是动态执行配置；历史审核草案保持原样，运行规则由 taxonomy.py 发布。"
+}

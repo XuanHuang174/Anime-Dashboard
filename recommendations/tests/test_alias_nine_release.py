@@ -18,7 +18,7 @@ from recommendations.features import extract_genres, feature_tags
 from recommendations.models import RecommendationAnime, RecommendationPreference
 from recommendations.taxonomy import (
     ALIASES, AVAILABLE_TAGS, APPROVED_ALIAS_BATCH,
-    PREVIOUS_ALIASES, PREVIOUS_AVAILABLE_TAGS, APPROVED_GENRE_BATCH, TAXONOMY_VERSION, canonical_tag,
+    PREVIOUS_ALIASES, PREVIOUS_AVAILABLE_TAGS, APPROVED_GENRE_BATCH, APPROVED_THIRD_GENRES, TAXONOMY_VERSION, canonical_tag,
 )
 from recommendations.version_control import cache_namespace
 
@@ -34,8 +34,8 @@ class AliasNineRuleTests(SimpleTestCase):
         self.assertEqual(APPROVED_ALIAS_BATCH, EXPECTED)
         self.assertEqual(manifest['release_version'], 'aliases.2026-10-20.approved-9')
         self.assertEqual(manifest['taxonomy_version'], 'genres.v5')  # Frozen release approval.
-        self.assertEqual(len(AVAILABLE_TAGS), 41)
-        self.assertEqual(AVAILABLE_TAGS, PREVIOUS_AVAILABLE_TAGS + tuple(APPROVED_GENRE_BATCH))
+        self.assertEqual(len(AVAILABLE_TAGS), 51)
+        self.assertEqual(AVAILABLE_TAGS, PREVIOUS_AVAILABLE_TAGS + tuple(APPROVED_GENRE_BATCH) + tuple(APPROVED_THIRD_GENRES))
         self.assertEqual(len(ALIASES), 33)
         self.assertEqual(dict(PREVIOUS_ALIASES), {key: value for key, value in ALIASES.items() if key not in (*EXPECTED, '萌', '废萌', '萌豚')})
         for raw, target in EXPECTED.items():

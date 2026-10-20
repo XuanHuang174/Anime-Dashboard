@@ -1,5 +1,7 @@
 # 第三批 10 项新题材审核清单（未启用）
 
+> 历史审核快照：本清单整理后，用户已另行确认全部十项，现已实施于 `genres.v8`。实施范围及实测见[第三批发布报告](recommendations-third-genres-release-20261020.md)。下述待审核状态与假设数据保留为当时的审计凭据，不代表当前运行状态。
+
 状态：待用户逐项审核；`apply_to_production=false`。本次仅整理清单，不增加预设题材，不建立这些词的映射。
 
 配置：[JSON 草案](../evaluation/tag-genres-third.20261020.review.json)。统计：[审计摘要](recommendations-third-genres-review-20261020.json)。

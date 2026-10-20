@@ -114,3 +114,45 @@ test('missing frequency metadata rolls back only option order, not preference ed
   assert.ok(html.includes('保存喜好'))
   assert.deepEqual(editor.getSnapshot().draftTags, ['赛博朋克'])
 })
+
+const thirdBatch = ['竞技', '动物', '惊悚', '讽刺', '科普', '吸血鬼', '妖怪', '家庭', '末世', '公路片']
+const thirdPreferences = (tags = [], version = 0) => {
+  const all = [...expandedTags, ...thirdBatch]
+  const counts = Object.fromEntries(all.map(tag => [tag, ({ 动物: 9, 竞技: 8, 日常: 7 })[tag] || 0]))
+  return { ...expandedPreferences(tags, version), taxonomy_version: 'genres.v8',
+    available_tags: all.sort((a, b) => counts[b] - counts[a]), available_tag_counts: counts }
+}
+
+test('51 API options retain frequency order, saved choices and no automatic parent selection', () => {
+  const prefs = validateRecommendationPreferences(thirdPreferences(['公路片'], 2))
+  const editor = createPreferenceEditor({})
+  editor.open(prefs)
+  const html = renderToStaticMarkup(React.createElement(Panel, { editor: editor.getSnapshot(), onTag() {}, onClose() {} }))
+  assert.equal((html.match(/type="checkbox"/g) || []).length, 51)
+  assert.equal((html.match(/checked=""/g) || []).length, 1)
+  assert.ok(html.indexOf('动物</label>') < html.indexOf('竞技</label>'))
+  for (const tag of thirdBatch) assert.ok(html.includes(`${tag}</label>`))
+  editor.setTag('吸血鬼', true)
+  editor.setTag('末日', true)
+  assert.deepEqual(editor.getSnapshot().draftTags, ['公路片', '吸血鬼'])
+  assert.deepEqual(prefs.tags, ['公路片'])
+})
+
+test('third-batch choices save only after acknowledgement and keep the 20-choice limit', async () => {
+  let writes = 0
+  const editor = createPreferenceEditor({ savePreferences: async changes => {
+    writes++
+    assert.deepEqual(changes, { tags: ['科普', '家庭'], expected_version: 0 })
+    return thirdPreferences(['科普', '家庭'], 1)
+  } })
+  editor.open(thirdPreferences())
+  editor.setTag('科普', true)
+  editor.setTag('家庭', true)
+  assert.equal(writes, 0)
+  await editor.save()
+  assert.equal(writes, 1)
+  editor.open(thirdPreferences(expandedTags.slice(0, 20), 1))
+  editor.setTag('动物', true)
+  assert.equal(editor.getSnapshot().draftTags.length, 20)
+  assert.match(editor.getSnapshot().error, /最多选择 20/)
+})

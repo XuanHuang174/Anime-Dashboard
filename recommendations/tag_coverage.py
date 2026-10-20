@@ -49,8 +49,13 @@ def analyze_public_tags(rows, scope, *, example_limit=3, taxonomy_version=None):
     if rule not in taxonomy.AUDIT_TAXONOMY_VERSIONS:
         raise ValueError('Unsupported public tag audit baseline')
     approved_genres = (taxonomy.APPROVED_GENRES if rule == taxonomy.TAXONOMY_VERSION else
+                       taxonomy.MOE_DEFINITIONS if rule == 'genres.v7' else
                        taxonomy.GENRE_EIGHT_DEFINITIONS if rule == 'genres.v6' else
                        taxonomy.PREVIOUS_APPROVED_GENRES)
+    # Historical audit metadata must describe the selected frozen rules, not the
+    # latest release. The original aliases were not part of later approvals.
+    approved_aliases = {key: value for key, value in taxonomy.genre_rules(rule)[1].items()
+                        if key not in taxonomy.LEGACY_ALIASES}
     before, draft = Counter(), Counter()
     eligible_before, eligible_draft = Counter(), Counter()
     missing, ignored, active_aliases = Counter(), Counter(), Counter()
@@ -180,13 +185,13 @@ def analyze_public_tags(rows, scope, *, example_limit=3, taxonomy_version=None):
             for pair, frequency in sorted(active_aliases.items(), key=lambda item: (-item[1], item[0]))],
         'approved_alias_release': {
             'version': ('aliases.2026-10-14.approved-11' if rule == 'genres.v4' else
-                        taxonomy.APPROVED_ALIAS_RELEASE if rule == taxonomy.TAXONOMY_VERSION else
-                        'aliases.2026-10-20.approved-9'),
+                        'aliases.2026-10-20.approved-9' if rule in ('genres.v5', 'genres.v6') else
+                        taxonomy.APPROVED_ALIAS_RELEASE),
             'status': 'enabled_in_audited_rule_version',
-            'aliases': dict(taxonomy.PREVIOUS_APPROVED_ALIASES if rule == 'genres.v4' else
-                            taxonomy.APPROVED_ALIASES if rule == taxonomy.TAXONOMY_VERSION else
-                            taxonomy.PRE_MOE_APPROVED_ALIASES)},
-        'approved_genre_release': {'version': taxonomy.APPROVED_GENRE_RELEASE if rule in (taxonomy.TAXONOMY_VERSION, 'genres.v6') else 'genres.2026-10-14.approved-7',
+            'aliases': approved_aliases},
+        'approved_genre_release': {'version': (taxonomy.APPROVED_GENRE_RELEASE if rule == taxonomy.TAXONOMY_VERSION else
+                                             'genres.2026-10-20.approved-8' if rule in ('genres.v6', 'genres.v7') else
+                                             'genres.2026-10-14.approved-7'),
             'status': 'enabled_in_audited_rule_version', 'definitions': dict(approved_genres),
             'exact_labels_only': True, 'automatic_parent_expansion': False},
         'approved_genre_observation': {'works_with_approved_labels': approved_genre_works,
@@ -225,7 +230,8 @@ def attach_release_comparison(report, baseline_directory):
         allowed = {'genres.v3': ('genres.v2',), 'genres.v4': ('genres.v2', 'genres.v3'),
                    'genres.v5': ('genres.v2', 'genres.v3', 'genres.v4'),
                    'genres.v6': ('genres.v2', 'genres.v3', 'genres.v4', 'genres.v5'),
-                   'genres.v7': ('genres.v2', 'genres.v3', 'genres.v4', 'genres.v5', 'genres.v6')}
+                   'genres.v7': ('genres.v2', 'genres.v3', 'genres.v4', 'genres.v5', 'genres.v6'),
+                   'genres.v8': ('genres.v2', 'genres.v3', 'genres.v4', 'genres.v5', 'genres.v6', 'genres.v7')}
         if prior_version not in allowed.get(report['versions']['active_taxonomy'], ()):
             raise ValueError('Comparison requires a supported prior taxonomy report, not current/future rules')
         if baseline['scope'] != report['scope'] or baseline['catalog_fingerprint'] != report['catalog_fingerprint']:

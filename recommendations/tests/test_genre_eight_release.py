@@ -18,7 +18,7 @@ from recommendations.models import RecommendationAnime, RecommendationPreference
 from recommendations.preference_options import public_counts, ordered_tags, with_ordered_options
 from recommendations.services import preference_contract
 from recommendations.taxonomy import (
-    AVAILABLE_TAGS, APPROVED_GENRE_BATCH, APPROVED_GENRE_RELEASE, TAXONOMY_VERSION, canonical_tag,
+    AVAILABLE_TAGS, APPROVED_GENRE_BATCH, TAXONOMY_VERSION, canonical_tag,
 )
 
 NEW = ('萌系', '战争', '动作', '励志', '超能力', '童话', '犯罪', '赛博朋克')
@@ -28,16 +28,16 @@ class GenreEightRulesTests(SimpleTestCase):
     def test_approval_exact_features_and_historical_rules_stay_frozen(self):
         manifest = json.loads((Path(settings.BASE_DIR) / 'evaluation/tag-genres.20261020.approved.json').read_text(encoding='utf-8'))
         self.assertEqual(manifest['new_genres'], list(NEW))
-        self.assertEqual(manifest['release_version'], APPROVED_GENRE_RELEASE)
+        self.assertEqual(manifest['release_version'], 'genres.2026-10-20.approved-8')
         self.assertEqual(manifest['taxonomy_version'], 'genres.v6')  # Frozen approval.
         self.assertEqual(tuple(APPROVED_GENRE_BATCH), NEW)
-        self.assertEqual(len(AVAILABLE_TAGS), 41)
+        self.assertEqual(len(AVAILABLE_TAGS), 51)
         for tag in NEW:
             self.assertEqual(feature_tags(tag), {tag})
             for version in ('genres.v2', 'genres.v4', 'genres.v5'):
                 self.assertIsNone(canonical_tag(tag, taxonomy_version=version))
         for rejected in ('卖萌', '美少女', '童话改', '动作番', '战争片',
-                         '赛博', 'SF', '萝卜', '科普', 'BL', '耽美'):
+                         '赛博', 'SF', '萝卜', '科普番', 'BL', '耽美'):
             self.assertIsNone(canonical_tag(rejected), rejected)
         self.assertEqual(engine.ALGORITHM_VERSION, 'content.v1')
 
@@ -123,7 +123,7 @@ class GenreEightAPITests(APITransactionTestCase):
         response = self.client.get('/api/recommendations/preferences/')
         self.assertEqual(response.status_code, 200, response.data)
         self.assertEqual(response.data['available_tags'][:2], ['战争', '萌系'])
-        self.assertEqual(len(response.data['available_tags']), 41)
+        self.assertEqual(len(response.data['available_tags']), 51)
         self.assertEqual(response.data['tags'], ['萌系'])
         self.assertEqual(preference_contract(self.user)['available_tags'], list(AVAILABLE_TAGS))
         self.assertNotIn('option_order_status', engine.user_context(self.user)['preferences'])

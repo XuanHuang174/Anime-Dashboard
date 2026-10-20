@@ -20,7 +20,7 @@ from recommendations.tag_expansion_review import load_proposal
 from recommendations.tag_coverage import analyze_public_tags
 from recommendations.taxonomy import (
     ALIASES, APPROVED_MOE_ALIASES, AVAILABLE_TAGS, GENRE_EIGHT_ALIASES,
-    MAX_PREFERENCE_TAGS, TAXONOMY_VERSION, canonical_tag,
+    MAX_PREFERENCE_TAGS, TAXONOMY_VERSION, MOE_AVAILABLE_TAGS, canonical_tag,
 )
 
 THIRD = ('竞技', '动物', '惊悚', '讽刺', '科普', '吸血鬼', '妖怪', '家庭', '末世', '公路片')
@@ -33,11 +33,13 @@ class MoeAliasRulesTests(SimpleTestCase):
         self.assertEqual(manifest['aliases'], expected)
         self.assertEqual(APPROVED_MOE_ALIASES, expected)
         self.assertEqual({key: value for key, value in ALIASES.items() if key not in GENRE_EIGHT_ALIASES}, expected)
-        self.assertEqual((len(AVAILABLE_TAGS), MAX_PREFERENCE_TAGS), (41, 20))
+        self.assertEqual((len(MOE_AVAILABLE_TAGS), len(AVAILABLE_TAGS), MAX_PREFERENCE_TAGS), (41, 51, 20))
         for raw in expected:
             self.assertEqual(canonical_tag(raw), '萌系')
             self.assertIsNone(canonical_tag(raw, taxonomy_version='genres.v6'))
-        for raw in (*THIRD, '卖萌', '美少女', 'SF', '萝卜', '萌豚向', '废萌番'):
+        for raw in THIRD:
+            self.assertIsNone(canonical_tag(raw, taxonomy_version='genres.v7'))
+        for raw in ('卖萌', '美少女', 'SF', '萝卜', '萌豚向', '废萌番'):
             self.assertIsNone(canonical_tag(raw), raw)
         proposal = load_proposal(Path(settings.BASE_DIR) / 'evaluation/tag-genres-third.20261020.review.json')
         self.assertFalse(proposal['apply_to_production'])
