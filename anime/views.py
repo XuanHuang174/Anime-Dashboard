@@ -100,7 +100,8 @@ from .tag_services import (
     replace_record_tag_colors,
 )
 from .throttles import SensitiveAuthRateThrottle
-from .showcase_services import imported_visibility_defaults, publish_new_showcase_record
+from .showcase_services import (PUBLICATION_CONTRACT, confirm_showcase_publication,
+    imported_visibility_defaults, publication_candidate, publish_new_showcase_record)
 from .utils.scraper import MetadataScraper, MetadataScraperError
 
 
@@ -2169,6 +2170,38 @@ class UserAnimeRecordViewSet(viewsets.ModelViewSet):
     serializer_class = UserAnimeRecordSerializer
     permission_classes = (permissions.IsAuthenticated,)
     pagination_class = UserAnimeRecordPagination
+
+    @action(detail=False, methods=("get",), url_path="showcase-publication")
+    def showcase_publication(self, request):
+        if set(request.query_params) - {"page"} or any(
+            len(request.query_params.getlist(key)) != 1 for key in request.query_params
+        ) or not re.fullmatch(r"[1-9]\d{0,5}", request.query_params.get("page", "1")):
+            raise DRFValidationError("只接受一个有效 page 参数。")
+        can_publish = request.user.username == settings.PUBLIC_SHOWCASE_USERNAME
+        if not can_publish:
+            return Response({"contract_version": PUBLICATION_CONTRACT, "can_publish": False,
+                "count": 0, "results": [], "next_page": None}, headers={"Cache-Control": "private, no-store", "Vary": "Authorization, Cookie"})
+        query = UserAnimeRecord.objects.filter(user=request.user, anime__is_active=False).select_related("anime").only(
+            "pk", "user_id", "anime_id", "updated_at", "metadata_initialized", "private_chinese_title",
+            "private_japanese_title", "private_airing_period", "anime__id", "anime__bgm_id", "anime__chinese_title",
+            "anime__japanese_title", "anime__airing_period", "anime__is_active", "anime__hidden_reason", "anime__updated_at",
+        ).order_by("pk")
+        count, page = query.count(), int(request.query_params.get("page", "1"))
+        offset = (page - 1) * 12
+        return Response({"contract_version": PUBLICATION_CONTRACT, "can_publish": True, "count": count,
+            "results": [publication_candidate(record) for record in query[offset:offset + 12]],
+            "next_page": page + 1 if offset + 12 < count else None}, headers={"Cache-Control": "private, no-store", "Vary": "Authorization, Cookie"})
+
+    @action(detail=True, methods=("post",), url_path="publish-showcase")
+    def publish_showcase(self, request, pk=None):
+        if request.query_params or not isinstance(request.data, dict) or set(request.data) != {"ticket", "confirm_publication"}:
+            raise DRFValidationError("只接受公开确认和服务端签发的 ticket。")
+        if request.data["confirm_publication"] is not True or not isinstance(request.data["ticket"], str) or len(request.data["ticket"]) > 4096:
+            raise DRFValidationError("请明确确认将本作品公开。")
+        if not re.fullmatch(r"[1-9]\d{0,18}", str(pk)) or int(pk) > 9223372036854775807:
+            raise DRFValidationError("记录身份无效。")
+        return Response(confirm_showcase_publication(user=request.user, record_id=int(pk), ticket=request.data["ticket"]),
+            headers={"Cache-Control": "private, no-store", "Vary": "Authorization, Cookie"})
 
     def _lock_user_and_enforce_quota(self):
         """Serialize creates per user and reject records beyond the quota."""

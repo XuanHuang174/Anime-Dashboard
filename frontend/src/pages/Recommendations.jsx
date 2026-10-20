@@ -33,6 +33,7 @@ import '../styles/recommendations-layout.css'
 import '../styles/recommendations-theme.css'
 import '../styles/recommendations-motion.css'
 import '../styles/recommendations-preferences.css'
+import ShowcasePublicationPanel from '../components/ShowcasePublicationPanel.jsx'
 
 export default function Recommendations({ client = recommendationApi }) {
   const readScope = () => { try { return recommendationSessionScope(getAccessToken()) } catch { return 'anonymous' } }
@@ -53,6 +54,7 @@ function RecommendationWorkspace({ client, sessionScope }) {
   const [filters, setFilters] = useState({ ...DEFAULT_BROWSE_FILTERS })
   const [panel, setPanel] = useState(null)
   const [notice, setNotice] = useState('')
+  const [publicationRevision, setPublicationRevision] = useState(0)
   const resourceTrigger = useRef(null)
   const preferenceTrigger = useRef(null)
   const preferenceReturnFocus = useRef(null)
@@ -104,11 +106,14 @@ function RecommendationWorkspace({ client, sessionScope }) {
     notifyFeedbackChange()
   }, writeGate, () => externalChange())
   const want = useRecommendationWant(client, result => {
+    setPublicationRevision(current => current + 1)
     const refreshedDetail = detailController.afterWant(result) // synchronous invalidation BEFORE other reloads
     state.recordChanged(result.bangumi_id, result.watch_status)
     reload({ preserveDetail: true })
     notifyRecommendationChange({ local: false })
-    setNotice(result.created ? '已加入想看，评分和长评留空。正在更新推荐依据。' : '手账已有这部作品，已保留原有状态、评分和长评。正在更新推荐依据。')
+    setNotice(result.showcase_publication?.status === 'review_required'
+      ? '已加入手账，但尚未公开到公共番剧库。请在“公共库待公开”中逐部确认。'
+      : result.created ? '已加入想看，评分和长评留空。正在更新推荐依据。' : '手账已有这部作品，已保留原有状态、评分和长评。正在更新推荐依据。')
     return refreshedDetail
   }, writeGate)
   const feedbackReload = useRef(null)
@@ -256,6 +261,7 @@ function RecommendationWorkspace({ client, sessionScope }) {
         onStyle={next => { if (next !== style) { discardDetail(); state.cancelBrowse(); setStyle(next) } }}
         onFilter={openFilters} onRemove={removeFilter} onReset={reset} />
       </div>
+      <ShowcasePublicationPanel refreshKey={publicationRevision} />
       <section id="rec-results" ref={resultsRef} className="rec-results" tabIndex={-1} aria-labelledby="rec-results-title">
         <h2 id="rec-results-title" className="rec-sr-only">推荐作品</h2>
         {state.contextUpdated && <section id="rec-context-update" className="rec-feedback-refresh rec-context-update" role="status">

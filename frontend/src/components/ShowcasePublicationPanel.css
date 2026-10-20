@@ -1,0 +1,15 @@
+.showcase-publication { margin: 16px 0; padding: 12px 16px; border: 2px solid #111; background: #fff4bc; color: #111; box-shadow: 3px 3px 0 #111; font-size: 14px; }
+.showcase-publication summary { cursor: pointer; font-weight: 800; min-height: 32px; }
+.showcase-publication summary span { display: inline-block; margin-left: 10px; font-weight: 400; }
+.showcase-publication p { margin: 10px 0; line-height: 1.6; }
+.showcase-publication__privacy { padding: 10px; background: #e5f4ed; }
+.showcase-publication ul { margin: 12px 0; padding: 0; list-style: none; }
+.showcase-publication li { margin: 10px 0; padding: 12px; background: #fff; border: 2px solid #111; }
+.showcase-publication label { display: flex; align-items: flex-start; gap: 8px; margin: 10px 0; }
+.showcase-publication input { margin-top: 5px; accent-color: #111; }
+.showcase-publication button { min-height: 44px; padding: 8px 12px; border: 2px solid #111; background: #fff; font-weight: 700; cursor: pointer; }
+.showcase-publication button:hover:not(:disabled) { background: #ffe66d; }
+.showcase-publication button:focus-visible, .showcase-publication summary:focus-visible { outline: 3px solid #138979; outline-offset: 3px; }
+.showcase-publication button:disabled { opacity: .55; cursor: not-allowed; }
+.showcase-publication__pages { display: flex; flex-wrap: wrap; gap: 8px; }
+@media (max-width: 600px) { .showcase-publication { padding: 10px; } .showcase-publication summary span { display: block; margin-left: 0; } }

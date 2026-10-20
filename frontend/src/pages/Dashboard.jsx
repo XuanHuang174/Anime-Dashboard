@@ -28,6 +28,7 @@ import StatsSummary from '../components/StatsSummary.jsx'
 import { comparePeriod } from '../utils/animeDisplay.js'
 import { mapRecordToAnimeItem } from '../utils/recordMapping.js'
 import { notifyRecommendationChange } from '../utils/recommendationReload.js'
+import ShowcasePublicationPanel from '../components/ShowcasePublicationPanel.jsx'
 
 gsap.registerPlugin(useGSAP)
 
@@ -984,6 +985,7 @@ function Dashboard() {
             ? 'pb-0 pt-7'
             : 'py-7'
       }`}>
+        {!isSharedJournal && !isAdminJournalReview && <ShowcasePublicationPanel refreshKey={recordsRefreshKey} />}
         {isHeaderEntranceComplete && isLoading && !hasLoadedRecords && (
           <div className="flex items-center justify-center gap-3 border-4 border-black bg-[#ffe66d] py-12 font-black text-black shadow-[8px_8px_0_#4ecdc4]">
             <i className="fa-solid fa-spinner animate-spin text-xl"></i>
