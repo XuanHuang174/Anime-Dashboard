@@ -18,7 +18,7 @@ from recommendations.features import extract_genres, feature_tags
 from recommendations.models import RecommendationAnime, RecommendationPreference
 from recommendations.taxonomy import (
     ALIASES, AVAILABLE_TAGS, APPROVED_ALIAS_BATCH, APPROVED_ALIAS_RELEASE,
-    PREVIOUS_ALIASES, PREVIOUS_AVAILABLE_TAGS, TAXONOMY_VERSION, canonical_tag,
+    PREVIOUS_ALIASES, PREVIOUS_AVAILABLE_TAGS, APPROVED_GENRE_BATCH, TAXONOMY_VERSION, canonical_tag,
 )
 from recommendations.version_control import cache_namespace
 
@@ -33,16 +33,18 @@ class AliasNineRuleTests(SimpleTestCase):
         self.assertEqual(manifest['aliases'], EXPECTED)
         self.assertEqual(APPROVED_ALIAS_BATCH, EXPECTED)
         self.assertEqual(manifest['release_version'], APPROVED_ALIAS_RELEASE)
-        self.assertEqual(manifest['taxonomy_version'], TAXONOMY_VERSION)
-        self.assertEqual(len(AVAILABLE_TAGS), 33)
-        self.assertEqual(AVAILABLE_TAGS, PREVIOUS_AVAILABLE_TAGS)
+        self.assertEqual(manifest['taxonomy_version'], 'genres.v5')  # Frozen release approval.
+        self.assertEqual(len(AVAILABLE_TAGS), 41)
+        self.assertEqual(AVAILABLE_TAGS, PREVIOUS_AVAILABLE_TAGS + tuple(APPROVED_GENRE_BATCH))
         self.assertEqual(len(ALIASES), 30)
         self.assertEqual(dict(PREVIOUS_ALIASES), {key: value for key, value in ALIASES.items() if key not in EXPECTED})
         for raw, target in EXPECTED.items():
             self.assertEqual(canonical_tag(raw), target)
             self.assertIsNone(canonical_tag(raw, taxonomy_version='genres.v4'))
-        for raw in ('萌系', '战争', '动作', '励志', '超能力', '童话', '犯罪', '赛博朋克',
-                    '萌', '萌豚', 'SF', '萝卜', '爱情向', '运动番2', '搞笑日常', '治愈系神作'):
+        for raw in APPROVED_GENRE_BATCH:
+            self.assertIsNone(canonical_tag(raw, taxonomy_version='genres.v5'))
+            self.assertEqual(canonical_tag(raw), raw)
+        for raw in ('萌', '萌豚', 'SF', '萝卜', '爱情向', '运动番2', '搞笑日常', '治愈系神作'):
             self.assertIsNone(canonical_tag(raw), raw)
 
     def test_feature_copy_deduplicates_and_keeps_source_and_target_title_guards(self):
@@ -94,7 +96,7 @@ class AliasNineAPIReleaseTests(APITransactionTestCase):
             self.assertEqual(profile['usable_sample_count'], 3)
             self.assertEqual({item['tag'] for item in profile['tag_summary']}, {'恋爱', '治愈'})
             self.assertEqual(listing['algorithm_version'], 'content.v1')
-            self.assertEqual(listing['taxonomy_version'], 'genres.v5')
+            self.assertEqual(listing['taxonomy_version'], TAXONOMY_VERSION)
             for item in listing['results']:
                 self.assertEqual(item['evidence']['source']['personal_score'], '9.0')
                 self.assertTrue(set(item['evidence']['shared_tags']) <= {'恋爱', '治愈'})
@@ -127,7 +129,7 @@ class AliasNineAPIReleaseTests(APITransactionTestCase):
         old_key = cache_namespace('content.v1', 'genres.v4', engine.FEATURE_VERSION, engine.FEATURE_RULE_VERSION)
         cache.set(old_key, {'old': 'sentinel'})
         fresh = engine.public_features()
-        self.assertEqual(fresh['taxonomy_version'], 'genres.v5')
+        self.assertEqual(fresh['taxonomy_version'], TAXONOMY_VERSION)
         self.assertEqual(cache.get(old_key), {'old': 'sentinel'})
         with patch('recommendations.engine.TAXONOMY_VERSION', 'genres.v4'):
             page = self.client.get('/api/recommendations/', {'page_size': 1}).data

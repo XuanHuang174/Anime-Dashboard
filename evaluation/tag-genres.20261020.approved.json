@@ -1,0 +1,17 @@
+{
+  "release_version": "genres.2026-10-20.approved-8",
+  "status": "approved_by_user",
+  "approval_scope": "eight_exact_new_features_and_public_frequency_option_order",
+  "approval_date": "2026-10-20",
+  "source_review": "evaluation/tag-genres.20261020.review.json",
+  "previous_taxonomy": "genres.v5",
+  "taxonomy_version": "genres.v6",
+  "algorithm_version": "content.v1",
+  "new_genres": ["萌系", "战争", "动作", "励志", "超能力", "童话", "犯罪", "赛博朋克"],
+  "new_aliases": {},
+  "preset_count": 41,
+  "max_selected_preferences": 20,
+  "display_order": "safe-catalog-topic-frequency.v1",
+  "raw_data_rewrite": false,
+  "configuration_note": "批准凭据，不是动态执行配置；运行规则由 taxonomy.py 发布。"
+}

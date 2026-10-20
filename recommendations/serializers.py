@@ -53,6 +53,10 @@ class RecommendationPreferenceSerializer(serializers.Serializer):
     version = serializers.IntegerField(read_only=True)
     updated_at = serializers.DateTimeField(read_only=True, allow_null=True)
     available_tags = serializers.ListField(child=serializers.CharField(), read_only=True)
+    available_tag_counts = serializers.DictField(child=serializers.IntegerField(min_value=0), read_only=True)
+    option_order_version = serializers.CharField(read_only=True)
+    option_order_status = serializers.CharField(read_only=True)
+    option_catalog_revision = serializers.CharField(read_only=True)
 
 
 class ProfileTagSerializer(serializers.Serializer):

@@ -20,6 +20,8 @@ export default function RecommendationPreferencesPanel({ editor, profile, onTag,
       <h3 id="rec-explicit-title">1. 我的明确偏好 <small>可修改</small></h3>
       <div className="rec-preference-scroll" role="region" aria-label="我的明确偏好内容" tabIndex={0}>
       <p>建议选择 3–5 个，最多 {MAX_TASTE_TAGS} 个。不修改手账评分、标签或长评。</p>
+      {editor.preferences?.option_order_status === 'ready' && <p className="rec-muted">按安全推荐库中题材覆盖的作品数排序。</p>}
+      {editor.preferences?.option_order_status === 'unavailable' && <p className="rec-muted">题材数量暂不可用，当前按固定顺序展示，不影响选择和保存。</p>}
       <p className="rec-muted">已保存：{editor.preferences?.tags.join('、') || '尚未选择'} · 当前为本地草稿</p>
       <fieldset className="rec-taste-options" disabled={blocked}><legend>明确喜好标签（{editor.draftTags.length}/{MAX_TASTE_TAGS}）</legend>
         {available.map(tag => <label className="rec-taste-option" key={tag}>

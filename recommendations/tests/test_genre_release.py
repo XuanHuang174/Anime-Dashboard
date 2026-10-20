@@ -21,7 +21,7 @@ from recommendations.models import RecommendationAnime, RecommendationPreference
 from recommendations.quality_evaluation import evidence_errors
 from recommendations.tag_coverage import _coverage, analyze_public_tags, attach_release_comparison, write_coverage_reports
 from recommendations.tag_review_rules import GENRE_CANDIDATES, PENDING_ALIASES, validate_proposals
-from recommendations.taxonomy import APPROVED_ALIASES, APPROVED_GENRES, AVAILABLE_TAGS, TAXONOMY_VERSION, canonical_tag
+from recommendations.taxonomy import APPROVED_ALIASES, APPROVED_GENRES, APPROVED_GENRE_BATCH, AVAILABLE_TAGS, TAXONOMY_VERSION, canonical_tag
 
 NEW_GENRES = ('热血', '后宫', '玄幻', '穿越', '魔法少女', '恐怖', '武侠')
 OLD_GENRES = ('日常', '治愈', '喜剧', '校园', '恋爱', '百合', '科幻', '奇幻', '冒险', '悬疑',
@@ -31,8 +31,8 @@ OLD_GENRES = ('日常', '治愈', '喜剧', '校园', '恋爱', '百合', '科�
 
 class GenreReleasePrimitiveTests(SimpleTestCase):
     def test_exactly_seven_independent_genres_added_and_unapproved_rules_stay_pending(self):
-        self.assertEqual(tuple(APPROVED_GENRES), NEW_GENRES)
-        self.assertEqual(AVAILABLE_TAGS, OLD_GENRES + NEW_GENRES)
+        self.assertEqual(tuple(APPROVED_GENRES), NEW_GENRES + tuple(APPROVED_GENRE_BATCH))
+        self.assertEqual(AVAILABLE_TAGS, OLD_GENRES + NEW_GENRES + tuple(APPROVED_GENRE_BATCH))
         self.assertEqual(len(APPROVED_ALIASES), 20)
         self.assertEqual(set(GENRE_CANDIDATES), {'BL', '耽美', '实验', '超现实', '猎奇'})
         validate_proposals()
@@ -42,7 +42,7 @@ class GenreReleasePrimitiveTests(SimpleTestCase):
         for value in NEW_GENRES:
             self.assertEqual(feature_tags(value), {value})  # No parent/related genre propagation.
         self.assertEqual(feature_tags('魔法少女,魔法'), {'魔法少女', '魔法'})
-        self.assertEqual(TAXONOMY_VERSION, 'genres.v5')
+        self.assertEqual(TAXONOMY_VERSION, 'genres.v6')
         self.assertEqual(FEATURE_RULE_VERSION, 'journal-genres.v3')
         self.assertEqual(engine.ALGORITHM_VERSION, 'content.v1')
 
@@ -69,7 +69,7 @@ class GenreReleasePrimitiveTests(SimpleTestCase):
         self.assertEqual(report['before']['genre_count_histogram'], {'7': 1})
         self.assertEqual(report['draft_synonyms_simulation'], report['before'])
         self.assertEqual({item['tag'] for item in report['unknown_tags']}, {'BL', '实验'})
-        self.assertEqual(set(report['approved_genre_release']['definitions']), set(NEW_GENRES))
+        self.assertEqual(set(report['approved_genre_release']['definitions']), set(NEW_GENRES) | set(APPROVED_GENRE_BATCH))
         self.assertFalse(report['approved_genre_release']['automatic_parent_expansion'])
         self.assertEqual(rows, old)
 
@@ -127,7 +127,9 @@ class GenreReleaseAPITests(APITestCase):
     def test_manual_choices_are_available_but_not_selected_automatically_and_remain_idempotent(self):
         self.client.force_authenticate(self.other)
         first = self.client.get(self.preferences_url).data
-        self.assertEqual(first['available_tags'], list(OLD_GENRES + NEW_GENRES))
+        self.assertEqual(set(first['available_tags']), set(AVAILABLE_TAGS))
+        counts = first['available_tag_counts']
+        self.assertEqual([counts[tag] for tag in first['available_tags']], sorted(counts.values(), reverse=True))
         self.assertEqual(first['tags'], [])
         self.assertEqual(RecommendationPreference.objects.filter(user=self.other).count(), 0)
         chosen = self.client.patch(self.preferences_url, {'tags': list(NEW_GENRES), 'expected_version': 0}, format='json')
@@ -208,7 +210,7 @@ class GenreReleaseComparisonTests(SimpleTestCase):
         rows = [{'bangumi_id': 1, 'title_zh': '公共作品', 'title_jp': '', 'tags': '武侠', 'status_type': 'TV'}]
         current = analyze_public_tags(rows, {'total': 1, 'non_adult': 1, 'adult': 0, 'unknown': 0})
         for version, valid in (('genres.v3', True), ('genres.v2', True), ('genres.v4', True),
-                               ('genres.v5', False), ('genres.v6', False)):
+                               ('genres.v5', True), ('genres.v6', False), ('genres.v7', False)):
             with self.subTest(version=version), tempfile.TemporaryDirectory() as root:
                 prior = deepcopy(current)
                 prior['versions']['active_taxonomy'] = version

@@ -74,8 +74,9 @@ class TagExpansionReviewTests(SimpleTestCase):
         self.assertEqual(rows, before_rows)
         self.assertEqual(ALIASES, before_aliases)
         self.assertEqual(AVAILABLE_TAGS, before_available)
-        self.assertIsNone(canonical_tag('萌系'))
-        self.assertEqual(feature_tags('萌系'), frozenset())
+        self.assertIsNone(canonical_tag('萌系', taxonomy_version='genres.v4'))
+        self.assertEqual(feature_tags('萌系', taxonomy_version='genres.v4'), frozenset())
+        self.assertEqual(feature_tags('萌系'), frozenset({'萌系'}))
 
     def test_duplicate_active_or_ambiguous_proposal_entries_rejected(self):
         for mutation in ('duplicate', 'active', 'target', 'deferred', 'implicit'):

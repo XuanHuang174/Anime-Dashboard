@@ -59,3 +59,58 @@ test('expanded options do not increase the 20-topic selection limit', () => {
   assert.match(editor.getSnapshot().error, /最多选择 20/)
   editor.close()
 })
+
+const secondBatch = ['萌系', '战争', '动作', '励志', '超能力', '童话', '犯罪', '赛博朋克']
+const expandedTags = [...available, ...secondBatch]
+const expandedPreferences = (tags = [], version = 0) => {
+  const counts = Object.fromEntries(expandedTags.map(tag => [tag, ({ 喜剧: 100, 战争: 20, 萌系: 10 })[tag] || 0]))
+  return { ...preferences(tags, version), taxonomy_version: 'genres.v6',
+    available_tags: [...expandedTags].sort((a, b) => counts[b] - counts[a]),
+    available_tag_counts: counts, option_order_status: 'ready', option_order_version: 'safe-catalog-topic-frequency.v1' }
+}
+
+test('41 live choices follow server public-coverage order without selecting or moving saved preferences', () => {
+  const prefs = validateRecommendationPreferences(expandedPreferences(['百合'], 7))
+  const original = JSON.stringify(prefs)
+  const html = renderToStaticMarkup(React.createElement(Panel, { editor: {
+    status: 'editing', draftTags: ['百合'], preferences: prefs }, onTag() {}, onClose() {} }))
+  assert.equal((html.match(/type="checkbox"/g) || []).length, 41)
+  assert.equal((html.match(/checked=""/g) || []).length, 1)
+  assert.ok(html.indexOf('喜剧</label>') < html.indexOf('战争</label>'))
+  assert.ok(html.indexOf('战争</label>') < html.indexOf('萌系</label>'))
+  for (const tag of secondBatch) assert.ok(html.includes(`${tag}</label>`))
+  assert.match(html, /按安全推荐库中题材覆盖的作品数排序/)
+  assert.equal(JSON.stringify(prefs), original)
+})
+
+test('new topic choices remain explicit drafts and keep the same save/version/20-choice contract', async () => {
+  let writes = 0
+  const editor = createPreferenceEditor({ savePreferences: async changes => {
+    writes++
+    assert.deepEqual(changes, { tags: ['萌系'], expected_version: 0 })
+    return expandedPreferences(['萌系'], 1)
+  } })
+  editor.open(expandedPreferences())
+  editor.setTag('萌系', true)
+  editor.setTag('萌豚', true)
+  assert.equal(writes, 0)
+  assert.deepEqual(editor.getSnapshot().draftTags, ['萌系'])
+  await editor.save()
+  assert.equal(writes, 1)
+  editor.open(expandedPreferences(expandedTags.slice(0, 20), 1))
+  editor.setTag('犯罪', true)
+  assert.equal(editor.getSnapshot().draftTags.length, 20)
+  assert.match(editor.getSnapshot().error, /最多选择 20/)
+})
+
+test('missing frequency metadata rolls back only option order, not preference editing or success state', () => {
+  const prefs = { ...expandedPreferences(), available_tags: expandedTags, option_order_status: 'unavailable' }
+  delete prefs.available_tag_counts
+  const editor = createPreferenceEditor({})
+  assert.equal(editor.open(prefs), true)
+  editor.setTag('赛博朋克', true)
+  const html = renderToStaticMarkup(React.createElement(Panel, { editor: editor.getSnapshot(), onTag() {}, onClose() {} }))
+  assert.match(html, /题材数量暂不可用/)
+  assert.ok(html.includes('保存喜好'))
+  assert.deepEqual(editor.getSnapshot().draftTags, ['赛博朋克'])
+})

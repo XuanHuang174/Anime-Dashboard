@@ -15,6 +15,7 @@ from rest_framework.throttling import ScopedRateThrottle, UserRateThrottle
 
 from .serializers import RecommendationPreferencePatchSerializer, RecommendationPreferenceSerializer, RecommendationProfileSerializer
 from .services import patch_preferences, preference_contract, profile_contract
+from .preference_options import with_ordered_options
 from .engine import (CONTRACT_VERSION, FEATURE_VERSION, RecommendationSnapshotChanged,
                      RecommendationUnavailable, rank_candidates, user_context, configured_algorithm)
 from .evidence import EvidencePresenter, EVIDENCE_CONTRACT_VERSION, EVIDENCE_DISCLAIMER
@@ -151,14 +152,14 @@ class RecommendationWantView(OwnRecommendationAPIView):
 class RecommendationPreferenceView(OwnRecommendationAPIView):
     def get(self, request):
         self.check_query_contract(request)
-        return Response(RecommendationPreferenceSerializer(preference_contract(request.user)).data)
+        return Response(RecommendationPreferenceSerializer(with_ordered_options(preference_contract(request.user))).data)
 
     def patch(self, request):
         self.check_query_contract(request)
         serializer = RecommendationPreferencePatchSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         result = patch_preferences(user=request.user, changes=serializer.validated_data)
-        return Response(RecommendationPreferenceSerializer(result).data)
+        return Response(RecommendationPreferenceSerializer(with_ordered_options(result)).data)
 
 
 class RecommendationListView(OwnRecommendationAPIView):

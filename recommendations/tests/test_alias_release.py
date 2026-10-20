@@ -37,8 +37,8 @@ class AliasReleasePrimitiveTests(SimpleTestCase):
         self.assertEqual(PREVIOUS_APPROVED_ALIASES, EXPECTED_APPROVED)
         self.assertEqual(APPROVED_ALIASES, EXPECTED_APPROVED | APPROVED_ALIAS_BATCH)
         self.assertEqual(len(ALIASES), 30)  # 10 original + 11 previous + 9 reviewed.
-        self.assertEqual(len(AVAILABLE_TAGS), 33)
-        self.assertEqual(TAXONOMY_VERSION, 'genres.v5')
+        self.assertEqual(len(AVAILABLE_TAGS), 41)
+        self.assertEqual(TAXONOMY_VERSION, 'genres.v6')
         self.assertEqual(FEATURE_RULE_VERSION, 'journal-genres.v3')
         self.assertEqual(engine.ALGORITHM_VERSION, 'content.v1')
         for source, target in EXPECTED_APPROVED.items():

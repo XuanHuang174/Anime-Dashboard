@@ -46,8 +46,10 @@ def analyze_public_tags(rows, scope, *, example_limit=3, taxonomy_version=None):
         raise ValueError('example-limit must be 0–5')
     validate_proposals()
     rule = taxonomy_version or taxonomy.TAXONOMY_VERSION
-    if rule not in (taxonomy.TAXONOMY_VERSION, taxonomy.PREVIOUS_TAXONOMY_VERSION):
+    if rule not in taxonomy.AUDIT_TAXONOMY_VERSIONS:
         raise ValueError('Unsupported public tag audit baseline')
+    approved_genres = (taxonomy.APPROVED_GENRES if rule == taxonomy.TAXONOMY_VERSION
+                       else taxonomy.PREVIOUS_APPROVED_GENRES)
     before, draft = Counter(), Counter()
     eligible_before, eligible_draft = Counter(), Counter()
     missing, ignored, active_aliases = Counter(), Counter(), Counter()
@@ -65,7 +67,7 @@ def analyze_public_tags(rows, scope, *, example_limit=3, taxonomy_version=None):
         titles = (row['title_zh'], row['title_jp'])
         original = extract_genres(row['tags'], titles=titles, base_source='shared_base_tags', taxonomy_version=rule)
         baseline = original['tags']
-        approved_here = baseline & taxonomy.APPROVED_GENRES.keys()
+        approved_here = baseline & approved_genres.keys()
         approved_genre_frequency.update(approved_here)
         approved_genre_works += bool(approved_here)
         hypothetical = set(baseline)
@@ -176,14 +178,14 @@ def analyze_public_tags(rows, scope, *, example_limit=3, taxonomy_version=None):
                                   'decision': 'already_active_not_a_new_proposal'}
             for pair, frequency in sorted(active_aliases.items(), key=lambda item: (-item[1], item[0]))],
         'approved_alias_release': {
-            'version': taxonomy.APPROVED_ALIAS_RELEASE if rule == taxonomy.TAXONOMY_VERSION else 'aliases.2026-10-14.approved-11',
+            'version': 'aliases.2026-10-14.approved-11' if rule == 'genres.v4' else taxonomy.APPROVED_ALIAS_RELEASE,
             'status': 'enabled_in_audited_rule_version',
-            'aliases': dict(taxonomy.APPROVED_ALIASES if rule == taxonomy.TAXONOMY_VERSION else taxonomy.PREVIOUS_APPROVED_ALIASES)},
-        'approved_genre_release': {'version': taxonomy.APPROVED_GENRE_RELEASE,
-            'status': 'enabled_in_this_code_version', 'definitions': dict(taxonomy.APPROVED_GENRES),
+            'aliases': dict(taxonomy.PREVIOUS_APPROVED_ALIASES if rule == 'genres.v4' else taxonomy.APPROVED_ALIASES)},
+        'approved_genre_release': {'version': taxonomy.APPROVED_GENRE_RELEASE if rule == taxonomy.TAXONOMY_VERSION else 'genres.2026-10-14.approved-7',
+            'status': 'enabled_in_audited_rule_version', 'definitions': dict(approved_genres),
             'exact_labels_only': True, 'automatic_parent_expansion': False},
         'approved_genre_observation': {'works_with_approved_labels': approved_genre_works,
-            'genre_document_frequency': {tag: approved_genre_frequency[tag] for tag in taxonomy.APPROVED_GENRES},
+            'genre_document_frequency': {tag: approved_genre_frequency[tag] for tag in approved_genres},
             'meaning': 'Effective exact public labels after exclusion/deduplication; per-genre counts overlap, not recommendation quality'},
         'unknown_tags': inventory,
         'policy': {'mapping_applied': False, 'ranking_changed': False, 'private_tables_read': False,
@@ -216,7 +218,8 @@ def attach_release_comparison(report, baseline_directory):
             raise ValueError('Baseline manifest verification failed')
         prior_version = baseline['versions']['active_taxonomy']
         allowed = {'genres.v3': ('genres.v2',), 'genres.v4': ('genres.v2', 'genres.v3'),
-                   'genres.v5': ('genres.v2', 'genres.v3', 'genres.v4')}
+                   'genres.v5': ('genres.v2', 'genres.v3', 'genres.v4'),
+                   'genres.v6': ('genres.v2', 'genres.v3', 'genres.v4', 'genres.v5')}
         if prior_version not in allowed.get(report['versions']['active_taxonomy'], ()):
             raise ValueError('Comparison requires a supported prior taxonomy report, not current/future rules')
         if baseline['scope'] != report['scope'] or baseline['catalog_fingerprint'] != report['catalog_fingerprint']:
@@ -276,7 +279,7 @@ def review_document(report):
 def review_markdown(review):
     lines = ['# 待审核映射清单（未应用）', '', f"草案版本：{review['proposal_version']}", '',
         f"当前已启用映射发布：{review['approved_alias_release']['version']}；累计已批准的 {len(review['approved_alias_release']['aliases'])} 项不再重复列为待审。",
-        f"当前已启用题材发布：{review['approved_genre_release']['version']}；已批准的 7 项不再重复列为待审。",
+        f"当前已启用题材发布：{review['approved_genre_release']['version']}；累计已批准的 {len(review['approved_genre_release']['definitions'])} 项不再重复列为待审。",
         '下表剩余项目均待人工审核；修改 JSON 不会自动生效。新题材不参与覆盖试算。', '',
         '| 标签 | 拟映射/候选 | 作品数 | 其中原来无题材 | 说明 | 决策 |', '| --- | --- | --- | --- | --- | --- |']
     for row in review['pending_synonyms'] + review['candidate_genres_not_simulated']:
@@ -302,7 +305,7 @@ def coverage_markdown(report):
         lines.append(f"| {label} | {report['before'][key]} | {report['after_active'][key]} | {report['draft_synonyms_simulation'][key]} |")
     lines.append('| 作品题材覆盖率 | ' + ' | '.join(_percent(report[key]['coverage_fraction'])
                  for key in ('before', 'after_active', 'draft_synonyms_simulation')) + ' |')
-    lines += ['', f"**累计已批准的 {len(report['approved_alias_release']['aliases'])} 项映射与 7 项题材已纳入当前规则；剩余草案尚未启用。试算只表示题材覆盖，不是推荐准确率、匹配概率或正式库修复数量。**",
+    lines += ['', f"**累计已批准的 {len(report['approved_alias_release']['aliases'])} 项映射与 {len(report['approved_genre_release']['definitions'])} 项题材已纳入当前规则；剩余草案尚未启用。试算只表示题材覆盖，不是推荐准确率、匹配概率或正式库修复数量。**",
         f"当前无有效题材的构成：{report['baseline_zero_genre_breakdown']}。",
         f"试算新增覆盖 {report['draft_impact']['recovered_zero_genre_works']} 部，题材集合变化 {report['draft_impact']['enriched_works']} 部（按作品去重）。",
         '覆盖率分母为全部明确非成人作品；合法 Bangumi ID 子集另见 coverage.json，不用缺失身份凑推荐候选。']

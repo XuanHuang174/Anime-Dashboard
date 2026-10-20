@@ -9,7 +9,7 @@ from .features import extract_genres
 from .identity import normalized_title
 from .tag_coverage import analyze_public_tags, _cell
 from .tag_review_rules import review_key
-from .taxonomy import AVAILABLE_TAGS, TAXONOMY_VERSION, PREVIOUS_TAXONOMY_VERSION, canonical_tag
+from .taxonomy import AVAILABLE_TAGS, TAXONOMY_VERSION, AUDIT_TAXONOMY_VERSIONS, canonical_tag
 
 GROUPS = ('synonyms', 'new_genres', 'deferred', 'excluded_examples')
 
@@ -26,8 +26,8 @@ def load_proposal(path):
 def validate_proposal(proposal):
     if (proposal.get('status') != 'pending_human_review'
             or proposal.get('apply_to_production') is not False
-            or proposal.get('baseline_taxonomy') not in (TAXONOMY_VERSION, PREVIOUS_TAXONOMY_VERSION)):
-        raise ValueError('Only inactive proposals for current/frozen previous taxonomy may be audited')
+            or proposal.get('baseline_taxonomy') not in AUDIT_TAXONOMY_VERSIONS):
+        raise ValueError('Only inactive proposals for current/frozen taxonomy may be audited')
     rule = proposal['baseline_taxonomy']
     seen = set()
     for group in GROUPS:
@@ -69,7 +69,7 @@ def build_expansion_review(rows, scope, proposal):
                         zero_genre_document_frequency=observed.get('zero_genre_document_frequency', 0),
                         examples=observed.get('examples', []),
                         suppressed_example_works=observed.get('suppressed_example_works', 0),
-                        decision=('already_active_in_code' if group == 'synonyms'
+                        decision=('already_active_in_code' if group in GROUPS[:2]
                                   and canonical_tag(item['source']) == item['target'] else 'pending_review'),
                         apply_to_production=False)
             if group in ('synonyms', 'new_genres'):
@@ -139,6 +139,7 @@ def expansion_markdown(report):
     review = report['review']
     current_count = report['active_preset_count']
     new_count = len(review['new_genres'])
+    pending_count = sum(item.get('decision') != 'already_active_in_code' for item in review['new_genres'])
     current_coverage = (report['covered_before'] / report['eligible_public_works']
                         if report['eligible_public_works'] else None)
     current_percent = '不可计算' if current_coverage is None else f'{current_coverage:.2%}'
@@ -151,7 +152,7 @@ def expansion_markdown(report):
         '仅读取公共作品标签及名称/类型用于统计与人工核对，不读取私人手账、个人评分、长评、简介，不调用外部 AI。作品名称只用于排除同名标签及展示样例，不能推断题材或系列。', '',
         '## 如何审核', '',
         f"1. A 组 {len(review['synonyms'])} 项精确同义映射中，{active_alias_count} 项已在当前代码启用；其余待审核。它们不增加预设数量。",
-        f'2. 再逐项确认 B 组 {new_count} 个新题材的定义；若全部批准，预设由 {current_count} 增至 {current_count + new_count}，个人选择上限仍为 20。',
+        f'2. B 组 {new_count} 个题材中仍有 {pending_count} 项待确认；全部实施后预设共 {current_count + pending_count} 项，个人选择上限仍为 20。',
         '3. C 组暂缓，不因频率高就直接合并；D 组继续排除。历史草案中的同义映射若已启用，以 JSON 的 already_active_in_code 标识为准；其他项目仍待审核。',
         '4. 确认后才单独修改版本化规则、预设合同及缓存/画像/证据版本，并回归验证；本报告及 JSON 都不是运行配置。', '',
         '## 同一快照离线试算', '',
