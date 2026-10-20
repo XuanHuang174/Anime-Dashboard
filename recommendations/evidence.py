@@ -13,6 +13,7 @@ from django.conf import settings
 from .features import FEATURE_RULE_VERSION
 from .identity import safe_catalog
 from .taxonomy import TAXONOMY_VERSION
+from .profile_policy import PROFILE_POLICY_VERSION, context_score
 
 EVIDENCE_CONTRACT_VERSION = 'recommendations.evidence.v1'
 SELECTION_RULE_VERSION = 'association-evidence.v1'
@@ -54,6 +55,8 @@ class EvidencePresenter:
                             {tag: sorted(origins) for tag, origins in seed['feature_sources'].items()})
                            for seed in sorted(self.context['seeds'], key=lambda row: row['bangumi_id'])]}
         self.versions = {
+            'profile_policy_version': context['profile'].get('sample_policy', {}).get('profile_policy_version', PROFILE_POLICY_VERSION),
+            'profile_min_score': f'{context_score(context):.1f}',
             'algorithm_version': algorithm,
             'ranking_policy_version': POLICY_VERSION if algorithm == EXPERIMENTAL_ALGORITHM_VERSION else 'frozen-v1',
             'taxonomy_version': context.get('taxonomy_version', TAXONOMY_VERSION),

@@ -21,6 +21,7 @@ CHECK_MODULES = ('recommendations.tests.test_contracts_api', 'recommendations.te
                  'recommendations.tests.test_evidence_contract', 'recommendations.tests.test_state_loop',
                  'recommendations.tests.test_interaction_contract')
 SOURCE_PATHS = (
+    'recommendations/profile_policy.py',
     'recommendations/tests/test_v1_stability.py', 'scripts/verify_recommendation_v1_stability.py',
     'scripts/prepare_recommendation_browse_rollout.py',
     'recommendations/recall_completion.py', 'recommendations/completion_development.py',
@@ -109,7 +110,9 @@ def release_descriptor():
     from . import engine, ranking_v2, taxonomy, features
     sources = {name: hashlib.sha256((Path(settings.BASE_DIR) / name).read_text(
         encoding='utf-8').replace('\r\n', '\n').encode()).hexdigest() for name in SOURCE_PATHS}
-    configuration = {'threshold': str(settings.RECOMMENDATION_PROFILE_SCORE_THRESHOLD),
+    from .profile_policy import PROFILE_POLICY_VERSION, FIXED_EVALUATION_SCORE
+    configuration = {'threshold': str(FIXED_EVALUATION_SCORE), 'profile_policy': PROFILE_POLICY_VERSION,
+        'custom_profile_threshold_enabled': settings.RECOMMENDATION_PROFILE_CUSTOM_THRESHOLD_ENABLED,
         'minimum_samples': settings.RECOMMENDATION_PROFILE_MIN_SAMPLES, 'pool': engine.CANDIDATE_POOL,
         'max_results': engine.MAX_RESULTS, 'max_catalog': engine.MAX_CATALOG_ROWS,
         'taxonomy': taxonomy.TAXONOMY_VERSION, 'features': engine.FEATURE_VERSION,

@@ -3,6 +3,7 @@ from .views import RecommendationDetailView, RecommendationListView, Recommendat
 from .views import RecommendationFeedbackView, RecommendationFeedbackUndoView, RecommendationHiddenFeedbackView
 from .views import RecommendationCapabilitiesView
 from .views import RecommendationIdentityBatchView
+from .views import RecommendationProfilePreviewView
 
 app_name = 'recommendations'
 
@@ -10,6 +11,7 @@ urlpatterns = [
     path('', RecommendationListView.as_view(), name='list'),
     path('capabilities/', RecommendationCapabilitiesView.as_view(), name='capabilities'),
     path('profile/', RecommendationProfileView.as_view(), name='profile'),
+    path('profile/preview/', RecommendationProfilePreviewView.as_view(), name='profile-preview'),
     path('preferences/', RecommendationPreferenceView.as_view(), name='preferences'),
     path('identities/', RecommendationIdentityReviewView.as_view(), name='identities'),
     path('identities/batch/', RecommendationIdentityBatchView.as_view(), name='identity-batch'),

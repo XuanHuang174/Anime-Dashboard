@@ -7,6 +7,30 @@ from .identity import public_cover_url, require_safe_anime
 from .features import feature_tags
 from .models import RecommendationAnime
 from .taxonomy import AVAILABLE_TAGS, MAX_PREFERENCE_TAGS, canonical_tag, canonical_tags
+from .profile_policy import PROFILE_SCORE_OPTIONS
+
+
+class ProfileScoreField(serializers.DecimalField):
+    def __init__(self, **kwargs):
+        super().__init__(max_digits=3, decimal_places=1, min_value=6, max_value=10, **kwargs)
+
+    def to_internal_value(self, data):
+        value = super().to_internal_value(data)
+        if value not in PROFILE_SCORE_OPTIONS:
+            raise serializers.ValidationError('画像取样门槛步长必须为 0.5。')
+        return value
+
+
+class ProfilePreviewQuerySerializer(serializers.Serializer):
+    profile_min_score = ProfileScoreField()
+
+    def to_internal_value(self, data):
+        if set(data) - set(self.fields) or (hasattr(data, 'getlist') and
+                any(len(data.getlist(key)) != 1 for key in data)):
+            raise serializers.ValidationError({'non_field_errors': ['预览参数未知或重复；只能预览当前登录用户。']})
+        if any(value == '' for value in data.values()):
+            raise serializers.ValidationError({'profile_min_score': ['预览门槛不能为空。']})
+        return super().to_internal_value(data)
 
 
 class PreferenceTagList(serializers.ListField):
@@ -29,6 +53,7 @@ class RecommendationPreferencePatchSerializer(serializers.Serializer):
     add_tags = PreferenceTagList(required=False)
     remove_tags = PreferenceTagList(required=False)
     expected_version = serializers.IntegerField(min_value=0, max_value=2_147_483_647, required=False)
+    profile_min_score = ProfileScoreField(required=False)
 
     def to_internal_value(self, data):
         if isinstance(data, Mapping) and set(data) - set(self.fields):
@@ -37,13 +62,24 @@ class RecommendationPreferencePatchSerializer(serializers.Serializer):
         return super().to_internal_value(data)
 
     def validate(self, attrs):
-        if not {'tags', 'add_tags', 'remove_tags'}.intersection(attrs):
-            raise serializers.ValidationError('请提交 tags 或 add_tags/remove_tags。')
+        if not {'tags', 'add_tags', 'remove_tags', 'profile_min_score'}.intersection(attrs):
+            raise serializers.ValidationError('请提交题材或画像取样门槛。')
+        if 'profile_min_score' in attrs and 'expected_version' not in attrs:
+            raise serializers.ValidationError({'expected_version': '修改画像门槛必须携带当前偏好版本。'})
         if 'tags' in attrs and {'add_tags', 'remove_tags'}.intersection(attrs):
             raise serializers.ValidationError('tags 整体设置不能与增量操作混用。')
         if set(attrs.get('add_tags', [])) & set(attrs.get('remove_tags', [])):
             raise serializers.ValidationError('同一标签不能同时添加和移除。')
         return attrs
+
+
+class ProfileScoreControlSerializer(serializers.Serializer):
+    enabled = serializers.BooleanField(read_only=True)
+    default = serializers.DecimalField(max_digits=3, decimal_places=1, read_only=True)
+    minimum = serializers.DecimalField(max_digits=3, decimal_places=1, read_only=True)
+    maximum = serializers.DecimalField(max_digits=3, decimal_places=1, read_only=True)
+    step = serializers.DecimalField(max_digits=2, decimal_places=1, read_only=True)
+    choices = serializers.ListField(child=serializers.DecimalField(max_digits=3, decimal_places=1), read_only=True)
 
 
 class RecommendationPreferenceSerializer(serializers.Serializer):
@@ -53,6 +89,10 @@ class RecommendationPreferenceSerializer(serializers.Serializer):
     version = serializers.IntegerField(read_only=True)
     updated_at = serializers.DateTimeField(read_only=True, allow_null=True)
     available_tags = serializers.ListField(child=serializers.CharField(), read_only=True)
+    profile_min_score = serializers.DecimalField(max_digits=3, decimal_places=1, read_only=True)
+    effective_profile_min_score = serializers.DecimalField(max_digits=3, decimal_places=1, read_only=True)
+    profile_policy_version = serializers.CharField(read_only=True)
+    profile_min_score_control = ProfileScoreControlSerializer(read_only=True)
     available_tag_counts = serializers.DictField(child=serializers.IntegerField(min_value=0), read_only=True)
     option_order_version = serializers.CharField(read_only=True)
     option_order_status = serializers.CharField(read_only=True)
@@ -65,8 +105,12 @@ class ProfileTagSerializer(serializers.Serializer):
 
 
 class ProfilePolicySerializer(serializers.Serializer):
+    profile_policy_version = serializers.CharField(read_only=True)
     watch_status = serializers.CharField(read_only=True)
     minimum_score = serializers.DecimalField(max_digits=3, decimal_places=1, read_only=True)
+    configured_minimum_score = serializers.DecimalField(max_digits=3, decimal_places=1, read_only=True)
+    customization_enabled = serializers.BooleanField(read_only=True)
+    source = serializers.CharField(read_only=True)
     minimum_samples = serializers.IntegerField(read_only=True)
     requires_safe_bangumi_identity = serializers.BooleanField(read_only=True)
     requires_usable_tags = serializers.BooleanField(read_only=True)
@@ -170,6 +214,22 @@ class RecommendationProfileSerializer(serializers.Serializer):
     extraction = ProfileExtractionSerializer(read_only=True)
 
 
+class ProfilePreviewSerializer(serializers.Serializer):
+    contract_version = serializers.CharField(read_only=True)
+    is_preview = serializers.BooleanField(read_only=True)
+    saved = serializers.BooleanField(read_only=True)
+    profile_min_score = serializers.DecimalField(max_digits=3, decimal_places=1, read_only=True)
+    preference_version = serializers.IntegerField(read_only=True)
+    sample_policy = ProfilePolicySerializer(read_only=True)
+    eligible_sample_count = serializers.IntegerField(read_only=True)
+    usable_sample_count = serializers.IntegerField(read_only=True)
+    cold_start = serializers.BooleanField(read_only=True)
+    cold_start_state = ColdStartStateSerializer(read_only=True)
+    readiness = serializers.CharField(read_only=True)
+    identity_service_ready = serializers.BooleanField(read_only=True)
+    diagnostics = serializers.DictField(child=serializers.IntegerField(min_value=0), read_only=True)
+
+
 class RecommendationIdentitySerializer(serializers.Serializer):
     bangumi_id = serializers.IntegerField(read_only=True)
     anime_id = serializers.IntegerField(read_only=True, allow_null=True)
@@ -267,6 +327,8 @@ class RecommendationListAnimeSerializer(RecommendationPublicAnimeSerializer):
 
 
 class EvidenceVersionsSerializer(serializers.Serializer):
+    profile_policy_version = serializers.CharField(read_only=True)
+    profile_min_score = serializers.DecimalField(max_digits=3, decimal_places=1, read_only=True)
     recipe_revision = serializers.CharField(read_only=True)
     recall_policy_version = serializers.CharField(read_only=True)
     runtime_version = serializers.CharField(read_only=True)

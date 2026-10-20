@@ -67,9 +67,33 @@ class RecallConfigurationTests(SimpleTestCase):
         with self.assertRaises(ValueError):
             observer.stage('pool', [])
 
-    def test_original_engine_ast_is_frozen_except_explicit_observation_hooks(self):
+    def test_original_engine_ast_frozen_except_observation_and_exact_sampling_adapter(self):
         reference = json.loads((Path(settings.BASE_DIR) / 'evaluation/v2a-engine-baseline.v1.json').read_text(encoding='utf-8'))
+        case = self
         class RemoveObservation(ast.NodeTransformer):
+            def visit_FunctionDef(self, node):
+                if node.name == 'taste_vector':
+                    # P1 approved parameter adaptation ONLY. Keep the historical
+                    # baseline immutable; reconstruct its exact global lookup
+                    # and still compare all remaining operations byte-for-AST.
+                    class RestoreSamplingParameter(ast.NodeTransformer):
+                        removed = replaced = 0
+                        def visit_Assign(self, statement):
+                            expected = ast.parse('threshold = context_score(context)').body[0]
+                            if ast.dump(statement, include_attributes=False) == ast.dump(expected, include_attributes=False):
+                                self.removed += 1
+                                return None
+                            return self.generic_visit(statement)
+                        def visit_BinOp(self, expression):
+                            expected = ast.parse("seed['score'] - threshold").body[0].value
+                            if ast.dump(expression, include_attributes=False) == ast.dump(expected, include_attributes=False):
+                                self.replaced += 1
+                                return ast.parse("seed['score'] - float(settings.RECOMMENDATION_PROFILE_SCORE_THRESHOLD)").body[0].value
+                            return self.generic_visit(expression)
+                    adapter = RestoreSamplingParameter()
+                    node = adapter.visit(node)
+                    case.assertEqual((adapter.removed, adapter.replaced), (1, 1))
+                return self.generic_visit(node)
             def visit_If(self, node):
                 if ast.dump(node.test, include_attributes=False) == ast.dump(ast.parse('observer is not None').body[0].value, include_attributes=False):
                     return None

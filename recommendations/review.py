@@ -1,5 +1,3 @@
-from decimal import Decimal
-from django.conf import settings
 from django.db.models import Q
 from rest_framework.exceptions import NotFound
 
@@ -7,9 +5,12 @@ from .binding import candidate_ticket
 from .identity import safe_catalog
 from .matching import catalog_matcher, IdentityCatalogUnavailable
 from .resolution import resolved_records
+from .services import preference_contract
+from .profile_policy import sampling_policy
 
 
 def review_contract(user, options):
+    threshold = sampling_policy(preference_contract(user))['minimum_score']
     rows = resolved_records(user)
     if not rows.schema_available:
         raise IdentityCatalogUnavailable('关联工具尚未完成部署；手账数据不受影响。')
@@ -20,7 +21,7 @@ def review_contract(user, options):
     pending = [row for row in rows if row['identity_state'] in ('unlinked', 'stale_link', 'identity_conflict')
                and (options.get('scope') == 'all' or
                     (row['watch_status'] == 'completed' and row['personal_score'] is not None
-                     and row['personal_score'] >= Decimal(str(settings.RECOMMENDATION_PROFILE_SCORE_THRESHOLD))))]
+                     and row['personal_score'] >= threshold))]
     if 'record_id' in options and not pending:
         raise NotFound('该记录不在待核对列表中。')
     start = (options['page'] - 1) * options['page_size']

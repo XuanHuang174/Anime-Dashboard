@@ -6,8 +6,9 @@ from pathlib import Path
 
 from django.conf import settings
 
-from . import engine, features, taxonomy, quality_evaluation, quality_audit
+from . import engine, features, taxonomy, quality_evaluation, quality_audit, profile_policy
 from .quality_audit import AUDIT_VERSION
+from .profile_policy import FIXED_EVALUATION_SCORE
 
 METRIC_DEFINITIONS = {
     'topic_overlap_proxy_mean': 'Top-K mean maximum genre Jaccard against training works/explicit choices; topic proxy only, not human relevance or probability.',
@@ -40,12 +41,14 @@ def report_envelope(catalog, evaluations, *, top_k, max_holdouts):
     user_samples = sum(row['sample_kind'] == 'authorized_user' for row in evaluations)
     source_hashes = {name: hashlib.sha256(Path(module.__file__).read_bytes()).hexdigest()
                      for name, module in (('engine', engine), ('features', features), ('taxonomy', taxonomy),
-                                          ('quality_evaluation', quality_evaluation), ('quality_audit', quality_audit))}
+                                          ('quality_evaluation', quality_evaluation), ('quality_audit', quality_audit),
+                                          ('profile_policy', profile_policy))}
     source_hashes['quality_report'] = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
     versions = {'algorithm': engine.ALGORITHM_VERSION, 'features': engine.FEATURE_VERSION,
-                'taxonomy': taxonomy.TAXONOMY_VERSION, 'extraction': features.FEATURE_RULE_VERSION}
+                'taxonomy': taxonomy.TAXONOMY_VERSION, 'extraction': features.FEATURE_RULE_VERSION,
+                'profile_policy': profile_policy.PROFILE_POLICY_VERSION}
     config = {'top_k': top_k, 'max_holdouts_per_user': max_holdouts, 'candidate_pool': engine.CANDIDATE_POOL,
-              'max_results': engine.MAX_RESULTS, 'personal_score_threshold': str(settings.RECOMMENDATION_PROFILE_SCORE_THRESHOLD),
+              'max_results': engine.MAX_RESULTS, 'personal_score_threshold': str(FIXED_EVALUATION_SCORE),
               'minimum_usable_samples': settings.RECOMMENDATION_PROFILE_MIN_SAMPLES,
               'type': 'all', 'min_public_score': 0, 'hide_recorded': True}
     payload = {'catalog': catalog['catalog_fingerprint'], 'scope': catalog['scope'], 'reference_year': catalog['reference_year'],

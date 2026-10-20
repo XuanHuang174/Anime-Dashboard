@@ -45,7 +45,7 @@ class Command(BaseCommand):
                     for user in users:
                         if perf_counter() - started > 120:
                             raise ValueError('Readiness time budget exceeded; no partial success.')
-                        context = user_context(user)
+                        context = user_context(user, evaluation_baseline=True)
                         counts['active_accounts'] += 1
                         counts['accounts_with_journal'] += int(bool(context['owned']) or context['profile']['cold_start_state']['journal_record_count'] > 0)
                         counts['personalized_accounts'] += int(context['mode'] == 'personalized')

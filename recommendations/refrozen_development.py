@@ -20,7 +20,7 @@ def bind_original(users, original, *, progress=lambda text: None):
         user = handles.get(entry['account'])
         if user is None:
             raise ValueError('Original account unavailable; no replacement')
-        context = engine.user_context(user)
+        context = engine.user_context(user, evaluation_baseline=True)
         by_pair = {validation.pair_handle(user.pk, seed['bangumi_id']): seed['bangumi_id'] for seed in context['seeds']}
         if any(pair not in by_pair for pair in entry['targets']):
             raise ValueError('Original target no longer a valid natural seed; no replacement')

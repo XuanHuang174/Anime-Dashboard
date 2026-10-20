@@ -72,7 +72,7 @@ class Command(BaseCommand):
                     users = list(get_user_model().objects.filter(is_active=True).order_by('pk').only('pk', 'is_active')[:config['maximum_accounts'] + 1])
                     if len(users) > config['maximum_accounts']:
                         raise ValueError('Account scope exceeds fixed budget')
-                    contexts = [(user, engine.user_context(user)) for user in users]
+                    contexts = [(user, engine.user_context(user, evaluation_baseline=True)) for user in users]
                     natural = [(u, c) for u, c in contexts if c['mode'] == 'personalized' and len(c['seeds']) >= 4]
                     revision = browsing.catalog_revision()
                     verify_inputs(site, entries=[cohort_entry(u, c) for u, c in natural],

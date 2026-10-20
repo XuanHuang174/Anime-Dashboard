@@ -83,7 +83,7 @@ class Command(BaseCommand):
                         raise ValueError('Account bound exceeded; no favorable truncation or partial report')
                     selected, entries = [], []
                     for user in users:
-                        context = engine.user_context(user)
+                        context = engine.user_context(user, evaluation_baseline=True)
                         if context['mode'] == 'personalized' and len(context['seeds']) >= max(4, settings.RECOMMENDATION_PROFILE_MIN_SAMPLES + 1):
                             selected.append((user, context)); entries.append(cohort_entry(user, context))
                         if perf_counter() - started > config['maximum_wall_seconds']:

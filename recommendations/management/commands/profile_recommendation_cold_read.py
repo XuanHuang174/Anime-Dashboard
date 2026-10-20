@@ -67,7 +67,7 @@ class Command(BaseCommand):
                     user = next((u for u in users if _token('recommendations.deployment.account.v1', u.pk) in handles), None)
                     if user is None:
                         raise ValueError('Original account unavailable')
-                    context, profile_timing = measured(lambda: engine.user_context(user))
+                    context, profile_timing = measured(lambda: engine.user_context(user, evaluation_baseline=True))
                     original = deepcopy(context)
                     self.stdout.write('Comparing exact catalog revision paths'); self.stdout.flush()
                     revision, full_revision = measured(browsing.catalog_revision)

@@ -343,6 +343,9 @@ USER_ANIME_RECORD_LIMIT = env.int('USER_ANIME_RECORD_LIMIT', default=3000)
 # Recommendation 3A sample policy; independent of Bangumi's public score.
 RECOMMENDATION_PROFILE_SCORE_THRESHOLD = 8.5
 RECOMMENDATION_PROFILE_MIN_SAMPLES = 3
+# P1 rolling deployment: old frontend rejects evidence scores below 8.5.
+# Keep OFF until P2 semantic/contract support is deployed. Saved values remain.
+RECOMMENDATION_PROFILE_CUSTOM_THRESHOLD_ENABLED = env.bool('RECOMMENDATION_PROFILE_CUSTOM_THRESHOLD_ENABLED', default=False)
 
 # 5B-2 opt-in only. Keep the frozen V1 live until same-snapshot 5B-3 evaluation.
 RECOMMENDATION_ALGORITHM_VERSION = env('RECOMMENDATION_ALGORITHM_VERSION', default='content.v1')

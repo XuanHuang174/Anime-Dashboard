@@ -52,7 +52,7 @@ class Command(BaseCommand):
                     user = next((u for u in users if _token('recommendations.deployment.account.v1', u.pk) in handles), None)
                     if user is None:
                         raise ValueError('No original authorized account remains')
-                    context = engine.user_context(user); original = deepcopy(context)
+                    context = engine.user_context(user, evaluation_baseline=True); original = deepcopy(context)
                     revision = browsing.catalog_revision()
                     _, index = browsing.public_browse_index(revision, {}, recipe=recipe_descriptor())
                     server = public_server_probe()

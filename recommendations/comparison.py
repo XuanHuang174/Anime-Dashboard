@@ -5,7 +5,6 @@ private cache or external calls. Real reports require >=4 usable current seeds.
 """
 from collections import Counter
 from copy import deepcopy
-from decimal import Decimal
 import hashlib
 import math
 from time import perf_counter, process_time
@@ -19,6 +18,7 @@ from .features import feature_tags
 from .quality_evaluation import (CATEGORIES, category_differences, evidence_errors,
                                  input_fingerprint, mean, top_metrics, without_seed)
 from .taxonomy import LEGACY_TAXONOMY_VERSION, TAXONOMY_VERSION, genre_rules
+from .profile_policy import FIXED_EVALUATION_SCORE, PROFILE_POLICY_VERSION
 from .version_control import GATE_NAMES, canonical_bytes, release_descriptor
 
 ARMS = {'legacy_v1': (LEGACY_TAXONOMY_VERSION, 'content.v1'),
@@ -29,8 +29,11 @@ DEFAULT_LIMITS = {'maximum_relevance_drop': 0.0, 'maximum_holdout_drop': 0.0,
 
 
 def context_snapshot(records, preference, owner_id, rule, *, feedback=None):
-    extracted, seeds = extract_profile(records, threshold=Decimal(str(settings.RECOMMENDATION_PROFILE_SCORE_THRESHOLD)),
+    extracted, seeds = extract_profile(records, threshold=FIXED_EVALUATION_SCORE,
                                       minimum=settings.RECOMMENDATION_PROFILE_MIN_SAMPLES, taxonomy_version=rule)
+    extracted['sample_policy'] = {'minimum_score': FIXED_EVALUATION_SCORE,
+                                 'profile_policy_version': PROFILE_POLICY_VERSION,
+                                 'source': 'fixed_evaluation_baseline'}
     available, _ = genre_rules(rule)
     tags = [tag for tag in preference['tags'] if tag in available]
     priority = {'completed': 4, 'watching': 3, 'plan': 2, 'on_hold': 1}

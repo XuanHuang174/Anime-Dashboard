@@ -115,7 +115,7 @@ def input_fingerprint(context):
 
 
 def evaluate_user(user, index, *, top_k=10, max_holdouts=5):
-    context = user_context(user)
+    context = user_context(user, evaluation_baseline=True)
     context['_owner_id'] = user.pk  # Internal only, not exported; fingerprint is keyed.
     options = {'type': 'all', 'min_score': 0, 'hide_recorded': True}
     results = {category: rank_context(context, {**options, 'category': category}, index)[0] for category in CATEGORIES}

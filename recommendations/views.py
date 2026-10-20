@@ -15,6 +15,8 @@ from rest_framework.throttling import ScopedRateThrottle, UserRateThrottle
 
 from .serializers import RecommendationPreferencePatchSerializer, RecommendationPreferenceSerializer, RecommendationProfileSerializer
 from .services import patch_preferences, preference_contract, profile_contract
+from .services import preview_profile
+from .serializers import ProfilePreviewQuerySerializer, ProfilePreviewSerializer
 from .preference_options import with_ordered_options
 from .engine import (CONTRACT_VERSION, FEATURE_VERSION, RecommendationSnapshotChanged,
                      RecommendationUnavailable, rank_candidates, user_context, configured_algorithm)
@@ -92,6 +94,17 @@ class RecommendationProfileView(OwnRecommendationAPIView):
     def get(self, request):
         self.check_query_contract(request)
         return Response(RecommendationProfileSerializer(profile_contract(request.user)).data)
+
+
+class RecommendationProfilePreviewView(OwnRecommendationAPIView):
+    throttle_classes = (UserRateThrottle, ScopedRateThrottle)
+    throttle_scope = 'recommendation_read'
+
+    def get(self, request):
+        query = ProfilePreviewQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+        return Response(ProfilePreviewSerializer(preview_profile(
+            request.user, query.validated_data['profile_min_score'])).data)
 
 
 class RecommendationCapabilitiesView(OwnRecommendationAPIView):

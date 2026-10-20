@@ -14,6 +14,7 @@ from rest_framework.exceptions import APIException
 
 from .identity import safe_catalog, normalized_title
 from .services import profile_data
+from .profile_policy import context_score
 from .taxonomy import TAXONOMY_VERSION, genre_rules
 from .features import feature_tags, FEATURE_RULE_VERSION
 from .public_fingerprint import public_feature_fingerprint, public_feature_expression
@@ -97,11 +98,11 @@ def public_features(*, algorithm_version=ALGORITHM_VERSION):
         return value
 
 
-def user_context(user):
+def user_context(user, *, evaluation_baseline=False):
     """Read own seeds anew. No inferred private state or HTTP payload cache."""
     from .feedback import feedback_snapshot
     feedback = feedback_snapshot(user)
-    profile, records, seeds = profile_data(user)
+    profile, records, seeds = profile_data(user, evaluation_baseline=evaluation_baseline)
     # Reuse this request's explicit-preference read; common topics are not input.
     preferences = profile['extraction']['explicit_preferences']
     mode = ('personalized' if not profile['cold_start'] and seeds
@@ -119,9 +120,10 @@ def user_context(user):
 def taste_vector(context, *, deterministic=False):
     counts = Counter()
     if context['mode'] == 'personalized':
+        threshold = context_score(context)
         for seed in context['seeds']:
             for tag in (sorted(seed['tags']) if deterministic else seed['tags']):
-                counts[tag] += max(.1, seed['score'] - float(settings.RECOMMENDATION_PROFILE_SCORE_THRESHOLD) + 1.0) / len(seed['tags'])
+                counts[tag] += max(.1, seed['score'] - threshold + 1.0) / len(seed['tags'])
         total = sum(counts[tag] for tag in sorted(counts)) if deterministic else sum(counts.values())
         total = total or 1
         counts = Counter({tag: value / total for tag, value in counts.items()})
@@ -306,8 +308,9 @@ class V2RequestScorer:
             references.append(frozenset(context['preferences']['tags']))
         self.references = tuple(set(references))  # Max over sets; no order-dependent arithmetic.
         anchor_weights = Counter()
+        threshold = context_score(context)
         for seed in context['seeds'] if context['mode'] == 'personalized' else ():
-            anchor_weights[seed['tags']] += max(.1, seed['score'] - float(settings.RECOMMENDATION_PROFILE_SCORE_THRESHOLD) + 1)
+            anchor_weights[seed['tags']] += max(.1, seed['score'] - threshold + 1)
         self.familiar_anchor = max(anchor_weights, key=lambda tags: (anchor_weights[tags], tuple(sorted(tags)))) if anchor_weights else (
             frozenset(context['preferences']['tags']))
 

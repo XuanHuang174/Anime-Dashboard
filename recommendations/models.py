@@ -3,6 +3,8 @@ from django.db import models
 from django.conf import settings
 
 from .taxonomy import validate_preference_tags
+from .profile_policy import PROFILE_POLICY_VERSION, PROFILE_SCORE_OPTIONS, validate_profile_min_score
+from decimal import Decimal
 
 
 class RecommendationAnime(models.Model):
@@ -51,7 +53,7 @@ class RecommendationAnime(models.Model):
 
 
 class RecommendationPreference(models.Model):
-    """Explicit choices only. No journal copies, inferred scores or NSFW switch."""
+    """Own explicit tags and sampling setting; no journal copies or NSFW switch."""
 
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
@@ -59,6 +61,10 @@ class RecommendationPreference(models.Model):
     )
     tags = models.JSONField('明确选择的题材', default=list, blank=True,
                             validators=[validate_preference_tags])
+    profile_min_score = models.DecimalField('画像取样门槛', max_digits=3, decimal_places=1,
+        default=Decimal('8.5'), db_default=Decimal('8.5'), validators=[validate_profile_min_score])
+    profile_policy_version = models.CharField('画像取样规则版本', max_length=48,
+        default=PROFILE_POLICY_VERSION, db_default=PROFILE_POLICY_VERSION, editable=False)
     version = models.PositiveIntegerField('偏好版本', default=0)
     created_at = models.DateTimeField('创建时间', auto_now_add=True)
     updated_at = models.DateTimeField('更新时间', auto_now=True)
@@ -66,6 +72,8 @@ class RecommendationPreference(models.Model):
     class Meta:
         verbose_name = '用户推荐偏好'
         verbose_name_plural = '用户推荐偏好'
+        constraints = [models.CheckConstraint(condition=models.Q(profile_min_score__in=PROFILE_SCORE_OPTIONS),
+                                              name='rec_preference_profile_score_choices')]
 
     def __str__(self):
         return f'用户 {self.user_id} 的推荐偏好（版本 {self.version}）'
