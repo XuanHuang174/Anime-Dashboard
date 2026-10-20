@@ -4,6 +4,8 @@ export function createRecommendationClient(client) {
   return {
     capabilities: signal => client.get('recommendations/capabilities/', { signal }).then(r => r.data),
     profile: (signal) => client.get('recommendations/profile/', { signal }).then((r) => r.data),
+    previewProfile: (profileMinScore, signal) => client.get('recommendations/profile/preview/', {
+      params: { profile_min_score: profileMinScore }, signal }).then(r => r.data),
     preferences: (signal) => client.get('recommendations/preferences/', { signal }).then((r) => r.data),
     savePreferences: (changes, signal) => client.patch('recommendations/preferences/', changes, { signal }).then((r) => r.data),
     identities: (params, signal) => client.get('recommendations/identities/', { params, signal }).then((r) => r.data),

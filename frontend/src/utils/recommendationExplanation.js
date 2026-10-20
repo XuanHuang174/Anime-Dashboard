@@ -2,6 +2,7 @@
 import { RECOMMENDATION_COPY as COPY } from './recommendationCopy.js'
 import { personalScoreValue } from './recommendationScores.js'
 import { sameEvidenceContext } from './recommendationEpoch.js'
+import { evidenceSamplingScore } from './recommendationSampling.js'
 
 function hasCompatibleEvidenceContext(item) {
   const evidence = item?.evidence
@@ -12,6 +13,8 @@ function hasCompatibleEvidenceContext(item) {
   const keys = ['algorithm_version', 'ranking_policy_version', 'taxonomy_version', 'feature_version',
     'feature_rule_version', 'selection_rule_version', 'profile_version', 'preference_version', 'catalog_feature_version']
   return /^[a-f0-9]{64}$/.test(item.evidenceToken || '')
+    && evidenceSamplingScore(versions) !== null
+    && ['profile_policy_version', 'profile_min_score'].every(key => versions?.[key] === item.evidenceContext?.[key])
     && evidence?.contract_version === 'recommendations.evidence.v1'
     && evidence.interpretation === 'shared_genre_association' && evidence.is_probability === false
     && evidence.is_exhaustive_ranking_explanation === false
@@ -37,9 +40,11 @@ export function recommendationEvidence(item) {
   if (evidence.kind !== 'rated_work' || !Number.isInteger(source?.bangumi_id) || source.bangumi_id < 1
     || typeof source.title !== 'string' || !source.title.trim() || source.title.length > 500) return null
   const score = personalScoreValue(source.personal_score)
-  // 0 is a real personal rating, but is NOT a high-score evidence source.
-  if (score === null || score < 8.5) return null
-  return { kind: 'rated_work', tags, source: { bangumiId: source.bangumi_id, title: source.title, score } }
+  // Eligibility comes from the server evidence policy, NEVER the editable draft.
+  // Older complete contracts keep 8.5; partial/invalid new metadata fails closed.
+  const minimumScore = evidenceSamplingScore(evidence.versions)
+  if (minimumScore === null || score === null || score < Number(minimumScore)) return null
+  return { kind: 'rated_work', tags, minimumScore, source: { bangumiId: source.bangumi_id, title: source.title, score } }
 }
 
 export function recommendationReason(item) {

@@ -22,8 +22,8 @@ const render = (props = {}) => renderToStaticMarkup(React.createElement(Panel, {
 
 test('actual JSX renders three distinct blocks, readonly evidence and only eight observed topics', () => {
   const html = render()
-  assert.match(html, /我的明确偏好/); assert.match(html, /高分作品画像/); assert.match(html, /手账常见题材/)
-  assert.match(html, /参考高分作品，并结合你的明确偏好/)
+  assert.match(html, /我的明确偏好/); assert.match(html, /我的作品画像/); assert.match(html, /手账常见题材/)
+  assert.match(html, /参考符合取样条件的作品，并结合你的明确偏好/)
   assert.match(html, /可分析样本 3 部/); assert.match(html, /个人评分 ≥ 8.5/)
   assert.match(html, /你的手账中有 9 部作品包含/)
   assert.doesNotMatch(html, /你的手账中有 1 部作品包含/)
@@ -63,7 +63,7 @@ test('saved-but-refresh-failed has a read retry, never a misleading save failure
 test('workbench keeps three named keyboard scroll regions before a single save footer', () => {
   const html = render()
   assert.match(html, /class="rec-preference-columns"/)
-  for (const name of ['我的明确偏好内容', '高分作品画像内容', '手账常见题材内容']) {
+  for (const name of ['我的明确偏好内容', '我的作品画像内容', '手账常见题材内容']) {
     assert.ok(html.includes(`role="region" aria-label="${name}" tabindex="0"`))
   }
   assert.equal((html.match(/class="rec-preference-scroll"/g) || []).length, 3)

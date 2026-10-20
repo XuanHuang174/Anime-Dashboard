@@ -38,7 +38,7 @@ test('R1 taste note separates real counts and keeps old identity review accessib
   assert.match(html, /<dt>手动偏好<\/dt><dd>1 个/)
   assert.match(html, /核对旧作品 →/)
   assert.match(html, /<details class="rec-profile-notes"><summary>画像说明/)
-  assert.match(html, /手账已有 77 条高分记录/)
+  assert.match(html, /手账已有 77 条符合取样门槛/)
   assert.doesNotMatch(html, /rec-identity-notice/)
 })
 

@@ -17,8 +17,8 @@ export function RecommendationEmptyState({ state, onRetry, onReset, onFilter, on
   return <section className="rec-empty" role="status" aria-live="polite">
     <span className="rec-empty-symbol" aria-hidden="true">{content[0]}</span>
     <span className="rec-eyebrow">A LITTLE PAUSE, NOT THE END</span>
-    <h2>{needsIdentity ? '让高分旧作品重新参与推荐' : needsTags ? '给你的高分作品补充一点题材' : content[1]}</h2>
-    <p>{needsIdentity ? '你的高分记录仍在，只是部分旧作品尚未关联标准资料。核对身份后即可参与画像，不需要重新评分。'
+    <h2>{needsIdentity ? '让达标旧作品重新参与推荐' : needsTags ? '给画像样本补充一点题材' : content[1]}</h2>
+    <p>{needsIdentity ? '你的原记录仍在，只是部分旧作品尚未关联标准资料。核对身份后即可参与画像，不需要重新评分。'
       : needsTags ? '有效题材不足，请完善作品标签或选择明确喜好；不会凭空生成个性化结果。' : content[2]}</p>
     <div className="rec-empty-actions">
       {state === 'cold' ? <>{needsIdentity ? <button type="button" className="rec-button rec-button--primary" onClick={onIdentity}>核对旧作品</button>

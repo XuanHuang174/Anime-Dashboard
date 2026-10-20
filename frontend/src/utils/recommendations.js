@@ -1,4 +1,5 @@
 import { sameEvidenceContext } from './recommendationEpoch.js'
+import { samplingPreferences, validateSamplingPolicy, profileScore } from './recommendationSampling.js'
 
 export const DEFAULT_REC_FILTERS = Object.freeze({ type: 'all', minScore: '0', hideRecorded: true })
 export const REC_CATEGORIES = [
@@ -35,6 +36,18 @@ export function validateColdStartState(value) {
 }
 
 export function validateRecommendationSnapshot(profile, preferences, data) {
+  const sampling = samplingPreferences(preferences), policy = validateSamplingPolicy(profile.sample_policy)
+  if (sampling || policy) {
+    const embedded = profile.extraction?.explicit_preferences
+    if (!sampling || !policy || policy.effective !== sampling.effective || policy.configured !== sampling.score
+      || policy.enabled !== sampling.control.enabled || !embedded || !samplingPreferences(embedded)
+      || embedded.profile_min_score !== preferences.profile_min_score || embedded.version !== preferences.version
+      || data.evidence_context?.profile_policy_version !== policy.version
+      || profileScore(data.evidence_context?.profile_min_score) !== policy.effective
+      || data.evidence_context?.preference_version !== preferences.version) {
+      throw new Error('推荐画像合同不兼容，画像门槛或推荐依据已变化，请重新加载。')
+    }
+  }
   const state = profile.cold_start_state
   if (state || data.cold_start_state) {
     if (!state || !data.cold_start_state || JSON.stringify(state) !== JSON.stringify(data.cold_start_state)
@@ -109,6 +122,7 @@ export function validateRecommendationProfile(data) {
   if (data.diagnostics && !['high_score_record_count', 'pending_identity_count', 'linked_high_score_record_count',
     'unavailable_identity_count', 'stale_identity_count', 'conflict_identity_count'].every((key) =>
     Number.isInteger(data.diagnostics[key]) && data.diagnostics[key] >= 0)) throw new Error('推荐画像合同不兼容，请重新加载。')
+  validateSamplingPolicy(data.sample_policy)
   validateColdStartState(data.cold_start_state)
   if (data.cold_start_state) {
     const cold = data.cold_start_state
@@ -149,7 +163,7 @@ export function validateIdentityReview(data) {
 export function identitySummary(profile) {
   const diagnostics = profile?.diagnostics
   if (!diagnostics || !diagnostics.pending_identity_count) return ''
-  return `手账已有 ${diagnostics.high_score_record_count} 条高分记录，其中 ${diagnostics.pending_identity_count} 条尚待关联标准作品，暂未计入画像。无需重新评分。`
+  return `手账已有 ${diagnostics.high_score_record_count} 条符合取样门槛（个人评分 ≥ ${profile.sample_policy?.minimum_score ?? '8.5'}）的已看过记录，其中 ${diagnostics.pending_identity_count} 条尚待关联标准作品，暂未计入画像。无需重新评分。`
 }
 
 export function validateRecommendationPreferences(data) {
@@ -159,6 +173,7 @@ export function validateRecommendationPreferences(data) {
     || new Set(data.tags).size !== data.tags.length || new Set(data.available_tags).size !== data.available_tags.length) {
     throw new Error('推荐偏好合同不兼容，请重新加载。')
   }
+  samplingPreferences(data)
   return data
 }
 

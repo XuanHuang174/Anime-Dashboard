@@ -266,7 +266,7 @@ function RecommendationWorkspace({ client, sessionScope }) {
         </div>
         {state.status === 'loading' && <RecommendationGridSkeleton />}
         {profile?.cold_start && ['ready', 'empty'].includes(state.status) && <details className="rec-profile-guide">
-          <summary>完善高分作品画像</summary>
+          <summary>完善作品画像</summary>
           <RecommendationColdStartGuide profile={profile} status={state.status} preferencesReady={!!preferences}
             onPreferences={openPreferences} onIdentity={() => setPanel({ kind: 'identity' })} />
         </details>}
@@ -304,6 +304,7 @@ function RecommendationWorkspace({ client, sessionScope }) {
         : panel.kind === 'filters' ? <RecommendationFilterPanel initialFilters={visibleFilters} onApply={applyFilters} legacy={legacy} />
         : panel.kind === 'preferences' ? <RecommendationPreferencesPanel editor={preferenceEditor.editor} profile={panel.profile}
         onTag={preferenceEditor.setTag} onClear={preferenceEditor.clearDraft} onSave={preferenceEditor.save}
+        onMinScore={preferenceEditor.setMinScore} onResetMinScore={preferenceEditor.resetMinScore} onRetryPreview={preferenceEditor.retryPreview}
         onReloadLatest={preferenceEditor.reloadLatest} onResolveConflict={preferenceEditor.resolveConflict} onClose={closePanel} />
         : ['loading', 'refreshing', 'closed'].includes(detail.status) ? <p className="rec-muted" role="status">{detail.status === 'refreshing' ? '加入操作已确认，旧依据已作废，正在重新读取完整详情…' : '正在读取作品详情…'}</p>
         : detail.status === 'error' ? <div role="alert"><p>{detail.message}</p><button type="button" className="rec-button"

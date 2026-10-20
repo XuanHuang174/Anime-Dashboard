@@ -36,6 +36,14 @@
   overflow-wrap: anywhere; scroll-padding-block: 12px;
 }
 .memphis-rec-container .rec-preference-scroll:focus-visible { outline: 2px solid var(--rec-ink); outline-offset: -4px; }
+.memphis-rec-container .rec-sampling-control { padding-block: 14px; border-bottom: 1px solid #a6b9ae; }
+.memphis-rec-container .rec-sampling-control > label { display: block; font-size: 12px; font-weight: 800; }
+.memphis-rec-container .rec-sampling-inputs { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin-top: 8px; }
+.memphis-rec-container .rec-sampling-inputs select { min-width: 104px; min-height: 44px; max-width: 100%; padding: 8px 12px; color: var(--rec-ink); background: white; border: 2px solid var(--rec-ink); border-radius: 0; font: inherit; }
+.memphis-rec-container .rec-sampling-inputs select:focus-visible { outline: 2px solid var(--rec-ink); outline-offset: 3px; }
+.memphis-rec-container .rec-sampling-inputs select:disabled { opacity: .65; cursor: not-allowed; }
+.memphis-rec-container .rec-sampling-preview { margin-top: 10px; padding: 10px; border: 1px dashed var(--rec-ink); background: #f5faf7; font-size: 12px; }
+.memphis-rec-container .rec-sampling-preview p { margin-block: 6px; }
 .memphis-rec-container .rec-preference-panel .rec-taste-options { margin: 18px 0 14px; gap: 8px; min-width: 0; }
 .memphis-rec-container .rec-preference-panel .rec-taste-option { min-height: 44px; padding: 9px 8px; gap: 7px; cursor: pointer; overflow-wrap: anywhere; }
 .memphis-rec-container .rec-preference-panel .rec-taste-option input { flex-shrink: 0; width: 17px; height: 17px; accent-color: var(--rec-ink); }

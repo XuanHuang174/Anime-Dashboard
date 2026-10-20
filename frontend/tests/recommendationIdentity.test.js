@@ -4,7 +4,7 @@ import { identitySummary, validateIdentityReview, validateRecommendationProfile 
 import { createRecommendationClient } from '../src/api/recommendationClient.js'
 
 test('pending identities are explained rather than presented as zero preferences', () => {
-  assert.match(identitySummary({ diagnostics: { high_score_record_count: 77, pending_identity_count: 77 } }), /77 条高分记录/)
+  assert.match(identitySummary({ diagnostics: { high_score_record_count: 77, pending_identity_count: 77 } }), /77 条符合取样门槛/)
   assert.match(identitySummary({ diagnostics: { high_score_record_count: 77, pending_identity_count: 77 } }), /无需重新评分/)
   assert.equal(identitySummary({ diagnostics: { pending_identity_count: 0 } }), '')
   assert.equal(identitySummary(undefined), '')

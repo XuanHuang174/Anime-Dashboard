@@ -23,7 +23,9 @@ export function RecommendationTasteNote({ profile, preferences, status, onPrefer
         <div><dt>自动识别题材</dt><dd>{profile.tag_summary.length} 个</dd></div>
         <div><dt>手动偏好</dt><dd>{preferences?.tags.length ?? '—'} 个</dd></div>
       </dl>
-      <div className="rec-taste-genres"><p className="rec-muted">来自高分作品</p>
+      <p className="rec-muted">{profile.sample_policy?.minimum_score != null
+        ? `取样门槛：个人评分 ≥ ${profile.sample_policy.minimum_score} 分` : '取样依据暂不可用，请重新读取画像。'}</p>
+      <div className="rec-taste-genres"><p className="rec-muted">来自作品画像</p>
         <div className="rec-card-tags">{profile.tag_summary.slice(0, 3).map(({ tag }) => <span key={tag}>{tag}</span>)}</div>
         {!profile.tag_summary.length && <small>尚无可用题材，不代表没有喜好</small>}
         <p className="rec-muted">你的明确选择</p>
@@ -31,14 +33,14 @@ export function RecommendationTasteNote({ profile, preferences, status, onPrefer
         {!preferences?.tags.length && <small>尚未选择；不会自动替你勾选</small>}
       </div>
       {pending > 0 && !profile.cold_start && <div className="rec-taste-review" aria-label="旧数据关联提示">
-        <p>{pending} 条高分记录待核对</p>
+        <p>{pending} 条达标记录待核对</p>
         <button type="button" className="rec-text-button" disabled={profile.identity_service_ready === false} onClick={onIdentity}>核对旧作品 →</button>
       </div>}
       {(pending > 0 || profile.identity_service_ready === false || profile.diagnostics?.unavailable_identity_count > 0) && <details className="rec-profile-notes">
         <summary>画像说明</summary>
         {pending > 0 && <p>{identitySummary(profile)}</p>}
         {profile.identity_service_ready === false && <p>关联工具尚待完成部署。旧手账记录仍完整保留，当前不会自动修改数据。</p>}
-        {profile.diagnostics?.unavailable_identity_count > 0 && <p>另有 {profile.diagnostics.unavailable_identity_count} 条高分记录因未收录或分级限制未计入推荐画像。</p>}
+        {profile.diagnostics?.unavailable_identity_count > 0 && <p>另有 {profile.diagnostics.unavailable_identity_count} 条达标记录因未收录或分级限制未计入推荐画像。</p>}
       </details>}
       </>}
     {unavailable && confirmedPreferences && <p className="rec-muted">手动偏好已保存 {confirmedPreferences.tags.length} 个；自动画像等待重新读取。</p>}
@@ -53,11 +55,11 @@ function guideCopy(state, score) {
       ? '手账暂时为空，已保留你的明确选择；记录和评分后可以逐步形成画像。'
       : '手账暂时为空，也没有明确偏好。可以先选择 3–5 个喜欢的题材，或记下看过的作品。']
     case 'all_unrated': return ['给喜欢的作品留下评分', `手账中的 ${state.unrated_record_count} 部作品都尚未评分。未评分不等于 0 分，常见题材也不等于喜欢。`]
-    case 'no_qualifying_high_scores': return ['还没有符合条件的高分样本', `目前没有“看过”且个人评分 ≥ ${score} 的作品。请按真实感受评分，不需要为了推荐提高分数。`]
-    case 'pending_identity': return ['让高分旧作品参与画像', `${state.pending_identity_count} 条高分记录尚待核对作品身份，暂未计入画像。原有评分和长评仍完整保留，无需重新评分。`]
-    case 'missing_genres': return ['给高分作品补充有效题材', `${state.missing_genre_count} 部已关联高分作品缺少可识别的题材。可以在手账中确认题材，或单独选择明确偏好；不会用目录标签覆盖你主动清空的标签。`]
-    case 'insufficient_samples': return ['再认识几部你的心头好', `目前有 ${state.usable_sample_count} 部可分析高分作品，至少需要 ${state.minimum_samples} 部才能形成画像。不会仅凭少量样本假装了解你。`]
-    default: return ['部分高分作品暂不能参与画像', `${state.unavailable_sample_count} 条高分记录因未收录或分级限制未计入画像。不会绕过安全规则，也不会要求你重新评分。`]
+    case 'no_qualifying_high_scores': return ['还没有符合取样条件的作品', `目前没有“看过”且个人评分 ≥ ${score} 的作品。请按真实感受评分，不需要为了推荐提高分数；也可在设置中检查取样门槛。`]
+    case 'pending_identity': return ['让达标旧作品参与画像', `${state.pending_identity_count} 条评分达标记录尚待核对作品身份，暂未计入画像。原有评分和长评仍完整保留，无需重新评分。`]
+    case 'missing_genres': return ['给画像样本补充有效题材', `${state.missing_genre_count} 部已关联的达标作品缺少可识别的题材。可以在手账中确认题材，或单独选择明确偏好；不会用目录标签覆盖你主动清空的标签。`]
+    case 'insufficient_samples': return ['再认识几部你的心头好', `目前有 ${state.usable_sample_count} 部可分析作品，至少需要 ${state.minimum_samples} 部才能形成画像。不会仅凭少量样本假装了解你。`]
+    default: return ['部分达标作品暂不能参与画像', `${state.unavailable_sample_count} 条达标记录因未收录或分级限制未计入画像。不会绕过安全规则，也不会要求你重新评分。`]
   }
 }
 
@@ -71,11 +73,11 @@ export function RecommendationColdStartGuide({ profile, status, onPreferences, o
   return <section className="rec-cold-guide" aria-labelledby="rec-cold-title" role="status">
     <div><span className="rec-eyebrow">BUILD YOUR TASTE, AT YOUR PACE</span><h2 id="rec-cold-title">{title}</h2>
       <p>{text}</p>
-      <p className="rec-muted">可分析样本 {state.usable_sample_count} / {state.minimum_samples} 部；仅使用已看过的安全作品与个人评分。</p>
-      {state.reasons.includes('pending_identity') && state.code !== 'pending_identity' && <p>另有 {state.pending_identity_count} 条高分记录待核对身份。</p>}
-      {state.reasons.includes('missing_genres') && state.code !== 'missing_genres' && <p>另有 {state.missing_genre_count} 部已关联高分作品缺少有效题材。</p>}
+      <p className="rec-muted">可分析样本 {state.usable_sample_count} / {state.minimum_samples} 部；仅使用已看过且个人评分 ≥ {profile.sample_policy.minimum_score} 分的安全作品。</p>
+      {state.reasons.includes('pending_identity') && state.code !== 'pending_identity' && <p>另有 {state.pending_identity_count} 条达标记录待核对身份。</p>}
+      {state.reasons.includes('missing_genres') && state.code !== 'missing_genres' && <p>另有 {state.missing_genre_count} 部已关联达标作品缺少有效题材。</p>}
       {state.recommendation_basis === 'explicit_preferences'
-        ? <p className="rec-basis-label"><strong>根据你选择的题材推荐</strong> · 尚未形成完整的高分作品画像。</p>
+        ? <p className="rec-basis-label"><strong>根据你选择的题材推荐</strong> · 尚未形成完整的作品画像。</p>
         : <p className="rec-muted">画像尚未准备好，也没有明确偏好，暂不生成个性化结果。</p>}
     </div>
     <div className="rec-cold-actions">

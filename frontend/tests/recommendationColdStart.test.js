@@ -84,7 +84,7 @@ test('taste note separates analyzable samples, automatic topics, explicit prefer
   assert.match(html, /可分析样本<\/dt><dd>2 部/)
   assert.match(html, /自动识别题材<\/dt><dd>1 个/)
   assert.match(html, /手动偏好<\/dt><dd>2 个/)
-  assert.match(html, /来自高分作品/); assert.match(html, /你的明确选择/)
+  assert.match(html, /来自作品画像/); assert.match(html, /你的明确选择/)
   for (const status of ['loading', 'error']) {
     const output = render(RecommendationTasteNote, { status, onRetry() {} })
     assert.doesNotMatch(output, /0 部|0 个|可分析样本/)

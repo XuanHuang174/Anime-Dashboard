@@ -32,7 +32,7 @@ test('rated-work evidence uses the actual source personal score, not the public 
 test('explicit evidence never pretends to be a rated-work profile or fabricates a source', () => {
   const html = render({ item: { ...item, evidence: { kind: 'explicit_preferences', source: null, shared_tags: ['音乐'] } } })
   assert.match(html, /来自你选择的题材/); assert.match(html, /根据你选择的题材推荐/)
-  assert.match(html, /而非高分作品画像/)
+  assert.match(html, /而非作品画像/)
   assert.doesNotMatch(html, /<dt>来源作品|<dt>你的个人评分|9\.0/)
 })
 
@@ -85,11 +85,11 @@ test('all three categories have distinct modest descriptions and honest explicit
   assert.equal(new Set(REC_CATEGORIES.map(category => category.description)).size, 3)
   for (const category of REC_CATEGORIES) {
     const html = renderToStaticMarkup(React.createElement(Guide, { category: category.id, mode: 'preference_based' }))
-    assert.ok(html.includes(category.description)); assert.match(html, /当前不是基于完整高分画像的推荐/)
+    assert.ok(html.includes(category.description)); assert.match(html, /当前不是基于完整作品画像的推荐/)
     assert.match(html, /aria-live="polite"/); assert.doesNotMatch(html, /百分比|更准确|保证|100%/)
   }
   const ready = renderToStaticMarkup(React.createElement(Guide, { category: 'all', mode: 'personalized' }))
-  assert.doesNotMatch(ready, /当前不是基于完整高分画像/)
+  assert.doesNotMatch(ready, /当前不是基于完整作品画像/)
 })
 
 test('V1/V2 transport versions are supported but missing or unknown versions never claim V1', () => {

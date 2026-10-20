@@ -7,7 +7,7 @@ export const RECOMMENDATION_COPY = Object.freeze({
   publicZeroHelp: '目录评分值为 0：可能来自源站零值，或缺失、异常数据的归一化；目前无法区分，不据此判定为未评分或真实低分。',
   publicMissingHelp: '当前没有可展示的有效公共评分数据，不能据此判断作品质量。',
   personalScoreMissing: '评分数据暂不可用',
-  ratedEvidence: '来自高分作品',
+  ratedEvidence: '来自作品画像',
   explicitEvidence: '来自你选择的题材',
   evidenceUnavailable: '推荐依据暂不可用，请重新加载推荐后重试。',
   evidenceRecovery: '当前没有可展示的完整证据。请重新加载推荐后重试，不影响查看作品或手账中的原记录。',
