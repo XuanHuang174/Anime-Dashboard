@@ -322,7 +322,7 @@ class WantAPITests(APITestCase):
         self.assertTrue(Anime.objects.get(bgm_id=501).is_active)
 
     @override_settings(PUBLIC_SHOWCASE_USERNAME='want-owner')
-    def test_showcase_owner_does_not_reactivate_existing_hidden_shared_row(self):
+    def test_showcase_owner_does_not_reactivate_legacy_unknown_shared_row(self):
         shared = Anime.objects.create(bgm_id=501, chinese_title='作品', airing_period='2026-4', is_active=False)
         before = Anime.objects.filter(pk=shared.pk).values().get()
         self.assertEqual(self.post().status_code, 201)

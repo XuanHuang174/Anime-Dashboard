@@ -1,4 +1,4 @@
-"""3C: authenticated, lossless and idempotent private journal creation only."""
+"""Lossless/idempotent creation with explicit showcase publication coordination."""
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError, transaction
@@ -6,6 +6,7 @@ from rest_framework.exceptions import APIException, NotFound
 
 from anime.models import Anime, UserAnimeRecord
 from anime.tag_services import initialize_record_tag_colors
+from anime.showcase_services import imported_visibility_defaults, publish_new_showcase_record
 from .identity import public_cover_url, recommendation_identity, safe_catalog
 from .taxonomy import canonical_tags
 from .normalization import clean_id
@@ -80,9 +81,9 @@ def add_want(*, user, bangumi_id):
     metadata = {'chinese_title': title, 'japanese_title': catalog.title_jp,
                 'airing_period': catalog.season or '未定档', 'description': catalog.synopsis,
                 'poster_url': public_cover_url(catalog), 'base_tags': tags,
-                # Same visibility policy as Bangumi imports: private-only metadata
-                # is not automatically promoted into the public showcase/search.
-                'is_active': user.username == settings.PUBLIC_SHOWCASE_USERNAME}
+                # Same new-row visibility policy as Bangumi imports. Existing
+                # rows are coordinated separately, only for a NEW owner record.
+                **imported_visibility_defaults(user)}
     try:
         # Savepoint keeps the enclosing transaction usable after unique-key races.
         # NEVER title-merge, update_or_create, truncate, or assign an ID to an old row.
@@ -92,7 +93,7 @@ def add_want(*, user, bangumi_id):
         raise WantConflict('public_identity_conflict', '公共资料存在不同或缺失的作品身份，请联系管理员核对；本次未创建记录。') from None
     # is_active controls PUBLIC visibility, not private journal eligibility.
     # Reuse authoritative Bangumi identities even when the shared row is hidden;
-    # never reactivate/modify it. Eligibility was checked against safe_catalog()
+    # ordinary users never reactivate it. Eligibility was checked against safe_catalog()
     # under lock above, with legacy/length conflicts still rejected before here.
     record, created = UserAnimeRecord.objects.get_or_create(user=user, anime=shared, defaults={
         'watch_status': UserAnimeRecord.WatchStatus.PLAN_TO_WATCH,
@@ -105,4 +106,8 @@ def add_want(*, user, bangumi_id):
     })
     if created:
         initialize_record_tag_colors(record=record, user=user)
-    return want_contract(record, bangumi_id, created)
+    publication = publish_new_showcase_record(record=record, created=created)
+    result = want_contract(record, bangumi_id, created)
+    if publication is not None:
+        result['showcase_publication'] = publication
+    return result

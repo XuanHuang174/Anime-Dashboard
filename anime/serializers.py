@@ -25,6 +25,7 @@ from .models import (
     UserQuickFilter,
 )
 from .tag_services import get_record_tag_colors, initialize_record_tag_colors
+from .showcase_services import publish_new_showcase_record
 from .utils.scraper import MetadataScraper
 
 
@@ -738,6 +739,14 @@ class UserAnimeRecordSerializer(serializers.ModelSerializer):
         data["tag_colors"] = get_record_tag_colors(record)
         return data
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get("request")
+        publication = getattr(instance, "_showcase_publication", None)
+        if publication is not None and request is not None and request.user.pk == instance.user_id:
+            data["showcase_publication"] = publication
+        return data
+
 
 class UserQuickFilterSerializer(serializers.ModelSerializer):
     tags = serializers.ListField(
@@ -1233,4 +1242,5 @@ class UserAnimeRecordAddSerializer(serializers.Serializer):
                 )
 
         initialize_record_tag_colors(record=record, user=request.user)
+        publish_new_showcase_record(record=record, created=True)
         return record

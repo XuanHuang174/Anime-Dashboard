@@ -100,6 +100,7 @@ from .tag_services import (
     replace_record_tag_colors,
 )
 from .throttles import SensitiveAuthRateThrottle
+from .showcase_services import imported_visibility_defaults, publish_new_showcase_record
 from .utils.scraper import MetadataScraper, MetadataScraperError
 
 
@@ -640,7 +641,7 @@ class BangumiCollectionBatchImportView(ExternalMetadataAPIView):
             "poster_url": poster_url,
             "baike_url": str(baike_url or "").strip(),
             "base_tags": detail_tags,
-            "is_active": request_user.username == settings.PUBLIC_SHOWCASE_USERNAME,
+            **imported_visibility_defaults(request_user),
         }
 
     @staticmethod
@@ -681,7 +682,7 @@ class BangumiCollectionBatchImportView(ExternalMetadataAPIView):
                 key: value
                 for key, value in defaults.items()
                 if value not in (None, "")
-                and key != "is_active"
+                and key not in ("is_active", "hidden_reason")
                 and not getattr(anime, key, None)
             }
             for key, value in safe_updates.items():
@@ -701,7 +702,10 @@ class BangumiCollectionBatchImportView(ExternalMetadataAPIView):
             legacy.save(update_fields=("bgm_id", "updated_at"))
             return legacy, False
 
-        return Anime.objects.update_or_create(bgm_id=bgm_id, defaults=defaults)
+        # Another importer/recommendation request may have created this identity
+        # since the initial lookup. Never overwrite its visibility/moderation
+        # state with the losing request's creation defaults.
+        return Anime.objects.get_or_create(bgm_id=bgm_id, defaults=defaults)
 
     @staticmethod
     def _poster_object_exists(anime):
@@ -819,6 +823,7 @@ class BangumiCollectionBatchImportView(ExternalMetadataAPIView):
         current_count = UserAnimeRecord.objects.filter(user=request.user).count()
         created = updated = skipped = failed = 0
         errors = []
+        publication_notices = []
 
         for collection in collection_items:
             if not isinstance(collection, dict):
@@ -897,6 +902,10 @@ class BangumiCollectionBatchImportView(ExternalMetadataAPIView):
                         defaults=record_defaults,
                     )
                     initialize_record_tag_colors(record=record, user=request.user)
+                    publication = publish_new_showcase_record(record=record, created=record_created)
+                    if publication and publication["status"] == "review_required":
+                        if len(publication_notices) < 5:
+                            publication_notices.append({"bangumi_id": bgm_id, **publication})
                     if record_created:
                         created += 1
                         current_count += 1
@@ -932,6 +941,7 @@ class BangumiCollectionBatchImportView(ExternalMetadataAPIView):
                 "skipped": skipped,
                 "failed": failed,
                 "errors": errors,
+                "showcase_publication_notices": publication_notices,
                 "next_offset": min(total, offset + fetched),
             }
         )
@@ -2251,6 +2261,7 @@ class UserAnimeRecordViewSet(viewsets.ModelViewSet):
         )
         from recommendations.binding import try_auto_link
         try_auto_link(record)
+        publish_new_showcase_record(record=record, created=True)
 
     @transaction.atomic
     def perform_destroy(self, instance):

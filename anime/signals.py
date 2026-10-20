@@ -4,9 +4,9 @@ from contextvars import ContextVar
 from django.conf import settings
 from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
+from .showcase_services import withdraw_showcase_anime
 
 from .models import (
-    Anime,
     FeaturedSubmission,
     UserAnimeRecord,
     UserNotification,
@@ -89,17 +89,4 @@ def clean_public_anime_when_showcase_owner_deletes_record(sender, instance, **kw
     if instance.user.username != settings.PUBLIC_SHOWCASE_USERNAME:
         return
 
-    anime = Anime.objects.filter(pk=instance.anime_id).first()
-    if anime is None:
-        return
-
-    if anime.user_records.exists():
-        # Other users still rely on this row: keep their records valid, but remove the
-        # title from future public searches and prevent new associations.
-        if anime.is_active:
-            anime.is_active = False
-            anime.save(update_fields=("is_active",))
-        return
-
-    # No user depends on the shared row anymore, so it is safe to remove it fully.
-    anime.delete()
+    withdraw_showcase_anime(instance.anime_id)

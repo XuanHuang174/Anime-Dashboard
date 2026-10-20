@@ -46,7 +46,7 @@ class AnimeAdmin(admin.ModelAdmin):
     list_filter = ("is_active", "airing_period", "studio")
     search_fields = ("chinese_title", "japanese_title", "studio", "description")
     ordering = ("-airing_period", "chinese_title")
-    readonly_fields = ("created_at", "updated_at")
+    readonly_fields = ("created_at", "updated_at", "hidden_reason")
     list_per_page = 30
     fieldsets = (
         (
@@ -59,6 +59,7 @@ class AnimeAdmin(admin.ModelAdmin):
                     "studio",
                     "episodes",
                     "is_active",
+                    "hidden_reason",
                 ),
             },
         ),
@@ -89,6 +90,12 @@ class AnimeAdmin(admin.ModelAdmin):
             )
             .distinct()
         )
+
+    def save_model(self, request, obj, form, change):
+        # Explicit moderation is not the same as a private-only metadata row.
+        if not change or "is_active" in form.changed_data:
+            obj.hidden_reason = "" if obj.is_active else Anime.HiddenReason.ADMIN_RETIRED
+        super().save_model(request, obj, form, change)
 
 
 @admin.register(UserAnimeRecord)

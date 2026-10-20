@@ -124,6 +124,12 @@ def validate_tag_color_map(value):
 class Anime(models.Model):
     """Shared, user-independent anime metadata."""
 
+    class HiddenReason(models.TextChoices):
+        PRIVATE_ONLY = "private_only", "仅私人资料"
+        SHOWCASE_REMOVED = "showcase_removed", "主理人曾移除"
+        ADMIN_RETIRED = "admin_retired", "管理员下架"
+        LEGACY_UNKNOWN = "legacy_unknown", "历史原因不明"
+
     bgm_id = models.PositiveIntegerField(
         "Bangumi 条目 ID",
         null=True,
@@ -178,7 +184,16 @@ class Anime(models.Model):
         "在公共库中可用",
         default=True,
         db_index=True,
-        help_text="下架后不会出现在公共番剧搜索中，也不能再被用户添加。",
+        help_text="关闭后不出现在公共搜索；不代表禁止通过安全的确切身份加入私人手账。",
+    )
+    hidden_reason = models.CharField(
+        "公共隐藏原因",
+        max_length=32,
+        choices=HiddenReason.choices,
+        default=HiddenReason.LEGACY_UNKNOWN,
+        db_default=HiddenReason.LEGACY_UNKNOWN,
+        blank=True,
+        help_text="仅在非公开时有意义；历史隐藏资料默认待审核，不能自动恢复公开。",
     )
     created_at = models.DateTimeField(
         "创建时间",

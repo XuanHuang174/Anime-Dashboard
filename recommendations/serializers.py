@@ -264,6 +264,12 @@ class RecommendationPublicAnimeSerializer(serializers.ModelSerializer):
         return [tag for tag in AVAILABLE_TAGS if tag in tags]
 
 
+class ShowcasePublicationSerializer(serializers.Serializer):
+    status = serializers.ChoiceField(choices=('published', 'already_public', 'review_required'), read_only=True)
+    code = serializers.CharField(read_only=True, required=False)
+    detail = serializers.CharField(read_only=True)
+
+
 class RecommendationWantSerializer(serializers.Serializer):
     contract_version = serializers.CharField(read_only=True)
     bangumi_id = serializers.IntegerField(read_only=True)
@@ -273,6 +279,7 @@ class RecommendationWantSerializer(serializers.Serializer):
     created = serializers.BooleanField(read_only=True)
     outcome = serializers.CharField(read_only=True)
     content_rating = serializers.CharField(read_only=True)
+    showcase_publication = ShowcasePublicationSerializer(read_only=True, required=False)
 
 
 class RecommendationQuerySerializer(serializers.Serializer):
