@@ -21,7 +21,8 @@ def markdown_report(report):
         '| 规则 | 安全标准作品数 | 有效题材作品数 | 覆盖率 |', '| --- | --- | --- | --- |']
     for rule, value in report['coverage'].items():
         lines.append(f"| {rule} | {value['works']} | {value['with_genres']} | {value['coverage_fraction']} |")
-    lines += ['', '旧规则为 5A 时的 genres.v2（26 题材/10 同义映射）；新规则为 5B-1 的 genres.v4（33 题材/21 同义映射）。',
+    from .taxonomy import TAXONOMY_VERSION, AVAILABLE_TAGS, ALIASES
+    lines += ['', f'旧规则为 5A 时的 genres.v2（26 题材/10 同义映射）；当前规则为 {TAXONOMY_VERSION}（{len(AVAILABLE_TAGS)} 题材/{len(ALIASES)} 同义映射）。',
         '两轮共用同一只读数据库快照和同一批显式授权账号。比较指标统一用新词表计算，避免指标定义改变制造虚假提升。',
         '旧规则冷启动或训练不足的留出目标只报告不可比较，不伪造评分或更换样本。', '',
         '## 授权自然样本：两轮分别比较', '']

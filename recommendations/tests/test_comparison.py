@@ -192,7 +192,7 @@ class ComparisonDatabaseTests(TransactionTestCase):
         UserAnimeRecord.objects.filter(user=self.owner).update(private_base_tags=['MUSIC'])
         _, _, result = self.evaluate()
         self.assertEqual(result['arms']['legacy_v1']['mode'], 'preference_based')
-        self.assertEqual(result['changed_rule_sample_counts'], {'genres.v2': 0, 'genres.v4': 4})
+        self.assertEqual(result['changed_rule_sample_counts'], {'genres.v2': 0, engine.TAXONOMY_VERSION: 4})
         self.assertEqual(result['passes']['data_rules']['paired_targets'], 0)
         self.assertEqual(result['passes']['data_rules']['skipped_unpaired_targets'], 2)
         self.assertEqual(result['passes']['ranking']['paired_targets'], 2)

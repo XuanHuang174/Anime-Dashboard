@@ -2,8 +2,8 @@
 import unicodedata
 from types import MappingProxyType
 
-TAXONOMY_VERSION = 'genres.v4'
-APPROVED_ALIAS_RELEASE = 'aliases.2026-10-14.approved-11'
+TAXONOMY_VERSION = 'genres.v5'
+APPROVED_ALIAS_RELEASE = 'aliases.2026-10-20.approved-9'
 APPROVED_GENRE_RELEASE = 'genres.2026-10-14.approved-7'
 MAX_PREFERENCE_TAGS = 20
 # These definitions document exact labels only; they are NOT classification
@@ -23,19 +23,42 @@ AVAILABLE_TAGS = (
     '青春', '魔法', '异世界', '偶像', '美食', '旅行',
     *APPROVED_GENRES,
 )
-# Only the 11 entries explicitly approved after the 5B-1 review. Casefolding
-# also accepts Comedy/MUSIC; no unobserved draft alias is activated.
-APPROVED_ALIASES = {
+# Preserve the previous approval and append ONLY the nine reviewed exact labels.
+# This does not strip generic suffixes or split compound/free-form labels.
+PREVIOUS_APPROVED_ALIASES = {
     '治愈系': '治愈', '治癒': '治愈', 'comedy': '喜剧', '日常系': '日常',
     '戀愛': '恋爱', 'music': '音乐', '戰鬥': '战斗', '旅行系': '旅行',
     '校園': '校园', '百合向': '百合', '職場': '职场',
 }
+APPROVED_ALIAS_BATCH = {
+    '爱情': '恋爱', '治癒系': '治愈', '运动番': '运动', '运动系': '运动',
+    '美食番': '美食', '日常番': '日常', '推理系': '推理', '恋爱番': '恋爱',
+    '搞笑类': '喜剧',
+}
+APPROVED_ALIASES = {**PREVIOUS_APPROVED_ALIASES, **APPROVED_ALIAS_BATCH}
 ALIASES = {
     '搞笑': '喜剧', '真百': '百合', '真百合': '百合',
     '轻百': '百合', '轻百合': '百合', 'ゆり': '百合',
     'sci-fi': '科幻', 'scifi': '科幻', 'fantasy': '奇幻', 'slice of life': '日常',
     **APPROVED_ALIASES,
 }
+
+# Frozen pre-expansion baseline. Explicit copies keep historical offline
+# comparisons reproducible; never derive by subtracting future approvals.
+PREVIOUS_TAXONOMY_VERSION = 'genres.v4'
+PREVIOUS_AVAILABLE_TAGS = (
+    '日常', '治愈', '喜剧', '校园', '恋爱', '百合', '科幻', '奇幻', '冒险', '悬疑',
+    '推理', '战斗', '机战', '音乐', '运动', '历史', '职场', '亲情', '成长', '友情',
+    '青春', '魔法', '异世界', '偶像', '美食', '旅行',
+    '热血', '后宫', '玄幻', '穿越', '魔法少女', '恐怖', '武侠',
+)
+PREVIOUS_ALIASES = MappingProxyType({
+    '搞笑': '喜剧', '真百': '百合', '真百合': '百合', '轻百': '百合', '轻百合': '百合',
+    'ゆり': '百合', 'sci-fi': '科幻', 'scifi': '科幻', 'fantasy': '奇幻', 'slice of life': '日常',
+    '治愈系': '治愈', '治癒': '治愈', 'comedy': '喜剧', '日常系': '日常',
+    '戀愛': '恋爱', 'music': '音乐', '戰鬥': '战斗', '旅行系': '旅行',
+    '校園': '校园', '百合向': '百合', '職場': '职场',
+})
 
 # Frozen pre-5B-1 vocabulary, verified against the 5A baseline (eca457f).
 # Explicit copies, NOT derived by subtracting future releases. Offline only.
@@ -56,6 +79,8 @@ def genre_rules(version=None):
         return AVAILABLE_TAGS, ALIASES
     if version == LEGACY_TAXONOMY_VERSION:
         return LEGACY_AVAILABLE_TAGS, LEGACY_ALIASES
+    if version == PREVIOUS_TAXONOMY_VERSION:
+        return PREVIOUS_AVAILABLE_TAGS, PREVIOUS_ALIASES
     raise ValueError('Unsupported genre-rule version')
 
 

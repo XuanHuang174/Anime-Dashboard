@@ -23,7 +23,8 @@ from recommendations.quality_evaluation import evidence_errors
 from recommendations.tag_coverage import (_coverage, analyze_public_tags, attach_release_comparison,
                                            coverage_markdown, write_coverage_reports)
 from recommendations.tag_review_rules import GENRE_CANDIDATES, PENDING_ALIASES
-from recommendations.taxonomy import (ALIASES, APPROVED_ALIASES, AVAILABLE_TAGS, TAXONOMY_VERSION,
+from recommendations.taxonomy import (ALIASES, APPROVED_ALIASES, PREVIOUS_APPROVED_ALIASES,
+                                      APPROVED_ALIAS_BATCH, AVAILABLE_TAGS, TAXONOMY_VERSION,
                                       canonical_tag, validate_preference_tags)
 
 EXPECTED_APPROVED = {'治愈系': '治愈', '治癒': '治愈', 'comedy': '喜剧', '日常系': '日常',
@@ -32,11 +33,12 @@ EXPECTED_APPROVED = {'治愈系': '治愈', '治癒': '治愈', 'comedy': '喜�
 
 
 class AliasReleasePrimitiveTests(SimpleTestCase):
-    def test_only_the_11_approved_aliases_retained_with_seven_approved_genres(self):
-        self.assertEqual(APPROVED_ALIASES, EXPECTED_APPROVED)
-        self.assertEqual(len(ALIASES), 21)  # 10 pre-existing + exactly 11 approved.
+    def test_original_11_aliases_retained_with_only_reviewed_nine_added(self):
+        self.assertEqual(PREVIOUS_APPROVED_ALIASES, EXPECTED_APPROVED)
+        self.assertEqual(APPROVED_ALIASES, EXPECTED_APPROVED | APPROVED_ALIAS_BATCH)
+        self.assertEqual(len(ALIASES), 30)  # 10 original + 11 previous + 9 reviewed.
         self.assertEqual(len(AVAILABLE_TAGS), 33)
-        self.assertEqual(TAXONOMY_VERSION, 'genres.v4')
+        self.assertEqual(TAXONOMY_VERSION, 'genres.v5')
         self.assertEqual(FEATURE_RULE_VERSION, 'journal-genres.v3')
         self.assertEqual(engine.ALGORITHM_VERSION, 'content.v1')
         for source, target in EXPECTED_APPROVED.items():
@@ -101,7 +103,7 @@ class AliasReleaseAPITests(APITestCase):
         self.assertEqual(profile['tag_summary'], [{'tag': '音乐', 'sample_count': 3}])
         self.assertEqual(profile['extraction']['explicit_preferences']['tags'], ['科幻'])
         self.assertEqual(result['algorithm_version'], 'content.v1')
-        self.assertEqual(result['taxonomy_version'], 'genres.v4')
+        self.assertEqual(result['taxonomy_version'], TAXONOMY_VERSION)
         self.assertEqual({item['bangumi_id'] for item in result['results']}, {10, 11, 12})
         for item in result['results']:
             self.assertEqual(item['evidence']['feature_rule_version'], FEATURE_RULE_VERSION)
@@ -193,7 +195,7 @@ class AliasReleaseReportTests(SimpleTestCase):
                 if change == 'different_catalog':
                     old['catalog_fingerprint'] = 'different'
                 if change == 'wrong_version':
-                    old['versions']['active_taxonomy'] = 'genres.v4'
+                    old['versions']['active_taxonomy'] = TAXONOMY_VERSION
                 if change == 'bad_histogram':
                     old['before']['works'] = 99
                     old['after_active']['works'] = 99

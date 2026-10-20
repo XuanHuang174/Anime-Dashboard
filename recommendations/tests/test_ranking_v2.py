@@ -9,7 +9,7 @@ from django.core.cache import cache
 from django.db import connection
 from django.test import SimpleTestCase, override_settings
 from django.test.utils import CaptureQueriesContext
-from rest_framework.test import APITestCase
+from rest_framework.test import APITransactionTestCase
 
 from anime.models import Anime, UserAnimeRecord
 from recommendations import engine, ranking_v2
@@ -178,8 +178,18 @@ print(json.dumps({'vector': vector, 'rows': [{**item, 'tags': sorted(item['tags'
 
 
 @override_settings(RECOMMENDATION_ALGORITHM_VERSION='content.v2')
-class V2EngineAPITests(APITestCase):
+class V2EngineAPITests(APITransactionTestCase):
+    # The service opens its own REPEATABLE READ, READ ONLY transaction. Django's
+    # APITestCase outer atomic block would reject it before exercising ranking.
     def setUp(self):
+        self.assertEqual(connection.vendor, 'postgresql')
+        self.assertEqual(connection.settings_dict['NAME'], 'test_recommendation_isolated_tests')
+        # These synthetic algorithm tests do not carry a real release approval.
+        # Mock only this gate locally; production approval enforcement is unchanged
+        # and covered independently by version/deployment guard tests.
+        approval = patch('recommendations.version_control.require_v2_approval')
+        approval.start()
+        self.addCleanup(approval.stop)
         cache.clear()
         self.owner = get_user_model().objects.create_user(username='v2-owner')
         self.other = get_user_model().objects.create_user(username='v2-other')
@@ -203,7 +213,7 @@ class V2EngineAPITests(APITestCase):
         before = list(UserAnimeRecord.objects.order_by('pk').values())
         with CaptureQueriesContext(connection) as queries:
             response = self.get(page_size=24)
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 200, response.data)
         self.assertEqual(response.data['algorithm_version'], 'content.v2')
         self.assertEqual(response.data['count'], 15)
         context = engine.user_context(self.owner)

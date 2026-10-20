@@ -33,7 +33,7 @@ class GenreReleasePrimitiveTests(SimpleTestCase):
     def test_exactly_seven_independent_genres_added_and_unapproved_rules_stay_pending(self):
         self.assertEqual(tuple(APPROVED_GENRES), NEW_GENRES)
         self.assertEqual(AVAILABLE_TAGS, OLD_GENRES + NEW_GENRES)
-        self.assertEqual(len(APPROVED_ALIASES), 11)
+        self.assertEqual(len(APPROVED_ALIASES), 20)
         self.assertEqual(set(GENRE_CANDIDATES), {'BL', '耽美', '实验', '超现实', '猎奇'})
         validate_proposals()
         for value in (*GENRE_CANDIDATES, *PENDING_ALIASES, '修仙', '转生', '惊悚', '变身', '后宮',
@@ -42,7 +42,7 @@ class GenreReleasePrimitiveTests(SimpleTestCase):
         for value in NEW_GENRES:
             self.assertEqual(feature_tags(value), {value})  # No parent/related genre propagation.
         self.assertEqual(feature_tags('魔法少女,魔法'), {'魔法少女', '魔法'})
-        self.assertEqual(TAXONOMY_VERSION, 'genres.v4')
+        self.assertEqual(TAXONOMY_VERSION, 'genres.v5')
         self.assertEqual(FEATURE_RULE_VERSION, 'journal-genres.v3')
         self.assertEqual(engine.ALGORITHM_VERSION, 'content.v1')
 
@@ -207,7 +207,8 @@ class GenreReleaseComparisonTests(SimpleTestCase):
     def test_v3_baseline_supported_and_current_future_versions_rejected(self):
         rows = [{'bangumi_id': 1, 'title_zh': '公共作品', 'title_jp': '', 'tags': '武侠', 'status_type': 'TV'}]
         current = analyze_public_tags(rows, {'total': 1, 'non_adult': 1, 'adult': 0, 'unknown': 0})
-        for version, valid in (('genres.v3', True), ('genres.v2', True), ('genres.v4', False), ('genres.v5', False)):
+        for version, valid in (('genres.v3', True), ('genres.v2', True), ('genres.v4', True),
+                               ('genres.v5', False), ('genres.v6', False)):
             with self.subTest(version=version), tempfile.TemporaryDirectory() as root:
                 prior = deepcopy(current)
                 prior['versions']['active_taxonomy'] = version

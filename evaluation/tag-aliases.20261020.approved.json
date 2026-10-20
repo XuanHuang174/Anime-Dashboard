@@ -1,0 +1,26 @@
+{
+  "release_version": "aliases.2026-10-20.approved-9",
+  "status": "approved_by_user",
+  "approval_scope": "first_batch_nine_exact_synonyms_only",
+  "approval_date": "2026-10-20",
+  "source_proposal": "evaluation/tag-expansion.20261020.proposal.json",
+  "previous_taxonomy": "genres.v4",
+  "taxonomy_version": "genres.v5",
+  "algorithm_version": "content.v1",
+  "preset_count": 33,
+  "max_selected_preferences": 20,
+  "aliases": {
+    "爱情": "恋爱",
+    "治癒系": "治愈",
+    "运动番": "运动",
+    "运动系": "运动",
+    "美食番": "美食",
+    "日常番": "日常",
+    "推理系": "推理",
+    "恋爱番": "恋爱",
+    "搞笑类": "喜剧"
+  },
+  "new_genres_approved": [],
+  "raw_data_rewrite": false,
+  "configuration_note": "审核凭据，不是动态执行配置；运行规则由 taxonomy.py 发布。"
+}
