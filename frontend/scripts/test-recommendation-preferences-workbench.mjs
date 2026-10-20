@@ -97,7 +97,7 @@ try {
   await page.screenshot({ path: path.join(artifacts, 'desktop.png') })
   check('desktop has three generous columns; each scrolls independently without moving header or save footer')
 
-  assert.equal(await page.getByRole('region', { name: '高分作品画像内容', exact: true }).getByRole('checkbox').count(), 0)
+  assert.equal(await page.getByRole('region', { name: '我的作品画像内容', exact: true }).getByRole('checkbox').count(), 0)
   await observed().getByRole('button', { name: '加入我的偏好', exact: true }).first().click()
   assert.equal(await selected(), 2); assert.equal(writes.length, 0)
   await page.getByRole('button', { name: '清空草稿中的明确偏好', exact: true }).click()
@@ -172,7 +172,7 @@ try {
   await dialog().waitFor({ state: 'detached' }); await page.locator('[data-rec-motion-id="101"]').waitFor()
   assert.deepEqual(tags, []); assert.equal(version, beforeClear + 1)
   await open(); assert.equal(await selected(), 0)
-  assert.match(await page.getByRole('region', { name: '高分作品画像内容', exact: true }).innerText(), /可分析样本 63 部/)
+  assert.match(await page.getByRole('region', { name: '我的作品画像内容', exact: true }).innerText(), /可分析样本 63 部/)
   await close()
   check('confirmed clearing only changes explicit preferences; inferred profile remains intact')
 
@@ -211,9 +211,9 @@ try {
   await closeButton.focus(); await page.keyboard.press('Shift+Tab')
   assert.equal(await page.getByRole('button', { name: '保存喜好', exact: true }).evaluate(node => node === document.activeElement), true)
   await page.keyboard.press('Tab'); assert.equal(await closeButton.evaluate(node => node === document.activeElement), true)
-  const trustedRegion = page.getByRole('region', { name: '高分作品画像内容', exact: true })
+  const trustedRegion = page.getByRole('region', { name: '我的作品画像内容', exact: true })
   await trustedRegion.focus(); await trustedRegion.evaluate(node => { node.scrollTop = 0 })
-  await page.keyboard.press('End'); await page.waitForFunction(() => document.querySelector('[aria-label="高分作品画像内容"]').scrollTop > 0)
+  await page.keyboard.press('End'); await page.waitForFunction(() => document.querySelector('[aria-label="我的作品画像内容"]').scrollTop > 0)
   await page.keyboard.press('Escape'); await dialog().waitFor({ state: 'detached' })
   await page.locator('[data-rec-motion-id="101"]').waitFor()
   assert.equal(await page.getByRole('button', { name: '☷ 偏好设置', exact: true }).evaluate(node => node === document.activeElement), true,

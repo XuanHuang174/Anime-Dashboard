@@ -24,7 +24,7 @@ def digest(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
 
 
-def valid_evidence(row):
+def valid_evidence(row, minimum_score=8.5):
     evidence, context = row.get('evidence') or {}, row.get('evidence_context') or {}
     source = evidence.get('source')
     tags = evidence.get('shared_tags')
@@ -47,7 +47,7 @@ def valid_evidence(row):
         return (set(source) == {'bangumi_id', 'title', 'personal_score'}
             and type(source['bangumi_id']) is int and source['bangumi_id'] > 0
             and isinstance(source['title'], str) and bool(source['title'].strip())
-            and not isinstance(source['personal_score'], bool) and 8.5 <= float(source['personal_score']) <= 10)
+            and not isinstance(source['personal_score'], bool) and minimum_score <= float(source['personal_score']) <= 10)
     except (KeyError, ValueError, TypeError):
         return False
 
