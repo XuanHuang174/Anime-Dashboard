@@ -1,0 +1,302 @@
+{
+  "contract_version": "recommendations.tag-expansion-review.v1",
+  "created_at": "2026-10-20T03:23:12.911604+00:00",
+  "catalog_fingerprint": "5f476f5250292c8561cb1ed3da807828451410b66413ed872bfbaf7f8a75d1b5",
+  "baseline_report_fingerprint": "8ee079d14d58a256e83994919b52f0b66cc13c39bcfdd3f00d03974f529eedb0",
+  "proposal_sha256": "86d6b302ec0747c7c9f6f2318d23c979cadde4c46f7c85d861bfdb729a87c5a2",
+  "scope": {
+    "total": 31104,
+    "non_adult": 28636,
+    "adult": 2468,
+    "unknown": 0
+  },
+  "active_taxonomy": "genres.v5",
+  "baseline_taxonomy": "genres.v5",
+  "active_preset_count": 33,
+  "eligible_public_works": 28636,
+  "covered_before": 12633,
+  "unknown_distinct_labels": 16597,
+  "safety_metadata_review_works": 588,
+  "simulation": {
+    "synonyms": {
+      "feature_enriched_works": 0,
+      "newly_eligible_works": 0,
+      "covered_after_if_approved": 12633,
+      "coverage_fraction_if_approved": 0.4411579829585138
+    },
+    "new_genres": {
+      "feature_enriched_works": 566,
+      "newly_eligible_works": 98,
+      "covered_after_if_approved": 12731,
+      "coverage_fraction_if_approved": 0.44458024863807794
+    },
+    "combined": {
+      "feature_enriched_works": 566,
+      "newly_eligible_works": 98,
+      "covered_after_if_approved": 12731,
+      "coverage_fraction_if_approved": 0.44458024863807794
+    }
+  },
+  "review": {
+    "proposal_version": "tag-genres.2026-10-20.review.1",
+    "baseline_taxonomy": "genres.v5",
+    "status": "pending_human_review",
+    "apply_to_production": false,
+    "review_scope": "second_batch_eight_new_features_only",
+    "previous_alias_release": "aliases.2026-10-20.approved-9",
+    "synonyms": [],
+    "new_genres": [
+      {
+        "source": "萌系",
+        "target": "萌系",
+        "rationale": "可爱角色及其审美体验这一偏好特征，不是角色年龄或内容分级；仅接受精确萌系标签，不吸收萌、卖萌、萌豚、废萌、美少女。",
+        "technical_recommendation": "recommend_exact_label",
+        "feature_dimension": "aesthetic",
+        "approval": "pending_user_confirmation",
+        "document_frequency": 88,
+        "zero_genre_document_frequency": 14,
+        "examples": [
+          {
+            "bangumi_id": 2257,
+            "title_zh": "爱丽丝学园",
+            "title_jp": "学園アリス",
+            "status_type": "TV"
+          },
+          {
+            "bangumi_id": 3012,
+            "title_zh": "萌菌物语",
+            "title_jp": "もやしもん",
+            "status_type": "TV"
+          }
+        ],
+        "suppressed_example_works": 2,
+        "decision": "pending_review",
+        "apply_to_production": false,
+        "target_feature_new_to_works": 88,
+        "recovered_zero_genre_works": 14
+      },
+      {
+        "source": "战争",
+        "target": "战争",
+        "rationale": "战争冲突、战争经历及其影响这一题材；不因战斗、历史、军事或兵器标签自动补战争。",
+        "technical_recommendation": "recommend_exact_label",
+        "feature_dimension": "subject",
+        "approval": "pending_user_confirmation",
+        "document_frequency": 152,
+        "zero_genre_document_frequency": 31,
+        "examples": [
+          {
+            "bangumi_id": 382,
+            "title_zh": "萤火虫之墓",
+            "title_jp": "火垂るの墓",
+            "status_type": "剧场版"
+          },
+          {
+            "bangumi_id": 493,
+            "title_zh": "皇家国教骑士团 OVA",
+            "title_jp": "HELLSING OVA",
+            "status_type": "OVA"
+          }
+        ],
+        "suppressed_example_works": 2,
+        "decision": "pending_review",
+        "apply_to_production": false,
+        "target_feature_new_to_works": 152,
+        "recovered_zero_genre_works": 31
+      },
+      {
+        "source": "动作",
+        "target": "动作",
+        "rationale": "动态动作场面的表现特征，独立于战斗；可与战斗共存，但不相互生成、不做父子题材扩张。",
+        "technical_recommendation": "recommend_exact_label",
+        "feature_dimension": "presentation",
+        "approval": "pending_user_confirmation",
+        "document_frequency": 109,
+        "zero_genre_document_frequency": 11,
+        "examples": [
+          {
+            "bangumi_id": 254,
+            "title_zh": "混沌武士",
+            "title_jp": "サムライチャンプルー",
+            "status_type": "TV"
+          },
+          {
+            "bangumi_id": 699,
+            "title_zh": "苍色骑士",
+            "title_jp": "BLASSREITER",
+            "status_type": "TV"
+          }
+        ],
+        "suppressed_example_works": 2,
+        "decision": "pending_review",
+        "apply_to_production": false,
+        "target_feature_new_to_works": 109,
+        "recovered_zero_genre_works": 11
+      },
+      {
+        "source": "励志",
+        "target": "励志",
+        "rationale": "面对困难、努力追求目标的激励叙事气质；不把成长、热血、运动自动映射为励志。",
+        "technical_recommendation": "recommend_exact_label",
+        "feature_dimension": "narrative_tone",
+        "approval": "pending_user_confirmation",
+        "document_frequency": 82,
+        "zero_genre_document_frequency": 14,
+        "examples": [
+          {
+            "bangumi_id": 511,
+            "title_zh": "茄子：带着旅行箱的候鸟",
+            "title_jp": "茄子 スーツケースの渡り鳥",
+            "status_type": "OVA"
+          },
+          {
+            "bangumi_id": 533,
+            "title_zh": "美食总动员",
+            "title_jp": "Ratatouille",
+            "status_type": "剧场版"
+          }
+        ],
+        "suppressed_example_works": 1,
+        "decision": "pending_review",
+        "apply_to_production": false,
+        "target_feature_new_to_works": 82,
+        "recovered_zero_genre_works": 14
+      },
+      {
+        "source": "超能力",
+        "target": "超能力",
+        "rationale": "角色具有超常能力的明确设定；不自动等同魔法、科幻、奇幻或战斗，不推断具体能力。",
+        "technical_recommendation": "recommend_exact_label",
+        "feature_dimension": "setting",
+        "approval": "pending_user_confirmation",
+        "document_frequency": 62,
+        "zero_genre_document_frequency": 6,
+        "examples": [
+          {
+            "bangumi_id": 292,
+            "title_zh": "DARKER THAN BLACK -黑之契约者-",
+            "title_jp": "DARKER THAN BLACK -黒の契約者-",
+            "status_type": "TV"
+          },
+          {
+            "bangumi_id": 1014,
+            "title_zh": "魔法禁书目录",
+            "title_jp": "とある魔術の禁書目録",
+            "status_type": "TV"
+          }
+        ],
+        "suppressed_example_works": 0,
+        "decision": "pending_review",
+        "apply_to_production": false,
+        "target_feature_new_to_works": 62,
+        "recovered_zero_genre_works": 6
+      },
+      {
+        "source": "童话",
+        "target": "童话",
+        "rationale": "已有标签明确标识的童话题材或表达；童话改属于改编来源，不直接合并；不等同子供向或全年龄安全评级。",
+        "technical_recommendation": "recommend_exact_label",
+        "feature_dimension": "subject_or_expression",
+        "approval": "pending_user_confirmation",
+        "document_frequency": 40,
+        "zero_genre_document_frequency": 20,
+        "examples": [
+          {
+            "bangumi_id": 305,
+            "title_zh": "魔女宅急便",
+            "title_jp": "魔女の宅急便",
+            "status_type": "剧场版"
+          },
+          {
+            "bangumi_id": 2215,
+            "title_zh": "魔方大厦",
+            "title_jp": "魔方大厦",
+            "status_type": "TV"
+          }
+        ],
+        "suppressed_example_works": 0,
+        "decision": "pending_review",
+        "apply_to_production": false,
+        "target_feature_new_to_works": 40,
+        "recovered_zero_genre_works": 20
+      },
+      {
+        "source": "犯罪",
+        "target": "犯罪",
+        "rationale": "围绕犯罪行为及相关关系展开的题材；不自动等同推理、悬疑、暴力或成人分级。",
+        "technical_recommendation": "recommend_exact_label",
+        "feature_dimension": "subject",
+        "approval": "pending_user_confirmation",
+        "document_frequency": 23,
+        "zero_genre_document_frequency": 3,
+        "examples": [
+          {
+            "bangumi_id": 19017,
+            "title_zh": "黑猫警长",
+            "title_jp": "黑猫警长",
+            "status_type": "剧场版"
+          },
+          {
+            "bangumi_id": 73820,
+            "title_zh": "刺痛我",
+            "title_jp": "刺痛我",
+            "status_type": "剧场版"
+          }
+        ],
+        "suppressed_example_works": 1,
+        "decision": "pending_review",
+        "apply_to_production": false,
+        "target_feature_new_to_works": 23,
+        "recovered_zero_genre_works": 3
+      },
+      {
+        "source": "赛博朋克",
+        "target": "赛博朋克",
+        "rationale": "明确赛博朋克设定或审美特征；不根据科幻、机器人、都市标签或画面补入，也不自动反向补科幻父级。",
+        "technical_recommendation": "recommend_exact_label",
+        "feature_dimension": "setting_or_aesthetic",
+        "approval": "pending_user_confirmation",
+        "document_frequency": 22,
+        "zero_genre_document_frequency": 0,
+        "examples": [
+          {
+            "bangumi_id": 237,
+            "title_zh": "攻壳机动队",
+            "title_jp": "GHOST IN THE SHELL / 攻殻機動隊",
+            "status_type": "剧场版"
+          },
+          {
+            "bangumi_id": 238,
+            "title_zh": "攻壳机动队2 无罪",
+            "title_jp": "イノセンス",
+            "status_type": "剧场版"
+          }
+        ],
+        "suppressed_example_works": 0,
+        "decision": "pending_review",
+        "apply_to_production": false,
+        "target_feature_new_to_works": 22,
+        "recovered_zero_genre_works": 0
+      }
+    ],
+    "deferred": [],
+    "excluded_examples": [],
+    "activation_requirements": [
+      "用户明确确认八项定义和实施范围后，再进行单独的版本化代码发布",
+      "继续后端过滤成人及未知分级，不用题材代替分级",
+      "带安全提示标签的分级疑点只作元数据核对线索，不自动改库或推断新分级",
+      "公共目录与私人特征副本使用同一精确词表，私人主动清空不补回",
+      "保持 V1 排序公式、手动选择上限20和用户数据不变",
+      "预设接口、画像、证据、缓存和分页快照版本一并验证"
+    ]
+  },
+  "policy": {
+    "mapping_applied": false,
+    "private_tables_read": false,
+    "source_data_modified": false,
+    "ranking_changed": false,
+    "new_genres_only_hypothetical": true,
+    "deferred_in_simulation": false,
+    "counts_are_not_accuracy_or_personal_preference": true
+  }
+}
