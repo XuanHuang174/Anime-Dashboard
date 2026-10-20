@@ -1,0 +1,63 @@
+{
+  "proposal_version": "tag-expansion.2026-10-20.draft.1",
+  "baseline_taxonomy": "genres.v4",
+  "status": "pending_human_review",
+  "apply_to_production": false,
+  "synonyms": [
+    {"source": "爱情", "target": "恋爱", "rationale": "拟按恋爱情感题材合并；需确认产品词义边界，不扩展到所有人物情感。"},
+    {"source": "治癒系", "target": "治愈", "rationale": "已启用治愈系的文字变体；只接受该完整标签。"},
+    {"source": "运动番", "target": "运动", "rationale": "明确题材加作品称谓后缀；不采用通用去后缀规则。"},
+    {"source": "运动系", "target": "运动", "rationale": "明确题材加系后缀；仅此精确映射。"},
+    {"source": "美食番", "target": "美食", "rationale": "明确美食题材称谓；不从简介中的食物推断。"},
+    {"source": "日常番", "target": "日常", "rationale": "明确日常题材称谓；不匹配作品标题中的日常二字。"},
+    {"source": "推理系", "target": "推理", "rationale": "明确推理题材称谓；不自动合并悬疑。"},
+    {"source": "恋爱番", "target": "恋爱", "rationale": "明确恋爱题材称谓；不按标题关键词提取。"},
+    {"source": "搞笑类", "target": "喜剧", "rationale": "已有搞笑映射的完整标签变体；不拆分复合标签。"}
+  ],
+  "new_genres": [
+    {"source": "萌系", "target": "萌系", "rationale": "以可爱角色及相应审美体验为表达方向的偏好维度；仅接受明确萌系标签，不等同幼龄角色、治愈、日常或内容分级。"},
+    {"source": "战争", "target": "战争", "rationale": "战争冲突、战争经历及其影响；不等同战斗、历史或军事设定。"},
+    {"source": "动作", "target": "动作", "rationale": "以动态动作场面为表现方向；独立于战斗，不自动建立父子题材关系。"},
+    {"source": "励志", "target": "励志", "rationale": "面对困难、努力追求目标的激励叙事；不自动等同热血或成长。"},
+    {"source": "超能力", "target": "超能力", "rationale": "角色具有超常能力的明确设定；不自动归入科幻、魔法或战斗。"},
+    {"source": "童话", "target": "童话", "rationale": "明确童话题材或童话表达；童话改是改编来源，不能直接映射。"},
+    {"source": "犯罪", "target": "犯罪", "rationale": "围绕犯罪行为及相关关系的题材；不自动等同推理、悬疑或成人。"},
+    {"source": "赛博朋克", "target": "赛博朋克", "rationale": "明确赛博朋克世界观或审美题材；不从城市画面推断，不自动补科幻父级。"}
+  ],
+  "deferred": [
+    {"source": "SF", "target": null, "rationale": "可能指科幻，但缩写存在歧义；先核对原始标签语义，不直接合并。"},
+    {"source": "萝卜", "target": null, "rationale": "机战圈俚语与食物字面义冲突；不能因高频就映射机战。"},
+    {"source": "萌", "target": null, "rationale": "可表示评价或审美取向；不能未经确认直接映射萌系。"},
+    {"source": "卖萌", "target": null, "rationale": "角色行为与审美题材不完全同义；暂不映射萌系。"},
+    {"source": "萌豚", "target": null, "rationale": "受众或自嘲称谓，不直接作为作品题材。"},
+    {"source": "废萌", "target": null, "rationale": "带评价色彩的圈内说法；不自动映射萌系或日常。"},
+    {"source": "竞技", "target": null, "rationale": "可能包含游戏、卡牌等非体育竞技；不可全部映射运动。"},
+    {"source": "科普", "target": null, "rationale": "有独立价值，但应先确认知识教育维度是否进入题材预设。"},
+    {"source": "家庭", "target": null, "rationale": "家庭环境不必然代表亲情；独立定义后再决定。"},
+    {"source": "末世", "target": null, "rationale": "可作为独立世界设定；不自动合并末日或科幻。"},
+    {"source": "魔幻", "target": null, "rationale": "与奇幻、魔法、魔幻现实主义的边界需明确。"},
+    {"source": "BL", "target": null, "rationale": "男性间恋爱情感题材候选；与耽美是否同义需单独确认，不由题材推断安全分级。"},
+    {"source": "耽美", "target": null, "rationale": "先确认定义及与 BL 的关系，不自动合并。"},
+    {"source": "超现实", "target": null, "rationale": "表达风格与叙事维度；需确认是否放入同一题材体系。"},
+    {"source": "实验", "target": null, "rationale": "实验表达风格，不因潜在覆盖数量大就作为喜好题材。"},
+    {"source": "猎奇", "target": null, "rationale": "含义和内容跨度大，先明确语义与安全元数据边界。"},
+    {"source": "公路片", "target": null, "rationale": "可作为叙事形式；不直接映射旅行。"},
+    {"source": "黑色幽默", "target": null, "rationale": "有价值的喜剧表达分支；不自动折叠为喜剧。"},
+    {"source": "蒸汽朋克", "target": null, "rationale": "独立设定或审美分支；不自动补科幻父级。"}
+  ],
+  "excluded_examples": [
+    {"source": "TV", "target": null, "rationale": "作品形式，不是题材。"},
+    {"source": "短片", "target": null, "rationale": "作品形式，不是题材。"},
+    {"source": "剧场版", "target": null, "rationale": "作品形式，不是题材。"},
+    {"source": "原创", "target": null, "rationale": "创作来源，不是题材。"},
+    {"source": "漫画改", "target": null, "rationale": "改编来源，不是题材。"},
+    {"source": "欧美", "target": null, "rationale": "地区，不是题材。"},
+    {"source": "SUNRISE", "target": null, "rationale": "制作信息，不是题材。"},
+    {"source": "3D", "target": null, "rationale": "制作技术，不是题材。"},
+    {"source": "童年", "target": null, "rationale": "个人回忆或管理标签，不是题材。"},
+    {"source": "神作", "target": null, "rationale": "评价，不是题材。"},
+    {"source": "子供向", "target": null, "rationale": "目标受众，不当作题材或安全评级。"},
+    {"source": "猫和老鼠", "target": null, "rationale": "作品或系列名称，不据此推断题材、续作关系。"},
+    {"source": "里番", "target": null, "rationale": "只作安全元数据复核信号；不映射题材、不自动修改分级。"}
+  ]
+}

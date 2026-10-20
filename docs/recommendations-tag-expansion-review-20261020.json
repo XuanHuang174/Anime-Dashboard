@@ -1,0 +1,1234 @@
+{
+  "contract_version": "recommendations.tag-expansion-review.v1",
+  "created_at": "2026-10-20T02:39:09.001127+00:00",
+  "catalog_fingerprint": "5f476f5250292c8561cb1ed3da807828451410b66413ed872bfbaf7f8a75d1b5",
+  "baseline_report_fingerprint": "468e21c34dc74b81e31f4d8589488c2c3b64e7d758b3219e9d697558c1899a8d",
+  "proposal_sha256": "610a8ec9ca92be7d3ece5b2661e91d9bbe0aec68b710946d870625d673a2b5dd",
+  "scope": {
+    "total": 31104,
+    "non_adult": 28636,
+    "adult": 2468,
+    "unknown": 0
+  },
+  "active_taxonomy": "genres.v4",
+  "active_preset_count": 33,
+  "eligible_public_works": 28636,
+  "covered_before": 12615,
+  "unknown_distinct_labels": 16606,
+  "safety_metadata_review_works": 588,
+  "simulation": {
+    "synonyms": {
+      "feature_enriched_works": 40,
+      "newly_eligible_works": 18,
+      "covered_after_if_approved": 12633,
+      "coverage_fraction_if_approved": 0.4411579829585138
+    },
+    "new_genres": {
+      "feature_enriched_works": 566,
+      "newly_eligible_works": 98,
+      "covered_after_if_approved": 12713,
+      "coverage_fraction_if_approved": 0.44395166922754575
+    },
+    "combined": {
+      "feature_enriched_works": 605,
+      "newly_eligible_works": 116,
+      "covered_after_if_approved": 12731,
+      "coverage_fraction_if_approved": 0.44458024863807794
+    }
+  },
+  "review": {
+    "proposal_version": "tag-expansion.2026-10-20.draft.1",
+    "baseline_taxonomy": "genres.v4",
+    "status": "pending_human_review",
+    "apply_to_production": false,
+    "synonyms": [
+      {
+        "source": "爱情",
+        "target": "恋爱",
+        "rationale": "拟按恋爱情感题材合并；需确认产品词义边界，不扩展到所有人物情感。",
+        "document_frequency": 55,
+        "zero_genre_document_frequency": 13,
+        "examples": [
+          {
+            "bangumi_id": 306,
+            "title_zh": "我自己；你自己",
+            "title_jp": "Myself ; Yourself",
+            "status_type": "TV"
+          },
+          {
+            "bangumi_id": 513,
+            "title_zh": "听到涛声",
+            "title_jp": "海がきこえる",
+            "status_type": "TV"
+          }
+        ],
+        "suppressed_example_works": 3,
+        "decision": "pending_review",
+        "apply_to_production": false,
+        "target_feature_new_to_works": 33,
+        "recovered_zero_genre_works": 13
+      },
+      {
+        "source": "治癒系",
+        "target": "治愈",
+        "rationale": "已启用治愈系的文字变体；只接受该完整标签。",
+        "document_frequency": 9,
+        "zero_genre_document_frequency": 0,
+        "examples": [
+          {
+            "bangumi_id": 2414,
+            "title_zh": "小小雪精灵",
+            "title_jp": "ちっちゃな雪使いシュガー",
+            "status_type": "TV"
+          },
+          {
+            "bangumi_id": 2415,
+            "title_zh": "小小雪精灵 夏季特别篇",
+            "title_jp": "ちっちゃな雪使いシュガー 特別編",
+            "status_type": "TV"
+          }
+        ],
+        "suppressed_example_works": 0,
+        "decision": "pending_review",
+        "apply_to_production": false,
+        "target_feature_new_to_works": 1,
+        "recovered_zero_genre_works": 0
+      },
+      {
+        "source": "运动番",
+        "target": "运动",
+        "rationale": "明确题材加作品称谓后缀；不采用通用去后缀规则。",
+        "document_frequency": 8,
+        "zero_genre_document_frequency": 2,
+        "examples": [
+          {
+            "bangumi_id": 56993,
+            "title_zh": "踢向明天",
+            "title_jp": "あしたへフリーキック",
+            "status_type": "TV"
+          },
+          {
+            "bangumi_id": 62914,
+            "title_zh": "以柔克刚",
+            "title_jp": "YAWARA!",
+            "status_type": "TV"
+          }
+        ],
+        "suppressed_example_works": 0,
+        "decision": "pending_review",
+        "apply_to_production": false,
+        "target_feature_new_to_works": 2,
+        "recovered_zero_genre_works": 2
+      },
+      {
+        "source": "运动系",
+        "target": "运动",
+        "rationale": "明确题材加系后缀；仅此精确映射。",
+        "document_frequency": 5,
+        "zero_genre_document_frequency": 0,
+        "examples": [
+          {
+            "bangumi_id": 21231,
+            "title_zh": "灌篮少年",
+            "title_jp": "DEAR BOYS",
+            "status_type": "TV"
+          },
+          {
+            "bangumi_id": 27711,
+            "title_zh": "弹道",
+            "title_jp": "DAN DOH!!",
+            "status_type": "TV"
+          }
+        ],
+        "suppressed_example_works": 0,
+        "decision": "pending_review",
+        "apply_to_production": false,
+        "target_feature_new_to_works": 0,
+        "recovered_zero_genre_works": 0
+      },
+      {
+        "source": "美食番",
+        "target": "美食",
+        "rationale": "明确美食题材称谓；不从简介中的食物推断。",
+        "document_frequency": 3,
+        "zero_genre_document_frequency": 1,
+        "examples": [
+          {
+            "bangumi_id": 192252,
+            "title_zh": "异世界食堂",
+            "title_jp": "異世界食堂",
+            "status_type": "TV"
+          },
+          {
+            "bangumi_id": 198894,
+            "title_zh": "异世界居酒屋～古都阿伊特力亚的居酒屋「阿信」",
+            "title_jp": "異世界居酒屋～古都アイテーリアの居酒屋のぶ～",
+            "status_type": "WEB"
+          }
+        ],
+        "suppressed_example_works": 0,
+        "decision": "pending_review",
+        "apply_to_production": false,
+        "target_feature_new_to_works": 1,
+        "recovered_zero_genre_works": 1
+      },
+      {
+        "source": "日常番",
+        "target": "日常",
+        "rationale": "明确日常题材称谓；不匹配作品标题中的日常二字。",
+        "document_frequency": 2,
+        "zero_genre_document_frequency": 0,
+        "examples": [
+          {
+            "bangumi_id": 195860,
+            "title_zh": "妙厨老爹",
+            "title_jp": "クッキングパパ",
+            "status_type": "TV"
+          },
+          {
+            "bangumi_id": 199407,
+            "title_zh": "女生宿舍日常",
+            "title_jp": "女生宿舍日常",
+            "status_type": "WEB"
+          }
+        ],
+        "suppressed_example_works": 0,
+        "decision": "pending_review",
+        "apply_to_production": false,
+        "target_feature_new_to_works": 1,
+        "recovered_zero_genre_works": 0
+      },
+      {
+        "source": "推理系",
+        "target": "推理",
+        "rationale": "明确推理题材称谓；不自动合并悬疑。",
+        "document_frequency": 2,
+        "zero_genre_document_frequency": 0,
+        "examples": [
+          {
+            "bangumi_id": 27364,
+            "title_zh": "冰菓",
+            "title_jp": "氷菓",
+            "status_type": "TV"
+          },
+          {
+            "bangumi_id": 38125,
+            "title_zh": "名侦探柯南 柯南、平次与消失的少年",
+            "title_jp": "名探偵コナン コナンと平次と消えた少年",
+            "status_type": "OVA"
+          }
+        ],
+        "suppressed_example_works": 0,
+        "decision": "pending_review",
+        "apply_to_production": false,
+        "target_feature_new_to_works": 0,
+        "recovered_zero_genre_works": 0
+      },
+      {
+        "source": "恋爱番",
+        "target": "恋爱",
+        "rationale": "明确恋爱题材称谓；不按标题关键词提取。",
+        "document_frequency": 1,
+        "zero_genre_document_frequency": 1,
+        "examples": [
+          {
+            "bangumi_id": 134594,
+            "title_zh": "玩偶游戏",
+            "title_jp": "こどものおもちゃ OVA",
+            "status_type": "OVA"
+          }
+        ],
+        "suppressed_example_works": 0,
+        "decision": "pending_review",
+        "apply_to_production": false,
+        "target_feature_new_to_works": 1,
+        "recovered_zero_genre_works": 1
+      },
+      {
+        "source": "搞笑类",
+        "target": "喜剧",
+        "rationale": "已有搞笑映射的完整标签变体；不拆分复合标签。",
+        "document_frequency": 1,
+        "zero_genre_document_frequency": 1,
+        "examples": [
+          {
+            "bangumi_id": 117468,
+            "title_zh": "肥猫大战三小强 第一季",
+            "title_jp": "Oggy et les Cafards season 1",
+            "status_type": "TV"
+          }
+        ],
+        "suppressed_example_works": 0,
+        "decision": "pending_review",
+        "apply_to_production": false,
+        "target_feature_new_to_works": 1,
+        "recovered_zero_genre_works": 1
+      }
+    ],
+    "new_genres": [
+      {
+        "source": "萌系",
+        "target": "萌系",
+        "rationale": "以可爱角色及相应审美体验为表达方向的偏好维度；仅接受明确萌系标签，不等同幼龄角色、治愈、日常或内容分级。",
+        "document_frequency": 88,
+        "zero_genre_document_frequency": 14,
+        "examples": [
+          {
+            "bangumi_id": 2257,
+            "title_zh": "爱丽丝学园",
+            "title_jp": "学園アリス",
+            "status_type": "TV"
+          },
+          {
+            "bangumi_id": 3012,
+            "title_zh": "萌菌物语",
+            "title_jp": "もやしもん",
+            "status_type": "TV"
+          }
+        ],
+        "suppressed_example_works": 2,
+        "decision": "pending_review",
+        "apply_to_production": false,
+        "target_feature_new_to_works": 88,
+        "recovered_zero_genre_works": 14
+      },
+      {
+        "source": "战争",
+        "target": "战争",
+        "rationale": "战争冲突、战争经历及其影响；不等同战斗、历史或军事设定。",
+        "document_frequency": 152,
+        "zero_genre_document_frequency": 31,
+        "examples": [
+          {
+            "bangumi_id": 382,
+            "title_zh": "萤火虫之墓",
+            "title_jp": "火垂るの墓",
+            "status_type": "剧场版"
+          },
+          {
+            "bangumi_id": 493,
+            "title_zh": "皇家国教骑士团 OVA",
+            "title_jp": "HELLSING OVA",
+            "status_type": "OVA"
+          }
+        ],
+        "suppressed_example_works": 2,
+        "decision": "pending_review",
+        "apply_to_production": false,
+        "target_feature_new_to_works": 152,
+        "recovered_zero_genre_works": 31
+      },
+      {
+        "source": "动作",
+        "target": "动作",
+        "rationale": "以动态动作场面为表现方向；独立于战斗，不自动建立父子题材关系。",
+        "document_frequency": 109,
+        "zero_genre_document_frequency": 11,
+        "examples": [
+          {
+            "bangumi_id": 254,
+            "title_zh": "混沌武士",
+            "title_jp": "サムライチャンプルー",
+            "status_type": "TV"
+          },
+          {
+            "bangumi_id": 699,
+            "title_zh": "苍色骑士",
+            "title_jp": "BLASSREITER",
+            "status_type": "TV"
+          }
+        ],
+        "suppressed_example_works": 2,
+        "decision": "pending_review",
+        "apply_to_production": false,
+        "target_feature_new_to_works": 109,
+        "recovered_zero_genre_works": 11
+      },
+      {
+        "source": "励志",
+        "target": "励志",
+        "rationale": "面对困难、努力追求目标的激励叙事；不自动等同热血或成长。",
+        "document_frequency": 82,
+        "zero_genre_document_frequency": 14,
+        "examples": [
+          {
+            "bangumi_id": 511,
+            "title_zh": "茄子：带着旅行箱的候鸟",
+            "title_jp": "茄子 スーツケースの渡り鳥",
+            "status_type": "OVA"
+          },
+          {
+            "bangumi_id": 533,
+            "title_zh": "美食总动员",
+            "title_jp": "Ratatouille",
+            "status_type": "剧场版"
+          }
+        ],
+        "suppressed_example_works": 1,
+        "decision": "pending_review",
+        "apply_to_production": false,
+        "target_feature_new_to_works": 82,
+        "recovered_zero_genre_works": 14
+      },
+      {
+        "source": "超能力",
+        "target": "超能力",
+        "rationale": "角色具有超常能力的明确设定；不自动归入科幻、魔法或战斗。",
+        "document_frequency": 62,
+        "zero_genre_document_frequency": 6,
+        "examples": [
+          {
+            "bangumi_id": 292,
+            "title_zh": "DARKER THAN BLACK -黑之契约者-",
+            "title_jp": "DARKER THAN BLACK -黒の契約者-",
+            "status_type": "TV"
+          },
+          {
+            "bangumi_id": 1014,
+            "title_zh": "魔法禁书目录",
+            "title_jp": "とある魔術の禁書目録",
+            "status_type": "TV"
+          }
+        ],
+        "suppressed_example_works": 0,
+        "decision": "pending_review",
+        "apply_to_production": false,
+        "target_feature_new_to_works": 62,
+        "recovered_zero_genre_works": 6
+      },
+      {
+        "source": "童话",
+        "target": "童话",
+        "rationale": "明确童话题材或童话表达；童话改是改编来源，不能直接映射。",
+        "document_frequency": 40,
+        "zero_genre_document_frequency": 20,
+        "examples": [
+          {
+            "bangumi_id": 305,
+            "title_zh": "魔女宅急便",
+            "title_jp": "魔女の宅急便",
+            "status_type": "剧场版"
+          },
+          {
+            "bangumi_id": 2215,
+            "title_zh": "魔方大厦",
+            "title_jp": "魔方大厦",
+            "status_type": "TV"
+          }
+        ],
+        "suppressed_example_works": 0,
+        "decision": "pending_review",
+        "apply_to_production": false,
+        "target_feature_new_to_works": 40,
+        "recovered_zero_genre_works": 20
+      },
+      {
+        "source": "犯罪",
+        "target": "犯罪",
+        "rationale": "围绕犯罪行为及相关关系的题材；不自动等同推理、悬疑或成人。",
+        "document_frequency": 23,
+        "zero_genre_document_frequency": 3,
+        "examples": [
+          {
+            "bangumi_id": 19017,
+            "title_zh": "黑猫警长",
+            "title_jp": "黑猫警长",
+            "status_type": "剧场版"
+          },
+          {
+            "bangumi_id": 73820,
+            "title_zh": "刺痛我",
+            "title_jp": "刺痛我",
+            "status_type": "剧场版"
+          }
+        ],
+        "suppressed_example_works": 1,
+        "decision": "pending_review",
+        "apply_to_production": false,
+        "target_feature_new_to_works": 23,
+        "recovered_zero_genre_works": 3
+      },
+      {
+        "source": "赛博朋克",
+        "target": "赛博朋克",
+        "rationale": "明确赛博朋克世界观或审美题材；不从城市画面推断，不自动补科幻父级。",
+        "document_frequency": 22,
+        "zero_genre_document_frequency": 0,
+        "examples": [
+          {
+            "bangumi_id": 237,
+            "title_zh": "攻壳机动队",
+            "title_jp": "GHOST IN THE SHELL / 攻殻機動隊",
+            "status_type": "剧场版"
+          },
+          {
+            "bangumi_id": 238,
+            "title_zh": "攻壳机动队2 无罪",
+            "title_jp": "イノセンス",
+            "status_type": "剧场版"
+          }
+        ],
+        "suppressed_example_works": 0,
+        "decision": "pending_review",
+        "apply_to_production": false,
+        "target_feature_new_to_works": 22,
+        "recovered_zero_genre_works": 0
+      }
+    ],
+    "deferred": [
+      {
+        "source": "SF",
+        "target": null,
+        "rationale": "可能指科幻，但缩写存在歧义；先核对原始标签语义，不直接合并。",
+        "document_frequency": 230,
+        "zero_genre_document_frequency": 94,
+        "examples": [
+          {
+            "bangumi_id": 369,
+            "title_zh": "老人Z",
+            "title_jp": "老人Z",
+            "status_type": "剧场版"
+          },
+          {
+            "bangumi_id": 472,
+            "title_zh": "苹果核战记",
+            "title_jp": "APPLESEED",
+            "status_type": "剧场版"
+          }
+        ],
+        "suppressed_example_works": 1,
+        "decision": "pending_review",
+        "apply_to_production": false
+      },
+      {
+        "source": "萝卜",
+        "target": null,
+        "rationale": "机战圈俚语与食物字面义冲突；不能因高频就映射机战。",
+        "document_frequency": 656,
+        "zero_genre_document_frequency": 79,
+        "examples": [
+          {
+            "bangumi_id": 321,
+            "title_zh": "机动警察剧场版2 和平保卫战",
+            "title_jp": "機動警察パトレイバー 2 the Movie",
+            "status_type": "剧场版"
+          },
+          {
+            "bangumi_id": 334,
+            "title_zh": "全金属狂潮",
+            "title_jp": "フルメタル・パニック!",
+            "status_type": "TV"
+          }
+        ],
+        "suppressed_example_works": 5,
+        "decision": "pending_review",
+        "apply_to_production": false
+      },
+      {
+        "source": "萌",
+        "target": null,
+        "rationale": "可表示评价或审美取向；不能未经确认直接映射萌系。",
+        "document_frequency": 274,
+        "zero_genre_document_frequency": 60,
+        "examples": [
+          {
+            "bangumi_id": 284,
+            "title_zh": "草莓棉花糖",
+            "title_jp": "苺ましまろ",
+            "status_type": "TV"
+          },
+          {
+            "bangumi_id": 317,
+            "title_zh": "我家有个狐仙大人",
+            "title_jp": "我が家のお稲荷さま。",
+            "status_type": "TV"
+          }
+        ],
+        "suppressed_example_works": 3,
+        "decision": "pending_review",
+        "apply_to_production": false
+      },
+      {
+        "source": "卖萌",
+        "target": null,
+        "rationale": "角色行为与审美题材不完全同义；暂不映射萌系。",
+        "document_frequency": 30,
+        "zero_genre_document_frequency": 9,
+        "examples": [
+          {
+            "bangumi_id": 1822,
+            "title_zh": "加奈日记",
+            "title_jp": "かなめも",
+            "status_type": "TV"
+          },
+          {
+            "bangumi_id": 2482,
+            "title_zh": "萝莉的时间",
+            "title_jp": "こどものじかん",
+            "status_type": "TV"
+          }
+        ],
+        "suppressed_example_works": 5,
+        "decision": "pending_review",
+        "apply_to_production": false
+      },
+      {
+        "source": "萌豚",
+        "target": null,
+        "rationale": "受众或自嘲称谓，不直接作为作品题材。",
+        "document_frequency": 14,
+        "zero_genre_document_frequency": 0,
+        "examples": [
+          {
+            "bangumi_id": 150775,
+            "title_zh": "NEW GAME!",
+            "title_jp": "NEW GAME!",
+            "status_type": "TV"
+          },
+          {
+            "bangumi_id": 165972,
+            "title_zh": "斯特拉的魔法",
+            "title_jp": "ステラのまほう",
+            "status_type": "TV"
+          }
+        ],
+        "suppressed_example_works": 0,
+        "decision": "pending_review",
+        "apply_to_production": false
+      },
+      {
+        "source": "废萌",
+        "target": null,
+        "rationale": "带评价色彩的圈内说法；不自动映射萌系或日常。",
+        "document_frequency": 10,
+        "zero_genre_document_frequency": 1,
+        "examples": [
+          {
+            "bangumi_id": 1424,
+            "title_zh": "轻音少女",
+            "title_jp": "けいおん！",
+            "status_type": "TV"
+          },
+          {
+            "bangumi_id": 33355,
+            "title_zh": "战国Collection",
+            "title_jp": "戦国コレクション",
+            "status_type": "TV"
+          }
+        ],
+        "suppressed_example_works": 0,
+        "decision": "pending_review",
+        "apply_to_production": false
+      },
+      {
+        "source": "竞技",
+        "target": null,
+        "rationale": "可能包含游戏、卡牌等非体育竞技；不可全部映射运动。",
+        "document_frequency": 99,
+        "zero_genre_document_frequency": 7,
+        "examples": [
+          {
+            "bangumi_id": 508,
+            "title_zh": "茄子：安达卢西亚之夏",
+            "title_jp": "茄子 アンダルシアの夏",
+            "status_type": "剧场版"
+          },
+          {
+            "bangumi_id": 605,
+            "title_zh": "棋魂",
+            "title_jp": "ヒカルの碁",
+            "status_type": "TV"
+          }
+        ],
+        "suppressed_example_works": 1,
+        "decision": "pending_review",
+        "apply_to_production": false
+      },
+      {
+        "source": "科普",
+        "target": null,
+        "rationale": "有独立价值，但应先确认知识教育维度是否进入题材预设。",
+        "document_frequency": 63,
+        "zero_genre_document_frequency": 20,
+        "examples": [
+          {
+            "bangumi_id": 7033,
+            "title_zh": "腐女子的品格",
+            "title_jp": "腐女子の品格",
+            "status_type": "OVA"
+          },
+          {
+            "bangumi_id": 8294,
+            "title_zh": "王牌鉴定人",
+            "title_jp": "ギャラリーフェイク",
+            "status_type": "TV"
+          }
+        ],
+        "suppressed_example_works": 3,
+        "decision": "pending_review",
+        "apply_to_production": false
+      },
+      {
+        "source": "家庭",
+        "target": null,
+        "rationale": "家庭环境不必然代表亲情；独立定义后再决定。",
+        "document_frequency": 38,
+        "zero_genre_document_frequency": 7,
+        "examples": [
+          {
+            "bangumi_id": 503,
+            "title_zh": "我的邻居山田君",
+            "title_jp": "ホーホケキョ となりの山田くん",
+            "status_type": "剧场版"
+          },
+          {
+            "bangumi_id": 1905,
+            "title_zh": "夏日大作战",
+            "title_jp": "サマーウォーズ",
+            "status_type": "剧场版"
+          }
+        ],
+        "suppressed_example_works": 0,
+        "decision": "pending_review",
+        "apply_to_production": false
+      },
+      {
+        "source": "末世",
+        "target": null,
+        "rationale": "可作为独立世界设定；不自动合并末日或科幻。",
+        "document_frequency": 34,
+        "zero_genre_document_frequency": 3,
+        "examples": [
+          {
+            "bangumi_id": 9713,
+            "title_zh": "横滨购物纪行",
+            "title_jp": "ヨコハマ買い出し紀行",
+            "status_type": "OVA"
+          },
+          {
+            "bangumi_id": 10416,
+            "title_zh": "机魂末世录",
+            "title_jp": "TEXHNOLYZE",
+            "status_type": "TV"
+          }
+        ],
+        "suppressed_example_works": 0,
+        "decision": "pending_review",
+        "apply_to_production": false
+      },
+      {
+        "source": "魔幻",
+        "target": null,
+        "rationale": "与奇幻、魔法、魔幻现实主义的边界需明确。",
+        "document_frequency": 34,
+        "zero_genre_document_frequency": 13,
+        "examples": [
+          {
+            "bangumi_id": 3652,
+            "title_zh": "西方善魔女",
+            "title_jp": "西の善き魔女 Astraea Testament",
+            "status_type": "TV"
+          },
+          {
+            "bangumi_id": 4803,
+            "title_zh": "暗夜魔法使",
+            "title_jp": "ナイトウィザード The ANIMATION",
+            "status_type": "TV"
+          }
+        ],
+        "suppressed_example_works": 2,
+        "decision": "pending_review",
+        "apply_to_production": false
+      },
+      {
+        "source": "BL",
+        "target": null,
+        "rationale": "男性间恋爱情感题材候选；与耽美是否同义需单独确认，不由题材推断安全分级。",
+        "document_frequency": 219,
+        "zero_genre_document_frequency": 132,
+        "examples": [
+          {
+            "bangumi_id": 482,
+            "title_zh": "西洋古董洋菓子店",
+            "title_jp": "西洋骨董洋菓子店～アンティーク～",
+            "status_type": "TV"
+          },
+          {
+            "bangumi_id": 1703,
+            "title_zh": "纯情罗曼史",
+            "title_jp": "純情ロマンチカ",
+            "status_type": "TV"
+          }
+        ],
+        "suppressed_example_works": 12,
+        "decision": "pending_review",
+        "apply_to_production": false
+      },
+      {
+        "source": "耽美",
+        "target": null,
+        "rationale": "先确认定义及与 BL 的关系，不自动合并。",
+        "document_frequency": 161,
+        "zero_genre_document_frequency": 100,
+        "examples": [
+          {
+            "bangumi_id": 482,
+            "title_zh": "西洋古董洋菓子店",
+            "title_jp": "西洋骨董洋菓子店～アンティーク～",
+            "status_type": "TV"
+          },
+          {
+            "bangumi_id": 1703,
+            "title_zh": "纯情罗曼史",
+            "title_jp": "純情ロマンチカ",
+            "status_type": "TV"
+          }
+        ],
+        "suppressed_example_works": 10,
+        "decision": "pending_review",
+        "apply_to_production": false
+      },
+      {
+        "source": "超现实",
+        "target": null,
+        "rationale": "表达风格与叙事维度；需确认是否放入同一题材体系。",
+        "document_frequency": 216,
+        "zero_genre_document_frequency": 202,
+        "examples": [
+          {
+            "bangumi_id": 843,
+            "title_zh": "妄想代理人",
+            "title_jp": "妄想代理人",
+            "status_type": "TV"
+          },
+          {
+            "bangumi_id": 29413,
+            "title_zh": "CENCOROLL CONNECT",
+            "title_jp": "センコロール コネクト",
+            "status_type": "剧场版"
+          }
+        ],
+        "suppressed_example_works": 0,
+        "decision": "pending_review",
+        "apply_to_production": false
+      },
+      {
+        "source": "实验",
+        "target": null,
+        "rationale": "实验表达风格，不因潜在覆盖数量大就作为喜好题材。",
+        "document_frequency": 330,
+        "zero_genre_document_frequency": 327,
+        "examples": [
+          {
+            "bangumi_id": 79939,
+            "title_zh": "暗夜时代剧",
+            "title_jp": "闇夜の時代劇",
+            "status_type": "TV"
+          },
+          {
+            "bangumi_id": 109600,
+            "title_zh": "精神结构",
+            "title_jp": "Seelische Konstruktionen",
+            "status_type": "其他"
+          }
+        ],
+        "suppressed_example_works": 1,
+        "decision": "pending_review",
+        "apply_to_production": false
+      },
+      {
+        "source": "猎奇",
+        "target": null,
+        "rationale": "含义和内容跨度大，先明确语义与安全元数据边界。",
+        "document_frequency": 208,
+        "zero_genre_document_frequency": 73,
+        "examples": [
+          {
+            "bangumi_id": 536,
+            "title_zh": "妖精的旋律",
+            "title_jp": "エルフェンリート",
+            "status_type": "TV"
+          },
+          {
+            "bangumi_id": 1257,
+            "title_zh": "记忆女神的女儿们",
+            "title_jp": "Mnemosyne —ムネモシュネの娘たち—",
+            "status_type": "TV"
+          }
+        ],
+        "suppressed_example_works": 15,
+        "decision": "pending_review",
+        "apply_to_production": false
+      },
+      {
+        "source": "公路片",
+        "target": null,
+        "rationale": "可作为叙事形式；不直接映射旅行。",
+        "document_frequency": 18,
+        "zero_genre_document_frequency": 1,
+        "examples": [
+          {
+            "bangumi_id": 919,
+            "title_zh": "道子与哈金",
+            "title_jp": "ミチコとハッチン",
+            "status_type": "TV"
+          },
+          {
+            "bangumi_id": 3489,
+            "title_zh": "魔女猎人",
+            "title_jp": "エル・カザド",
+            "status_type": "TV"
+          }
+        ],
+        "suppressed_example_works": 0,
+        "decision": "pending_review",
+        "apply_to_production": false
+      },
+      {
+        "source": "黑色幽默",
+        "target": null,
+        "rationale": "有价值的喜剧表达分支；不自动折叠为喜剧。",
+        "document_frequency": 14,
+        "zero_genre_document_frequency": 2,
+        "examples": [
+          {
+            "bangumi_id": 7777,
+            "title_zh": "海绵宝宝 第一季",
+            "title_jp": "SpongeBob SquarePants (Season 1)",
+            "status_type": "TV"
+          },
+          {
+            "bangumi_id": 37567,
+            "title_zh": "击败罪恶！！白领侠",
+            "title_jp": "悪いのを倒せ！！サラリーマンマン",
+            "status_type": "WEB"
+          }
+        ],
+        "suppressed_example_works": 1,
+        "decision": "pending_review",
+        "apply_to_production": false
+      },
+      {
+        "source": "蒸汽朋克",
+        "target": null,
+        "rationale": "独立设定或审美分支；不自动补科幻父级。",
+        "document_frequency": 10,
+        "zero_genre_document_frequency": 1,
+        "examples": [
+          {
+            "bangumi_id": 921,
+            "title_zh": "最终流放",
+            "title_jp": "LAST EXILE",
+            "status_type": "TV"
+          },
+          {
+            "bangumi_id": 1938,
+            "title_zh": "蒸汽男孩",
+            "title_jp": "スチームボーイ",
+            "status_type": "剧场版"
+          }
+        ],
+        "suppressed_example_works": 0,
+        "decision": "pending_review",
+        "apply_to_production": false
+      }
+    ],
+    "excluded_examples": [
+      {
+        "source": "TV",
+        "target": null,
+        "rationale": "作品形式，不是题材。",
+        "document_frequency": 10483,
+        "zero_genre_document_frequency": 4054,
+        "examples": [
+          {
+            "bangumi_id": 8,
+            "title_zh": "Code Geass 反叛的鲁路修R2",
+            "title_jp": "コードギアス 反逆のルルーシュR2",
+            "status_type": "TV"
+          },
+          {
+            "bangumi_id": 12,
+            "title_zh": "人形电脑天使心",
+            "title_jp": "ちょびっツ",
+            "status_type": "TV"
+          }
+        ],
+        "suppressed_example_works": 227,
+        "decision": "pending_review",
+        "apply_to_production": false
+      },
+      {
+        "source": "短片",
+        "target": null,
+        "rationale": "作品形式，不是题材。",
+        "document_frequency": 7100,
+        "zero_genre_document_frequency": 5854,
+        "examples": [
+          {
+            "bangumi_id": 496,
+            "title_zh": "黑客帝国动画版",
+            "title_jp": "The Animatrix",
+            "status_type": "OVA"
+          },
+          {
+            "bangumi_id": 534,
+            "title_zh": "她和她的猫",
+            "title_jp": "彼女と彼女の猫",
+            "status_type": "OVA"
+          }
+        ],
+        "suppressed_example_works": 22,
+        "decision": "pending_review",
+        "apply_to_production": false
+      },
+      {
+        "source": "剧场版",
+        "target": null,
+        "rationale": "作品形式，不是题材。",
+        "document_frequency": 7071,
+        "zero_genre_document_frequency": 4426,
+        "examples": [
+          {
+            "bangumi_id": 233,
+            "title_zh": "剧场版 空之境界 第一章 俯瞰风景",
+            "title_jp": "劇場版 空の境界 第一章 俯瞰風景",
+            "status_type": "剧场版"
+          },
+          {
+            "bangumi_id": 237,
+            "title_zh": "攻壳机动队",
+            "title_jp": "GHOST IN THE SHELL / 攻殻機動隊",
+            "status_type": "剧场版"
+          }
+        ],
+        "suppressed_example_works": 30,
+        "decision": "pending_review",
+        "apply_to_production": false
+      },
+      {
+        "source": "原创",
+        "target": null,
+        "rationale": "创作来源，不是题材。",
+        "document_frequency": 6588,
+        "zero_genre_document_frequency": 2427,
+        "examples": [
+          {
+            "bangumi_id": 8,
+            "title_zh": "Code Geass 反叛的鲁路修R2",
+            "title_jp": "コードギアス 反逆のルルーシュR2",
+            "status_type": "TV"
+          },
+          {
+            "bangumi_id": 50,
+            "title_zh": "机动战士高达",
+            "title_jp": "機動戦士ガンダム",
+            "status_type": "TV"
+          }
+        ],
+        "suppressed_example_works": 80,
+        "decision": "pending_review",
+        "apply_to_production": false
+      },
+      {
+        "source": "漫画改",
+        "target": null,
+        "rationale": "改编来源，不是题材。",
+        "document_frequency": 5184,
+        "zero_genre_document_frequency": 1192,
+        "examples": [
+          {
+            "bangumi_id": 12,
+            "title_zh": "人形电脑天使心",
+            "title_jp": "ちょびっツ",
+            "status_type": "TV"
+          },
+          {
+            "bangumi_id": 237,
+            "title_zh": "攻壳机动队",
+            "title_jp": "GHOST IN THE SHELL / 攻殻機動隊",
+            "status_type": "剧场版"
+          }
+        ],
+        "suppressed_example_works": 264,
+        "decision": "pending_review",
+        "apply_to_production": false
+      },
+      {
+        "source": "欧美",
+        "target": null,
+        "rationale": "地区，不是题材。",
+        "document_frequency": 5150,
+        "zero_genre_document_frequency": 3544,
+        "examples": [
+          {
+            "bangumi_id": 496,
+            "title_zh": "黑客帝国动画版",
+            "title_jp": "The Animatrix",
+            "status_type": "OVA"
+          },
+          {
+            "bangumi_id": 533,
+            "title_zh": "美食总动员",
+            "title_jp": "Ratatouille",
+            "status_type": "剧场版"
+          }
+        ],
+        "suppressed_example_works": 24,
+        "decision": "pending_review",
+        "apply_to_production": false
+      },
+      {
+        "source": "SUNRISE",
+        "target": null,
+        "rationale": "制作信息，不是题材。",
+        "document_frequency": 555,
+        "zero_genre_document_frequency": 108,
+        "examples": [
+          {
+            "bangumi_id": 8,
+            "title_zh": "Code Geass 反叛的鲁路修R2",
+            "title_jp": "コードギアス 反逆のルルーシュR2",
+            "status_type": "TV"
+          },
+          {
+            "bangumi_id": 50,
+            "title_zh": "机动战士高达",
+            "title_jp": "機動戦士ガンダム",
+            "status_type": "TV"
+          }
+        ],
+        "suppressed_example_works": 3,
+        "decision": "pending_review",
+        "apply_to_production": false
+      },
+      {
+        "source": "3D",
+        "target": null,
+        "rationale": "制作技术，不是题材。",
+        "document_frequency": 1313,
+        "zero_genre_document_frequency": 377,
+        "examples": [
+          {
+            "bangumi_id": 472,
+            "title_zh": "苹果核战记",
+            "title_jp": "APPLESEED",
+            "status_type": "剧场版"
+          },
+          {
+            "bangumi_id": 533,
+            "title_zh": "美食总动员",
+            "title_jp": "Ratatouille",
+            "status_type": "剧场版"
+          }
+        ],
+        "suppressed_example_works": 7,
+        "decision": "pending_review",
+        "apply_to_production": false
+      },
+      {
+        "source": "童年",
+        "target": null,
+        "rationale": "个人回忆或管理标签，不是题材。",
+        "document_frequency": 1860,
+        "zero_genre_document_frequency": 721,
+        "examples": [
+          {
+            "bangumi_id": 305,
+            "title_zh": "魔女宅急便",
+            "title_jp": "魔女の宅急便",
+            "status_type": "剧场版"
+          },
+          {
+            "bangumi_id": 425,
+            "title_zh": "哆啦A梦：大雄的恐龙",
+            "title_jp": "ドラえもん のび太の恐竜",
+            "status_type": "剧场版"
+          }
+        ],
+        "suppressed_example_works": 2,
+        "decision": "pending_review",
+        "apply_to_production": false
+      },
+      {
+        "source": "神作",
+        "target": null,
+        "rationale": "评价，不是题材。",
+        "document_frequency": 0,
+        "zero_genre_document_frequency": 0,
+        "examples": [],
+        "suppressed_example_works": 0,
+        "decision": "pending_review",
+        "apply_to_production": false
+      },
+      {
+        "source": "子供向",
+        "target": null,
+        "rationale": "目标受众，不当作题材或安全评级。",
+        "document_frequency": 1524,
+        "zero_genre_document_frequency": 834,
+        "examples": [
+          {
+            "bangumi_id": 425,
+            "title_zh": "哆啦A梦：大雄的恐龙",
+            "title_jp": "ドラえもん のび太の恐竜",
+            "status_type": "剧场版"
+          },
+          {
+            "bangumi_id": 436,
+            "title_zh": "哆啦A梦：大雄的宇宙开拓史",
+            "title_jp": "ドラえもん のび太の宇宙開拓史",
+            "status_type": "剧场版"
+          }
+        ],
+        "suppressed_example_works": 1,
+        "decision": "pending_review",
+        "apply_to_production": false
+      },
+      {
+        "source": "猫和老鼠",
+        "target": null,
+        "rationale": "作品或系列名称，不据此推断题材、续作关系。",
+        "document_frequency": 195,
+        "zero_genre_document_frequency": 49,
+        "examples": [
+          {
+            "bangumi_id": 25960,
+            "title_zh": "猫和老鼠：绿野仙踪",
+            "title_jp": "Tom And Jerry The Wizard Of Oz",
+            "status_type": "OVA"
+          },
+          {
+            "bangumi_id": 36318,
+            "title_zh": "Q版猫和老鼠",
+            "title_jp": "Tom & Jerry Kids",
+            "status_type": "TV"
+          }
+        ],
+        "suppressed_example_works": 0,
+        "decision": "pending_review",
+        "apply_to_production": false
+      },
+      {
+        "source": "里番",
+        "target": null,
+        "rationale": "只作安全元数据复核信号；不映射题材、不自动修改分级。",
+        "document_frequency": 246,
+        "zero_genre_document_frequency": 148,
+        "examples": [],
+        "suppressed_example_works": 246,
+        "decision": "pending_review",
+        "apply_to_production": false
+      }
+    ]
+  },
+  "policy": {
+    "mapping_applied": false,
+    "private_tables_read": false,
+    "source_data_modified": false,
+    "ranking_changed": false,
+    "new_genres_only_hypothetical": true,
+    "deferred_in_simulation": false,
+    "counts_are_not_accuracy_or_personal_preference": true
+  }
+}
