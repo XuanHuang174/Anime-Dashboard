@@ -12,7 +12,7 @@ from django.db import connection
 from rest_framework.exceptions import NotAuthenticated, NotFound, ValidationError
 
 from . import browsing, engine
-from .browse_controls import canonical_options, OPTION_KEYS
+from .browse_controls import canonical_options, valid_option_keys
 from .evidence import EvidencePresenter
 from .execution import recipe_descriptor
 from .quality_readonly import readonly_snapshot
@@ -69,7 +69,7 @@ def _detail_scope(user, identity, ticket, recipe):
             raise engine.RecommendationSnapshotChanged()
         from .v2_controls import validate_options
         options = canonical_options(validate_options(body['options']))
-        if set(body['options']) not in (set(OPTION_KEYS), set(OPTION_KEYS) | {'max_score'}) or options != body['options']:
+        if not valid_option_keys(body['options']) or options != body['options']:
             raise ValueError()
         return body, options
     except (KeyError, TypeError, ValueError):

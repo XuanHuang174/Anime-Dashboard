@@ -287,6 +287,7 @@ class RecommendationQuerySerializer(serializers.Serializer):
     type = serializers.ChoiceField(choices=('all', 'TV', 'OVA', '剧场版', 'WEB', '短片', '动态漫画'), default='all')
     min_score = serializers.DecimalField(max_digits=3, decimal_places=1, min_value=0, max_value=10, default=0)
     max_score = serializers.DecimalField(max_digits=3, decimal_places=1, min_value=0, max_value=10, default=10)
+    max_score_exclusive = serializers.BooleanField(default=False)
     hide_recorded = serializers.BooleanField(default=True)
     page = serializers.IntegerField(min_value=1, max_value=1000, default=1)
     page_size = serializers.IntegerField(min_value=1, max_value=24, default=12)
@@ -314,6 +315,9 @@ class RecommendationQuerySerializer(serializers.Serializer):
         from .browsing import browse_requested
         if attrs['min_score'] > attrs['max_score']:
             raise serializers.ValidationError('最低 Bangumi 评分不能高于最高评分。')
+        if attrs['max_score_exclusive'] and ('max_score' not in self.initial_data
+                or attrs['max_score'] >= 10 or attrs['min_score'] >= attrs['max_score']):
+            raise serializers.ValidationError('严格上限需要提供小于 10 且高于最低评分的 max_score。')
         if browse_requested(attrs, self.initial_data):
             if 'browse' in self.initial_data and attrs['browse'] is False:
                 raise serializers.ValidationError('不能同时关闭浏览控制并提供浏览参数。')

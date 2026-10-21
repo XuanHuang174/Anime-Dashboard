@@ -30,11 +30,14 @@ def canonical_options(options):
               for key in OPTION_KEYS}
     if float(options.get('max_score', 10)) < 10:
         result['max_score'] = format(float(options['max_score']), '.1f')
+        if options.get('max_score_exclusive', False):
+            result['max_score_exclusive'] = True
     return result
 
 
 def valid_option_keys(options):
-    return set(options) in (set(OPTION_KEYS), set(OPTION_KEYS) | {'max_score'})
+    return set(options) in (set(OPTION_KEYS), set(OPTION_KEYS) | {'max_score'},
+                           set(OPTION_KEYS) | {'max_score', 'max_score_exclusive'})
 
 
 def filter_index(index, rows, options):

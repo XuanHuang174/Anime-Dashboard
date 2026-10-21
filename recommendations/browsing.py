@@ -248,8 +248,9 @@ def browse_page(user, validated, supplied, *, metrics=None, _recipe=None):
         raise engine.RecommendationUnavailable('浏览控制仅支持当前 V1，不会启动 V2。')
     options = canonical_options(validated)
     if body:
-        for key in (*OPTION_KEYS, 'max_score'):
-            if key in supplied and options.get(key, '10.0') != body['options'].get(key, '10.0'):
+        for key in (*OPTION_KEYS, 'max_score', 'max_score_exclusive'):
+            default = False if key == 'max_score_exclusive' else '10.0'
+            if key in supplied and options.get(key, default) != body['options'].get(key, default):
                 raise engine.RecommendationSnapshotChanged('浏览条件已变化，请重新加载第一批。')
         options = body['options']
     with readonly_snapshot():

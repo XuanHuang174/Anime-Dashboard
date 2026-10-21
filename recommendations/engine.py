@@ -628,7 +628,8 @@ def snapshot_token(user_id, context, options, ranked, algorithm, *, weights=None
                        for seed in context['seeds']],
              'owned': sorted(context['owned'].items()),
              'query': {key: str(options[key]) for key in ('category', 'type', 'min_score', 'hide_recorded', 'page_size',
-                       *(('max_score',) if float(options.get('max_score', 10)) < 10 else ()))},
+                       *(('max_score',) if float(options.get('max_score', 10)) < 10 else ()),
+                       *(('max_score_exclusive',) if options.get('max_score_exclusive', False) else ()))},
              'items': [(item['anime'].bangumi_id, item['anime'].score, sorted(item['tags']), item['reason'],
                         item['anime'].cover_url, item['anime'].title_zh, item['anime'].title_jp,
                         item['anime'].status_type, item['anime'].season) for item in ranked]}

@@ -1,0 +1,18 @@
+{
+  "contract_version": "recommendations.content-scope.n1.v1",
+  "policy_version": "content-scope.closed.v1",
+  "phase": "N1",
+  "serving_integration": false,
+  "adult_access_enabled": false,
+  "eligibility_provider": "unconfigured",
+  "eligibility_version": 0,
+  "selectable_scopes": ["safe"],
+  "future_requested_scope": "include_adult",
+  "unknown_rating": "always_excluded",
+  "adult_cover": "placeholder_only",
+  "profile_sources": "non_adult_only",
+  "public_publication": "independent_safe_policy",
+  "automatic_grants": false,
+  "external_private_data": false,
+  "adult_release_approval": "separate_review_required"
+}
