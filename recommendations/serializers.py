@@ -346,6 +346,7 @@ class EvidenceVersionsSerializer(serializers.Serializer):
     content_release_policy_version = serializers.CharField(read_only=True)
     content_scope = serializers.ChoiceField(choices=('safe',), read_only=True)
     eligibility_version = serializers.IntegerField(read_only=True)
+    content_review_version = serializers.IntegerField(read_only=True)
     scope_revision = serializers.CharField(read_only=True)
     profile_policy_version = serializers.CharField(read_only=True)
     profile_min_score = serializers.DecimalField(max_digits=3, decimal_places=1, read_only=True)

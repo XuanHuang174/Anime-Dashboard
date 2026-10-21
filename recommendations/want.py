@@ -50,10 +50,12 @@ def add_want(*, user, bangumi_id, scope_context=None):
     if get_user_model().objects.select_for_update().only('pk').filter(pk=user.pk, is_active=True).first() is None:
         raise NotFound('账号不可用。')
     from .content_scope import ensure_scope, require_scope
-    ensure_scope(user, scope_context) if scope_context is not None else require_scope(user)
+    scope = ensure_scope(user, scope_context) if scope_context is not None else require_scope(user)
     catalog = safe_catalog().select_for_update().filter(bangumi_id=bangumi_id).first()
     if catalog is None:
         raise NotFound('该作品不可用于推荐。')
+    # Reviews lock catalog rows, not this user's row. Recheck after a catalog wait.
+    ensure_scope(user, scope)
     direct = UserAnimeRecord.objects.filter(user=user, anime__bgm_id=bangumi_id).order_by('pk').first()
     if direct is not None:
         return want_contract(direct, bangumi_id, False)

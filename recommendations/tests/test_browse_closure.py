@@ -166,7 +166,8 @@ class BrowseClosureTests(TransactionTestCase):
         self.assertGreater(metrics['sql_count'], 0)
         self.assertEqual(len(digest), 64)
         self.assertTrue(any('read only' in sql for sql in statements))
-        self.assertFalse(any('review' in sql or 'private_description' in sql for sql in statements))
+        # Match the private column, not the unrelated content-review epoch table.
+        self.assertFalse(any('"review"' in sql or 'private_description' in sql for sql in statements))
         self.assertFalse(any(sql.lstrip().startswith(('insert ', 'update ', 'delete ')) for sql in statements))
         self.assertEqual(list(UserAnimeRecord.objects.order_by('pk').values()), before)
 

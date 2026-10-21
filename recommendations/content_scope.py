@@ -8,15 +8,18 @@ import hmac
 import re
 
 from django.contrib.auth import get_user_model
+from django.db.models import IntegerField, Subquery, Value
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django.utils.crypto import salted_hmac
 from rest_framework.exceptions import NotAuthenticated, PermissionDenied, ValidationError
+from .models import RecommendationContentReviewState
+from .content_review import POLICY_VERSION as RELEASE_POLICY_VERSION
 
 CONTRACT_VERSION = 'recommendations.content-scope.n2-2.v1'
 POLICY_VERSION = 'content-scope.closed.v2'
-RELEASE_POLICY_VERSION = 'release-review.unconfigured.v1'
 VERSION_KEYS = ('content_scope_contract_version', 'content_scope_policy_version',
-                'content_release_policy_version', 'content_scope', 'eligibility_version', 'scope_revision')
+                'content_release_policy_version', 'content_scope', 'eligibility_version', 'content_review_version', 'scope_revision')
 
 
 def scope_query(query):
@@ -40,8 +43,9 @@ def require_scope(user, requested_scope='safe'):
     scope_query({'content_scope': requested_scope})
     # One owner-only LEFT JOIN; no journal, private text, audit or proof material.
     prefix = 'recommendation_content_eligibility__'
-    row = get_user_model().objects.filter(pk=user.pk).values(
-        'is_active', *(prefix + field for field in ('status', 'eligibility_version', 'expires_at',
+    row = get_user_model().objects.filter(pk=user.pk).annotate(_content_review_version=Coalesce(Subquery(
+        RecommendationContentReviewState.objects.filter(pk=1).values('version')[:1]),Value(0),output_field=IntegerField())).values(
+        'is_active', '_content_review_version', *(prefix + field for field in ('status', 'eligibility_version', 'expires_at',
                                                   'assurance_valid_until'))).first()
     if not row or not row['is_active']:
         raise PermissionDenied('账号不可用。')
@@ -51,13 +55,14 @@ def require_scope(user, requested_scope='safe'):
     expired = status == 'active' and any(value is not None and value <= timezone.now()
                                         for value in (expiry, assurance_expiry))
     state = [user.pk, CONTRACT_VERSION, POLICY_VERSION, RELEASE_POLICY_VERSION, 'safe',
-             status, version, str(expiry), str(assurance_expiry), bool(expired),
+             status, version, str(expiry), str(assurance_expiry), bool(expired), row['_content_review_version'],
              'age-authority-unconfigured', 'adult-serving-disabled']
     revision = salted_hmac(CONTRACT_VERSION, repr(state), algorithm='sha256').hexdigest()
     return {'content_scope_contract_version': CONTRACT_VERSION,
             'content_scope_policy_version': POLICY_VERSION,
             'content_release_policy_version': RELEASE_POLICY_VERSION,
-            'content_scope': 'safe', 'eligibility_version': version, 'scope_revision': revision}
+            'content_scope': 'safe', 'eligibility_version': version,
+            'content_review_version':row['_content_review_version'], 'scope_revision': revision}
 
 
 def ensure_scope(user, expected):

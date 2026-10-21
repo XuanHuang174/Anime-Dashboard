@@ -101,7 +101,7 @@ class ClosedScopeTests(TransactionTestCase):
             self.assertEqual(first, require_scope(self.owner))
         self.assertEqual(len(queries), 2)
         sql = '\n'.join(row['sql'].lower() for row in queries)
-        for text in ('review', 'assurance_reference', 'password', 'insert ', 'update ', 'delete '):
+        for text in ('"review"', 'assurance_reference', 'password', 'insert ', 'update ', 'delete '):
             self.assertNotIn(text, sql)
         self.assertFalse(Eligibility.objects.exists()); self.assertFalse(EligibilityEvent.objects.exists())
         self.assertEqual(original, list(UserAnimeRecord.objects.values()))

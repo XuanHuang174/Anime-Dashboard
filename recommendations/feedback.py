@@ -74,9 +74,10 @@ def mutate_feedback(*, user, action, changes, scope_context=None):
     if get_user_model().objects.select_for_update().filter(pk=user.pk, is_active=True).only('pk').first() is None:
         raise NotFound('账号不可用。')
     from .content_scope import ensure_scope, require_scope
-    ensure_scope(user, scope_context) if scope_context is not None else require_scope(user)
+    scope = ensure_scope(user, scope_context) if scope_context is not None else require_scope(user)
     if safe_catalog().select_for_update().filter(bangumi_id=data['bangumi_id']).only('pk').first() is None:
         raise NotFound('该作品不可用于推荐。')
+    ensure_scope(user, scope)
     version = current_version(user)
     fingerprint = hashlib.sha256(json.dumps({'action': action, **data}, sort_keys=True,
                                             separators=(',', ':'), default=str).encode()).hexdigest()

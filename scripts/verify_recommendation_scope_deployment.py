@@ -56,7 +56,8 @@ class ScopeDeploymentAudit(Audit):
         scope = first.get('content_scope_context', {})
         self.check('closed_scope_deployed', scope.get('content_scope_contract_version') == 'recommendations.content-scope.n2-2.v1'
             and scope.get('content_scope_policy_version') == 'content-scope.closed.v2'
-            and scope.get('content_release_policy_version') == 'release-review.unconfigured.v1'
+            and scope.get('content_release_policy_version') == 'release-review.ledger.closed.v1'
+            and type(scope.get('content_review_version')) is int and scope['content_review_version'] >= 0
             and scope.get('content_scope') == 'safe' and scope.get('eligibility_version') == eligibility['eligibility_version']
             and bool(re.fullmatch('[a-f0-9]{64}', scope.get('scope_revision', ''))))
         self.check('v1_unchanged', first.get('algorithm_version') == 'content.v1')
