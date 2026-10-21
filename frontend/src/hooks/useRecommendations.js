@@ -5,7 +5,7 @@ import { createBrowseController } from '../utils/recommendationBrowseSession.js'
 export default function useRecommendations(category, filters, client = recommendationApi, style = 'balanced') {
   const controller = useMemo(() => createBrowseController(client), [client])
   const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot)
-  const key = JSON.stringify([category, style, filters.type, filters.minScore, filters.hideRecorded, filters.yearFrom, filters.yearTo])
+  const key = JSON.stringify([category, style, filters.type, filters.minScore, filters.hideRecorded, filters.yearFrom, filters.yearTo, !!filters.includeAdult])
   useLayoutEffect(() => {
     controller.activate()
     controller.start({ key, category, style, filters })

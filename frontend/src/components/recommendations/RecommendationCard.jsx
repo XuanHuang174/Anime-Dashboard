@@ -6,7 +6,7 @@ import { RecommendationPublicScore } from './RecommendationScore.jsx'
 import RecommendationFeedbackMenu from './RecommendationFeedbackMenu.jsx'
 
 export function RecommendationCover({ item, priority = false }) {
-  const safeSrc = getRecommendationCover(item.coverUrl)
+  const safeSrc = item.contentRating === 'adult' ? '' : getRecommendationCover(item.coverUrl)
   const [failedSrc, setFailedSrc] = useState(null)
   useEffect(() => setFailedSrc(null), [safeSrc])
   return (
@@ -24,7 +24,7 @@ export function RecommendationCover({ item, priority = false }) {
 
 export function RecommendationMeta({ item }) {
   return <p className="rec-meta"><span>{item.year || '年份未知'}</span><span>{item.type || '类型未知'}</span>
-    <RecommendationPublicScore score={item.score} /></p>
+    <RecommendationPublicScore score={item.score} />{item.contentRating === 'adult' && <span>NSFW</span>}</p>
 }
 
 export function RecommendationActions({ item, onDetail, detailLabel = '查看详情', onWant, operation, onIdentity, writeBlocked = false, detailDisabled = false }) {

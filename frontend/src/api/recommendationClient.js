@@ -1,7 +1,32 @@
 // Dependency injection keeps test fixtures out of the production bundle.
 import { validDetailContext } from '../utils/recommendationExecution.js'
-export function createRecommendationClient(client) {
+import { checkScopeResponse } from '../utils/recommendationContentScope.js'
+export function createRecommendationClient(transport, scope = 'safe', onLost = () => {}) {
+  if (!['safe', 'include_adult'].includes(scope)) throw new Error('未知内容范围')
+  const scoped = path => /^recommendations\/(?:$|context\/|feedback\/|identities\/|[1-9]\d*\/)/.test(path)
+  let lastScopeRevision = null
+  const call = (method, path, args, config = {}) => {
+    const controlled = scoped(path)
+    if (controlled && scope === 'include_adult') config = { ...config, params: { ...config.params, content_scope: scope } }
+    const promise = method === 'get' ? transport.get(path, config) : transport[method](path, args, config)
+    return promise.then(response => {
+      if (controlled) checkScopeResponse(response.data, scope)
+      if (controlled && scope === 'include_adult') {
+        const revision = response.data.content_scope_context.scope_revision
+        if (path === 'recommendations/context/' && lastScopeRevision && revision !== lastScopeRevision) {
+          const error = new Error('访问范围已更新'); error.scopeLost = true; throw error
+        }
+        lastScopeRevision = revision
+      }
+      return response
+    }).catch(error => {
+      if (controlled && scope === 'include_adult' && !config.signal?.aborted && (error.scopeLost || error.response?.status === 403 || error.response?.status === 409)) onLost()
+      throw error
+    })
+  }
+  const client = { get: (p, c) => call('get', p, null, c), post: (p, a, c) => call('post', p, a, c), patch: (p, a, c) => call('patch', p, a, c) }
   return {
+    forScope: (value, callback) => createRecommendationClient(transport, value, callback),
     eligibility: signal => client.get('recommendations/eligibility/', { signal }).then(r => r.data),
     applyEligibility: (changes, signal) => client.post('recommendations/eligibility/apply/', changes, { signal }).then(r => r.data),
     capabilities: signal => client.get('recommendations/capabilities/', { signal }).then(r => r.data),

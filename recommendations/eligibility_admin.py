@@ -106,8 +106,8 @@ class ContentEligibilityAdmin(admin.ModelAdmin):
                         'reason': form.cleaned_data['reason'], 'days': form.cleaned_data['days'],
                         'public_message': form.cleaned_data['public_message']})
                     message = ('该操作已处理，未重复执行；请核对当前最新资格状态。' if result['replayed'] else
-                               '访问申请已更新。人工审批不等于年龄核验，NSFW 推荐仍未开放。' if result['changed'] else
-                               '资格状态未变化，操作回执已记录。成人推荐仍未开放。')
+                               '访问申请已更新。人工审批不等于年龄核验；仍须总开关开放及用户主动选择。' if result['changed'] else
+                               '资格状态未变化，操作回执已记录；不会自动开启个人 NSFW 筛选。')
                     self.message_user(request, message, messages.SUCCESS)
                     return HttpResponseRedirect(reverse('admin:recommendations_eligibility_control') + f'?user_id={subject.pk}')
             else:

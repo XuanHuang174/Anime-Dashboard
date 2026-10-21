@@ -9,7 +9,12 @@ from .eligibility_views import RecommendationEligibilityView, RecommendationElig
 
 app_name = 'recommendations'
 
+from .access_admin_views import AccessControlView, AccessApplicationsView, AccessApplicationView
+
 urlpatterns = [
+    path('admin/control/', AccessControlView.as_view()),
+    path('admin/applications/', AccessApplicationsView.as_view()),
+    path('admin/applications/<int:user_id>/', AccessApplicationView.as_view()),
     path('', RecommendationListView.as_view(), name='list'),
     path('capabilities/', RecommendationCapabilitiesView.as_view(), name='capabilities'),
     path('context/', RecommendationContextView.as_view(), name='context'),

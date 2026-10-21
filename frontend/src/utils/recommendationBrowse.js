@@ -92,7 +92,7 @@ export function filterDraftError(filters) {
 }
 
 export function filterChips(filters) {
-  return [filters.type !== 'all' && { id: 'type', label: filters.type },
+  return [filters.includeAdult && { id: 'includeAdult', label: '包含 NSFW' }, filters.type !== 'all' && { id: 'type', label: filters.type },
     (filters.yearFrom || filters.yearTo) && { id: 'years', label: `${filters.yearFrom || '不限'}—${filters.yearTo || '不限'}` },
     filters.minScore === 'lt6' ? { id: 'minScore', label: 'Bangumi 评分 < 6.0' }
       : Number(filters.minScore) > 0 && { id: 'minScore', label: `Bangumi 评分 ≥ ${Number(filters.minScore).toFixed(1)}` },

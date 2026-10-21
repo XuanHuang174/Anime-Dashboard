@@ -12,8 +12,8 @@ from rest_framework.exceptions import APIException, NotAuthenticated, NotFound, 
 
 from .models import RecommendationContentEligibility as Eligibility, RecommendationEligibilityEvent as Event
 
-CONTRACT_VERSION = 'recommendations.eligibility.manual.m1.v1'
-POLICY_VERSION = 'eligibility.manual.closed.v1'
+CONTRACT_VERSION = 'recommendations.eligibility.manual.m2.v1'
+POLICY_VERSION = 'eligibility.manual.m2.v1'
 MAX_VERSION = 2147483647
 MAX_DAYS = 30
 
@@ -80,9 +80,11 @@ def _contract(user, row, *, now=None):
     if not user.is_active:
         usable, effective = False, 'account_inactive'
     subject = salted_hmac(CONTRACT_VERSION + '.subject', str(user.pk), algorithm='sha256').hexdigest()
+    from .serving_control import control_state
+    serving = control_state()
     revision = salted_hmac(CONTRACT_VERSION + '.revision', json.dumps(
-        [subject, POLICY_VERSION, version, source, effective, valid_until.isoformat() if valid_until else None],
-        separators=(',', ':')), algorithm='sha256').hexdigest()
+        [subject, POLICY_VERSION, version, source, effective, valid_until.isoformat() if valid_until else None,
+         serving['version'], serving['effective_enabled']], separators=(',', ':')), algorithm='sha256').hexdigest()
     return {'contract_version': CONTRACT_VERSION, 'policy_version': POLICY_VERSION,
         'administrative_status': administrative, 'effective_status': effective,
         'authorization_source': source, 'manual_authorization_valid': usable,
@@ -91,7 +93,9 @@ def _contract(user, row, *, now=None):
         'requested_at': row.requested_at if row else None,
         'decision_message': row.decision_message if row and source == 'manual' and administrative == 'rejected' else '',
         'can_apply': bool(user.is_active and not usable and not (source == 'manual' and administrative == 'pending')),
-        'adult_access_allowed': False, 'serving_integration': False, 'effective_scope': 'safe',
+        'adult_access_allowed': bool(usable and serving['effective_enabled']),
+        'serving_integration': serving['effective_enabled'], 'effective_scope': 'safe',
+        'serving_control_version': serving['version'],
         'subject_binding': subject, 'eligibility_revision': revision}
 
 

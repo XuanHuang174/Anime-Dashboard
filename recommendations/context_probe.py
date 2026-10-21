@@ -15,9 +15,9 @@ CONTEXT_KEYS = ('algorithm_version', 'ranking_policy_version', 'taxonomy_version
                 'profile_policy_version', 'profile_min_score')
 
 
-def context_contract(user):
+def context_contract(user, *, requested_scope='safe'):
     serving = capabilities()
-    context = user_context(user)
+    context = user_context(user, requested_scope=requested_scope)
     versions = EvidencePresenter(user, context, {}, serving['algorithm_version']).versions
     return {'contract_version': CONTRACT_VERSION,
             'content_scope_context': dict(context['_content_scope']),

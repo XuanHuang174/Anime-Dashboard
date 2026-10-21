@@ -5,6 +5,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import api from '../api/api.js'
 import { clearTokens } from '../auth/tokenStorage.js'
 import AdminAuditConfirmModal from '../components/AdminAuditConfirmModal.jsx'
+import AdminRecommendationAccessPanel from '../components/AdminRecommendationAccessPanel.jsx'
 import AdminPublicJournalPanel from '../components/AdminPublicJournalPanel.jsx'
 import AdminRejectReasonModal from '../components/AdminRejectReasonModal.jsx'
 import DetailModal from '../components/DetailModal.jsx'
@@ -61,14 +62,14 @@ const ADMIN_MODULES = [
   {
     key: 'module-3',
     number: '03',
-    eyebrow: 'Future Module',
-    title: '模块 3',
-    description: '可继续扩展用户、内容或系统配置功能。',
+    eyebrow: 'Controlled Recommendations',
+    title: '受限内容管理',
+    description: '审批用户访问申请、管理推荐总开关，所有操作保留审计。',
     icon: 'fa-diagram-project',
     color: 'bg-[#ff5b68]',
     shadow: 'shadow-[9px_9px_0_#4ecdc4]',
-    status: '待接入',
-    enabled: false,
+    status: '已接入',
+    enabled: true,
   },
 ]
 
@@ -641,6 +642,8 @@ function AdminDashboard() {
       </section>
       ) : isPublicJournalModule ? (
         <AdminPublicJournalPanel />
+      ) : currentModule?.key === 'module-3' ? (
+        <AdminRecommendationAccessPanel />
       ) : (
         <section className="admin-console-panel mx-auto mt-8 flex min-h-[420px] max-w-[1100px] flex-col items-center justify-center border-4 border-black bg-[#fff5ee] p-8 text-center text-black shadow-[10px_10px_0_#4ecdc4]">
           <span className={`flex h-24 w-24 items-center justify-center border-4 border-black text-4xl shadow-[7px_7px_0_#111] ${currentModule?.color || 'bg-[#ff5b68]'}`}>

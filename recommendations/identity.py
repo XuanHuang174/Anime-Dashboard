@@ -20,8 +20,18 @@ def require_safe_anime(anime):
         raise NotFound('该作品不可用于推荐。')
 
 
-def public_cover_url(anime):
-    require_safe_anime(anime)
+def require_scoped_anime(anime, scope=None):
+    if anime.nsfw is False:
+        return require_safe_anime(anime)
+    from .content_scope import catalog_for_scope
+    if not scope or not catalog_for_scope(scope).filter(pk=anime.pk).exists():
+        raise NotFound('该作品不可用于推荐。')
+
+
+def public_cover_url(anime, scope=None):
+    require_scoped_anime(anime, scope)
+    if anime.nsfw is True:
+        return ''  # Never expose an adult origin/CDN cover, even to authorized users.
     domain = getattr(settings, 'AWS_S3_CUSTOM_DOMAIN', '').strip().lower()
     try:
         url = urlsplit(anime.cover_url)
@@ -37,12 +47,12 @@ def public_cover_url(anime):
         return ''
 
 
-def journal_field_conflicts(anime):
+def journal_field_conflicts(anime, scope=None):
     """Report lossless compatibility, not silently truncating 500-char titles."""
-    require_safe_anime(anime)
+    require_scoped_anime(anime, scope)
     title = anime.title_zh or anime.title_jp or f'未命名番剧 {anime.bangumi_id}'
     values = {'chinese_title': title, 'japanese_title': anime.title_jp,
-              'airing_period': anime.season, 'poster_url': public_cover_url(anime)}
+              'airing_period': anime.season, 'poster_url': public_cover_url(anime, scope)}
     return [f'{field}_too_long' for field, value in values.items()
             if len(value) > Anime._meta.get_field(field).max_length]
 
@@ -70,7 +80,7 @@ def has_possible_legacy_record(*, user, anime, records=None):
     return False
 
 
-def recommendation_identity(*, user, bangumi_id):
+def recommendation_identity(*, user, bangumi_id, scope_context=None):
     """Authoritative IDs or validated private aliases align namespaces.
 
     A catalog ID is NOT an Anime PK or record PK. Legacy title matches can only
@@ -82,12 +92,14 @@ def recommendation_identity(*, user, bangumi_id):
         identity = clean_id(bangumi_id)
     except ValueError:
         raise NotFound('该作品不可用于推荐。') from None
-    anime = safe_catalog().filter(bangumi_id=identity).first()
+    from .content_scope import ensure_scope, catalog_for_scope
+    scope = ensure_scope(user, scope_context) if scope_context else None
+    anime = catalog_for_scope(scope).filter(bangumi_id=identity).first()
     if anime is None:
         raise NotFound('该作品不可用于推荐。')
     shared = Anime.objects.filter(bgm_id=identity).only('pk').first()
     from .resolution import resolved_records
-    records = resolved_records(user)
+    records = resolved_records(user, allowed_adult_ids={identity} if anime.nsfw is True else ())
     aligned = [row for row in records if row['resolved_bangumi_id'] == identity]
     priority = {'completed': 4, 'watching': 3, 'plan': 2, 'on_hold': 1}
     owned = max(aligned, key=lambda row: (priority.get(row['watch_status'], 0), -row['pk']), default=None)
@@ -104,7 +116,7 @@ def recommendation_identity(*, user, bangumi_id):
         chinese_title=anime.title_zh, japanese_title=anime.title_jp,
         airing_period__in=seasons,
     ).exclude(bgm_id=identity).exists()
-    conflicts = journal_field_conflicts(anime)
+    conflicts = journal_field_conflicts(anime, scope)
     return {
         'bangumi_id': identity,
         'anime_id': owned['anime_id'] if owned else shared.pk if shared else None,

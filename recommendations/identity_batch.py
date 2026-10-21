@@ -7,7 +7,7 @@ from .binding import bind_record, IdentityConflict
 CONTRACT = 'recommendations.identity-batch.v1'
 
 
-def confirm_identity_batch(user, data):
+def confirm_identity_batch(user, data, *, scope_context=None):
     results = []
     for item in data['items']:
         result = {'record_id': item['record_id'], 'bangumi_id': item['bangumi_id']}
@@ -16,7 +16,7 @@ def confirm_identity_batch(user, data):
             # itself; earlier committed rows remain acknowledged and retry-safe.
             linked = bind_record(record_id=item['record_id'], user_id=user.pk,
                 target_id=item['bangumi_id'], source='user_confirmed',
-                expected_version=item['expected_version'], ticket=item['ticket'], batch_id=data['batch_id'])
+                expected_version=item['expected_version'], ticket=item['ticket'], batch_id=data['batch_id'], scope_context=scope_context)
             result.update(outcome='success', code=linked['status'], version=linked['version'])
         except IdentityConflict:
             result.update(outcome='needs_review', code='identity_changed',

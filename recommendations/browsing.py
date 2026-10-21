@@ -70,7 +70,7 @@ def capabilities():
             'browse_contract_version': BROWSE_CONTRACT_VERSION, 'legacy_contract_version': engine.CONTRACT_VERSION}
 
 
-def public_browse_index(revision, metrics, *, recipe=None):
+def public_browse_index(revision, metrics, *, recipe=None, scope_context=None):
     """Only exact-revision PUBLIC fields/features; never user/profile/results.
 
     Current transaction always hashes live catalog FIRST. Missing cache or cache
@@ -78,6 +78,8 @@ def public_browse_index(revision, metrics, *, recipe=None):
     """
     key = ':'.join((PUBLIC_CACHE_NAMESPACE, revision, rollout_revision(), engine.TAXONOMY_VERSION,
                     engine.FEATURE_VERSION, engine.FEATURE_RULE_VERSION))
+    if scope_context and scope_context['content_scope'] == 'include_adult':
+        key = 'recommendations.browse.public.m2.include-adult.v1:' + _digest([key, scope_context['release_revision']])
     if recipe:
         key = 'recommendations.browse.public.v2:' + _digest([recipe['recipe_revision'], key])
     use_cache = getattr(settings, 'RECOMMENDATION_BROWSE_PUBLIC_CACHE_ENABLED', True)
@@ -90,7 +92,8 @@ def public_browse_index(revision, metrics, *, recipe=None):
                 return value['rows'], value['index']
         except Exception:
             metrics['public_cache'] = 'unavailable'
-    rows = list(engine.safe_catalog().order_by('bangumi_id').values(
+    from .content_scope import catalog_for_scope
+    rows = list(catalog_for_scope(scope_context).order_by('bangumi_id').values(
         'bangumi_id', 'tags', 'title_zh', 'title_jp', 'score', 'status_type', 'season')[:engine.MAX_CATALOG_ROWS + 1])
     index = engine.build_feature_index(rows)
     if use_cache:
@@ -133,9 +136,9 @@ def catalog_revision():
     return _digest(rows)
 
 
-def live_context(user, options, metrics, *, recipe=None):
+def live_context(user, options, metrics, *, recipe=None, scope_context=None):
     started = perf_counter()
-    context = engine.user_context(user)
+    context = engine.user_context(user, scope_context=scope_context)
     contract, salt, policy, algorithm = _scope(recipe)
     context['algorithm_version'] = algorithm
     # Read only the authenticated owner's recommendation-relevant fields plus
@@ -222,7 +225,7 @@ def _cursor(body, offset):
     return value
 
 
-def browse_page(user, validated, supplied, *, metrics=None, _recipe=None):
+def browse_page(user, validated, supplied, *, metrics=None, _recipe=None, scope_context=None):
     from .content_scope import scope_query
     scope_query(validated)
     # Internal D2 adapter only. Production views NEVER pass a recipe. D3 must
@@ -257,7 +260,7 @@ def browse_page(user, validated, supplied, *, metrics=None, _recipe=None):
                 raise engine.RecommendationSnapshotChanged('浏览条件已变化，请重新加载第一批。')
         options = body['options']
     with readonly_snapshot():
-        context, revision, catalog = live_context(user, options, metrics, recipe=_recipe)
+        context, revision, catalog = live_context(user, options, metrics, recipe=_recipe, scope_context=scope_context)
         if body and not hmac.compare_digest(revision, body['revision']):
             raise engine.RecommendationSnapshotChanged('画像、手账或目录已变化，请重新加载第一批。')
         if body is None:
@@ -265,7 +268,7 @@ def browse_page(user, validated, supplied, *, metrics=None, _recipe=None):
             if context['mode'] == 'cold_start':
                 ranked, weights = [], {}
             else:
-                rows, index = public_browse_index(catalog, metrics, recipe=_recipe)
+                rows, index = public_browse_index(catalog, metrics, recipe=_recipe, scope_context=context['_content_scope'])
                 metrics['public_index_ms'] = round((perf_counter() - started) * 1000, 3)
                 started = perf_counter()
                 if _recipe:
@@ -285,12 +288,16 @@ def browse_page(user, validated, supplied, *, metrics=None, _recipe=None):
                     'options': options, 'ids': ids, 'offset': 0, 'batch': 1,
                     # Evidence needs exactly the original whole-catalog weights.
                     'weights': weights if isinstance(weights, dict) else {}}
+            deadline = context['_content_scope'].get('scope_valid_until')
+            if deadline:
+                from datetime import datetime
+                body['expires'] = min(body['expires'], int(datetime.fromisoformat(deadline).timestamp()))
             if _recipe:
                 body['execution_recipe'] = _recipe
         else:
             weights = body['weights']
         ids, offset = body['ids'], body['offset']
-        current = {row.bangumi_id: row for row in engine.safe_catalog().filter(
+        current = {row.bangumi_id: row for row in engine.candidate_catalog(context).filter(
             bangumi_id__in=ids).defer('synopsis', 'source_cover_url')}
         if len(current) != len(ids):
             raise engine.RecommendationSnapshotChanged('作品安全状态已变化，请重新加载。')
@@ -302,12 +309,14 @@ def browse_page(user, validated, supplied, *, metrics=None, _recipe=None):
         end = min(offset + options['page_size'], batch_end)
         results = []
         from .serializers import RecommendationListAnimeSerializer, EvidenceEnvelopeSerializer
+        serializer_context = {'content_scope': context['_content_scope'],
+            'validated_adult_ids': {row.bangumi_id for row in current.values() if row.nsfw is True}}
         for identity in ids[offset:end]:
             anime = current[identity]
-            data = dict(RecommendationListAnimeSerializer(anime).data)
+            data = dict(RecommendationListAnimeSerializer(anime, context=serializer_context).data)
             data.update(EvidenceEnvelopeSerializer(presenter.present(anime, engine.feature_tags(
                 anime.tags, (anime.title_zh, anime.title_jp)))).data)
-            data.update(content_rating='non_adult', watch_status=context['owned'].get(identity))
+            data.update(content_rating='adult' if anime.nsfw else 'non_adult', watch_status=context['owned'].get(identity))
             if _recipe:
                 from .v2_browsing import issue_detail_context
                 data['detail_context'] = issue_detail_context(body, identity)

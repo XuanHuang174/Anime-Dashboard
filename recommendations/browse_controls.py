@@ -100,7 +100,7 @@ def rank_controlled(context, options, index):
     pool.sort(key=lambda item: (-item['value'], item['bangumi_id']))
     eligible = len(pool)
     pool = pool[:engine.CANDIDATE_POOL]
-    rows = {row.bangumi_id: row for row in engine.safe_catalog().filter(
+    rows = {row.bangumi_id: row for row in engine.candidate_catalog(context).filter(
         bangumi_id__in=[item['bangumi_id'] for item in pool]).defer('synopsis', 'source_cover_url')}
     pool = [{**item, 'anime': rows[item['bangumi_id']]} for item in pool if item['bangumi_id'] in rows]
     # Explicit category-specific strength: familiar stays concentrated; explore

@@ -19,7 +19,7 @@ def record_row(record):
     return UserAnimeRecord.objects.filter(pk=record.pk).values(*RECORD_FIELDS).get()
 
 
-def resolved_records(user):
+def resolved_records(user, *, allowed_adult_ids=()):
     query = UserAnimeRecord.objects.filter(user=user).order_by('pk')
     try:
         with transaction.atomic():
@@ -58,7 +58,7 @@ def resolved_records(user):
         target = catalog.get(target_id)
         if target is None:
             row['identity_state'] = 'not_in_catalog'
-        elif target['nsfw'] is not False:
+        elif target['nsfw'] is not False and not (target['nsfw'] is True and target_id in allowed_adult_ids):
             row['identity_state'] = 'unsafe_or_unknown'
         else:
             row.update(identity_state='linked', catalog=target, resolved_bangumi_id=target_id)

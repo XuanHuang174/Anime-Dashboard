@@ -9,9 +9,11 @@ from .services import preference_contract
 from .profile_policy import sampling_policy
 
 
-def review_contract(user, options):
+def review_contract(user, options, *, scope_context=None):
+    from .content_scope import ensure_scope, catalog_for_scope
+    scope = ensure_scope(user, scope_context) if scope_context else None
     threshold = sampling_policy(preference_contract(user))['minimum_score']
-    rows = resolved_records(user)
+    rows = resolved_records(user, allowed_adult_ids=set(catalog_for_scope(scope).filter(nsfw=True).values_list('bangumi_id', flat=True)) if scope else ())
     if not rows.schema_available:
         raise IdentityCatalogUnavailable('关联工具尚未完成部署；手账数据不受影响。')
     if 'record_id' in options:
@@ -33,7 +35,7 @@ def review_contract(user, options):
             status, candidates = 'needs_admin_review', []
         elif 'keyword' in options:
             keyword = options['keyword']
-            candidates = list(safe_catalog().filter(Q(title_zh__icontains=keyword) | Q(title_jp__icontains=keyword))
+            candidates = list(catalog_for_scope(scope).filter(Q(title_zh__icontains=keyword) | Q(title_jp__icontains=keyword))
                 .order_by('-score', 'bangumi_id').values('pk', 'bangumi_id', 'title_zh', 'title_jp', 'season', 'status_type', 'nsfw')[:5])
             status = 'needs_confirmation' if candidates else 'no_safe_candidate'
         else:
@@ -43,7 +45,7 @@ def review_contract(user, options):
                         'original_title': row['metadata']['title_jp'], 'season': row['metadata']['season'],
                         'identity_version': row['identity_version'], 'status': status,
                         'candidates': [{key: candidate[key] for key in ('bangumi_id', 'title_zh', 'title_jp', 'season', 'status_type')}
-                                       | {'ticket': candidate_ticket(row, candidate), 'content_rating': 'non_adult'}
+                                       | {'ticket': candidate_ticket(row, candidate, scope), 'content_rating': 'adult' if candidate['nsfw'] else 'non_adult'}
                                        for candidate in candidates]})
     return {'count': len(pending), 'page': options['page'],
             'next_page': options['page']+1 if start+len(selected) < len(pending) else None, 'results': results}

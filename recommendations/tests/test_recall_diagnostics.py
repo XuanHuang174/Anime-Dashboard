@@ -108,7 +108,7 @@ class RecallConfigurationTests(SimpleTestCase):
                             return self.generic_visit(expression)
                         def visit_Call(self, expression):
                             replacements = (
-                                ("score_query(safe_catalog().filter(bangumi_id__in=pool_ids), options)",
+                                ("score_query(candidate_catalog(context).filter(bangumi_id__in=pool_ids), options)",
                                  "safe_catalog().filter(bangumi_id__in=pool_ids, score__gte=options['min_score'])"),
                                 ("score_query(safe_catalog(), options)",
                                  "safe_catalog().filter(score__gte=options['min_score'])"),

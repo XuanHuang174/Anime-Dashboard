@@ -48,10 +48,10 @@ def capabilities():
     return v2_browsing.capabilities(serving_enabled=True) if selected_v2() else browsing.capabilities()
 
 
-def browse_page(user, validated, supplied):
+def browse_page(user, validated, supplied, *, scope_context=None):
     if selected_v2():
         return v2_browsing.browse_page(user, validated, supplied, serving_enabled=True)
-    return browsing.browse_page(user, validated, supplied)
+    return browsing.browse_page(user, validated, supplied, scope_context=scope_context)
 
 
 def detail(user, identity, validated):

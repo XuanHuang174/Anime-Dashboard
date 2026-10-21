@@ -13,6 +13,7 @@ from django.db.models import Count, Max
 from rest_framework.exceptions import APIException
 
 from .identity import safe_catalog, normalized_title
+from .content_scope import candidate_catalog
 from .services import profile_data
 from .profile_policy import context_score
 from .taxonomy import TAXONOMY_VERSION, genre_rules
@@ -72,7 +73,11 @@ def _cached_public_features(key, signature):
     return None
 
 
-def public_features(*, algorithm_version=ALGORITHM_VERSION):
+def public_features(*, algorithm_version=ALGORITHM_VERSION, scope_context=None):
+    if scope_context and scope_context['content_scope'] == 'include_adult':
+        from .content_scope import catalog_for_scope
+        return build_feature_index(catalog_for_scope(scope_context).order_by('bangumi_id').values(
+            'bangumi_id', 'tags', 'title_zh', 'title_jp', 'score', 'status_type')[:MAX_CATALOG_ROWS + 1])
     from .version_control import cache_namespace
     key = cache_namespace(algorithm_version, TAXONOMY_VERSION, FEATURE_VERSION, FEATURE_RULE_VERSION)
     revision = safe_catalog().aggregate(count=Count('pk'), updated=Max('updated_at'))
@@ -99,10 +104,10 @@ def public_features(*, algorithm_version=ALGORITHM_VERSION):
         return value
 
 
-def user_context(user, *, evaluation_baseline=False):
+def user_context(user, *, evaluation_baseline=False, scope_context=None, requested_scope='safe'):
     """Read own seeds anew. No inferred private state or HTTP payload cache."""
-    from .content_scope import require_scope
-    scope = require_scope(user)
+    from .content_scope import require_scope, ensure_scope, catalog_for_scope
+    scope = ensure_scope(user, scope_context) if scope_context else require_scope(user, requested_scope)
     from .feedback import feedback_snapshot
     feedback = feedback_snapshot(user)
     profile, records, seeds = profile_data(user, evaluation_baseline=evaluation_baseline)
@@ -112,6 +117,9 @@ def user_context(user, *, evaluation_baseline=False):
             else 'preference_based' if preferences['tags'] else 'cold_start')
     priority = {'completed': 4, 'watching': 3, 'plan': 2, 'on_hold': 1}
     owned = {}
+    if scope['content_scope'] == 'include_adult':
+        from .resolution import resolved_records
+        records = resolved_records(user, allowed_adult_ids=set(catalog_for_scope(scope).filter(nsfw=True).values_list('bangumi_id', flat=True)))
     for row in records:
         identity = row['resolved_bangumi_id']
         if identity and priority.get(row['watch_status'], 0) > priority.get(owned.get(identity), 0):
@@ -238,7 +246,7 @@ def _rank_context_v1(context, options, index, *, observer=None):
     context['_ranking_trace'] = {'eligible_candidates': len(shortlist), 'candidate_pool': len(pool_ids)}
     _diagnostic_target_trace(context, eligible=(identity for _, identity in shortlist), pool=pool_ids)
     # Fetch CURRENT safe rows before evidence, ranking, pagination and serialization.
-    query = score_query(safe_catalog().filter(bangumi_id__in=pool_ids), options)
+    query = score_query(candidate_catalog(context).filter(bangumi_id__in=pool_ids), options)
     if options['type'] != 'all':
         query = query.filter(status_type=options['type'])
     rows = list(query.order_by('bangumi_id').defer('synopsis', 'source_cover_url'))
@@ -602,15 +610,15 @@ def rank_recall_candidate(context, options, index, *, pipeline_observer=None, re
                             observer=pipeline_observer, runtime_version=runtime_version)
 
 
-def rank_candidates(user, options):
+def rank_candidates(user, options, *, scope_context=None):
     from .content_scope import scope_query
     scope_query(options)
     algorithm = configured_algorithm()
-    context = user_context(user)
+    context = user_context(user, scope_context=scope_context)
     context['algorithm_version'] = algorithm
     if context['mode'] == 'cold_start':
         return context, [], 'cold', []
-    ranked, weights = rank_context(context, options, public_features(algorithm_version=algorithm), algorithm_version=algorithm)
+    ranked, weights = rank_context(context, options, public_features(algorithm_version=algorithm, scope_context=scope_context), algorithm_version=algorithm)
     return context, ranked, snapshot_token(user.pk, context, options, ranked, algorithm, weights=weights), weights
 
 

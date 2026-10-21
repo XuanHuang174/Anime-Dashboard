@@ -23,7 +23,7 @@ SALT='recommendations.content-review.admin.v1'
 
 class ReviewForm(forms.Form):
     ticket=forms.CharField(widget=forms.HiddenInput,max_length=4096)
-    action=forms.ChoiceField(label='单作品操作',choices=(('prepare','建立待审核'),('approve','审核通过（不开放推荐）'),
+    action=forms.ChoiceField(label='单作品操作',choices=(('prepare','建立待审核'),('approve','审核通过（不自动开放推荐）'),
         ('reject','拒绝'),('revoke','撤销审核')))
     reason=forms.CharField(label='审核原因',max_length=240,help_text='仅审核记录；不要填写用户身份材料或私人手账。')
     evidence_reference=forms.RegexField(r'^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$',max_length=128,required=False,
@@ -93,7 +93,7 @@ class ContentReviewAdmin(ReadOnlyReviewAdmin):
                         'reason':data['reason'],'days':data['days'],'exclusions_confirmed':data['exclusions_confirmed']}
                     if data['evidence_reference']: changes['evidence_reference']=data['evidence_reference']
                     mutate_review(actor=request.user,bangumi_id=body['work'],action=data['action'],changes=changes)
-                    self.message_user(request,'审核操作已确认；成人推荐仍关闭，不代表已经允许展示。',messages.SUCCESS)
+                    self.message_user(request,'审核操作已确认；展示仍受总开关、用户授权和个人筛选约束。',messages.SUCCESS)
                     return HttpResponseRedirect(reverse('admin:recommendations_content_review_control')+f'?bangumi_id={anime.bangumi_id}')
             else:
                 raw=request.GET.get('bangumi_id','')
@@ -108,7 +108,7 @@ class ContentReviewAdmin(ReadOnlyReviewAdmin):
         except APIException as exc: error=_error_text(exc.detail)
         except DatabaseError: error='审核数据库尚未就绪，请先完成迁移。'
         return TemplateResponse(request,'admin/recommendations/content_review_control.html',{
-            **self.admin_site.each_context(request),'opts':self.model._meta,'title':'推荐作品审核（关闭式）',
+            **self.admin_site.each_context(request),'opts':self.model._meta,'title':'推荐作品审核（独立放行台账）',
             'anime':anime,'decision':decision,'form':form,'error':error,
             'reload_url':reverse('admin:recommendations_content_review_control')})
 

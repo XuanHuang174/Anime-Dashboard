@@ -1,13 +1,16 @@
 // Manual authorization is NOT age verification. M1 never sends content_scope.
 export function validateEligibility(data) {
   const statuses = ['not_requested', 'pending', 'active', 'rejected', 'revoked', 'expired', 'legacy_unavailable', 'account_inactive']
-  if (!data || data.contract_version !== 'recommendations.eligibility.manual.m1.v1'
-    || data.policy_version !== 'eligibility.manual.closed.v1' || !statuses.includes(data.effective_status)
+  const m2 = data?.contract_version === 'recommendations.eligibility.manual.m2.v1' && data?.policy_version === 'eligibility.manual.m2.v1'
+  const m1 = data?.contract_version === 'recommendations.eligibility.manual.m1.v1' && data?.policy_version === 'eligibility.manual.closed.v1'
+  if (!data || !(m1 || m2) || !statuses.includes(data.effective_status)
     || !['none', 'legacy', 'manual'].includes(data.authorization_source)
     || !Number.isInteger(data.eligibility_version) || data.eligibility_version < 0
     || typeof data.can_apply !== 'boolean' || typeof data.manual_authorization_valid !== 'boolean'
-    || data.age_assurance_status !== 'not_performed' || data.adult_access_allowed !== false
-    || data.serving_integration !== false || data.effective_scope !== 'safe'
+    || data.age_assurance_status !== 'not_performed'
+    || (m1 ? data.adult_access_allowed !== false || data.serving_integration !== false
+      : typeof data.adult_access_allowed !== 'boolean' || typeof data.serving_integration !== 'boolean'
+        || data.adult_access_allowed && (!data.serving_integration || !data.manual_authorization_valid)) || data.effective_scope !== 'safe'
     || typeof data.decision_message !== 'string'
     || !/^[a-f0-9]{64}$/.test(data.eligibility_revision || '')
     || (data.valid_until !== null && (typeof data.valid_until !== 'string' || !Number.isFinite(Date.parse(data.valid_until))))
@@ -23,7 +26,7 @@ export function eligibilityCopy(data) {
   if (data.effective_status === 'account_inactive') return '账号不可用，不能申请访问授权。'
   if (data.authorization_source === 'legacy') return '历史记录不构成人工授权，请重新提交申请。'
   return { not_requested: '尚未申请受限内容访问。', pending: '申请已提交，等待超级管理员审批。',
-    active: '访问申请已批准。NSFW 推荐尚未开放，暂不能开启。',
+    active: data.adult_access_allowed ? '访问已获批准，可按需开启本次 NSFW 筛选。' : '访问申请已批准。NSFW 推荐尚未开放，暂不能开启。',
     rejected: data.decision_message || '本次申请未通过，可重新申请。', revoked: '访问授权已撤销，可重新申请。',
     expired: '访问授权已到期，可重新申请。', account_inactive: '账号不可用，不能申请访问授权。' }[data.effective_status]
     || '当前授权不可用，请重新读取。'

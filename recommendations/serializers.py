@@ -253,11 +253,16 @@ class RecommendationPublicAnimeSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def to_representation(self, instance):
-        require_safe_anime(instance)
+        from .identity import require_scoped_anime
+        if not (instance.nsfw is True and instance.bangumi_id in self.context.get('validated_adult_ids', ())
+                and self.context.get('content_scope', {}).get('content_scope') == 'include_adult'):
+            require_scoped_anime(instance, self.context.get('content_scope'))
         return super().to_representation(instance)
 
     def get_cover_url(self, instance):
-        return public_cover_url(instance)
+        if instance.nsfw is True:
+            return ''  # to_representation has already checked authorization/review
+        return public_cover_url(instance, self.context.get('content_scope'))
 
     def get_tags(self, instance):
         tags = feature_tags(instance.tags, (instance.title_zh, instance.title_jp))
@@ -344,10 +349,13 @@ class EvidenceVersionsSerializer(serializers.Serializer):
     content_scope_contract_version = serializers.CharField(read_only=True)
     content_scope_policy_version = serializers.CharField(read_only=True)
     content_release_policy_version = serializers.CharField(read_only=True)
-    content_scope = serializers.ChoiceField(choices=('safe',), read_only=True)
+    content_scope = serializers.ChoiceField(choices=('safe', 'include_adult'), read_only=True)
     eligibility_version = serializers.IntegerField(read_only=True)
     content_review_version = serializers.IntegerField(read_only=True)
     scope_revision = serializers.CharField(read_only=True)
+    serving_control_version = serializers.IntegerField(read_only=True)
+    release_revision = serializers.CharField(read_only=True)
+    scope_valid_until = serializers.CharField(read_only=True, allow_null=True)
     profile_policy_version = serializers.CharField(read_only=True)
     profile_min_score = serializers.DecimalField(max_digits=3, decimal_places=1, read_only=True)
     recipe_revision = serializers.CharField(read_only=True)
@@ -496,7 +504,7 @@ class RecommendationBrowseResultSerializer(EvidenceEnvelopeSerializer):
     cover_url = serializers.CharField(read_only=True)
     season = serializers.CharField(read_only=True)
     status_type = serializers.CharField(read_only=True)
-    content_rating = serializers.ChoiceField(choices=('non_adult',), read_only=True)
+    content_rating = serializers.ChoiceField(choices=('non_adult', 'adult'), read_only=True)
     watch_status = serializers.CharField(read_only=True, allow_null=True)
 
 

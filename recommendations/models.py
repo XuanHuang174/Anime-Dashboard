@@ -282,6 +282,28 @@ class RecommendationEligibilityEvent(models.Model):
         ]
 
 
+class RecommendationServingControl(models.Model):
+    """Module 3 switch. Reading an absent singleton means disabled, never creates it."""
+    id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
+    enabled = models.BooleanField(default=False, editable=False)
+    version = models.PositiveIntegerField(default=0, editable=False)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.CheckConstraint(condition=models.Q(id=1), name='rec_serving_singleton'),
+            models.CheckConstraint(condition=models.Q(version__lte=2147483647), name='rec_serving_version_max')]
+
+
+class RecommendationServingControlEvent(models.Model):
+    operation_id = models.UUIDField(unique=True)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name='+')
+    request_fingerprint = models.CharField(max_length=64)
+    enabled = models.BooleanField()
+    version = models.PositiveIntegerField()
+    reason = models.CharField(max_length=200)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
 class RecommendationContentReviewState(models.Model):
     """Managed review epoch; GET never creates the singleton."""
     id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)

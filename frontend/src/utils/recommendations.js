@@ -1,3 +1,4 @@
+import { controlledScope } from './recommendationContentScope.js'
 import { sameEvidenceContext } from './recommendationEpoch.js'
 import { samplingPreferences, validateSamplingPolicy, profileScore } from './recommendationSampling.js'
 
@@ -75,7 +76,7 @@ export function getRecommendationCover(value) {
 }
 
 export function mapRecommendationItem(row) {
-  if (row?.content_rating !== 'non_adult' || !Number.isInteger(row.bangumi_id) || row.bangumi_id < 1
+  if (!(row?.content_rating === 'non_adult' || row?.content_rating === 'adult' && controlledScope(row.evidence_context)) || !Number.isInteger(row.bangumi_id) || row.bangumi_id < 1
     || typeof row.title_zh !== 'string' || typeof row.title_jp !== 'string' || !Array.isArray(row.tags)
     || !row.tags.every((tag) => typeof tag === 'string')
     || (row.score !== null && (!Number.isFinite(row.score) || row.score < 0 || row.score > 10))
@@ -84,7 +85,7 @@ export function mapRecommendationItem(row) {
   }
   return { id: String(row.bangumi_id), bangumiId: row.bangumi_id, title: row.title_zh || row.title_jp,
     originalTitle: row.title_jp, year: row.season?.slice(0, 4), season: row.season, type: row.status_type,
-    score: row.score, tags: row.tags, coverUrl: getRecommendationCover(row.cover_url),
+    score: row.score, tags: row.tags, contentRating: row.content_rating, coverUrl: row.content_rating === 'adult' ? '' : getRecommendationCover(row.cover_url),
     synopsis: row.synopsis || '', reason: row.reason || '', evidence: row.evidence, watchStatus: row.watch_status,
     evidenceToken: row.evidence_token, evidenceContext: row.evidence_context, detailContext: row.detail_context }
 }
@@ -153,7 +154,7 @@ export function validateIdentityReview(data) {
     || !Array.isArray(data.results) || data.results.length > 10 || (data.next_page !== null && data.next_page !== data.page + 1)
     || !data.results.every((row) => Number.isInteger(row.record_id) && row.record_id > 0
       && typeof row.title === 'string' && Number.isInteger(row.identity_version) && Array.isArray(row.candidates)
-      && row.candidates.every((item) => item.content_rating === 'non_adult' && Number.isInteger(item.bangumi_id)
+      && row.candidates.every((item) => (item.content_rating === 'non_adult' || item.content_rating === 'adult' && controlledScope(data.content_scope_context)) && Number.isInteger(item.bangumi_id)
         && item.bangumi_id > 0 && typeof item.ticket === 'string' && typeof item.title_zh === 'string'))) {
     throw new Error('推荐身份核对合同不兼容，请重新加载。')
   }

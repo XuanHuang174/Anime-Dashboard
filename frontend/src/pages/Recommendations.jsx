@@ -49,12 +49,14 @@ export default function Recommendations({ client = recommendationApi }) {
   return <RecommendationWorkspace key={sessionScope} client={client} sessionScope={sessionScope} />
 }
 
-function RecommendationWorkspace({ client, sessionScope }) {
+function RecommendationWorkspace({ client: baseClient, sessionScope }) {
   const [category, setCategory] = useState('all')
   const [style, setStyle] = useState('balanced')
   const [filters, setFilters] = useState({ ...DEFAULT_BROWSE_FILTERS })
   const [panel, setPanel] = useState(null)
   const [notice, setNotice] = useState('')
+  const scopeLost = useRef(() => {})
+  const client = useMemo(() => baseClient.forScope ? baseClient.forScope(filters.includeAdult ? 'include_adult' : 'safe', () => scopeLost.current()) : baseClient, [baseClient, !!filters.includeAdult])
   const [publicationRevision, setPublicationRevision] = useState(0)
   const resourceTrigger = useRef(null)
   const preferenceTrigger = useRef(null)
@@ -92,6 +94,31 @@ function RecommendationWorkspace({ client, sessionScope }) {
     if (target && !target.disabled) target.focus({ preventScroll: true })
   }, [panel, state.status, preferences])
   const discardDetail = () => { detailController.close(); setPanel(current => current?.kind === 'detail' ? null : current) }
+  scopeLost.current = () => {
+    if (!filters.includeAdult) return
+    discardDetail(); state.cancelBrowse(); setPanel(null)
+    setFilters(current => ({ ...current, includeAdult: false }))
+    setNotice('访问授权或服务状态已变化，已恢复安全范围。')
+  }
+  useEffect(() => {
+    if (!filters.includeAdult) return undefined
+    const deadline = Date.parse(state.data?.evidence_context?.scope_valid_until)
+    if (!Number.isFinite(deadline)) return undefined
+    let timer, abort = null, stopped = false
+    const check = async () => {
+      if (stopped) return
+      if (Date.now() >= deadline) { scopeLost.current(); return }
+      if (document.visibilityState !== 'hidden' && !abort) {
+        abort = new AbortController()
+        try { await client.context(abort.signal) } catch { /* confirmed 403/409 handled by scoped client; offline stays local */ }
+        finally { abort = null }
+      }
+      if (!stopped) { window.clearTimeout(timer); timer = window.setTimeout(check, Math.min(30000, Math.max(0, deadline - Date.now()))) }
+    }
+    timer = window.setTimeout(check, Math.min(30000, Math.max(0, deadline - Date.now())))
+    document.addEventListener('visibilitychange', check)
+    return () => { stopped = true; abort?.abort(); window.clearTimeout(timer); document.removeEventListener('visibilitychange', check) }
+  }, [client, !!filters.includeAdult, state.data?.evidence_context?.scope_valid_until])
   const externalChange = reason => { discardDetail(); state.contextChanged(reason) }
   const acknowledgeReload = useRecommendationReload(externalChange,
     panel?.kind === 'preferences' || saving || state.status === 'loading', client,
@@ -143,13 +170,13 @@ function RecommendationWorkspace({ client, sessionScope }) {
   useEffect(() => { want.reconcile(state.items) }, [state.items, want.reconcile])
   useEffect(() => { if (detail.status === 'ready') want.reconcile([detail.item]) }, [detail, want.reconcile])
   useLayoutEffect(() => {
-    const query = JSON.stringify([category, style, filters.type, filters.minScore, filters.hideRecorded, filters.yearFrom, filters.yearTo])
+    const query = JSON.stringify([category, style, filters.type, filters.minScore, filters.hideRecorded, filters.yearFrom, filters.yearTo, !!filters.includeAdult])
     if (detailQuery.current !== query) {
       detailQuery.current = query
       detailController.close()
       setPanel(current => current?.kind === 'detail' ? null : current)
     }
-  }, [category, style, filters.type, filters.minScore, filters.hideRecorded, filters.yearFrom, filters.yearTo, detailController])
+  }, [category, style, filters.type, filters.minScore, filters.hideRecorded, filters.yearFrom, filters.yearTo, !!filters.includeAdult, detailController])
   useEffect(() => { if (state.snapshotExpired) discardDetail() }, [state.snapshotExpired, detailController])
   const executionEpoch = state.data ? `${state.data.algorithm_version}:${state.data.execution_recipe?.recipe_revision || ''}:${state.transport}` : ''
   const lastExecutionEpoch = useRef('')
@@ -163,7 +190,7 @@ function RecommendationWorkspace({ client, sessionScope }) {
       if (style !== 'balanced') setStyle('balanced')
       if (filters.yearFrom || filters.yearTo) setFilters(current => ({ ...current, yearFrom: '', yearTo: '' }))
     }
-  }, [legacy, style, filters.yearFrom, filters.yearTo, detailController])
+  }, [legacy, style, filters.yearFrom, filters.yearTo, !!filters.includeAdult, detailController])
 
   useEffect(() => {
     const previous = document.title

@@ -130,7 +130,7 @@ test('M1 application view covers pending, approved, rejected, expired and unavai
     value({ effective_status: 'rejected', decision_message: '<script>not executable</script>' }),
     value({ effective_status: 'expired' }), value({ authorization_source: 'legacy' })]) {
     const html = render({ status: 'ready', data, confirmed: false, error: '' })
-    assert.match(html, /NSFW 推荐暂未开放/)
+    assert.match(html, /默认安全范围；授权通过且服务开放后，才可手动开启/)
     assert.doesNotMatch(html, /role="switch"|<script>|已验证成年/)
     if (!data.can_apply) assert.doesNotMatch(html, /申请开启<\/button>/)
     assert.ok(eligibilityCopy(data))

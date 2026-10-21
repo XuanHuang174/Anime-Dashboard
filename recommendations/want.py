@@ -27,13 +27,13 @@ class WantCapacityExceeded(WantConflict):
     status_code = 403
 
 
-def want_contract(record, bangumi_id, created):
+def want_contract(record, bangumi_id, created, content_rating='non_adult'):
     # Public identity, shared PK and private record PK are separate namespaces.
     # Never return personal score, review, other-user IDs or inferred replacements.
     return {'contract_version': CONTRACT_VERSION, 'bangumi_id': bangumi_id,
             'anime_id': record.anime_id, 'record_id': record.pk,
             'watch_status': record.watch_status, 'created': created,
-            'outcome': 'created' if created else 'existing', 'content_rating': 'non_adult'}
+            'outcome': 'created' if created else 'existing', 'content_rating': content_rating}
 
 
 @transaction.atomic
@@ -49,22 +49,22 @@ def add_want(*, user, bangumi_id, scope_context=None):
     # and prevents its safety classification from changing mid-transaction.
     if get_user_model().objects.select_for_update().only('pk').filter(pk=user.pk, is_active=True).first() is None:
         raise NotFound('账号不可用。')
-    from .content_scope import ensure_scope, require_scope
-    scope = ensure_scope(user, scope_context) if scope_context is not None else require_scope(user)
-    catalog = safe_catalog().select_for_update().filter(bangumi_id=bangumi_id).first()
+    from .content_scope import ensure_scope, lock_scope, catalog_for_scope
+    scope = lock_scope(user, scope_context)
+    catalog = catalog_for_scope(scope).select_for_update().filter(bangumi_id=bangumi_id).first()
     if catalog is None:
         raise NotFound('该作品不可用于推荐。')
     # Reviews lock catalog rows, not this user's row. Recheck after a catalog wait.
     ensure_scope(user, scope)
     direct = UserAnimeRecord.objects.filter(user=user, anime__bgm_id=bangumi_id).order_by('pk').first()
     if direct is not None:
-        return want_contract(direct, bangumi_id, False)
-    identity = recommendation_identity(user=user, bangumi_id=bangumi_id)
+        return want_contract(direct, bangumi_id, False, 'adult' if catalog.nsfw else 'non_adult')
+    identity = recommendation_identity(user=user, bangumi_id=bangumi_id, scope_context=scope)
     if identity['record_id']:
         existing = UserAnimeRecord.objects.filter(user=user, pk=identity['record_id']).first()
         if existing is None:
             raise WantConflict('identity_changed', '手账记录已变化，请重新读取后重试。')
-        return want_contract(existing, bangumi_id, False)
+        return want_contract(existing, bangumi_id, False, 'adult' if catalog.nsfw else 'non_adult')
     if not identity['identity_service_ready']:
         raise IdentityCatalogUnavailable('身份关联服务尚未部署，暂不能安全新增；已有手账不受影响。')
     if identity['requires_identity_confirmation']:
@@ -84,10 +84,10 @@ def add_want(*, user, bangumi_id, scope_context=None):
         tags.append(catalog.status_type)
     metadata = {'chinese_title': title, 'japanese_title': catalog.title_jp,
                 'airing_period': catalog.season or '未定档', 'description': catalog.synopsis,
-                'poster_url': public_cover_url(catalog), 'base_tags': tags,
+                'poster_url': public_cover_url(catalog, scope), 'base_tags': tags,
                 # Same new-row visibility policy as Bangumi imports. Existing
                 # rows are coordinated separately, only for a NEW owner record.
-                **imported_visibility_defaults(user)}
+                **({'is_active': False} if catalog.nsfw else imported_visibility_defaults(user))}
     try:
         # Savepoint keeps the enclosing transaction usable after unique-key races.
         # NEVER title-merge, update_or_create, truncate, or assign an ID to an old row.
@@ -110,8 +110,8 @@ def add_want(*, user, bangumi_id, scope_context=None):
     })
     if created:
         initialize_record_tag_colors(record=record, user=user)
-    publication = publish_new_showcase_record(record=record, created=created)
-    result = want_contract(record, bangumi_id, created)
+    publication = None if catalog.nsfw else publish_new_showcase_record(record=record, created=created)
+    result = want_contract(record, bangumi_id, created, 'adult' if catalog.nsfw else 'non_adult')
     if publication is not None:
         result['showcase_publication'] = publication
     return result

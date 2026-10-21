@@ -89,8 +89,10 @@ class EvidencePresenter:
             from .feedback import ensure_version
             ensure_version(self.user, self.feedback_version)
         identities = {anime.bangumi_id for anime in animes}
-        identities.update(seed['bangumi_id'] for seed in self.context['seeds'])
-        if identities != set(safe_catalog().filter(bangumi_id__in=identities).values_list('bangumi_id', flat=True)):
+        from .content_scope import catalog_for_scope
+        seeds = {seed['bangumi_id'] for seed in self.context['seeds']}
+        if (seeds != set(safe_catalog().filter(bangumi_id__in=seeds).values_list('bangumi_id', flat=True)) or
+            identities != set(catalog_for_scope(self.scope).filter(bangumi_id__in=identities).values_list('bangumi_id', flat=True))):
             raise RecommendationSnapshotChanged('推荐作品或证据来源已变化，请重新加载推荐。')
 
     def present(self, anime, tags):

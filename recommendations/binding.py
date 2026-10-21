@@ -27,14 +27,15 @@ def link_payload(link):
             'catalog_fingerprint', 'matching_version', 'active')}
 
 
-def candidate_ticket(row, target):
+def candidate_ticket(row, target, scope_context=None):
     return signing.dumps({'owner': row['user_id'], 'record': row['pk'], 'target': target['bangumi_id'],
                           'record_fp': record_fingerprint(row), 'catalog_fp': catalog_fingerprint(target),
-                          'version': row.get('identity_version', 0), 'rule': MATCHING_VERSION}, salt=SALT)
+                          'version': row.get('identity_version', 0), 'rule': MATCHING_VERSION,
+                          **({'scope': scope_context['scope_revision']} if scope_context else {})}, salt=SALT)
 
 
 @transaction.atomic
-def bind_record(*, record_id, user_id, target_id, source, expected_version=None, ticket=None, batch_id=None, expected_catalog_fp=None):
+def bind_record(*, record_id, user_id, target_id, source, expected_version=None, ticket=None, batch_id=None, expected_catalog_fp=None, scope_context=None):
     # Use the same owner lock as want/create/import before record/catalog locks.
     # Explicit identity confirmation and journal creation cannot run an unowned
     # lookup concurrently for this account.
@@ -44,7 +45,12 @@ def bind_record(*, record_id, user_id, target_id, source, expected_version=None,
     if record is None:
         raise NotFound('记录不存在。')
     row = record_row(record)
-    target = RecommendationAnime.objects.select_for_update().filter(bangumi_id=target_id, nsfw=False).first()
+    from .content_scope import ensure_scope, lock_scope, catalog_for_scope
+    owner = get_user_model().objects.get(pk=user_id)
+    scope = lock_scope(owner, scope_context) if scope_context else None
+    target = catalog_for_scope(scope).select_for_update().filter(bangumi_id=target_id).first()
+    if scope:
+        ensure_scope(owner, scope)
     if target is None:
         raise NotFound('该作品不可用于推荐。')
     direct = row['anime__bgm_id']
@@ -73,7 +79,9 @@ def bind_record(*, record_id, user_id, target_id, source, expected_version=None,
             raise IdentityConflict() from None
         if (proof.get('owner') != user_id or proof.get('record') != record_id or proof.get('target') != target_id
             or proof.get('record_fp') != fp or proof.get('catalog_fp') != target_fp
-            or proof.get('rule') != MATCHING_VERSION or proof.get('version') != expected_version):
+            or proof.get('rule') != MATCHING_VERSION or proof.get('version') != expected_version
+            or (scope and proof.get('scope') != scope['scope_revision']
+                and not (scope['content_scope'] == 'safe' and proof.get('scope') is None))):
             raise IdentityConflict()
     # Safe retry after a committed request whose response was lost; do not create another event.
     if link and link.active and link.catalog_anime_id == target.pk and link.record_fingerprint == fp and link.catalog_fingerprint == target_fp:

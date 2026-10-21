@@ -1,9 +1,10 @@
+import { controlledScope } from './recommendationContentScope.js'
 const STATUSES = ['plan', 'watching', 'completed', 'on_hold']
 const LABELS = { plan: '已在想看', watching: '在看中', completed: '已看过', on_hold: '已搁置' }
 
 export function validateWantResult(data, identity) {
   if (!Number.isInteger(identity) || identity < 1 || identity > 2147483647
-    || data?.contract_version !== 'recommendations.want.v1' || data.content_rating !== 'non_adult'
+    || data?.contract_version !== 'recommendations.want.v1' || !(data.content_rating === 'non_adult' || data.content_rating === 'adult' && controlledScope(data.content_scope_context))
     || data.bangumi_id !== identity || !Number.isInteger(data.record_id) || data.record_id < 1
     || !Number.isInteger(data.anime_id) || data.anime_id < 1 || typeof data.created !== 'boolean'
     || data.outcome !== (data.created ? 'created' : 'existing') || !STATUSES.includes(data.watch_status)) {

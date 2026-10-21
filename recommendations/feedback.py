@@ -73,9 +73,9 @@ def mutate_feedback(*, user, action, changes, scope_context=None):
     data = serializer.validated_data
     if get_user_model().objects.select_for_update().filter(pk=user.pk, is_active=True).only('pk').first() is None:
         raise NotFound('账号不可用。')
-    from .content_scope import ensure_scope, require_scope
-    scope = ensure_scope(user, scope_context) if scope_context is not None else require_scope(user)
-    if safe_catalog().select_for_update().filter(bangumi_id=data['bangumi_id']).only('pk').first() is None:
+    from .content_scope import ensure_scope, lock_scope, catalog_for_scope
+    scope = lock_scope(user, scope_context)
+    if catalog_for_scope(scope).select_for_update().filter(bangumi_id=data['bangumi_id']).only('pk').first() is None:
         raise NotFound('该作品不可用于推荐。')
     ensure_scope(user, scope)
     version = current_version(user)
@@ -125,21 +125,21 @@ def mutate_feedback(*, user, action, changes, scope_context=None):
             'operation_feedback_version': receipt.applied_feedback_version, 'feedback': _work_contract(row)}
 
 
-def hidden_feedback(user, options):
+def hidden_feedback(user, options, *, scope_context=None):
     _require_user(user)
-    from .content_scope import require_scope, ensure_scope, scope_query
+    from .content_scope import require_scope, ensure_scope, scope_query, catalog_for_scope
     scope_query(options)
-    scope = require_scope(user)
+    scope = ensure_scope(user, scope_context) if scope_context else require_scope(user)
     version = current_version(user)
     if options.get('feedback_version', version) != version:
         raise FeedbackConflict('feedback_version_conflict', '隐藏清单已变化，请重新加载第一页。',
                                feedback_version=version, reload_required=True)
     query = Feedback.objects.filter(user_id=user.pk, is_active=True,
-        bangumi_id__in=Subquery(safe_catalog().values('bangumi_id'))).order_by('-hidden_at', '-pk')
+        bangumi_id__in=Subquery(catalog_for_scope(scope).values('bangumi_id'))).order_by('-hidden_at', '-pk')
     count = query.count()
     start = (options['page'] - 1) * options['page_size']
     rows = list(query[start:start + options['page_size']])
-    catalog = {row.bangumi_id: row for row in safe_catalog().filter(bangumi_id__in=[r.bangumi_id for r in rows])}
+    catalog = {row.bangumi_id: row for row in catalog_for_scope(scope).filter(bangumi_id__in=[r.bangumi_id for r in rows])}
     results = [{**_work_contract(row), 'title_zh': catalog[row.bangumi_id].title_zh,
                 'title_jp': catalog[row.bangumi_id].title_jp, 'season': catalog[row.bangumi_id].season,
                 'status_type': catalog[row.bangumi_id].status_type} for row in rows if row.bangumi_id in catalog]

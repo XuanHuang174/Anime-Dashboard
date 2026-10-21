@@ -60,7 +60,7 @@ class OwnRecommendationAPIView(APIView):
         if self.scoped:
             request.scope_query = scope_query(request.query_params)
             if self.preload_scope:
-                request.content_scope = require_scope(request.user)
+                request.content_scope = require_scope(request.user, request.query_params.get('content_scope', 'safe'))
                 check_precondition(request.headers.get('X-Recommendation-Scope'), request.content_scope)
 
     def query_params(self, request):
@@ -85,6 +85,8 @@ class OwnRecommendationAPIView(APIView):
             if request.method == 'GET':
                 try:
                     ensure_scope(request.user, request.content_scope)
+                    from .content_scope import verify_response_catalog
+                    verify_response_catalog(response.data, request.content_scope)
                 except (APIException, DatabaseError) as exc:
                     response = self.handle_exception(exc)
             if response.status_code < 400 and isinstance(response.data, dict):
@@ -148,7 +150,7 @@ class RecommendationContextView(OwnRecommendationAPIView):
     def get(self, request):
         self.check_query_contract(request)
         from .context_probe import context_contract
-        data = context_contract(request.user)
+        data = context_contract(request.user, requested_scope=request.query_params.get('content_scope', 'safe'))
         request.content_scope = data.pop('content_scope_context')
         check_precondition(request.headers.get('X-Recommendation-Scope'), request.content_scope)
         return Response(data)
@@ -181,7 +183,7 @@ class RecommendationHiddenFeedbackView(OwnRecommendationAPIView):
     def get(self, request):
         serializer = FeedbackHiddenQuerySerializer(data=self.query_params(request))
         serializer.is_valid(raise_exception=True)
-        return Response(FeedbackHiddenListSerializer(hidden_feedback(request.user, serializer.validated_data)).data)
+        return Response(FeedbackHiddenListSerializer(hidden_feedback(request.user, serializer.validated_data, scope_context=request.content_scope)).data)
 
 
 class RecommendationWantView(OwnRecommendationAPIView):
@@ -233,8 +235,8 @@ class RecommendationListView(OwnRecommendationAPIView):
         if browse_requested(options, self.query_params(request)):
             from .serializers import RecommendationBrowsePageSerializer
             return Response(RecommendationBrowsePageSerializer(
-                browse_page(request.user, options, self.query_params(request))).data)
-        context, ranked, token, weights = rank_candidates(request.user, options)
+                browse_page(request.user, options, self.query_params(request), scope_context=request.content_scope)).data)
+        context, ranked, token, weights = rank_candidates(request.user, options, scope_context=request.content_scope)
         if options['page'] > 1 and not hmac.compare_digest(token, options['state_token']):
             raise RecommendationSnapshotChanged()
         start = (options['page'] - 1) * options['page_size']
@@ -243,9 +245,9 @@ class RecommendationListView(OwnRecommendationAPIView):
         presenter.ensure_safe([item['anime'] for item in page])
         results = []
         for item in page:
-            data = dict(RecommendationListAnimeSerializer(item['anime']).data)
+            data = dict(RecommendationListAnimeSerializer(item['anime'], context={'content_scope': request.content_scope, 'validated_adult_ids': {r['anime'].bangumi_id for r in page if r['anime'].nsfw is True}}).data)
             data.update(EvidenceEnvelopeSerializer(presenter.present(item['anime'], item['tags'])).data)
-            data.update(content_rating='non_adult', watch_status=context['owned'].get(item['anime'].bangumi_id))
+            data.update(content_rating='adult' if item['anime'].nsfw else 'non_adult', watch_status=context['owned'].get(item['anime'].bangumi_id))
             results.append(data)
         return Response({
             'contract_version': CONTRACT_VERSION, 'algorithm_version': context['algorithm_version'],
@@ -272,33 +274,35 @@ class RecommendationDetailView(OwnRecommendationAPIView):
         if 'detail_context' in query.validated_data:
             from .deployment import detail
             return Response(detail(request.user, bangumi_id, query.validated_data))
-        anime = safe_catalog().filter(bangumi_id=bangumi_id).first()
+        from .content_scope import catalog_for_scope
+        anime = catalog_for_scope(request.content_scope).filter(bangumi_id=bangumi_id).first()
         if anime is None:
             raise NotFound('该作品不可用于推荐。')
-        context = user_context(request.user)
+        context = user_context(request.user, scope_context=request.content_scope)
         from .engine import feature_tags, public_features
         algorithm = configured_algorithm()
         tags = feature_tags(anime.tags, (anime.title_zh, anime.title_jp))
-        presenter = EvidencePresenter(request.user, context, public_features(algorithm_version=algorithm)['weights'], algorithm)
+        presenter = EvidencePresenter(request.user, context, public_features(algorithm_version=algorithm, scope_context=request.content_scope)['weights'], algorithm)
         presenter.ensure_safe([anime])
         explanation = presenter.present(anime, tags)
         expected = query.validated_data.get('evidence_token')
         if expected and not hmac.compare_digest(expected, explanation['evidence_token']):
             raise RecommendationSnapshotChanged('推荐依据已更新，请重新加载推荐后查看详情。')
-        data = dict(RecommendationPublicAnimeSerializer(anime).data)
+        data = dict(RecommendationPublicAnimeSerializer(anime, context={'content_scope': request.content_scope}).data)
         data.update(EvidenceEnvelopeSerializer(explanation).data)
-        data.update(content_rating='non_adult', watch_status=context['owned'].get(anime.bangumi_id))
+        data.update(content_rating='adult' if anime.nsfw else 'non_adult', watch_status=context['owned'].get(anime.bangumi_id))
         return Response(data)
 
 
 class RecommendationIdentityReviewView(OwnRecommendationAPIView):
+    scoped = True
     throttle_classes = (UserRateThrottle, ScopedRateThrottle)
     throttle_scope = 'recommendation_identity'
 
     def get(self, request):
-        serializer = IdentityReviewQuerySerializer(data=request.query_params)
+        serializer = IdentityReviewQuerySerializer(data=self.query_params(request))
         serializer.is_valid(raise_exception=True)
-        return Response(review_contract(request.user, serializer.validated_data))
+        return Response(review_contract(request.user, serializer.validated_data, scope_context=request.content_scope))
 
     def patch(self, request):
         self.check_query_contract(request)
@@ -306,7 +310,7 @@ class RecommendationIdentityReviewView(OwnRecommendationAPIView):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
         result = bind_record(record_id=data['record_id'], user_id=request.user.pk, target_id=data['bangumi_id'],
-                             source='user_confirmed', expected_version=data['expected_version'], ticket=data['ticket'])
+                             source='user_confirmed', expected_version=data['expected_version'], ticket=data['ticket'], scope_context=request.content_scope)
         return Response(result)
 
 
@@ -319,6 +323,7 @@ class BoundedIdentityBatchParser(JSONParser):
 
 
 class RecommendationIdentityBatchView(OwnRecommendationAPIView):
+    scoped = True
     parser_classes = (BoundedIdentityBatchParser,)
     throttle_classes = (UserRateThrottle, ScopedRateThrottle)
     throttle_scope = 'recommendation_identity'
@@ -327,4 +332,4 @@ class RecommendationIdentityBatchView(OwnRecommendationAPIView):
         self.check_query_contract(request)
         serializer = IdentityBatchSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        return Response(confirm_identity_batch(request.user, serializer.validated_data))
+        return Response(confirm_identity_batch(request.user, serializer.validated_data, scope_context=request.content_scope))
