@@ -37,8 +37,9 @@ export function RecommendationFilterPanel({ initialFilters, onApply, legacy = fa
   const [draft, setDraft] = useState(() => ({ ...initialFilters }))
   const [error, setError] = useState('')
   const field = (key, value) => { setDraft(current => ({ ...current, [key]: value })); setError('') }
-  return <form onSubmit={event => { event.preventDefault(); const message = filterDraftError(draft); setError(message); if (!message) onApply(draft) }}>
-    <p className="rec-muted">成人及分级未知作品已由后端过滤。筛选只作用于本次浏览，不修改你的明确偏好。</p>
+  return <form className="rec-filter-form" onSubmit={event => { event.preventDefault(); const message = filterDraftError(draft); setError(message); if (!message) onApply(draft) }}>
+    <div className="rec-filter-scroll">
+    <p className="rec-muted rec-filter-intro">仅筛选本次浏览，不修改偏好；成人及未知分级仍被过滤。</p>
     <label className="rec-field">作品类型<select aria-label="作品类型" value={draft.type} onChange={event => field('type', event.target.value)}>
       <option value="all">全部类型</option>{['TV', '剧场版', 'OVA', 'WEB', '短片', '动态漫画'].map(type => <option key={type}>{type}</option>)}</select></label>
     {!legacy && <fieldset className="rec-year-range"><legend>放送年份区间</legend>
@@ -52,9 +53,10 @@ export function RecommendationFilterPanel({ initialFilters, onApply, legacy = fa
     {draft.minScore === 'lt6' && <p className="rec-muted">仅包含有效正数公共评分 &lt;6.0 的作品（不含 6.0）；来源不明的 0 值不归入低分作品。</p>}
     <label className="rec-checkbox"><input type="checkbox" checked={draft.hideRecorded} onChange={event => field('hideRecorded', event.target.checked)} />隐藏手账中已记录的作品</label>
     {client?.eligibility && <RecommendationAccessApplication client={client} onChanged={onAccessChanged} />}
-    {error && <p role="alert" className="rec-inline-error">{error}</p>}
+    </div>
+    <footer className="rec-filter-footer">{error && <p role="alert" className="rec-inline-error">{error}</p>}
     <div className="rec-dialog-actions"><button type="button" className="rec-button" onClick={() => { setDraft({ ...DEFAULT_BROWSE_FILTERS }); setError('') }}>恢复默认</button>
-      <button type="submit" className="rec-button rec-button--primary">应用筛选</button></div>
+      <button type="submit" className="rec-button rec-button--primary">应用筛选</button></div></footer>
   </form>
 }
 

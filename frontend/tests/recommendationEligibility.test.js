@@ -121,6 +121,7 @@ test('M1 server-confirmed application is not misreported as failed if local noti
 const server = await createServer({ configFile: false, plugins: [react()], server: { middlewareMode: true, hmr: false, ws: false }, appType: 'custom' })
 after(() => server.close())
 const { RecommendationAccessApplicationView: View } = await server.ssrLoadModule('/src/components/recommendations/RecommendationAccessApplication.jsx')
+const { RecommendationFilterPanel: FilterPanel } = await server.ssrLoadModule('/src/components/recommendations/RecommendationBrowseControls.jsx')
 const render = (state) => renderToStaticMarkup(React.createElement(View, { state }))
 
 test('M1 application view covers pending, approved, rejected, expired and unavailable without an NSFW switch', () => {
@@ -129,7 +130,7 @@ test('M1 application view covers pending, approved, rejected, expired and unavai
     value({ effective_status: 'rejected', decision_message: '<script>not executable</script>' }),
     value({ effective_status: 'expired' }), value({ authorization_source: 'legacy' })]) {
     const html = render({ status: 'ready', data, confirmed: false, error: '' })
-    assert.match(html, /NSFW 推荐目前仍未开放/)
+    assert.match(html, /NSFW 推荐暂未开放/)
     assert.doesNotMatch(html, /role="switch"|<script>|已验证成年/)
     if (!data.can_apply) assert.doesNotMatch(html, /申请开启<\/button>/)
     assert.ok(eligibilityCopy(data))
@@ -146,4 +147,16 @@ test('M1 application controls never submit parent filter form or mutate filters'
   assert.match(panel, /RecommendationAccessApplication client=\{client\}/)
   const controller = readFileSync(new URL('../src/utils/recommendationEligibility.js', import.meta.url), 'utf8')
   assert.doesNotMatch(controller, /content_scope\s*:|setInterval|localStorage/)
+})
+
+test('filter uses a separate scroll body and always-visible footer, including validation errors', () => {
+  const html = renderToStaticMarkup(React.createElement(FilterPanel, { initialFilters: { type: 'all', minScore: '0', hideRecorded: true, yearFrom: '', yearTo: '' } }))
+  assert.match(html, /class="rec-filter-form"/)
+  assert.match(html, /class="rec-filter-scroll"/)
+  assert.match(html, /<footer class="rec-filter-footer">[\s\S]*type="submit"[^>]*>应用筛选/)
+  assert.equal((html.match(/type="submit"/g) || []).length, 1)
+  const css = readFileSync(new URL('../src/styles/recommendations.css', import.meta.url), 'utf8')
+  assert.match(css, /\.rec-filter-scroll\s*\{[^}]*overflow-y: auto/)
+  assert.match(css, /\.rec-filter-footer\s*\{[^}]*flex-shrink: 0/)
+  assert.match(css, /\.rec-dialog--filters\[open\][^}]*overflow: hidden/)
 })
