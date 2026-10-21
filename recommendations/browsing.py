@@ -39,7 +39,7 @@ SNAPSHOT_TTL_SECONDS = 900
 MAX_CURSOR_LENGTH = 8192
 CATALOG_FIELDS = ('bangumi_id', 'title_zh', 'title_jp', 'tags', 'score', 'season',
                   'status_type', 'cover_url', 'nsfw', 'synopsis', 'updated_at')
-PUBLIC_CACHE_NAMESPACE = 'recommendations.browse.public.v1'
+PUBLIC_CACHE_NAMESPACE = 'recommendations.browse.public.n2-2.safe.v1'
 PREPARED_CONTRACT = 'recommendations.browse.v2'
 PREPARED_SALT = 'recommendations.browse.cursor.v2'
 
@@ -147,6 +147,7 @@ def live_context(user, options, metrics, *, recipe=None):
     catalog = catalog_revision()
     metrics['catalog_revision_ms'] = round((perf_counter() - started) * 1000, 3)
     state = {'user': user.pk, 'profile': context['profile'], 'preferences': context['preferences'],
+             'content_scope': context['_content_scope'],
              'owned': sorted(context['owned'].items()),
              'feedback': {'version': context['feedback']['version'],
                           'hidden_ids': sorted(context['feedback']['hidden_ids'])},
@@ -222,6 +223,8 @@ def _cursor(body, offset):
 
 
 def browse_page(user, validated, supplied, *, metrics=None, _recipe=None):
+    from .content_scope import scope_query
+    scope_query(validated)
     # Internal D2 adapter only. Production views NEVER pass a recipe. D3 must
     # separately approve serving; a query parameter cannot select this path.
     if _recipe is not None:

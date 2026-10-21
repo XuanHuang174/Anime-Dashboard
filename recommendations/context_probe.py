@@ -20,6 +20,7 @@ def context_contract(user):
     context = user_context(user)
     versions = EvidencePresenter(user, context, {}, serving['algorithm_version']).versions
     return {'contract_version': CONTRACT_VERSION,
+            'content_scope_context': dict(context['_content_scope']),
             'rollout_revision': serving['rollout_revision'],
             'browse_enabled': serving['browse_enabled'],
             'context': {key: versions[key] for key in CONTEXT_KEYS}}

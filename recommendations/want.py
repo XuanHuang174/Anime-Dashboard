@@ -37,7 +37,7 @@ def want_contract(record, bangumi_id, created):
 
 
 @transaction.atomic
-def add_want(*, user, bangumi_id):
+def add_want(*, user, bangumi_id, scope_context=None):
     if not getattr(user, 'is_authenticated', False):
         raise NotFound('该作品不可用于推荐。')
     try:
@@ -49,6 +49,8 @@ def add_want(*, user, bangumi_id):
     # and prevents its safety classification from changing mid-transaction.
     if get_user_model().objects.select_for_update().only('pk').filter(pk=user.pk, is_active=True).first() is None:
         raise NotFound('账号不可用。')
+    from .content_scope import ensure_scope, require_scope
+    ensure_scope(user, scope_context) if scope_context is not None else require_scope(user)
     catalog = safe_catalog().select_for_update().filter(bangumi_id=bangumi_id).first()
     if catalog is None:
         raise NotFound('该作品不可用于推荐。')

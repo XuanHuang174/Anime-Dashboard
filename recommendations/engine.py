@@ -101,6 +101,8 @@ def public_features(*, algorithm_version=ALGORITHM_VERSION):
 
 def user_context(user, *, evaluation_baseline=False):
     """Read own seeds anew. No inferred private state or HTTP payload cache."""
+    from .content_scope import require_scope
+    scope = require_scope(user)
     from .feedback import feedback_snapshot
     feedback = feedback_snapshot(user)
     profile, records, seeds = profile_data(user, evaluation_baseline=evaluation_baseline)
@@ -115,7 +117,7 @@ def user_context(user, *, evaluation_baseline=False):
         if identity and priority.get(row['watch_status'], 0) > priority.get(owned.get(identity), 0):
             owned[identity] = row['watch_status']
     return {'_owner_id': user.pk, 'profile': profile, 'preferences': preferences, 'seeds': seeds, 'taxonomy_version': vocabulary.TAXONOMY_VERSION,
-            'mode': mode, 'owned': owned, 'feedback': feedback}
+            'mode': mode, 'owned': owned, 'feedback': feedback, '_content_scope': scope}
 
 
 def taste_vector(context, *, deterministic=False):
@@ -601,6 +603,8 @@ def rank_recall_candidate(context, options, index, *, pipeline_observer=None, re
 
 
 def rank_candidates(user, options):
+    from .content_scope import scope_query
+    scope_query(options)
     algorithm = configured_algorithm()
     context = user_context(user)
     context['algorithm_version'] = algorithm
@@ -614,6 +618,7 @@ def snapshot_token(user_id, context, options, ranked, algorithm, *, weights=None
     from .evidence import EVIDENCE_CONTRACT_VERSION, SELECTION_RULE_VERSION
     # Opaque, user-bound state token; never exposes ratings or user IDs themselves.
     state = {'user': user_id, 'algorithm': algorithm, 'features': FEATURE_VERSION,
+             'content_scope': context.get('_content_scope'),
              'evidence_contract': EVIDENCE_CONTRACT_VERSION, 'evidence_selection': SELECTION_RULE_VERSION,
              'evidence_catalog_version': hashlib.sha256(json.dumps(weights, sort_keys=True).encode()).hexdigest()
                  if weights is not None else None,

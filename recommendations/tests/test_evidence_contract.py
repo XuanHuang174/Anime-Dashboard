@@ -247,7 +247,10 @@ tags = frozenset(['音乐', '日常', '成长', '治愈', '校园'])
 seeds = [{'bangumi_id': identity, 'title': f'来源{identity}', 'score': 9.0,
           'tags': tags, 'feature_sources': {tag: ('private_base_tags',) for tag in tags}}
          for identity in (303, 101, 202)]
-context = {'_owner_id': 123, 'profile': {'sample_policy': {'minimum_score': '8.5'}}, 'mode': 'personalized',
+context = {'_owner_id': 123, '_content_scope': {'content_scope': 'safe', 'eligibility_version': 0,
+           'scope_revision': '0'*64, 'content_scope_contract_version': 'synthetic-pure-test',
+           'content_scope_policy_version': 'closed', 'content_release_policy_version': 'unconfigured'},
+           'profile': {'sample_policy': {'minimum_score': '8.5'}}, 'mode': 'personalized',
            'preferences': {'tags': [], 'version': 0}, 'owned': {}, 'seeds': seeds, 'taxonomy_version': TAXONOMY_VERSION}
 anime = SimpleNamespace(bangumi_id=1001, score=7.5, status_type='TV', season='2026-04',
                         tags='日常,音乐,成长', title_zh='推荐作品', title_jp='Original')

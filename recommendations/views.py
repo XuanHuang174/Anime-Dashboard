@@ -32,6 +32,7 @@ from .want import add_want, WantConflict
 from .serializers import RecommendationWantSerializer
 from .serializers import EvidenceEnvelopeSerializer, RecommendationDetailQuerySerializer
 from .feedback import FeedbackConflict, mutate_feedback, hidden_feedback
+from .content_scope import scope_query, require_scope, ensure_scope, check_precondition
 from .serializers import (FeedbackMutationSerializer, FeedbackUndoSerializer,
                           FeedbackHiddenQuerySerializer, FeedbackResultSerializer, FeedbackHiddenListSerializer)
 
@@ -51,6 +52,19 @@ class BoundedPreferenceJSONParser(JSONParser):
 class OwnRecommendationAPIView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
     parser_classes = (BoundedPreferenceJSONParser,)
+    scoped = False
+    preload_scope = True
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        if self.scoped:
+            request.scope_query = scope_query(request.query_params)
+            if self.preload_scope:
+                request.content_scope = require_scope(request.user)
+                check_precondition(request.headers.get('X-Recommendation-Scope'), request.content_scope)
+
+    def query_params(self, request):
+        return getattr(request, 'scope_query', request.query_params)
 
     def check_throttles(self, request):
         try:
@@ -64,6 +78,17 @@ class OwnRecommendationAPIView(APIView):
             raise RecommendationUnavailable('请求频率检查暂不可用，请稍后重试。') from None
 
     def finalize_response(self, request, response, *args, **kwargs):
+        if self.scoped and hasattr(request, 'content_scope') and response.status_code < 400:
+            # Outside the browse REPEATABLE READ snapshot: catch qualification
+            # changes committed while a long GET was computing. Never turn an
+            # already committed write acknowledgement into a misleading failure.
+            if request.method == 'GET':
+                try:
+                    ensure_scope(request.user, request.content_scope)
+                except (APIException, DatabaseError) as exc:
+                    response = self.handle_exception(exc)
+            if response.status_code < 400 and isinstance(response.data, dict):
+                response.data['content_scope_context'] = dict(request.content_scope)
         response = super().finalize_response(request, response, *args, **kwargs)
         # Personalized responses must not be replayed by a browser/CDN after a save.
         response['Cache-Control'] = 'private, no-store'
@@ -86,7 +111,7 @@ class OwnRecommendationAPIView(APIView):
         return super().handle_exception(exc)
 
     def check_query_contract(self, request):
-        if request.query_params:
+        if self.query_params(request):
             raise ValidationError('本接口不接受查询参数，只能读取或设置当前登录用户的数据。')
 
 
@@ -115,16 +140,22 @@ class RecommendationCapabilitiesView(OwnRecommendationAPIView):
 
 
 class RecommendationContextView(OwnRecommendationAPIView):
+    scoped = True
+    preload_scope = False
     throttle_classes = (UserRateThrottle, ScopedRateThrottle)
     throttle_scope = 'recommendation_read'
 
     def get(self, request):
         self.check_query_contract(request)
         from .context_probe import context_contract
-        return Response(context_contract(request.user))
+        data = context_contract(request.user)
+        request.content_scope = data.pop('content_scope_context')
+        check_precondition(request.headers.get('X-Recommendation-Scope'), request.content_scope)
+        return Response(data)
 
 
 class RecommendationFeedbackView(OwnRecommendationAPIView):
+    scoped = True
     throttle_classes = (UserRateThrottle, ScopedRateThrottle)
     throttle_scope = 'recommendation_write'
     action = 'hide'
@@ -133,7 +164,8 @@ class RecommendationFeedbackView(OwnRecommendationAPIView):
         self.check_query_contract(request)
         serializer = (FeedbackUndoSerializer if self.action == 'undo' else FeedbackMutationSerializer)(data=request.data)
         serializer.is_valid(raise_exception=True)
-        result = mutate_feedback(user=request.user, action=self.action, changes=serializer.validated_data)
+        result = mutate_feedback(user=request.user, action=self.action, changes=serializer.validated_data,
+                                 scope_context=request.content_scope)
         return Response(FeedbackResultSerializer(result).data)
 
 
@@ -142,16 +174,18 @@ class RecommendationFeedbackUndoView(RecommendationFeedbackView):
 
 
 class RecommendationHiddenFeedbackView(OwnRecommendationAPIView):
+    scoped = True
     throttle_classes = (UserRateThrottle, ScopedRateThrottle)
     throttle_scope = 'recommendation_read'
 
     def get(self, request):
-        serializer = FeedbackHiddenQuerySerializer(data=request.query_params)
+        serializer = FeedbackHiddenQuerySerializer(data=self.query_params(request))
         serializer.is_valid(raise_exception=True)
         return Response(FeedbackHiddenListSerializer(hidden_feedback(request.user, serializer.validated_data)).data)
 
 
 class RecommendationWantView(OwnRecommendationAPIView):
+    scoped = True
     throttle_classes = (UserRateThrottle, ScopedRateThrottle)
     throttle_scope = 'recommendation_write'
 
@@ -168,7 +202,7 @@ class RecommendationWantView(OwnRecommendationAPIView):
         self.check_query_contract(request)
         if not isinstance(request.data, dict) or request.data:
             raise ValidationError('本接口只接受空 JSON 对象，不接受用户 ID、记录 ID、评分或长评。')
-        result = add_want(user=request.user, bangumi_id=bangumi_id)
+        result = add_want(user=request.user, bangumi_id=bangumi_id, scope_context=request.content_scope)
         return Response(RecommendationWantSerializer(result).data, status=201 if result['created'] else 200)
 
 
@@ -186,19 +220,20 @@ class RecommendationPreferenceView(OwnRecommendationAPIView):
 
 
 class RecommendationListView(OwnRecommendationAPIView):
+    scoped = True
     throttle_classes = (UserRateThrottle, ScopedRateThrottle)
     throttle_scope = 'recommendation_read'
 
     def get(self, request):
-        query = RecommendationQuerySerializer(data=request.query_params)
+        query = RecommendationQuerySerializer(data=self.query_params(request))
         query.is_valid(raise_exception=True)
         options = query.validated_data
         from .browsing import browse_requested
         from .deployment import browse_page
-        if browse_requested(options, request.query_params):
+        if browse_requested(options, self.query_params(request)):
             from .serializers import RecommendationBrowsePageSerializer
             return Response(RecommendationBrowsePageSerializer(
-                browse_page(request.user, options, request.query_params)).data)
+                browse_page(request.user, options, self.query_params(request))).data)
         context, ranked, token, weights = rank_candidates(request.user, options)
         if options['page'] > 1 and not hmac.compare_digest(token, options['state_token']):
             raise RecommendationSnapshotChanged()
@@ -227,11 +262,12 @@ class RecommendationListView(OwnRecommendationAPIView):
 
 
 class RecommendationDetailView(OwnRecommendationAPIView):
+    scoped = True
     throttle_classes = (UserRateThrottle, ScopedRateThrottle)
     throttle_scope = 'recommendation_read'
 
     def get(self, request, bangumi_id):
-        query = RecommendationDetailQuerySerializer(data=request.query_params)
+        query = RecommendationDetailQuerySerializer(data=self.query_params(request))
         query.is_valid(raise_exception=True)
         if 'detail_context' in query.validated_data:
             from .deployment import detail

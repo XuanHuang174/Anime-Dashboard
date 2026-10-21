@@ -16,6 +16,7 @@ from pathlib import Path
 
 import dj_database_url
 import environ
+from corsheaders.defaults import default_headers
 from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -300,6 +301,7 @@ CORS_ALLOWED_ORIGINS = env.list(
     default=['https://www.my-anime-site.com'],
 )
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = (*default_headers, 'x-recommendation-scope')
 
 # Required for unsafe requests when React uses Django session authentication.
 CSRF_TRUSTED_ORIGINS = env.list(

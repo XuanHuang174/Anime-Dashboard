@@ -47,14 +47,17 @@ class EvidencePresenter:
                                  if key in ('profile', 'preferences', 'seeds', 'owned', 'mode', 'taxonomy_version')})
         self.weights, self.owner = dict(weights), user.pk
         self.user = user
+        from .content_scope import require_scope
+        self.scope = dict(context.get('_content_scope') or require_scope(user))
         self.feedback_version = context.get('feedback', {}).get('version')
         self.patterns = {}
-        state = {'owner': user.pk, 'profile': self.context['profile'], 'mode': self.context['mode'],
+        state = {'owner': user.pk, 'content_scope': self.scope, 'profile': self.context['profile'], 'mode': self.context['mode'],
                  'preferences': self.context['preferences'], 'owned': sorted(self.context['owned'].items()),
                  'seeds': [(seed['bangumi_id'], seed['title'], f'{seed["score"]:.1f}', sorted(seed['tags']),
                             {tag: sorted(origins) for tag, origins in seed['feature_sources'].items()})
                            for seed in sorted(self.context['seeds'], key=lambda row: row['bangumi_id'])]}
         self.versions = {
+            **self.scope,
             'profile_policy_version': context['profile'].get('sample_policy', {}).get('profile_policy_version', PROFILE_POLICY_VERSION),
             'profile_min_score': f'{context_score(context):.1f}',
             'algorithm_version': algorithm,
@@ -80,6 +83,8 @@ class EvidencePresenter:
     def ensure_safe(self, animes):
         """Batch source safety + independent feedback revision; no per-card queries."""
         from .engine import RecommendationSnapshotChanged
+        from .content_scope import ensure_scope
+        ensure_scope(self.user, self.scope)
         if self.feedback_version is not None:
             from .feedback import ensure_version
             ensure_version(self.user, self.feedback_version)

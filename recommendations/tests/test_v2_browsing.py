@@ -192,7 +192,7 @@ class PreparedBrowseTests(TransactionTestCase):
         with patch.object(cache, 'set', side_effect=record):
             self.client.get('/api/recommendations/', {'browse': True})
             self.page()
-        self.assertTrue(any(key.startswith('recommendations.browse.public.v1:') for key, _ in calls))
+        self.assertTrue(any(key.startswith(browsing.PUBLIC_CACHE_NAMESPACE + ':') for key, _ in calls))
         self.assertTrue(any(key.startswith('recommendations.browse.public.v2:') for key, _ in calls))
         self.assertNotIn('PRIVATE_REVIEW', str(calls))
         self.assertTrue(all(set(value) == {'revision', 'rows', 'index'} for _, value in calls))

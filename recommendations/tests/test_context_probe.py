@@ -35,7 +35,7 @@ class ContextProbeTests(APITransactionTestCase):
               CaptureQueriesContext(connection) as queries):
             result = self.client.get(URL)
         self.assertEqual(result.status_code, 200, result.data)
-        self.assertEqual(set(result.data), {'contract_version', 'context', 'rollout_revision', 'browse_enabled'})
+        self.assertEqual(set(result.data), {'contract_version', 'context', 'rollout_revision', 'browse_enabled', 'content_scope_context'})
         self.assertEqual(set(result.data['context']), set(CONTEXT_KEYS))
         self.assertLessEqual(len(queries), 10)
         self.assertFalse(any('"review"' in row['sql'] for row in queries))

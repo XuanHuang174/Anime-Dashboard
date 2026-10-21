@@ -89,6 +89,7 @@ class SamplingMigrationTests(LocalPostgresCase):
         before=[('recommendations','0005_recommendation_feedback')]
         after=[('recommendations','0006_preference_profile_sampling')]
         executor=MigrationExecutor(connection)
+        latest=executor.loader.graph.leaf_nodes()
         executor.migrate(before)
         try:
             old=executor.loader.project_state(before).apps.get_model('recommendations','RecommendationPreference')
@@ -97,6 +98,10 @@ class SamplingMigrationTests(LocalPostgresCase):
         finally:
             executor=MigrationExecutor(connection)
             executor.migrate(after)
+            # Restore ALL current leaves, not just this historical migration.
+            # Otherwise later tests lose additive tables (e.g. N2 eligibility).
+            executor=MigrationExecutor(connection)
+            executor.migrate(latest)
         saved=RecommendationPreference.objects.get(user=owner)
         self.assertEqual((saved.tags,saved.version,saved.profile_min_score),(['百合'],7,Decimal('8.5')))
         self.assertEqual((saved.created_at,saved.updated_at),original_time)

@@ -126,7 +126,9 @@ class ContentScopeAuditTests(TransactionTestCase):
         before = list(UserAnimeRecord.objects.order_by('pk').values())
         for user in (self.owner, self.other):
             self.client.force_authenticate(user)
-            for params in ({'content_scope':'include_adult'}, {'nsfw':'true'}, {'include_nsfw':'true'},
+            # N2-2 recognizes scope but denies it before reading catalog data.
+            self.assertEqual(self.client.get('/api/recommendations/', {'content_scope':'include_adult'}).status_code, 403)
+            for params in ({'nsfw':'true'}, {'include_nsfw':'true'},
                            {'adult_confirmed':True}, {'age':99}, {'user_id':self.other.pk}):
                 self.assertEqual(self.client.get('/api/recommendations/', params).status_code, 400)
             for identity in (2, 4):

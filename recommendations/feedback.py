@@ -57,7 +57,7 @@ def _work_contract(row):
 
 
 @transaction.atomic
-def mutate_feedback(*, user, action, changes):
+def mutate_feedback(*, user, action, changes, scope_context=None):
     """All writers lock user -> safe catalog -> state/work, same order as add_want.
 
     expected_feedback_version is mandatory; retries MUST reuse the exact UUID/body.
@@ -73,6 +73,8 @@ def mutate_feedback(*, user, action, changes):
     data = serializer.validated_data
     if get_user_model().objects.select_for_update().filter(pk=user.pk, is_active=True).only('pk').first() is None:
         raise NotFound('账号不可用。')
+    from .content_scope import ensure_scope, require_scope
+    ensure_scope(user, scope_context) if scope_context is not None else require_scope(user)
     if safe_catalog().select_for_update().filter(bangumi_id=data['bangumi_id']).only('pk').first() is None:
         raise NotFound('该作品不可用于推荐。')
     version = current_version(user)
@@ -124,6 +126,9 @@ def mutate_feedback(*, user, action, changes):
 
 def hidden_feedback(user, options):
     _require_user(user)
+    from .content_scope import require_scope, ensure_scope, scope_query
+    scope_query(options)
+    scope = require_scope(user)
     version = current_version(user)
     if options.get('feedback_version', version) != version:
         raise FeedbackConflict('feedback_version_conflict', '隐藏清单已变化，请重新加载第一页。',
@@ -138,6 +143,7 @@ def hidden_feedback(user, options):
                 'title_jp': catalog[row.bangumi_id].title_jp, 'season': catalog[row.bangumi_id].season,
                 'status_type': catalog[row.bangumi_id].status_type} for row in rows if row.bangumi_id in catalog]
     ensure_version(user, version)
+    ensure_scope(user, scope)
     return {'contract_version': CONTRACT_VERSION, 'feedback_version': version, 'count': count,
             'page': options['page'], 'page_size': options['page_size'],
             'next_page': options['page'] + 1 if start + len(rows) < count else None, 'results': results}

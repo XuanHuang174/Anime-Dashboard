@@ -221,7 +221,7 @@ class EligibilityApiTests(EligibilityFixtures):
             self.assertEqual(self.client.post(f'/api/recommendations/{identity}/want/', {}, format='json').status_code, 404)
         with patch('recommendations.age_assurance.current_age_assurance', side_effect=self.proof):
             self.assertFalse(self.client.get('/api/recommendations/eligibility/').data['adult_access_allowed'])
-        self.assertEqual(self.client.get('/api/recommendations/', {'content_scope':'include_adult'}).status_code, 400)
+        self.assertEqual(self.client.get('/api/recommendations/', {'content_scope':'include_adult'}).status_code, 403)
 
     def test_own_status_private_no_store_and_no_other_user_parameters(self):
         data = self.client.get('/api/recommendations/eligibility/')
