@@ -188,3 +188,77 @@ class RecommendationFeedbackOperation(models.Model):
                                                      applied_feedback_version__lte=2147483647),
                                    name='rec_feedback_op_version_range'),
         ]
+
+
+class RecommendationContentEligibility(models.Model):
+    """Administrative access record, NOT an age verifier or recommendation switch."""
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+                                related_name='recommendation_content_eligibility')
+    status = models.CharField(max_length=12, default='pending', choices=(
+        ('pending', '待审核'), ('active', '已签发（不代表已开放）'), ('revoked', '已撤销')))
+    eligibility_version = models.PositiveIntegerField(default=0, editable=False)
+    purpose = models.CharField(max_length=24, default='internal_test', editable=False)
+    granted_at = models.DateTimeField(null=True, blank=True, editable=False)
+    expires_at = models.DateTimeField(null=True, blank=True, editable=False)
+    revoked_at = models.DateTimeField(null=True, blank=True, editable=False)
+    granted_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='+', editable=False)
+    assurance_provider = models.CharField(max_length=64, blank=True, default='', editable=False)
+    assurance_reference = models.CharField(max_length=128, blank=True, default='', editable=False)
+    assurance_version = models.PositiveIntegerField(default=0, editable=False)
+    assurance_valid_until = models.DateTimeField(null=True, blank=True, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = '推荐内容访问资格'
+        verbose_name_plural = verbose_name
+        permissions = [('manage_content_eligibility', '通过安全服务管理推荐内容访问资格')]
+        constraints = [
+            models.CheckConstraint(condition=models.Q(eligibility_version__lte=2147483647), name='rec_elig_version_max'),
+            models.CheckConstraint(condition=models.Q(purpose='internal_test'), name='rec_elig_internal_purpose'),
+            models.CheckConstraint(condition=(
+                models.Q(status='pending', granted_at__isnull=True, expires_at__isnull=True, revoked_at__isnull=True)
+                | models.Q(status='revoked', revoked_at__isnull=False, eligibility_version__gte=1)
+                | (models.Q(status='active', granted_at__isnull=False, expires_at__isnull=False,
+                            revoked_at__isnull=True, assurance_valid_until__isnull=False,
+                            assurance_version__gte=1, eligibility_version__gte=1)
+                   & ~models.Q(assurance_provider='') & ~models.Q(assurance_reference='')
+                   & models.Q(expires_at__gt=models.F('granted_at'))
+                   & models.Q(expires_at__lte=models.F('assurance_valid_until')))), name='rec_elig_state_valid'),
+        ]
+
+    def __str__(self):
+        return f'用户 {self.user_id} 的访问资格 v{self.eligibility_version}'
+
+
+class RecommendationEligibilityEvent(models.Model):
+    """Service append-only audit/receipt; no raw identity documents or journal copies."""
+    eligibility = models.ForeignKey(RecommendationContentEligibility, on_delete=models.CASCADE,
+                                    related_name='events')
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name='+')
+    operation_id = models.UUIDField()
+    action = models.CharField(max_length=12, choices=(('prepare', '建立待审核'), ('grant', '签发'),
+                                                     ('renew', '续期'), ('revoke', '管理员撤销'), ('self_revoke', '本人停用')))
+    request_fingerprint = models.CharField(max_length=64)
+    previous_status = models.CharField(max_length=16)
+    resulting_status = models.CharField(max_length=12)
+    previous_version = models.PositiveIntegerField()
+    applied_version = models.PositiveIntegerField()
+    changed = models.BooleanField()
+    reason = models.CharField(max_length=200)
+    resulting_expires_at = models.DateTimeField(null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = '推荐资格操作审计'
+        verbose_name_plural = verbose_name
+        ordering = ('-created_at', '-pk')
+        constraints = [
+            models.UniqueConstraint(fields=('eligibility', 'operation_id'), name='rec_elig_operation_unique'),
+            models.CheckConstraint(condition=models.Q(action__in=('prepare', 'grant', 'renew', 'revoke', 'self_revoke')),
+                                   name='rec_elig_event_action'),
+            models.CheckConstraint(condition=models.Q(applied_version__gte=1, applied_version__lte=2147483647)
+                                   & models.Q(applied_version__gte=models.F('previous_version')),
+                                   name='rec_elig_event_version'),
+        ]

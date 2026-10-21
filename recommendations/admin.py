@@ -1,6 +1,7 @@
 from django.contrib import admin
 
 from .models import RecommendationAnime
+from . import eligibility_admin  # noqa: F401 - register the read-only controlled admin
 
 
 @admin.register(RecommendationAnime)
