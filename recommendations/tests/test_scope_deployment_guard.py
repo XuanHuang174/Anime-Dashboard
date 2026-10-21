@@ -16,6 +16,7 @@ class ScopeDeploymentGuardTests(SimpleTestCase):
     def test_all_business_writes_foreign_paths_and_frontend_requests_block_before_network(self):
         session=Mock(); audit=ScopeDeploymentAudit(session)
         for path,method in [('/api/recommendations/eligibility/revoke/','POST'),
+            ('/api/recommendations/eligibility/apply/','POST'),
             ('/api/recommendations/2/want/','POST'),('/api/recommendations/feedback/','POST'),
             ('/api/recommendations/feedback/undo/','POST'),('/api/recommendations/preferences/','PATCH'),
             ('/api/recommendations/eligibility/','POST'),('/api/recommendations/identities/batch/','POST'),

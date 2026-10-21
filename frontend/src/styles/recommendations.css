@@ -327,3 +327,8 @@
 .memphis-rec-container .rec-identity-candidate small { display: block; color: #555; line-height: 1.7; margin-top: 6px; }
 .memphis-rec-container .rec-identity-candidate:has(input:checked) { background: #fff2cc; }
 .memphis-rec-container .rec-button:disabled, .memphis-rec-container .rec-text-button:disabled { cursor: not-allowed; opacity: .65; transform: none; }
+.memphis-rec-container .rec-access-application { margin: 20px 0; padding: 16px; border: 2px solid var(--rec-ink); background: white; box-shadow: 3px 3px 0 var(--rec-ink); }
+.memphis-rec-container .rec-access-application h3 { margin: 0 0 10px; font-size: 16px; }
+.memphis-rec-container .rec-access-application p { line-height: 1.7; overflow-wrap: anywhere; }
+.memphis-rec-container .rec-access-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.memphis-rec-container .rec-access-actions button { min-height: 44px; }

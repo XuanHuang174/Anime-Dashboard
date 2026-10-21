@@ -2,6 +2,8 @@
 import { validDetailContext } from '../utils/recommendationExecution.js'
 export function createRecommendationClient(client) {
   return {
+    eligibility: signal => client.get('recommendations/eligibility/', { signal }).then(r => r.data),
+    applyEligibility: (changes, signal) => client.post('recommendations/eligibility/apply/', changes, { signal }).then(r => r.data),
     capabilities: signal => client.get('recommendations/capabilities/', { signal }).then(r => r.data),
     context: signal => client.get('recommendations/context/', { signal }).then(r => r.data),
     profile: (signal) => client.get('recommendations/profile/', { signal }).then((r) => r.data),

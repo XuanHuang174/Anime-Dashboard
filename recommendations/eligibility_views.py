@@ -1,4 +1,4 @@
-"""Own-account status and voluntary stop only. No public grant/renew endpoint."""
+"""Own-account application, status and stop. No public approval/renew endpoint."""
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle, UserRateThrottle
 
@@ -23,3 +23,10 @@ class RecommendationEligibilityRevokeView(OwnRecommendationAPIView):
         self.check_query_contract(request)
         return Response(mutate_eligibility(actor=request.user, subject_id=request.user.pk,
                                           action='self_revoke', changes=request.data))
+
+
+class RecommendationEligibilityApplyView(RecommendationEligibilityRevokeView):
+    def post(self, request):
+        self.check_query_contract(request)
+        return Response(mutate_eligibility(actor=request.user, subject_id=request.user.pk,
+                                          action='apply', changes=request.data))

@@ -17,7 +17,6 @@ from rest_framework.test import APIClient
 
 from anime.models import Anime, UserAnimeRecord
 from recommendations import engine, browsing, deployment
-from recommendations.age_assurance import AgeAssurance
 from recommendations.content_scope import require_scope, ensure_scope
 from recommendations.eligibility import mutate_eligibility
 from recommendations.evidence import EvidencePresenter
@@ -52,9 +51,11 @@ class ClosedScopeTests(TransactionTestCase):
             personal_score=0, review='PRIVATE_REVIEW_SENTINEL', custom_tags=['PRIVATE_TAG_SENTINEL'],
             watch_status='on_hold')
 
-    def change(self, user=None, action='prepare', version=0):
-        return mutate_eligibility(actor=self.manager, subject_id=(user or self.owner).pk, action=action,
-            changes={'expected_version': version, 'operation_id': uuid4(), 'reason': '隔离合成测试'})
+    def change(self, user=None, action='apply', version=0, days=30):
+        subject = user or self.owner
+        return mutate_eligibility(actor=subject if action == 'apply' else self.manager, subject_id=subject.pk, action=action,
+            changes={'expected_version': version, 'operation_id': uuid4(), **({'confirmed': True} if action == 'apply'
+                     else {'reason': '隔离合成测试', 'days': days})})
 
     def page(self, **query):
         response = self.client.get('/api/recommendations/', query)
@@ -208,10 +209,8 @@ class ClosedScopeTests(TransactionTestCase):
         self.assertEqual(UserAnimeRecord.objects.count(),1); self.assertFalse(Feedback.objects.exists())
 
     def test_even_valid_synthetic_qualification_cannot_open_adult_unknown_or_covers(self):
-        now = timezone.now()
-        proof = AgeAssurance(self.owner.pk, 'verified', 'isolated-only', 'test-ref', 1, now+timedelta(days=5))
-        with patch('recommendations.age_assurance.current_age_assurance',return_value=proof):
-            self.change(action='grant')
+        with patch('recommendations.age_assurance.current_age_assurance',side_effect=AssertionError('must not call')):
+            self.change(); self.change(action='approve', version=1)
             with override_settings(RECOMMENDATION_ADULT_CONTENT_ENABLED=True):
                 self.assertEqual(self.client.get('/api/recommendations/?content_scope=include_adult').status_code,403)
                 for identity in (90,91):
@@ -224,8 +223,7 @@ class ClosedScopeTests(TransactionTestCase):
 
     def test_natural_expiry_invalidates_revision_but_never_grants_or_writes_on_read(self):
         now=timezone.now()
-        proof=AgeAssurance(self.owner.pk,'verified','isolated-only','test-ref',1,now+timedelta(days=5))
-        with patch('recommendations.age_assurance.current_age_assurance',return_value=proof): self.change(action='grant')
+        self.change(); self.change(action='approve', version=1, days=5)
         scope=require_scope(self.owner); before=list(Eligibility.objects.values())
         with patch('recommendations.content_scope.timezone.now',return_value=now+timedelta(days=6)):
             self.assertNotEqual(scope,require_scope(self.owner))

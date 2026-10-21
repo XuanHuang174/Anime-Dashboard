@@ -1,16 +1,16 @@
 {% extends "admin/base_site.html" %}
 {% block content %}
-<p><strong>N2-1 仅管理资格记录，不开放成人推荐。</strong>成年依据服务尚未配置，不能用前端声明或管理员判断代替。</p>
+<p><strong>M1 仅管理人工访问授权，NSFW 推荐仍未开放。</strong>审批不是年龄核验；仅超级管理员可操作，必须先有用户申请。</p>
 <form method="get"><label for="eligibility-user">目标账号 ID</label>
   <input id="eligibility-user" name="user_id" inputmode="numeric" required value="{{ subject.pk|default:'' }}">
   <button type="submit">读取并核对账号</button>
 </form>
 {% if error %}<p class="errornote" role="alert">{{ error }}</p>{% endif %}
 {% if subject %}<h2>目标：{{ subject.get_username }}（ID {{ subject.pk }}）</h2>{% endif %}
-{% if qualification %}<p>状态：{{ qualification.effective_status }} · 版本：{{ qualification.eligibility_version }} · 截止：{{ qualification.valid_until|default:'未签发' }}</p>{% endif %}
+{% if qualification %}<p>状态：{{ qualification.effective_status }} · 来源：{{ qualification.authorization_source }} · 版本：{{ qualification.eligibility_version }} · 申请：{{ qualification.requested_at|default:'未申请' }} · 截止：{{ qualification.valid_until|default:'未批准' }}</p>{% endif %}
 {% if form %}<form method="post">{% csrf_token %}
   {{ form.as_p }}
-  <p>签发或续期缺少可信依据时会明确拒绝；不会自动授予本人或任何测试账号资格。</p>
+  <p>仅处理当前账号的申请。批准默认 30 天，不自动续期；不能审批自己的申请，不会自动开启 NSFW 推荐。</p>
   <button type="submit">确认执行所选操作</button>
 </form>{% endif %}
 <p><a href="{{ reload_url }}{% if subject %}?user_id={{ subject.pk }}{% endif %}">重新读取账号与最新版本</a></p>

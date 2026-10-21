@@ -5,7 +5,7 @@ from .views import RecommendationCapabilitiesView
 from .views import RecommendationIdentityBatchView
 from .views import RecommendationProfilePreviewView
 from .views import RecommendationContextView
-from .eligibility_views import RecommendationEligibilityView, RecommendationEligibilityRevokeView
+from .eligibility_views import RecommendationEligibilityView, RecommendationEligibilityRevokeView, RecommendationEligibilityApplyView
 
 app_name = 'recommendations'
 
@@ -14,6 +14,7 @@ urlpatterns = [
     path('capabilities/', RecommendationCapabilitiesView.as_view(), name='capabilities'),
     path('context/', RecommendationContextView.as_view(), name='context'),
     path('eligibility/', RecommendationEligibilityView.as_view(), name='eligibility'),
+    path('eligibility/apply/', RecommendationEligibilityApplyView.as_view(), name='eligibility-apply'),
     path('eligibility/revoke/', RecommendationEligibilityRevokeView.as_view(), name='eligibility-revoke'),
     path('profile/', RecommendationProfileView.as_view(), name='profile'),
     path('profile/preview/', RecommendationProfilePreviewView.as_view(), name='profile-preview'),

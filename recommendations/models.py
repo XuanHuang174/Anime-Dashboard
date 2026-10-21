@@ -195,7 +195,12 @@ class RecommendationContentEligibility(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
                                 related_name='recommendation_content_eligibility')
     status = models.CharField(max_length=12, default='pending', choices=(
-        ('pending', '待审核'), ('active', '已签发（不代表已开放）'), ('revoked', '已撤销')))
+        ('pending', '待审批'), ('active', '已批准（不代表已开放）'), ('rejected', '已拒绝'), ('revoked', '已撤销')))
+    authorization_source = models.CharField(max_length=16, default='legacy', editable=False,
+        choices=(('legacy', '历史记录（不构成人工授权）'), ('manual', '超级管理员人工授权')))
+    requested_at = models.DateTimeField(null=True, blank=True, editable=False)
+    decided_at = models.DateTimeField(null=True, blank=True, editable=False)
+    decision_message = models.CharField(max_length=200, blank=True, default='', editable=False)
     eligibility_version = models.PositiveIntegerField(default=0, editable=False)
     purpose = models.CharField(max_length=24, default='internal_test', editable=False)
     granted_at = models.DateTimeField(null=True, blank=True, editable=False)
@@ -211,13 +216,15 @@ class RecommendationContentEligibility(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = '推荐内容访问资格'
+        verbose_name = '受限内容访问申请'
         verbose_name_plural = verbose_name
         permissions = [('manage_content_eligibility', '通过安全服务管理推荐内容访问资格')]
         constraints = [
             models.CheckConstraint(condition=models.Q(eligibility_version__lte=2147483647), name='rec_elig_version_max'),
-            models.CheckConstraint(condition=models.Q(purpose='internal_test'), name='rec_elig_internal_purpose'),
+            models.CheckConstraint(condition=(models.Q(authorization_source='legacy', purpose='internal_test')
+                | models.Q(authorization_source='manual', purpose='manual_access')), name='rec_elig_source_purpose'),
             models.CheckConstraint(condition=(
+                models.Q(authorization_source='legacy') & (
                 models.Q(status='pending', granted_at__isnull=True, expires_at__isnull=True, revoked_at__isnull=True)
                 | models.Q(status='revoked', revoked_at__isnull=False, eligibility_version__gte=1)
                 | (models.Q(status='active', granted_at__isnull=False, expires_at__isnull=False,
@@ -225,7 +232,17 @@ class RecommendationContentEligibility(models.Model):
                             assurance_version__gte=1, eligibility_version__gte=1)
                    & ~models.Q(assurance_provider='') & ~models.Q(assurance_reference='')
                    & models.Q(expires_at__gt=models.F('granted_at'))
-                   & models.Q(expires_at__lte=models.F('assurance_valid_until')))), name='rec_elig_state_valid'),
+                   & models.Q(expires_at__lte=models.F('assurance_valid_until'))))
+                | (models.Q(authorization_source='manual', eligibility_version__gte=1,
+                     assurance_provider='', assurance_reference='', assurance_version=0, assurance_valid_until__isnull=True)
+                   & (models.Q(status='pending', requested_at__isnull=False, decided_at__isnull=True,
+                         granted_at__isnull=True, expires_at__isnull=True, revoked_at__isnull=True)
+                      | (models.Q(status='active', requested_at__isnull=False, decided_at__isnull=False,
+                           granted_at__isnull=False, expires_at__isnull=False, revoked_at__isnull=True)
+                         & models.Q(expires_at__gt=models.F('granted_at')))
+                      | models.Q(status='rejected', requested_at__isnull=False, decided_at__isnull=False,
+                           granted_at__isnull=True, expires_at__isnull=True, revoked_at__isnull=True)
+                      | models.Q(status='revoked', revoked_at__isnull=False)))), name='rec_elig_state_valid'),
         ]
 
     def __str__(self):
@@ -239,7 +256,8 @@ class RecommendationEligibilityEvent(models.Model):
     actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name='+')
     operation_id = models.UUIDField()
     action = models.CharField(max_length=12, choices=(('prepare', '建立待审核'), ('grant', '签发'),
-                                                     ('renew', '续期'), ('revoke', '管理员撤销'), ('self_revoke', '本人停用')))
+        ('renew', '续期'), ('apply', '用户申请'), ('approve', '人工批准'), ('reject', '拒绝申请'),
+        ('revoke', '管理员撤销'), ('self_revoke', '本人停用')))
     request_fingerprint = models.CharField(max_length=64)
     previous_status = models.CharField(max_length=16)
     resulting_status = models.CharField(max_length=12)
@@ -256,7 +274,7 @@ class RecommendationEligibilityEvent(models.Model):
         ordering = ('-created_at', '-pk')
         constraints = [
             models.UniqueConstraint(fields=('eligibility', 'operation_id'), name='rec_elig_operation_unique'),
-            models.CheckConstraint(condition=models.Q(action__in=('prepare', 'grant', 'renew', 'revoke', 'self_revoke')),
+            models.CheckConstraint(condition=models.Q(action__in=('prepare', 'grant', 'renew', 'apply', 'approve', 'reject', 'revoke', 'self_revoke')),
                                    name='rec_elig_event_action'),
             models.CheckConstraint(condition=models.Q(applied_version__gte=1, applied_version__lte=2147483647)
                                    & models.Q(applied_version__gte=models.F('previous_version')),

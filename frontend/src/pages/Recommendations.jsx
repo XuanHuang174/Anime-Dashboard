@@ -322,7 +322,8 @@ function RecommendationWorkspace({ client, sessionScope }) {
         <RecommendationHiddenWorks state={feedback.hiddenState} feedback={feedback.state}
         onPage={feedback.hidden.load} onUndo={feedback.controller.undo} onReload={() => { feedback.controller.clearErrors(); feedback.hidden.refresh() }}
         writeBusy={id => want.operations[id]?.status === 'adding'} />{feedbackToast}</>
-        : panel.kind === 'filters' ? <RecommendationFilterPanel initialFilters={visibleFilters} onApply={applyFilters} legacy={legacy} />
+        : panel.kind === 'filters' ? <RecommendationFilterPanel initialFilters={visibleFilters} onApply={applyFilters} legacy={legacy}
+          client={client} onAccessChanged={() => { externalChange(); notifyRecommendationChange({ local: false }) }} />
         : panel.kind === 'preferences' ? <RecommendationPreferencesPanel editor={preferenceEditor.editor} profile={panel.profile}
         onTag={preferenceEditor.setTag} onClear={preferenceEditor.clearDraft} onSave={preferenceEditor.save}
         onMinScore={preferenceEditor.setMinScore} onResetMinScore={preferenceEditor.resetMinScore} onRetryPreview={preferenceEditor.retryPreview}

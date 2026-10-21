@@ -1,7 +1,7 @@
 """N2-2 CLOSED serving boundary. No flag, role or eligibility row enables adult data.
 
 The opaque revision is an invalidation hint, NOT a grant token. A future release
-needs a separately approved authority AND per-work release review. Keep safe_catalog
+needs explicit manual access authorization AND per-work release review. Keep safe_catalog
 and non-adult profile extraction unchanged; do not widen queries here.
 """
 import hmac
@@ -17,7 +17,7 @@ from .models import RecommendationContentReviewState
 from .content_review import POLICY_VERSION as RELEASE_POLICY_VERSION
 
 CONTRACT_VERSION = 'recommendations.content-scope.n2-2.v1'
-POLICY_VERSION = 'content-scope.closed.v2'
+POLICY_VERSION = 'content-scope.closed.v3'
 VERSION_KEYS = ('content_scope_contract_version', 'content_scope_policy_version',
                 'content_release_policy_version', 'content_scope', 'eligibility_version', 'content_review_version', 'scope_revision')
 
@@ -46,7 +46,7 @@ def require_scope(user, requested_scope='safe'):
     row = get_user_model().objects.filter(pk=user.pk).annotate(_content_review_version=Coalesce(Subquery(
         RecommendationContentReviewState.objects.filter(pk=1).values('version')[:1]),Value(0),output_field=IntegerField())).values(
         'is_active', '_content_review_version', *(prefix + field for field in ('status', 'eligibility_version', 'expires_at',
-                                                  'assurance_valid_until'))).first()
+                                                  'assurance_valid_until', 'authorization_source'))).first()
     if not row or not row['is_active']:
         raise PermissionDenied('账号不可用。')
     status = row[prefix + 'status'] or 'not_requested'
@@ -56,7 +56,7 @@ def require_scope(user, requested_scope='safe'):
                                         for value in (expiry, assurance_expiry))
     state = [user.pk, CONTRACT_VERSION, POLICY_VERSION, RELEASE_POLICY_VERSION, 'safe',
              status, version, str(expiry), str(assurance_expiry), bool(expired), row['_content_review_version'],
-             'age-authority-unconfigured', 'adult-serving-disabled']
+             row[prefix + 'authorization_source'], 'manual-authorization-m1', 'adult-serving-disabled']
     revision = salted_hmac(CONTRACT_VERSION, repr(state), algorithm='sha256').hexdigest()
     return {'content_scope_contract_version': CONTRACT_VERSION,
             'content_scope_policy_version': POLICY_VERSION,

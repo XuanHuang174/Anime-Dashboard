@@ -18,7 +18,7 @@ from rest_framework.exceptions import APIException
 from .eligibility import can_manage, mutate_eligibility, own_eligibility
 from .models import RecommendationContentEligibility as Eligibility, RecommendationEligibilityEvent as Event
 
-ADMIN_SALT = 'recommendations.eligibility-admin.n2-1.v1'
+ADMIN_SALT = 'recommendations.eligibility-admin.manual.m1.v1'
 
 
 def _error_text(detail):
@@ -33,26 +33,29 @@ def _error_text(detail):
 
 class EligibilityAdminForm(forms.Form):
     ticket = forms.CharField(widget=forms.HiddenInput, max_length=4096)
-    action = forms.ChoiceField(label='操作', choices=(('prepare', '建立待审核记录'),
-        ('grant', '签发（必须已有服务端可信依据）'), ('renew', '重新核验并续期'), ('revoke', '撤销资格')))
-    days = forms.IntegerField(label='签发/续期天数', min_value=1, max_value=30, initial=30,
-                              help_text='最多 30 天；实际期限不超过可信依据的有效期。')
-    reason = forms.CharField(label='用途/原因', max_length=200,
-                            help_text='仅内部验收。不要填写身份证、出生日期、私人评分或长评。')
+    action = forms.ChoiceField(label='操作', choices=(('approve', '批准待审批申请'),
+        ('reject', '拒绝待审批申请'), ('revoke', '撤销访问授权')))
+    days = forms.IntegerField(label='批准有效天数', min_value=1, max_value=30, initial=30,
+                              help_text='默认 30 天，最多 30 天；不自动续期。')
+    reason = forms.CharField(label='内部审批原因', max_length=200,
+                            help_text='仅内部审计，不向申请人显示；不要填写证件或私人手账材料。')
+    public_message = forms.CharField(label='给申请人的简短拒绝提示', max_length=200, required=False,
+        help_text='仅拒绝时显示给本人；留空使用统一提示，不会公开内部审批原因。')
     confirmed = forms.BooleanField(label='我已核对目标账号、操作及期限，确认执行', required=True)
 
 
 @admin.register(Eligibility)
 class ContentEligibilityAdmin(admin.ModelAdmin):
-    list_display = ('user', 'status', 'eligibility_version', 'expires_at', 'updated_at', 'control_link')
-    list_filter = ('status',)
+    list_display = ('user', 'status', 'authorization_source', 'requested_at', 'eligibility_version', 'expires_at', 'updated_at', 'control_link')
+    list_filter = ('status', 'authorization_source')
+    ordering = ('-requested_at', '-pk')
     search_fields = ('=user__id', 'user__username')
     readonly_fields = tuple(field.name for field in Eligibility._meta.fields)
     actions = None
     change_list_template = 'admin/recommendations/eligibility_change_list.html'
 
     def has_view_permission(self, request, obj=None):
-        return can_manage(request.user) or super().has_view_permission(request, obj)
+        return can_manage(request.user)
 
     def has_add_permission(self, request):
         return False
@@ -100,9 +103,10 @@ class ContentEligibilityAdmin(admin.ModelAdmin):
                 if form.is_valid():
                     result = mutate_eligibility(actor=request.user, subject_id=subject.pk, action=form.cleaned_data['action'], changes={
                         'expected_version': body['version'], 'operation_id': body['operation'],
-                        'reason': form.cleaned_data['reason'], 'days': form.cleaned_data['days']})
+                        'reason': form.cleaned_data['reason'], 'days': form.cleaned_data['days'],
+                        'public_message': form.cleaned_data['public_message']})
                     message = ('该操作已处理，未重复执行；请核对当前最新资格状态。' if result['replayed'] else
-                               '资格记录已更新。成人推荐仍未开放。' if result['changed'] else
+                               '访问申请已更新。人工审批不等于年龄核验，NSFW 推荐仍未开放。' if result['changed'] else
                                '资格状态未变化，操作回执已记录。成人推荐仍未开放。')
                     self.message_user(request, message, messages.SUCCESS)
                     return HttpResponseRedirect(reverse('admin:recommendations_eligibility_control') + f'?user_id={subject.pk}')
@@ -123,7 +127,7 @@ class ContentEligibilityAdmin(admin.ModelAdmin):
         except DatabaseError:
             error = '资格管理数据库尚未就绪，请完成迁移后重试。普通推荐不受影响。'
         return TemplateResponse(request, 'admin/recommendations/eligibility_control.html', {
-            **self.admin_site.each_context(request), 'opts': self.model._meta, 'title': '推荐内容资格安全管理',
+            **self.admin_site.each_context(request), 'opts': self.model._meta, 'title': '受限内容访问申请审批',
             'subject': subject, 'qualification': status, 'form': form, 'error': error,
             'reload_url': reverse('admin:recommendations_eligibility_control')})
 
@@ -139,7 +143,7 @@ class ContentEligibilityEventAdmin(admin.ModelAdmin):
         return super().get_queryset(request).select_related('eligibility', 'actor')
 
     def has_view_permission(self, request, obj=None):
-        return can_manage(request.user) or super().has_view_permission(request, obj)
+        return can_manage(request.user)
 
     def has_add_permission(self, request):
         return False

@@ -1,5 +1,5 @@
 {% extends "admin/change_list.html" %}
 {% block object-tools-items %}
-  {% if can_control_eligibility %}<li><a href="{{ eligibility_control_url }}">选择账号并核对资格</a></li>{% endif %}
+  {% if can_control_eligibility %}<li><a href="{{ eligibility_control_url }}">核对账号与访问申请</a></li>{% endif %}
   {{ block.super }}
 {% endblock %}
