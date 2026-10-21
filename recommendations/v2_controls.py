@@ -3,6 +3,7 @@ import math
 
 from . import engine, ranking_v2, rerank_runtime
 from .browse_controls import season_year, OPTION_KEYS
+from .score_filters import matches_score
 
 VERSION = 'browse-controls.v2'
 CLOSE_RELATED_BONUS = .03
@@ -28,16 +29,19 @@ def validate_options(options):
     """
     from .serializers import RecommendationQuerySerializer
     from rest_framework.exceptions import ValidationError
-    if not isinstance(options, dict) or set(options) - set(OPTION_KEYS):
+    if not isinstance(options, dict) or set(options) - (set(OPTION_KEYS) | {'max_score'}):
         raise ValidationError('D1只接受类别、风格及筛选条件，不接受用户、版本或游标。')
     data = {key: value for key, value in options.items() if not (key in ('year_from', 'year_to') and value is None)}
     serializer = RecommendationQuerySerializer(data={**data, 'browse': True})
     serializer.is_valid(raise_exception=True)
-    return {key: serializer.validated_data[key] for key in OPTION_KEYS}
+    result = {key: serializer.validated_data[key] for key in OPTION_KEYS}
+    if float(serializer.validated_data['max_score']) < 10:
+        result['max_score'] = serializer.validated_data['max_score']
+    return result
 
 
 def matches(row, options):
-    if row['score'] < float(options['min_score']):
+    if not matches_score(row['score'], options):
         return False
     if options['type'] != 'all' and row['status_type'] != options['type']:
         return False

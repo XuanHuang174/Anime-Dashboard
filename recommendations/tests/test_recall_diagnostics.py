@@ -67,7 +67,7 @@ class RecallConfigurationTests(SimpleTestCase):
         with self.assertRaises(ValueError):
             observer.stage('pool', [])
 
-    def test_original_engine_ast_frozen_except_observation_and_exact_sampling_adapter(self):
+    def test_original_engine_ast_frozen_except_observation_and_exact_parameter_adapters(self):
         reference = json.loads((Path(settings.BASE_DIR) / 'evaluation/v2a-engine-baseline.v1.json').read_text(encoding='utf-8'))
         case = self
         class RemoveObservation(ast.NodeTransformer):
@@ -93,6 +93,34 @@ class RecallConfigurationTests(SimpleTestCase):
                     adapter = RestoreSamplingParameter()
                     node = adapter.visit(node)
                     case.assertEqual((adapter.removed, adapter.replaced), (1, 1))
+                if node.name in ('_rank_context_v1', '_rank_context_v2'):
+                    # Optional public-score ceiling only: restore the two exact
+                    # approved filter expressions, never ranking operations or
+                    # the historical fixture. Separate range tests verify that
+                    # omitted max_score is equivalent to the old predicate.
+                    class RestoreScoreRange(ast.NodeTransformer):
+                        predicates = queries = 0
+                        def visit_UnaryOp(self, expression):
+                            expected = ast.parse('not matches_score(score, options)').body[0].value
+                            if ast.dump(expression, include_attributes=False) == ast.dump(expected, include_attributes=False):
+                                self.predicates += 1
+                                return ast.parse("score < float(options['min_score'])").body[0].value
+                            return self.generic_visit(expression)
+                        def visit_Call(self, expression):
+                            replacements = (
+                                ("score_query(safe_catalog().filter(bangumi_id__in=pool_ids), options)",
+                                 "safe_catalog().filter(bangumi_id__in=pool_ids, score__gte=options['min_score'])"),
+                                ("score_query(safe_catalog(), options)",
+                                 "safe_catalog().filter(score__gte=options['min_score'])"),
+                            )
+                            for current, historical in replacements:
+                                if ast.dump(expression, include_attributes=False) == ast.dump(ast.parse(current).body[0].value, include_attributes=False):
+                                    self.queries += 1
+                                    return ast.parse(historical).body[0].value
+                            return self.generic_visit(expression)
+                    adapter = RestoreScoreRange()
+                    node = adapter.visit(node)
+                    case.assertEqual((adapter.predicates, adapter.queries), (1 if node.name == '_rank_context_v1' else 0, 1))
                 return self.generic_visit(node)
             def visit_If(self, node):
                 if ast.dump(node.test, include_attributes=False) == ast.dump(ast.parse('observer is not None').body[0].value, include_attributes=False):

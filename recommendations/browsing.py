@@ -24,7 +24,7 @@ from rest_framework.exceptions import ValidationError
 from anime.models import UserAnimeRecord
 from . import engine
 from .browse_controls import (CONTROL_POLICY_VERSION, OPTION_KEYS, canonical_options,
-                              filter_index, rank_controlled)
+                              filter_index, rank_controlled, valid_option_keys)
 from .evidence import (EvidencePresenter, EVIDENCE_CONTRACT_VERSION, EVIDENCE_DISCLAIMER,
                        SELECTION_RULE_VERSION, _token)
 from .models import RecommendationAnime
@@ -197,7 +197,7 @@ def _decode(cursor, user, *, recipe=None):
         if (not re.fullmatch('[a-f0-9]{32}', body['snapshot'])
                 or not re.fullmatch('[a-f0-9]{64}', body['revision'])
                 or not isinstance(body['options'], dict)
-                or set(body['options']) != set(OPTION_KEYS)
+                or not valid_option_keys(body['options'])
                 or not isinstance(body['weights'], dict) or len(body['weights']) > 256
                 or any(not isinstance(tag, str) or type(weight) not in (int, float)
                        or not math.isfinite(weight) or not 1 <= weight <= 3
@@ -248,8 +248,8 @@ def browse_page(user, validated, supplied, *, metrics=None, _recipe=None):
         raise engine.RecommendationUnavailable('浏览控制仅支持当前 V1，不会启动 V2。')
     options = canonical_options(validated)
     if body:
-        for key in OPTION_KEYS:
-            if key in supplied and options[key] != body['options'][key]:
+        for key in (*OPTION_KEYS, 'max_score'):
+            if key in supplied and options.get(key, '10.0') != body['options'].get(key, '10.0'):
                 raise engine.RecommendationSnapshotChanged('浏览条件已变化，请重新加载第一批。')
         options = body['options']
     with readonly_snapshot():

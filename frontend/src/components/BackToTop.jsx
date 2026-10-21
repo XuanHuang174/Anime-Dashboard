@@ -21,6 +21,8 @@ function BackToTop({ isModalOpen, theme = 'default' }) {
       id="backToTopBtn"
       type="button"
       aria-label="返回页面顶部"
+      aria-hidden={!isVisible}
+      tabIndex={isVisible ? 0 : -1}
       onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
       className={`${theme === 'memphis' ? 'memphis-back-to-top' : 'bg-indigo-600 text-white rounded-full shadow-lg shadow-indigo-500/40 hover:bg-indigo-700 hover:shadow-xl hover:-translate-y-1 active:scale-95'} group fixed bottom-8 right-8 z-50 flex h-12 w-12 items-center justify-center p-3 transition-all duration-300 ease-out ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`}
     >

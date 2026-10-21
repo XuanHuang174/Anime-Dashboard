@@ -69,7 +69,7 @@ def _detail_scope(user, identity, ticket, recipe):
             raise engine.RecommendationSnapshotChanged()
         from .v2_controls import validate_options
         options = canonical_options(validate_options(body['options']))
-        if set(body['options']) != set(OPTION_KEYS) or options != body['options']:
+        if set(body['options']) not in (set(OPTION_KEYS), set(OPTION_KEYS) | {'max_score'}) or options != body['options']:
             raise ValueError()
         return body, options
     except (KeyError, TypeError, ValueError):

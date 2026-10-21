@@ -34,6 +34,7 @@ import '../styles/recommendations-theme.css'
 import '../styles/recommendations-motion.css'
 import '../styles/recommendations-preferences.css'
 import ShowcasePublicationPanel from '../components/ShowcasePublicationPanel.jsx'
+import BackToTop from '../components/BackToTop.jsx'
 
 export default function Recommendations({ client = recommendationApi }) {
   const readScope = () => { try { return recommendationSessionScope(getAccessToken()) } catch { return 'anonymous' } }
@@ -340,5 +341,6 @@ function RecommendationWorkspace({ client, sessionScope }) {
                 writeBlocked={feedback.state.operations[detail.item.bangumiId]?.status === 'saving' || feedback.state.operations[detail.item.bangumiId]?.uncertain} />
             </div></div>}
     </RecommendationDialog>}
+    <BackToTop isModalOpen={Boolean(panel)} theme="memphis" />
   </main>
 }

@@ -13,7 +13,7 @@ export function RecommendationLoadingNotice({ phase = 'data' }) {
   }, [])
   return <div className="rec-load-notice" role="status" aria-live="polite" aria-atomic="true">
     <p>{phase === 'route' ? '正在翻开番剧探索手账…' : '正在读取你的口味与推荐…'}</p>
-    {slow && <small>这次加载较慢，请稍候。也可以返回手账后再试。</small>}
+    {slow && <small>这次加载较慢，请稍候。预计还需 5s~15s。</small>}
   </div>
 }
 

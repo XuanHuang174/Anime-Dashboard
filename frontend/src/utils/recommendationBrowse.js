@@ -15,11 +15,12 @@ const cursor = value => value === null || typeof value === 'string' && value.len
 const invalid = () => { throw new Error('推荐浏览合同不兼容，请重新加载。') }
 
 export function browseConditions({ category, style, filters }) {
-  return { category, style, type: filters.type, min_score: Number(filters.minScore).toFixed(1),
+  return { category, style, type: filters.type, min_score: filters.minScore === 'lte6' ? '0.0' : Number(filters.minScore).toFixed(1),
+    ...(filters.minScore === 'lte6' ? { max_score: '6.0' } : {}),
     year_from: filters.yearFrom ? Number(filters.yearFrom) : null,
     year_to: filters.yearTo ? Number(filters.yearTo) : null, hide_recorded: filters.hideRecorded, page_size: 12 }
 }
-export function sameConditions(a, b) { return a && b && keys.every(key => a[key] === b[key]) }
+export function sameConditions(a, b) { return a && b && keys.every(key => a[key] === b[key]) && (a.max_score ?? '10.0') === (b.max_score ?? '10.0') }
 
 export function mapBrowsePage(data) {
   const c = data?.effective_conditions
@@ -32,7 +33,8 @@ export function mapBrowsePage(data) {
       || data?.control_policy_version !== 'browse-controls.v1') invalid()
   if (data?.contract_version !== 'recommendations.3b.v1' || (data.browse_contract_version !== 'recommendations.browse.v1'
     && !prepared)
-    || !REC_STYLES.some(style => style.id === data.style) || !c || Object.keys(c).length !== keys.length
+    || !REC_STYLES.some(style => style.id === data.style) || !c || Object.keys(c).length !== keys.length + (c.max_score === undefined ? 0 : 1)
+    || c.max_score !== undefined && (typeof c.max_score !== 'string' || !/^(?:[0-9]\.\d|10\.0)$/.test(c.max_score) || Number(c.max_score) >= 10 || Number(c.max_score) < Number(c.min_score))
     || !['all', 'familiar', 'explore'].includes(c.category) || c.style !== data.style
     || !['all', 'TV', 'OVA', '剧场版', 'WEB', '短片', '动态漫画'].includes(c.type)
     || typeof c.min_score !== 'string' || !/^(?:[0-9]\.\d|10\.0)$/.test(c.min_score)
@@ -63,6 +65,7 @@ export function mapBrowsePage(data) {
     || data.results.some(row => !sameEvidenceContext(row.evidence_context, data.evidence_context))
     || data.cold_start_state && data.mode !== ({ personalized: 'personalized', explicit_preferences: 'preference_based', none: 'cold_start' }[data.cold_start_state.recommendation_basis])) invalid()
   const items = data.results.map(mapRecommendationItem)
+  if (c.max_score !== undefined && data.results.some(row => !(row.score > 0 && row.score <= Number(c.max_score)))) invalid()
   if (new Set(items.map(item => item.bangumiId)).size !== items.length) invalid()
   return { ...data, items }
 }
@@ -90,6 +93,7 @@ export function filterDraftError(filters) {
 export function filterChips(filters) {
   return [filters.type !== 'all' && { id: 'type', label: filters.type },
     (filters.yearFrom || filters.yearTo) && { id: 'years', label: `${filters.yearFrom || '不限'}—${filters.yearTo || '不限'}` },
-    Number(filters.minScore) > 0 && { id: 'minScore', label: `Bangumi 评分 ≥ ${Number(filters.minScore).toFixed(1)}` },
+    filters.minScore === 'lte6' ? { id: 'minScore', label: 'Bangumi 评分 ≤ 6.0' }
+      : Number(filters.minScore) > 0 && { id: 'minScore', label: `Bangumi 评分 ≥ ${Number(filters.minScore).toFixed(1)}` },
     filters.hideRecorded && { id: 'hideRecorded', label: '隐藏手账已有记录' }].filter(Boolean)
 }

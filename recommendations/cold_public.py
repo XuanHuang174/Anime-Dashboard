@@ -18,6 +18,7 @@ from django.db.models.functions import Cast, Coalesce, Concat, Length
 
 from . import engine, v2_controls
 from .public_fingerprint import NativeSHA256, public_feature_fingerprint
+from .score_filters import matches_score
 from .version_control import canonical_bytes
 
 VERSION = 'public-bootstrap.v1'
@@ -122,7 +123,7 @@ class SeededPublicReader:
             count, digest, readonly, isolation = cursor.fetchone()
         _transaction(count, readonly, isolation, limit)
         if key not in self._scopes:
-            rows = tuple(row for row in self.rows if row[1] >= float(options['min_score'])
+            rows = tuple(row for row in self.rows if matches_score(row[1], options)
                          and (options['type'] == 'all' or row[4] == options['type']))
             self._scopes[key] = (len(rows), row_digest(rows), rows)
         expected_count, expected_digest, rows = self._scopes[key]

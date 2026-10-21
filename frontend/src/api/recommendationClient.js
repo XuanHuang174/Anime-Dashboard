@@ -20,11 +20,13 @@ export function createRecommendationClient(client) {
       return client.post(`recommendations/${identity}/want/`, {}, { signal }).then((r) => r.data)
     },
     list: ({ category, filters, page = 1, stateToken }, signal) => client.get('recommendations/', { signal,
-      params: { category, type: filters.type, min_score: filters.minScore, hide_recorded: filters.hideRecorded,
+      params: { category, type: filters.type, min_score: filters.minScore === 'lte6' ? '0' : filters.minScore,
+        ...(filters.minScore === 'lte6' ? { max_score: '6.0' } : {}), hide_recorded: filters.hideRecorded,
         page, page_size: 12, ...(stateToken ? { state_token: stateToken } : {}) } }).then((r) => r.data),
     browse: ({ category, style, filters, cursor }, signal) => client.get('recommendations/', { signal,
       params: cursor ? { cursor } : { browse: true, category, style, type: filters.type,
-        min_score: filters.minScore, hide_recorded: filters.hideRecorded, page_size: 12,
+        min_score: filters.minScore === 'lte6' ? '0' : filters.minScore,
+        ...(filters.minScore === 'lte6' ? { max_score: '6.0' } : {}), hide_recorded: filters.hideRecorded, page_size: 12,
         ...(filters.yearFrom ? { year_from: filters.yearFrom } : {}),
         ...(filters.yearTo ? { year_to: filters.yearTo } : {}) } }).then(r => r.data),
     detail: (identity, signal, evidenceToken, detailContext) => {

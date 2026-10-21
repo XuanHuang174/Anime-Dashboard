@@ -2,6 +2,7 @@
 import re
 
 from . import engine
+from .score_filters import matches_score
 
 CONTROL_POLICY_VERSION = 'browse-controls.v1'
 STYLES = ('balanced', 'close', 'open')
@@ -25,15 +26,22 @@ def season_year(value):
 
 
 def canonical_options(options):
-    return {key: format(options[key], '.1f') if key == 'min_score' else options[key]
-            for key in OPTION_KEYS}
+    result = {key: format(options[key], '.1f') if key == 'min_score' else options[key]
+              for key in OPTION_KEYS}
+    if float(options.get('max_score', 10)) < 10:
+        result['max_score'] = format(float(options['max_score']), '.1f')
+    return result
+
+
+def valid_option_keys(options):
+    return set(options) in (set(OPTION_KEYS), set(OPTION_KEYS) | {'max_score'})
 
 
 def filter_index(index, rows, options):
     """Filter BEFORE V1's 400-item truncation; retain whole-catalog IDF weights."""
     allowed = set()
     for row in rows:
-        if row['score'] < float(options['min_score']):
+        if not matches_score(row['score'], options):
             continue
         if options['type'] != 'all' and row['status_type'] != options['type']:
             continue

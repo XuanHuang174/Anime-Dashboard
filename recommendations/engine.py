@@ -18,6 +18,7 @@ from .profile_policy import context_score
 from .taxonomy import TAXONOMY_VERSION, genre_rules
 from .features import feature_tags, FEATURE_RULE_VERSION
 from .public_fingerprint import public_feature_fingerprint, public_feature_expression
+from .score_filters import matches_score, score_query
 from . import ranking_v2, taxonomy as vocabulary
 
 ALGORITHM_VERSION = 'content.v1'
@@ -221,7 +222,7 @@ def _rank_context_v1(context, options, index, *, observer=None):
     for identity, tags, score, status_type in index['features']:
         if identity in hidden_ids or identity in seed_ids or (options['hide_recorded'] and identity in context['owned']):
             continue
-        if score < float(options['min_score']) or (options['type'] != 'all' and status_type != options['type']):
+        if not matches_score(score, options) or (options['type'] != 'all' and status_type != options['type']):
             continue
         affinity = evidence_for(tags, context, weights)[2] if options['category'] == 'familiar' else 0
         value = candidate_score(tags, score, vector, weights, options['category'], affinity)
@@ -235,7 +236,7 @@ def _rank_context_v1(context, options, index, *, observer=None):
     context['_ranking_trace'] = {'eligible_candidates': len(shortlist), 'candidate_pool': len(pool_ids)}
     _diagnostic_target_trace(context, eligible=(identity for _, identity in shortlist), pool=pool_ids)
     # Fetch CURRENT safe rows before evidence, ranking, pagination and serialization.
-    query = safe_catalog().filter(bangumi_id__in=pool_ids, score__gte=options['min_score'])
+    query = score_query(safe_catalog().filter(bangumi_id__in=pool_ids), options)
     if options['type'] != 'all':
         query = query.filter(status_type=options['type'])
     rows = list(query.order_by('bangumi_id').defer('synopsis', 'source_cover_url'))
@@ -426,7 +427,7 @@ def _rank_context_v2(context, options, index, *, policy_version=None, observer=N
         scorer = V2RequestScorer(context, options, weights, vector, index.get('taxonomy_version'), policy_version=policy_version)
     # Cached tags are usable ONLY after an exact CURRENT SHA256 input match.
     # Safety and scores are live even when the feature fingerprint is unchanged.
-    query = safe_catalog().filter(score__gte=options['min_score'])
+    query = score_query(safe_catalog(), options)
     if options['type'] != 'all':
         query = query.filter(status_type=options['type'])
     fields = ('bangumi_id', 'tags', 'title_zh', 'title_jp', 'score', 'status_type')
@@ -626,7 +627,8 @@ def snapshot_token(user_id, context, options, ranked, algorithm, *, weights=None
              'seeds': [(seed['bangumi_id'], seed['score'], sorted(seed['tags']), seed['feature_sources'])
                        for seed in context['seeds']],
              'owned': sorted(context['owned'].items()),
-             'query': {key: str(options[key]) for key in ('category', 'type', 'min_score', 'hide_recorded', 'page_size')},
+             'query': {key: str(options[key]) for key in ('category', 'type', 'min_score', 'hide_recorded', 'page_size',
+                       *(('max_score',) if float(options.get('max_score', 10)) < 10 else ()))},
              'items': [(item['anime'].bangumi_id, item['anime'].score, sorted(item['tags']), item['reason'],
                         item['anime'].cover_url, item['anime'].title_zh, item['anime'].title_jp,
                         item['anime'].status_type, item['anime'].season) for item in ranked]}
