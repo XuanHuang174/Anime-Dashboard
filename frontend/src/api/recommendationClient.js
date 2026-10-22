@@ -4,19 +4,24 @@ import { checkScopeResponse } from '../utils/recommendationContentScope.js'
 export function createRecommendationClient(transport, scope = 'safe', onLost = () => {}) {
   if (!['safe', 'include_adult'].includes(scope)) throw new Error('未知内容范围')
   const scoped = path => /^recommendations\/(?:$|context\/|feedback\/|identities\/|[1-9]\d*\/)/.test(path)
-  let lastScopeRevision = null
+  let lastScopeRevision = null, sequence = 0, lastScopeSequence = 0
   const call = (method, path, args, config = {}) => {
+    const order = ++sequence
     const controlled = scoped(path)
     if (controlled && scope === 'include_adult') config = { ...config, params: { ...config.params, content_scope: scope } }
     const promise = method === 'get' ? transport.get(path, config) : transport[method](path, args, config)
     return promise.then(response => {
+      if (config.signal?.aborted) { const error = new Error('请求已取消'); error.name = 'AbortError'; throw error }
       if (controlled) checkScopeResponse(response.data, scope)
       if (controlled && scope === 'include_adult') {
         const revision = response.data.content_scope_context.scope_revision
+        if (lastScopeRevision && revision !== lastScopeRevision && order < lastScopeSequence) {
+          const error = new Error('旧内容范围响应已丢弃'); error.name = 'AbortError'; throw error
+        }
         if (path === 'recommendations/context/' && lastScopeRevision && revision !== lastScopeRevision) {
           const error = new Error('访问范围已更新'); error.scopeLost = true; throw error
         }
-        lastScopeRevision = revision
+        if (order >= lastScopeSequence) { lastScopeRevision = revision; lastScopeSequence = order }
       }
       return response
     }).catch(error => {

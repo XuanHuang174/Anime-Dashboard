@@ -26,6 +26,7 @@ import RecommendationFeedbackToast from '../components/recommendations/Recommend
 import RecommendationHiddenWorks from '../components/recommendations/RecommendationHiddenWorks.jsx'
 import { getAccessToken } from '../auth/tokenStorage.js'
 import { recommendationSessionScope } from '../utils/recommendationSession.js'
+import { watchRecommendationScope } from '../utils/recommendationScopeMonitor.js'
 import { DEFAULT_BROWSE_FILTERS } from '../utils/recommendationBrowse.js'
 import { RecommendationBrowseControls, RecommendationFilterPanel, RecommendationBatchActions } from '../components/recommendations/RecommendationBrowseControls.jsx'
 import '../styles/recommendations.css'
@@ -104,20 +105,8 @@ function RecommendationWorkspace({ client: baseClient, sessionScope }) {
     if (!filters.includeAdult) return undefined
     const deadline = Date.parse(state.data?.evidence_context?.scope_valid_until)
     if (!Number.isFinite(deadline)) return undefined
-    let timer, abort = null, stopped = false
-    const check = async () => {
-      if (stopped) return
-      if (Date.now() >= deadline) { scopeLost.current(); return }
-      if (document.visibilityState !== 'hidden' && !abort) {
-        abort = new AbortController()
-        try { await client.context(abort.signal) } catch { /* confirmed 403/409 handled by scoped client; offline stays local */ }
-        finally { abort = null }
-      }
-      if (!stopped) { window.clearTimeout(timer); timer = window.setTimeout(check, Math.min(30000, Math.max(0, deadline - Date.now()))) }
-    }
-    timer = window.setTimeout(check, Math.min(30000, Math.max(0, deadline - Date.now())))
-    document.addEventListener('visibilitychange', check)
-    return () => { stopped = true; abort?.abort(); window.clearTimeout(timer); document.removeEventListener('visibilitychange', check) }
+    const monitor = watchRecommendationScope({ deadline, probe: signal => client.context(signal), onLost: () => scopeLost.current() })
+    return () => monitor.dispose()
   }, [client, !!filters.includeAdult, state.data?.evidence_context?.scope_valid_until])
   const externalChange = reason => { discardDetail(); state.contextChanged(reason) }
   const acknowledgeReload = useRecommendationReload(externalChange,

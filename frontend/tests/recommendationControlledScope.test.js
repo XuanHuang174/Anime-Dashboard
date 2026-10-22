@@ -87,7 +87,7 @@ test('NSFW is a removable session filter, never a persistent taste preference', 
   const page = readFileSync(new URL('../src/pages/Recommendations.jsx', import.meta.url), 'utf8')
   assert.match(page, /state\.cancelBrowse\(\); setPanel\(null\)/)
   assert.match(page, /includeAdult: false/); assert.match(page, /scope_valid_until/)
-  assert.match(page, /abort\?\.abort\(\)/)
+  assert.match(page, /watchRecommendationScope/)
   assert.doesNotMatch(page, /localStorage\.setItem\([^\n]*includeAdult/)
   const hook = readFileSync(new URL('../src/hooks/useRecommendations.js', import.meta.url), 'utf8')
   assert.match(hook, /!!filters.includeAdult/)
