@@ -42,6 +42,20 @@ class EligibilityAdminForm(forms.Form):
     public_message = forms.CharField(label='给申请人的简短拒绝提示', max_length=200, required=False,
         help_text='仅拒绝时显示给本人；留空使用统一提示，不会公开内部审批原因。')
     confirmed = forms.BooleanField(label='我已核对目标账号、操作及期限，确认执行', required=True)
+    self_approval_confirmed = forms.BooleanField(required=False,
+        label='我明确为本人申请授予人工访问授权，确认记录为超级管理员自审；这不是年龄核验')
+
+    def __init__(self, *args, is_self=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.is_self = is_self
+        if not is_self:
+            self.fields.pop('self_approval_confirmed')
+
+    def clean(self):
+        values = super().clean()
+        if self.is_self and values.get('action') == 'approve' and not values.get('self_approval_confirmed'):
+            self.add_error('self_approval_confirmed', '本人授权必须额外确认，不能代替普通审批确认。')
+        return values
 
 
 @admin.register(Eligibility)
@@ -90,7 +104,6 @@ class ContentEligibilityAdmin(admin.ModelAdmin):
         # Signed scope binds actor, subject, version and UUID. Never trust hidden IDs.
         try:
             if request.method == 'POST':
-                form = EligibilityAdminForm(request.POST)
                 ticket = request.POST.get('ticket', '')
                 if len(ticket) > 4096:
                     raise signing.BadSignature()
@@ -100,11 +113,13 @@ class ContentEligibilityAdmin(admin.ModelAdmin):
                     raise signing.BadSignature()
                 subject = get_user_model().objects.get(pk=body['subject'])
                 status = own_eligibility(subject)
+                form = EligibilityAdminForm(request.POST, is_self=request.user.pk == subject.pk)
                 if form.is_valid():
                     result = mutate_eligibility(actor=request.user, subject_id=subject.pk, action=form.cleaned_data['action'], changes={
                         'expected_version': body['version'], 'operation_id': body['operation'],
                         'reason': form.cleaned_data['reason'], 'days': form.cleaned_data['days'],
-                        'public_message': form.cleaned_data['public_message']})
+                        'public_message': form.cleaned_data['public_message'], 'confirmed': True,
+                        'self_approval_confirmed': form.cleaned_data.get('self_approval_confirmed', False)})
                     message = ('该操作已处理，未重复执行；请核对当前最新资格状态。' if result['replayed'] else
                                '访问申请已更新。人工审批不等于年龄核验；仍须总开关开放及用户主动选择。' if result['changed'] else
                                '资格状态未变化，操作回执已记录；不会自动开启个人 NSFW 筛选。')
@@ -119,7 +134,7 @@ class ContentEligibilityAdmin(admin.ModelAdmin):
                     status = own_eligibility(subject)
                     ticket = signing.dumps({'actor': request.user.pk, 'subject': subject.pk,
                         'version': status['eligibility_version'], 'operation': str(uuid4())}, salt=ADMIN_SALT)
-                    form = EligibilityAdminForm(initial={'ticket': ticket})
+                    form = EligibilityAdminForm(initial={'ticket': ticket}, is_self=request.user.pk == subject.pk)
         except (signing.BadSignature, get_user_model().DoesNotExist, ValueError):
             error = '账号或操作凭据无效/已过期，请重新选择账号。'
         except APIException as exc:
@@ -134,8 +149,8 @@ class ContentEligibilityAdmin(admin.ModelAdmin):
 
 @admin.register(Event)
 class ContentEligibilityEventAdmin(admin.ModelAdmin):
-    list_display = ('eligibility', 'actor', 'action', 'previous_version', 'applied_version', 'changed', 'created_at')
-    list_filter = ('action',)
+    list_display = ('eligibility', 'actor', 'action', 'is_self_approval', 'previous_version', 'applied_version', 'changed', 'created_at')
+    list_filter = ('action', 'is_self_approval')
     readonly_fields = tuple(field.name for field in Event._meta.fields)
     actions = None
 

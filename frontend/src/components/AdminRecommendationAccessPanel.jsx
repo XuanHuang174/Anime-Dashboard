@@ -1,7 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import api from '../api/api.js'
+import { accessApprovalPayload, accessAdminFailure, isSelfApproval } from '../utils/recommendationAccessAdmin.js'
 
 const STATUS_LABELS = { pending: '待审批', active: '已批准', rejected: '已拒绝', revoked: '已撤销', expired: '已到期', legacy_unavailable: '历史授权不可用', account_inactive: '账号停用', not_requested: '未申请' }
+
+export function SelfApprovalConfirmation({ selected, action, checked, onChange, disabled }) {
+  if (!isSelfApproval(selected, action)) return null
+  return <label className="my-3 flex items-start gap-2 border-2 border-black bg-white p-3">
+    <input type="checkbox" checked={checked} disabled={disabled} onChange={e => onChange(e.target.checked)} />
+    我明确为本人申请授予人工访问授权，确认记录为超级管理员自审；这不是年龄核验，也不会自动开启 NSFW。
+  </label>
+}
 
 // No journal data, no inferred age and no automatic approval. Server rechecks authority.
 export default function AdminRecommendationAccessPanel({ client = api }) {
@@ -10,12 +19,14 @@ export default function AdminRecommendationAccessPanel({ client = api }) {
   const [selected, setSelected] = useState(null), [reason, setReason] = useState('')
   const [message, setMessage] = useState(''), [days, setDays] = useState(30)
   const [confirmed, setConfirmed] = useState(false), [pending, setPending] = useState(false)
+  const [selfApprovalConfirmed, setSelfApprovalConfirmed] = useState(false)
   const [error, setError] = useState(''), [revision, setRevision] = useState(0)
   const [intent, setIntent] = useState(null)
   const gate = useRef(false), operation = useRef(null), generation = useRef(0), selection = useRef(null)
   useEffect(() => {
     const epoch = ++generation.current, abort = new AbortController()
     setError(''); setQueue(null); setSelected(null); operation.current = null; setConfirmed(false); setIntent(null)
+    setSelfApprovalConfirmed(false)
     Promise.all([client.get('recommendations/admin/control/', { signal: abort.signal }),
       client.get('recommendations/admin/applications/', { params: { status, page }, signal: abort.signal })])
       .then(([a, b]) => { if (generation.current === epoch && !abort.signal.aborted) { setControl(a.data); setQueue(b.data) } })
@@ -26,6 +37,7 @@ export default function AdminRecommendationAccessPanel({ client = api }) {
     if (gate.current) return
     selection.current?.abort(); const abort = new AbortController(); selection.current = abort
     setSelected(null); setConfirmed(false); setReason(''); setMessage(''); setError(''); operation.current = null; setIntent(null)
+    setSelfApprovalConfirmed(false)
     try {
       const response = await client.get(`recommendations/admin/applications/${row.user_id}/`, { signal: abort.signal })
       if (!abort.signal.aborted && selection.current === abort) setSelected({ ...response.data, user_id: row.user_id })
@@ -35,25 +47,26 @@ export default function AdminRecommendationAccessPanel({ client = api }) {
     if (gate.current || !intent || !confirmed || !reason.trim()) return
     const epoch = generation.current
     gate.current = true; setPending(true); setError('')
-    if (!operation.current) operation.current = action === 'control'
-      ? { path: 'recommendations/admin/control/', body: { enabled: !control.enabled, expected_version: control.version,
-        operation_id: crypto.randomUUID(), reason, confirmed: true } }
-      : { path: `recommendations/admin/applications/${selected.user_id}/`, body: {
-        ticket: selected.ticket, action, reason, days: Number(days), public_message: message, confirmed: true } }
     try {
+      if (!operation.current) operation.current = action === 'control'
+        ? { path: 'recommendations/admin/control/', body: { enabled: !control.enabled, expected_version: control.version,
+          operation_id: crypto.randomUUID(), reason, confirmed: true } }
+        : { path: `recommendations/admin/applications/${selected.user_id}/`, body: accessApprovalPayload(selected, action,
+          { reason, days, message, confirmed, selfApprovalConfirmed }) }
       await client.post(operation.current.path, operation.current.body)
       if (generation.current !== epoch) return
       operation.current = null; setConfirmed(false); setReason(''); setRevision(v => v + 1)
     } catch (failure) {
       if (generation.current !== epoch) return
+      if (!failure.response && !operation.current) { setError(failure.message); return }
       if (failure.response?.status >= 400 && failure.response?.status < 500) {
         operation.current = null; setConfirmed(false)
-        setError(failure.response?.status === 409 ? '版本或审批凭据已变化。请重新读取，不会覆盖较新的决定。' : '操作未被接受，请检查权限、部署开关及输入后重新读取。')
+        setSelfApprovalConfirmed(false); setError(accessAdminFailure(failure))
       } else setError('提交结果尚未确认。请点击“重试确认原操作”，不会重复写入新的决定。')
     } finally { gate.current = false; setPending(false) }
   }
   const frozen = pending || !!operation.current
-  const prepare = action => { if (!frozen) { setIntent(action); setConfirmed(false); setReason(''); setError('') } }
+  const prepare = action => { if (!frozen) { setIntent(action); setConfirmed(false); setSelfApprovalConfirmed(false); setReason(''); setError('') } }
   const intentLabel = intent === 'control' ? `${control?.enabled ? '关闭' : '开启'} NSFW 推荐总开关`
     : `${({ approve: '批准申请', reject: '拒绝申请', revoke: '撤销授权' })[intent] || ''}：${selected?.username || ''}`
   const button = 'border-2 border-black bg-white px-4 py-2 font-bold shadow-[3px_3px_0_#111] disabled:opacity-50'
@@ -81,7 +94,8 @@ export default function AdminRecommendationAccessPanel({ client = api }) {
     <div className="my-4 flex gap-3"><button className={button} disabled={frozen || page === 1} onClick={() => setPage(p => p - 1)}>上一页</button>
       <button className={button} disabled={frozen || !queue?.next_page} onClick={() => setPage(queue.next_page)}>下一页</button></div>
     {selected && <section className="my-4 border-2 border-black bg-white p-4"><h3 className="text-xl font-bold">审批：{selected.username}</h3>
-      <p>当前状态：{STATUS_LABELS[selected.eligibility.effective_status] || '不可用'} · 禁止为自己批准。</p>
+      <p>当前状态：{STATUS_LABELS[selected.eligibility.effective_status] || '不可用'} · {selected.is_self
+        ? '本人申请：批准需额外确认，并记录自审；不自动开启服务。' : '仅处理当前账号；操作将记录审计。'}</p>
       <label className="my-2 block">有效天数（1–30） <input type="number" min="1" max="30" value={days} disabled={frozen} onChange={e => setDays(e.target.value)} className="border-2 border-black p-2" /></label>
       <label className="block">给用户的说明（选填）<input maxLength={200} value={message} disabled={frozen} onChange={e => setMessage(e.target.value)} className="w-full border-2 border-black p-2" /></label>
       <div className="mt-3 flex flex-wrap gap-3">{['approve', 'reject', 'revoke'].map((action, i) => <button type="button" className={button} key={action}
@@ -91,8 +105,10 @@ export default function AdminRecommendationAccessPanel({ client = api }) {
       <label className="block font-bold">本次操作依据／原因（必填，最多 200 字）<input maxLength={200} value={reason} disabled={frozen}
       onChange={e => setReason(e.target.value)} className="my-2 w-full border-2 border-black bg-white p-2" /></label>
       <label className="my-3 flex items-center gap-2"><input type="checkbox" checked={confirmed} disabled={frozen} onChange={e => setConfirmed(e.target.checked)} />我已核对，确认本次操作；批准不代表年龄核验。</label>
-      <button type="button" className={button} disabled={frozen || !confirmed || !reason.trim()} onClick={() => submit(intent)}>确认提交：{intentLabel}</button>
-      <button type="button" className={button + ' ml-3'} disabled={frozen} onClick={() => { setIntent(null); setConfirmed(false) }}>取消本次操作</button>
+      <SelfApprovalConfirmation selected={selected} action={intent} checked={selfApprovalConfirmed} onChange={setSelfApprovalConfirmed} disabled={frozen} />
+      <button type="button" className={button} disabled={frozen || !confirmed || !reason.trim()
+        || isSelfApproval(selected, intent) && (!selfApprovalConfirmed || selected.self_approval_allowed !== true)} onClick={() => submit(intent)}>确认提交：{intentLabel}</button>
+      <button type="button" className={button + ' ml-3'} disabled={frozen} onClick={() => { setIntent(null); setConfirmed(false); setSelfApprovalConfirmed(false) }}>取消本次操作</button>
       {operation.current && !pending && <button type="button" className={button + ' mt-3'} onClick={() => submit('retry')}>重试确认原操作</button>}
     </div>}
   </section>

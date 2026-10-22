@@ -1,6 +1,6 @@
 {% extends "admin/base_site.html" %}
 {% block content %}
-<p><strong>M1 仅管理人工访问授权，NSFW 推荐仍未开放。</strong>审批不是年龄核验；仅超级管理员可操作，必须先有用户申请。</p>
+<p><strong>本页仅管理人工访问授权，不自动开启 NSFW 推荐。</strong>审批不是年龄核验；仅超级管理员可操作，必须先有用户申请。</p>
 <form method="get"><label for="eligibility-user">目标账号 ID</label>
   <input id="eligibility-user" name="user_id" inputmode="numeric" required value="{{ subject.pk|default:'' }}">
   <button type="submit">读取并核对账号</button>
@@ -10,7 +10,7 @@
 {% if qualification %}<p>状态：{{ qualification.effective_status }} · 来源：{{ qualification.authorization_source }} · 版本：{{ qualification.eligibility_version }} · 申请：{{ qualification.requested_at|default:'未申请' }} · 截止：{{ qualification.valid_until|default:'未批准' }}</p>{% endif %}
 {% if form %}<form method="post">{% csrf_token %}
   {{ form.as_p }}
-  <p>仅处理当前账号的申请。批准默认 30 天，不自动续期；不能审批自己的申请，不会自动开启 NSFW 推荐。</p>
+  <p>仅处理当前账号的申请。批准默认 30 天，不自动续期；超级管理员本人授权需额外确认并记录自审，不会自动开启 NSFW 推荐。</p>
   <button type="submit">确认执行所选操作</button>
 </form>{% endif %}
 <p><a href="{{ reload_url }}{% if subject %}?user_id={{ subject.pk }}{% endif %}">重新读取账号与最新版本</a></p>

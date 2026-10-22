@@ -65,12 +65,14 @@ class AccessApplicationView(AccessAdminView):
         contract = own_eligibility(subject)
         ticket = signing.dumps({'actor': request.user.pk, 'subject': user_id,
             'version': contract['eligibility_version'], 'operation': str(uuid.uuid4())}, salt=SALT)
-        return Response({'username': subject.get_username(), 'eligibility': contract, 'ticket': ticket})
+        return Response({'username': subject.get_username(), 'eligibility': contract, 'ticket': ticket,
+            'is_self': request.user.pk == user_id,
+            'self_approval_allowed': request.user.pk == user_id})
 
     def post(self, request, user_id):
         self.check_query_contract(request)
         data = request.data
-        if not isinstance(data, dict) or set(data) - {'ticket', 'action', 'reason', 'days', 'public_message', 'confirmed'}:
+        if not isinstance(data, dict) or set(data) - {'ticket', 'action', 'reason', 'days', 'public_message', 'confirmed', 'self_approval_confirmed'}:
             raise ValidationError('审批字段无效。')
         if data.get('confirmed') is not True or data.get('action') not in ('approve', 'reject', 'revoke'):
             raise ValidationError('请确认本次审批操作。')
@@ -81,5 +83,7 @@ class AccessApplicationView(AccessAdminView):
         except (signing.BadSignature, ValueError, TypeError, KeyError):
             raise EligibilityConflict('approval_ticket_invalid', '审批凭据已失效，请重新读取。') from None
         changes = {k: data[k] for k in ('reason', 'days', 'public_message') if k in data}
-        changes.update(expected_version=ticket['version'], operation_id=ticket['operation'])
+        changes.update(expected_version=ticket['version'], operation_id=ticket['operation'], confirmed=True)
+        if 'self_approval_confirmed' in data:
+            changes['self_approval_confirmed'] = data['self_approval_confirmed']
         return Response(mutate_eligibility(actor=request.user, subject_id=user_id, action=data['action'], changes=changes))

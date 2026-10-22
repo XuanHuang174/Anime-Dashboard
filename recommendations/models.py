@@ -264,6 +264,7 @@ class RecommendationEligibilityEvent(models.Model):
     previous_version = models.PositiveIntegerField()
     applied_version = models.PositiveIntegerField()
     changed = models.BooleanField()
+    is_self_approval = models.BooleanField(default=False, db_default=False, verbose_name='超级管理员本人授权')
     reason = models.CharField(max_length=200)
     resulting_expires_at = models.DateTimeField(null=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -274,6 +275,8 @@ class RecommendationEligibilityEvent(models.Model):
         ordering = ('-created_at', '-pk')
         constraints = [
             models.UniqueConstraint(fields=('eligibility', 'operation_id'), name='rec_elig_operation_unique'),
+            models.CheckConstraint(condition=models.Q(is_self_approval=False) | models.Q(action='approve'),
+                                   name='rec_elig_self_approve_action'),
             models.CheckConstraint(condition=models.Q(action__in=('prepare', 'grant', 'renew', 'apply', 'approve', 'reject', 'revoke', 'self_revoke')),
                                    name='rec_elig_event_action'),
             models.CheckConstraint(condition=models.Q(applied_version__gte=1, applied_version__lte=2147483647)

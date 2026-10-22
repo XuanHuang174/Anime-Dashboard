@@ -40,6 +40,14 @@ class EligibilityMutationSerializer(StrictInput):
     reason = serializers.CharField(max_length=200, allow_blank=False)
     days = serializers.IntegerField(min_value=1, max_value=MAX_DAYS, default=MAX_DAYS)
     public_message = serializers.CharField(max_length=200, allow_blank=True, default='')
+    confirmed = serializers.BooleanField(default=False)
+    self_approval_confirmed = serializers.BooleanField(default=False)
+
+    def to_internal_value(self, data):
+        for key in ('confirmed', 'self_approval_confirmed'):
+            if isinstance(data, dict) and key in data and type(data[key]) is not bool:
+                raise ValidationError({key: '必须明确提交布尔确认，不能使用字符串或数字。'})
+        return super().to_internal_value(data)
 
 
 class EligibilitySelfRevokeSerializer(StrictInput):
@@ -128,11 +136,17 @@ def mutate_eligibility(*, actor, subject_id, action, changes):
     else:
         if not can_manage(current_actor):
             raise PermissionDenied('仅超级管理员可以审批或撤销访问授权。')
-        if action == 'approve' and actor.pk == subject_id:
-            raise PermissionDenied('不能审批自己的申请。')
         serializer = EligibilityMutationSerializer(data=changes)
     serializer.is_valid(raise_exception=True)
     data = serializer.validated_data
+    is_self_approval = not own_action and action == 'approve' and actor.pk == subject_id
+    if is_self_approval and not (data['confirmed'] is True and data['self_approval_confirmed'] is True):
+        raise ValidationError({'code': 'self_approval_confirmation_required',
+            'detail': '超级管理员批准本人申请，须同时确认本次审批和本人授权；操作将记录为自审。'})
+    if not is_self_approval and not own_action:
+        # Preserve pre-upgrade non-self receipt fingerprints during rolling deploys.
+        data.pop('confirmed', None)
+        data.pop('self_approval_confirmed', None)
     # Shared lock order with want/feedback. Locks first creation AND all state decisions.
     subject = get_user_model().objects.select_for_update().filter(pk=subject_id).first()
     if subject is None:
@@ -189,6 +203,7 @@ def mutate_eligibility(*, actor, subject_id, action, changes):
             row.revoked_at = now
         row.save()
     event = Event.objects.create(eligibility=row, actor=current_actor, operation_id=data['operation_id'], action=action,
+        is_self_approval=is_self_approval,
         request_fingerprint=fingerprint, previous_status=previous, resulting_status=row.status,
         previous_version=version, applied_version=row.eligibility_version, changed=changed,
         reason='用户主动申请' if action == 'apply' else '用户主动停用' if action == 'self_revoke' else data['reason'],

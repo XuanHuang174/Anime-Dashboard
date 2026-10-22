@@ -103,7 +103,7 @@ class EligibilityServiceTests(EligibilityFixtures):
             self.approve()
             self.assertTrue(own_eligibility(self.owner)['manual_authorization_valid'])
 
-    def test_only_fresh_active_superuser_approves_and_self_approval_is_forbidden(self):
+    def test_only_fresh_active_superuser_approves_and_self_approval_needs_confirmation(self):
         self.apply()
         for action in ('approve', 'reject', 'revoke'):
             with self.assertRaises(PermissionDenied):
@@ -114,7 +114,7 @@ class EligibilityServiceTests(EligibilityFixtures):
         with self.assertRaises(PermissionDenied): self.change('approve', self.payload(1))
         self.manager.is_superuser = True; self.manager.save(update_fields=['is_superuser'])
         self.apply(user=self.manager)
-        with self.assertRaises(PermissionDenied):
+        with self.assertRaises(ValidationError):
             self.change('approve', self.payload(1), subject=self.manager)
 
     def test_admin_approval_has_30_day_cap_no_age_material_and_stays_closed(self):
