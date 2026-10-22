@@ -27,6 +27,7 @@ import RecommendationHiddenWorks from '../components/recommendations/Recommendat
 import { getAccessToken } from '../auth/tokenStorage.js'
 import { recommendationSessionScope } from '../utils/recommendationSession.js'
 import { watchRecommendationScope } from '../utils/recommendationScopeMonitor.js'
+import { controlledScope } from '../utils/recommendationContentScope.js'
 import { DEFAULT_BROWSE_FILTERS } from '../utils/recommendationBrowse.js'
 import { RecommendationBrowseControls, RecommendationFilterPanel, RecommendationBatchActions } from '../components/recommendations/RecommendationBrowseControls.jsx'
 import '../styles/recommendations.css'
@@ -101,13 +102,14 @@ function RecommendationWorkspace({ client: baseClient, sessionScope }) {
     setFilters(current => ({ ...current, includeAdult: false }))
     setNotice('访问授权或服务状态已变化，已恢复安全范围。')
   }
+  const appliedContentScope = state.data?.evidence_context
   useEffect(() => {
     if (!filters.includeAdult) return undefined
-    const deadline = Date.parse(state.data?.evidence_context?.scope_valid_until)
-    if (!Number.isFinite(deadline)) return undefined
+    if (!controlledScope(appliedContentScope)) return undefined
+    const deadline = appliedContentScope.scope_valid_until === null ? null : Date.parse(appliedContentScope.scope_valid_until)
     const monitor = watchRecommendationScope({ deadline, probe: signal => client.context(signal), onLost: () => scopeLost.current() })
     return () => monitor.dispose()
-  }, [client, !!filters.includeAdult, state.data?.evidence_context?.scope_valid_until])
+  }, [client, !!filters.includeAdult, appliedContentScope?.scope_revision, appliedContentScope?.scope_valid_until])
   const externalChange = reason => { discardDetail(); state.contextChanged(reason) }
   const acknowledgeReload = useRecommendationReload(externalChange,
     panel?.kind === 'preferences' || saving || state.status === 'loading', client,

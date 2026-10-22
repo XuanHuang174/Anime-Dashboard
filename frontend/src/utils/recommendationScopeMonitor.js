@@ -15,6 +15,7 @@ export function watchRecommendationScope({ deadline, probe, onLost, onContext,
   }
   const armExpiry = () => {
     if (stopped || expired) return
+    if (deadline === null) return // Explicit permanent scope; keep polling below.
     if (!Number.isFinite(deadline) || now() >= deadline) { lose(); return }
     expiryTimer = target.setTimeout(armExpiry, Math.min(2147483647, deadline - now()))
   }
@@ -24,7 +25,7 @@ export function watchRecommendationScope({ deadline, probe, onLost, onContext,
   }
   function check() {
     if (stopped || expired) return
-    if (now() >= deadline) { lose(); return }
+    if (deadline !== null && now() >= deadline) { lose(); return }
     if (document.visibilityState === 'hidden' || request) return
     if (now() - lastProbe < 1000) { schedule(); return }
     lastProbe = now()
@@ -43,7 +44,7 @@ export function watchRecommendationScope({ deadline, probe, onLost, onContext,
     })
   }
   const visibility = () => {
-    if (now() >= deadline) { lose(); return }
+    if (deadline !== null && now() >= deadline) { lose(); return }
     if (document.visibilityState === 'hidden') { clear(probeTimer); cancel() }
     else check()
   }

@@ -52,6 +52,21 @@ test('general-adult evidence accepts zero grant version only with the matching c
   assert.throws(() => checkScopeResponse({ results: [{ content_rating: 'adult' }] }, 'safe'))
 })
 
+test('permanent general-adult review accepts an explicit null deadline without relaxing other scope checks', () => {
+  const scope = { content_scope: 'include_adult', content_scope_contract_version: 'recommendations.content-scope.n2-2.v1',
+    content_scope_policy_version: 'content-scope.general-adult.v1', content_release_policy_version: 'release-review.general-adult.v2',
+    eligibility_version: 0, content_review_version: 484, serving_control_version: 1,
+    release_revision: 'a'.repeat(64), scope_revision: 'b'.repeat(64), scope_valid_until: null }
+  assert.equal(controlledScope(scope), true)
+  assert.equal(checkScopeResponse({ content_scope_context: scope }, 'include_adult').content_scope_context, scope)
+  for (const patch of [{ scope_valid_until: undefined }, { scope_valid_until: '' }, { scope_valid_until: 'null' },
+    { scope_valid_until: false }, { scope_valid_until: 0 }, { scope_valid_until: '2000-01-01T00:00:00Z' },
+    { content_scope_policy_version: 'content-scope.controlled.m2.v1', eligibility_version: 1 },
+    { content_release_policy_version: 'old' }, { content_review_version: 0 }, { serving_control_version: 0 }]) {
+    assert.equal(controlledScope({ ...scope, ...patch }), false)
+  }
+})
+
 test('unavailable, loading and failed availability cannot apply a stale true draft', () => {
   const draft = { type: 'TV', includeAdult: true }
   for (const availability of [false, null, undefined, 'true', 1]) {

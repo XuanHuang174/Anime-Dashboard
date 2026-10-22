@@ -11,7 +11,10 @@ export function controlledScope(scope) {
     && Number.isInteger(scope.serving_control_version) && scope.serving_control_version > 0
     && typeof scope.release_revision === 'string' && /^[a-f0-9]{64}$/.test(scope.release_revision)
     && /^[a-f0-9]{64}$/.test(scope.scope_revision || '')
-    && typeof scope.scope_valid_until === 'string' && Date.parse(scope.scope_valid_until) > Date.now()
+    // Only the current self-service policy can explicitly have no review deadline.
+    // Missing fields and legacy manual grants must still fail closed.
+    && (session && scope.scope_valid_until === null
+      || typeof scope.scope_valid_until === 'string' && Date.parse(scope.scope_valid_until) > Date.now())
 }
 
 export function checkScopeResponse(data, requested) {

@@ -86,6 +86,41 @@ test('already expired contracts never start a request; long timers do not overfl
   assert.ok([...future.timers.values()].every(timer => timer.at <= 2147483647)); future.monitor.dispose()
 })
 
+test('permanent scopes keep polling and focus checks without arming a fake expiry', async () => {
+  let count = 0
+  const state = setup({ deadline: null, probe: async () => ({ check: ++count }) })
+  await state.advance(90000)
+  assert.equal(count, 3); assert.deepEqual(state.losses, [])
+  state.document.visibilityState = 'hidden'; state.document.dispatchEvent(new Event('visibilitychange'))
+  await state.advance(90000); assert.equal(count, 3)
+  state.document.visibilityState = 'visible'; state.document.dispatchEvent(new Event('visibilitychange'))
+  await flush(); assert.equal(count, 4); assert.deepEqual(state.losses, [])
+  state.monitor.dispose(); assert.equal(state.timers.size, 0)
+})
+
+test('permanent scopes still close once on confirmed revocation and cancel pending checks on disposal', async () => {
+  for (const failure of [{ response: { status: 403 } }, { response: { status: 409 } }, { scopeLost: true }]) {
+    const state = setup({ deadline: null })
+    await state.advance(30000); state.task.reject(failure); await flush()
+    assert.deepEqual(state.losses, [30000])
+    await state.advance(120000); assert.equal(state.calls.length, 1)
+    state.monitor.dispose(); assert.equal(state.timers.size, 0)
+  }
+  const pending = setup({ deadline: null })
+  await pending.advance(30000); pending.monitor.dispose()
+  assert.ok(pending.calls[0].aborted); assert.equal(pending.timers.size, 0)
+  pending.task.reject({ response: { status: 403 } }); await flush()
+  assert.deepEqual(pending.losses, [])
+})
+
+test('missing, invalid and unbounded numeric deadlines are never mistaken for explicit permanent scopes', () => {
+  for (const deadline of [undefined, NaN, Infinity, -Infinity, 'null']) {
+    const state = setup({ deadline })
+    assert.deepEqual(state.losses, [0]); assert.equal(state.calls.length, 0)
+    state.monitor.dispose()
+  }
+})
+
 const scope = revision => ({ content_scope_context: { content_scope: 'include_adult', content_scope_contract_version: 'recommendations.content-scope.n2-2.v1',
   content_scope_policy_version: 'content-scope.controlled.m2.v1', eligibility_version: 2, content_review_version: 1,
   serving_control_version: 1, release_revision: 'a'.repeat(64), scope_revision: revision.repeat(64),
