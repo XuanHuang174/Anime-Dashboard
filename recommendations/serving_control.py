@@ -8,6 +8,7 @@ from rest_framework import serializers
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from .eligibility import can_manage, EligibilityConflict, MAX_VERSION
 from .models import RecommendationServingControl as Control, RecommendationServingControlEvent as Event
+from .adult_policy import self_service_enabled
 
 
 def runtime_enabled():
@@ -18,7 +19,8 @@ def runtime_enabled():
 
 def control_state(*, admin=False):
     row = Control.objects.filter(pk=1).first() if admin or runtime_enabled() else None
-    return {'runtime_enabled': runtime_enabled(), 'enabled': bool(row and row.enabled),
+    return {'access_mode': 'session_general_adult' if self_service_enabled() else 'manual',
+        'runtime_enabled': runtime_enabled(), 'enabled': bool(row and row.enabled),
         'version': row.version if row else 0,
         'effective_enabled': bool(runtime_enabled() and row and row.enabled)}
 

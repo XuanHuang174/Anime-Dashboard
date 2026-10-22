@@ -6,6 +6,7 @@ import { createServer } from 'vite'
 import react from '@vitejs/plugin-react'
 import { readFileSync } from 'node:fs'
 import { createScopeControlReader, readScopeControl, withAvailableScope } from '../src/utils/recommendationScopeControl.js'
+import { controlledScope, checkScopeResponse } from '../src/utils/recommendationContentScope.js'
 
 const value = (open = false) => ({ contract_version: 'recommendations.eligibility.manual.m2.v1',
   policy_version: 'eligibility.manual.m2.v1', effective_status: open ? 'active' : 'not_requested',
@@ -26,6 +27,29 @@ test('scope presentation supports old servers without inventing permissions', ()
     { default_scope: 'include_adult' }, { selection_mode: 'persistent' }, { reason: 'bypass' }, { contract_version: 'future' }]) {
     assert.throws(() => readScopeControl({ ...data, scope_control: { ...control, ...patch } }))
   }
+})
+
+test('general-adult session contract needs no manual grant but cannot invent serving or age verification', () => {
+  const data = { ...value(), contract_version: 'recommendations.eligibility.session.v1',
+    policy_version: 'eligibility.session.v1', can_apply: false, serving_integration: true, adult_access_allowed: true }
+  assert.equal(readScopeControl(data).available, true)
+  for (const patch of [{ can_apply: true }, { serving_integration: false }, { age_assurance_status: 'verified' },
+    { effective_status: 'account_inactive' }, { policy_version: 'eligibility.manual.m2.v1' }]) {
+    assert.throws(() => readScopeControl({ ...data, ...patch }))
+  }
+})
+
+test('general-adult evidence accepts zero grant version only with the matching content policy', () => {
+  const scope = { content_scope: 'include_adult', content_scope_contract_version: 'recommendations.content-scope.n2-2.v1',
+    content_scope_policy_version: 'content-scope.general-adult.v1', content_release_policy_version: 'release-review.general-adult.v2',
+    eligibility_version: 0, content_review_version: 1, serving_control_version: 1, release_revision: 'a'.repeat(64),
+    scope_revision: 'b'.repeat(64), scope_valid_until: '2099-01-01T00:00:00Z' }
+  assert.equal(controlledScope(scope), true)
+  assert.equal(checkScopeResponse({ content_scope_context: scope }, 'include_adult').content_scope_context, scope)
+  for (const patch of [{ content_release_policy_version: 'release-review.ledger.closed.v1' },
+    { content_scope_policy_version: 'content-scope.controlled.m2.v1' }, { content_review_version: 0 },
+    { scope_valid_until: '2000-01-01T00:00:00Z' }]) assert.equal(controlledScope({ ...scope, ...patch }), false)
+  assert.throws(() => checkScopeResponse({ results: [{ content_rating: 'adult' }] }, 'safe'))
 })
 
 test('unavailable, loading and failed availability cannot apply a stale true draft', () => {

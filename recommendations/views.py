@@ -6,7 +6,7 @@ from django.db import DatabaseError
 from django.utils.cache import patch_vary_headers
 
 from rest_framework import permissions
-from rest_framework.exceptions import APIException, ValidationError
+from rest_framework.exceptions import APIException, ValidationError, PermissionDenied
 from rest_framework.parsers import JSONParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -60,7 +60,18 @@ class OwnRecommendationAPIView(APIView):
         if self.scoped:
             request.scope_query = scope_query(request.query_params)
             if self.preload_scope:
-                request.content_scope = require_scope(request.user, request.query_params.get('content_scope', 'safe'))
+                try:
+                    request.content_scope = require_scope(request.user, request.query_params.get('content_scope', 'safe'))
+                except PermissionDenied as exc:
+                    # A general-adult release can become empty after a review
+                    # expires/is withdrawn. Old browsing/evidence must explicitly
+                    # expire, never silently continue with a safe-only payload.
+                    code = exc.detail.get('code') if isinstance(exc.detail, dict) else None
+                    if code == 'adult_catalog_unavailable' and (
+                            request.query_params.get('cursor') or request.query_params.get('evidence_token')
+                            or request.query_params.get('state_token') or request.headers.get('X-Recommendation-Scope')):
+                        raise RecommendationSnapshotChanged('内容范围已变化，请重新加载推荐。') from None
+                    raise
                 check_precondition(request.headers.get('X-Recommendation-Scope'), request.content_scope)
 
     def query_params(self, request):

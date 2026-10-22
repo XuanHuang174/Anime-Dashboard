@@ -49,7 +49,7 @@ class ReviewFixtures(TransactionTestCase):
 
     def approve(self,version=0,work=90):
         return self.change('approve',work=work,payload=self.payload(version,work,
-            evidence_reference='internal-synthetic-only',exclusions_confirmed=True))
+            evidence_reference='internal-synthetic-only',exclusions_confirmed=True,general_adult_confirmed=True))
 
     def page(self,**query): return scope_fixtures.ClosedScopeTests.page(self,**query)
 
@@ -118,7 +118,7 @@ class ReviewServiceTests(ReviewFixtures):
         self.assertEqual(original,list(Review.objects.values()))
 
     def test_replay_never_resurrects_old_approval_or_accepts_uuid_drift(self):
-        payload=self.payload(evidence_reference='internal',exclusions_confirmed=True)
+        payload=self.payload(evidence_reference='internal',exclusions_confirmed=True,general_adult_confirmed=True)
         self.change('approve',payload=payload); self.change('revoke',version=1)
         result=self.change('approve',payload=payload)
         self.assertTrue(result['replayed']); self.assertEqual(result['review']['effective_status'],'revoked')
@@ -212,7 +212,8 @@ class ReviewAdminTests(ReviewFixtures):
         response=self.browser.post(self.url,payload)
         self.assertContains(response,'审核通过必须填写/明确确认')
         self.assertNotContains(response,'<img'); self.assertFalse(Review.objects.exists())
-        response=self.browser.post(self.url,{**payload,'evidence_reference':'internal-test','exclusions_confirmed':'on'})
+        response=self.browser.post(self.url,{**payload,'evidence_reference':'internal-test','exclusions_confirmed':'on',
+            'general_adult_confirmed':'on'})
         self.assertEqual(response.status_code,302)
         self.assertTrue(service.release_decision(self.adult)['review_valid'])
         self.assertFalse(service.release_decision(self.adult)['adult_access_allowed'])
@@ -295,7 +296,7 @@ class ReviewConcurrencyTests(ReviewFixtures):
         with ThreadPoolExecutor(max_workers=len(functions)) as pool: return list(pool.map(run,functions))
 
     def test_duplicate_click_same_uuid_has_one_review_receipt_and_epoch(self):
-        payload=self.payload(evidence_reference='internal',exclusions_confirmed=True)
+        payload=self.payload(evidence_reference='internal',exclusions_confirmed=True,general_adult_confirmed=True)
         results=self.race([lambda:self.change('approve',payload=payload)]*2)
         self.assertEqual([kind for kind,_ in results],['ok','ok'])
         self.assertEqual(sum(r['replayed'] for _,r in results),1)

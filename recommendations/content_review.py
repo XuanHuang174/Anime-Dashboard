@@ -12,8 +12,9 @@ from rest_framework.exceptions import APIException, NotFound, PermissionDenied, 
 from .models import (RecommendationAnime, RecommendationContentReview as Review,
     RecommendationContentReviewState as ReviewState, RecommendationContentReviewEvent as Event)
 from .normalization import clean_id
+from .adult_policy import general_adult_boundary
 
-POLICY_VERSION = 'release-review.ledger.closed.v1'
+POLICY_VERSION = 'release-review.general-adult.v2'
 CONTRACT_VERSION = 'recommendations.content-review.n2-2.v1'
 MAX_VERSION = 2147483647
 MANAGE_PERMISSION = 'recommendations.manage_content_review'
@@ -64,7 +65,9 @@ def _decision(anime, row, now=None):
     if anime.nsfw is not True:
         state = 'unknown_rating' if anime.nsfw is None else 'not_required_for_safe_v1'
     elif row and row.status == 'approved':
-        if (row.policy_version != POLICY_VERSION or row.catalog_revision != catalog_revision(anime)
+        if not general_adult_boundary(anime):
+            state = 'content_excluded'
+        elif (row.policy_version != POLICY_VERSION or row.catalog_revision != catalog_revision(anime)
                 or not row.exclusions_confirmed or not row.evidence_reference):
             state = 'stale'
         elif row.expires_at is None or row.expires_at <= now:
@@ -98,6 +101,7 @@ class MutationSerializer(serializers.Serializer):
     reason = serializers.CharField(max_length=240)
     evidence_reference = serializers.RegexField(r'^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$', required=False)
     exclusions_confirmed = serializers.BooleanField(default=False)
+    general_adult_confirmed = serializers.BooleanField(default=False)
     days = serializers.IntegerField(min_value=1, max_value=30, default=30)
 
     def to_internal_value(self, data):
@@ -106,6 +110,9 @@ class MutationSerializer(serializers.Serializer):
         for key in ('expected_version','days'):
             if key in data and type(data[key]) is not int:
                 raise ValidationError({key:'必须是整数，不能是布尔值或字符串。'})
+        for key in ('exclusions_confirmed', 'general_adult_confirmed'):
+            if key in data and type(data[key]) is not bool:
+                raise ValidationError({key:'必须明确提交布尔确认。'})
         return super().to_internal_value(data)
 
 
@@ -137,8 +144,9 @@ def mutate_review(*, actor, bangumi_id, action, changes):
         raise ReviewConflict()
     if action == 'prepare' and row and row.status != 'pending':
         raise ReviewConflict('已有结论不能被待审核操作覆盖。')
-    if action == 'approve' and (anime.nsfw is not True or not data['exclusions_confirmed'] or not data.get('evidence_reference')):
-        raise ValidationError('仅可审核明确成人标记作品；必须记录内部审核依据，并明确排除禁止内容。未知分级不可放行。')
+    if action == 'approve' and (not general_adult_boundary(anime) or not data['exclusions_confirmed']
+            or not data['general_adult_confirmed'] or not data.get('evidence_reference')):
+        raise ValidationError('仅可确认有依据的一般成人内容；须确认涉及的性内容人物均为成年人，排除禁止内容和年龄不明情形。NSFW 标记或题材不构成依据。')
     state,_=ReviewState.objects.get_or_create(pk=1)
     state=ReviewState.objects.select_for_update().get(pk=state.pk)
     target={'prepare':'pending','approve':'approved','reject':'rejected','revoke':'revoked'}[action]

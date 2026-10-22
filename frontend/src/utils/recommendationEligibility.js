@@ -3,14 +3,16 @@ export function validateEligibility(data) {
   const statuses = ['not_requested', 'pending', 'active', 'rejected', 'revoked', 'expired', 'legacy_unavailable', 'account_inactive']
   const m2 = data?.contract_version === 'recommendations.eligibility.manual.m2.v1' && data?.policy_version === 'eligibility.manual.m2.v1'
   const m1 = data?.contract_version === 'recommendations.eligibility.manual.m1.v1' && data?.policy_version === 'eligibility.manual.closed.v1'
-  if (!data || !(m1 || m2) || !statuses.includes(data.effective_status)
+  const session = data?.contract_version === 'recommendations.eligibility.session.v1' && data?.policy_version === 'eligibility.session.v1'
+  if (!data || !(m1 || m2 || session) || !statuses.includes(data.effective_status)
     || !['none', 'legacy', 'manual'].includes(data.authorization_source)
     || !Number.isInteger(data.eligibility_version) || data.eligibility_version < 0
     || typeof data.can_apply !== 'boolean' || typeof data.manual_authorization_valid !== 'boolean'
     || data.age_assurance_status !== 'not_performed'
     || (m1 ? data.adult_access_allowed !== false || data.serving_integration !== false
       : typeof data.adult_access_allowed !== 'boolean' || typeof data.serving_integration !== 'boolean'
-        || data.adult_access_allowed && (!data.serving_integration || !data.manual_authorization_valid)) || data.effective_scope !== 'safe'
+        || data.adult_access_allowed && (!data.serving_integration || !session && !data.manual_authorization_valid)) || data.effective_scope !== 'safe'
+    || session && (data.can_apply !== false || data.effective_status === 'account_inactive' && data.adult_access_allowed)
     || typeof data.decision_message !== 'string'
     || !/^[a-f0-9]{64}$/.test(data.eligibility_revision || '')
     || (data.valid_until !== null && (typeof data.valid_until !== 'string' || !Number.isFinite(Date.parse(data.valid_until))))

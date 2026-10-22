@@ -12,6 +12,7 @@ from rest_framework.exceptions import NotAuthenticated, PermissionDenied, Valida
 from .models import RecommendationAnime, RecommendationContentReviewState, RecommendationContentReview
 from .content_review import POLICY_VERSION as RELEASE_POLICY_VERSION, catalog_revision
 from .serving_control import control_state, runtime_enabled
+from .adult_policy import GENERAL_SCOPE_POLICY, general_adult_boundary, self_service_enabled
 
 CONTRACT_VERSION = 'recommendations.content-scope.n2-2.v1'
 POLICY_VERSION = 'content-scope.controlled.m2.v1'
@@ -43,7 +44,8 @@ def release_snapshot():
     if len(rows) > 5000:
         from .engine import RecommendationUnavailable
         raise RecommendationUnavailable()
-    valid = [r for r in rows if r.catalog_revision == catalog_revision(r.anime)]
+    valid = [r for r in rows if general_adult_boundary(r.anime)
+             and r.catalog_revision == catalog_revision(r.anime)]
     revision = hashlib.sha256(json.dumps([(r.anime.bangumi_id, r.review_version,
         r.catalog_revision, r.expires_at.isoformat()) for r in valid], separators=(',', ':')).encode()).hexdigest()
     return {r.anime.bangumi_id for r in valid}, revision, min((r.expires_at for r in valid), default=None)
@@ -86,29 +88,35 @@ def require_scope(user, requested_scope='safe'):
         raise NotAuthenticated()
     scope_query({'content_scope': requested_scope})
     control = control_state()
+    session = self_service_enabled()
     prefix = 'recommendation_content_eligibility__'
+    fields = ('is_active', '_content_review_version')
+    if not session:
+        fields += tuple(prefix + f for f in ('status','eligibility_version','expires_at','authorization_source','requested_at'))
     row = get_user_model().objects.filter(pk=user.pk).annotate(_content_review_version=Coalesce(Subquery(
         RecommendationContentReviewState.objects.filter(pk=1).values('version')[:1]),Value(0),output_field=IntegerField())).values(
-        'is_active', '_content_review_version', *(prefix + f for f in ('status','eligibility_version','expires_at',
-        'authorization_source','requested_at'))).first()
+        *fields).first()
     if not row or not row['is_active']:
         raise PermissionDenied('账号不可用。')
-    status, version = row[prefix+'status'] or 'not_requested', row[prefix+'eligibility_version'] or 0
-    expiry = row[prefix+'expires_at']
+    status, version = ('session', 0) if session else (row[prefix+'status'] or 'not_requested', row[prefix+'eligibility_version'] or 0)
+    expiry = None if session else row[prefix+'expires_at']
+    authorization_source = 'session' if session else row[prefix+'authorization_source']
     expired = status == 'active' and (expiry is None or expiry <= timezone.now())
-    authorized = row[prefix+'authorization_source'] == 'manual' and status == 'active' and not expired
-    if requested_scope == 'include_adult' and (not authorized or not control['effective_enabled']):
+    authorized = authorization_source == 'manual' and status == 'active' and not expired
+    if requested_scope == 'include_adult' and ((not session and not authorized) or not control['effective_enabled']):
         raise PermissionDenied({'code':'adult_scope_forbidden','detail':'访问授权无效或 NSFW 总开关已关闭。'})
     release = release_snapshot() if requested_scope == 'include_adult' else (
         set(), hashlib.sha256(b'safe-only').hexdigest(), None)
-    deadline = min([d for d in (expiry, release[2]) if d is not None], default=None) if requested_scope == 'include_adult' else None
-    result = {'content_scope_contract_version':CONTRACT_VERSION,'content_scope_policy_version':POLICY_VERSION,
+    if session and requested_scope == 'include_adult' and not release[0]:
+        raise PermissionDenied({'code':'adult_catalog_unavailable', 'detail':'暂无符合一般成人内容范围的有效核验作品。'})
+    deadline = min([d for d in (None if session else expiry, release[2]) if d is not None], default=None) if requested_scope == 'include_adult' else None
+    result = {'content_scope_contract_version':CONTRACT_VERSION,'content_scope_policy_version':GENERAL_SCOPE_POLICY if session else POLICY_VERSION,
         'content_release_policy_version':RELEASE_POLICY_VERSION,'content_scope':requested_scope,
         'eligibility_version':version,'content_review_version':row['_content_review_version'],
         'serving_control_version':control['version'],'release_revision':release[1],
         'scope_valid_until':deadline.isoformat() if deadline else None}
     result['scope_revision'] = salted_hmac(CONTRACT_VERSION, json.dumps(
-        [user.pk, result, status, str(expiry), bool(expired), row[prefix+'authorization_source'],
+        [user.pk, result, status, str(expiry), bool(expired), authorization_source,
          control['runtime_enabled'], control['effective_enabled']], sort_keys=True), algorithm='sha256').hexdigest()
     return result
 

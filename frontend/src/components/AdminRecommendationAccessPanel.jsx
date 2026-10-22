@@ -66,13 +66,18 @@ export default function AdminRecommendationAccessPanel({ client = api }) {
     } finally { gate.current = false; setPending(false) }
   }
   const frozen = pending || !!operation.current
+  const sessionMode = control?.access_mode === 'session_general_adult'
   const prepare = action => { if (!frozen) { setIntent(action); setConfirmed(false); setSelfApprovalConfirmed(false); setReason(''); setError('') } }
   const intentLabel = intent === 'control' ? `${control?.enabled ? '关闭' : '开启'} NSFW 推荐总开关`
     : `${({ approve: '批准申请', reject: '拒绝申请', revoke: '撤销授权' })[intent] || ''}：${selected?.username || ''}`
   const button = 'border-2 border-black bg-white px-4 py-2 font-bold shadow-[3px_3px_0_#111] disabled:opacity-50'
   return <section className="mx-auto mt-8 max-w-[1250px] border-4 border-black bg-[#fff5ee] p-5 text-black shadow-[8px_8px_0_#4ecdc4] sm:p-8" aria-busy={pending}>
     <h2 className="text-3xl font-black">受限内容管理 · 模块 3</h2>
-    <p className="my-3">人工访问授权，不是年龄核验。用户批准、作品审核、服务总开关与个人筛选彼此独立；未知分级始终排除。</p>
+    <p className="my-3">{sessionMode ? '本次浏览开关不是年龄核验。作品安全校验、推荐总开关和个人筛选仍分别生效；未知分级始终排除。'
+      : '人工访问授权，不是年龄核验。用户批准、作品审核、服务总开关与个人筛选彼此独立；未知分级始终排除。'}</p>
+    {sessionMode && <p className="my-3 border-2 border-black bg-white p-3" role="status">
+      当前为一般成人内容的本次浏览开关模式，不再依赖账号申请或批准。下方保留历史审批记录；撤销旧账号授权不等于关闭此模式。作品安全校验与推荐总开关仍生效。
+    </p>}
     {error && <p role="alert" className="my-3 border-2 border-black bg-[#fff0b2] p-3">{error}</p>}
     <button type="button" className={button} disabled={pending} onClick={() => { operation.current = null; setRevision(v => v + 1) }}>重新读取</button>
     {control && <div className="my-5 border-2 border-black bg-[#e5f5ef] p-4">
@@ -99,7 +104,7 @@ export default function AdminRecommendationAccessPanel({ client = api }) {
       <label className="my-2 block">有效天数（1–30） <input type="number" min="1" max="30" value={days} disabled={frozen} onChange={e => setDays(e.target.value)} className="border-2 border-black p-2" /></label>
       <label className="block">给用户的说明（选填）<input maxLength={200} value={message} disabled={frozen} onChange={e => setMessage(e.target.value)} className="w-full border-2 border-black p-2" /></label>
       <div className="mt-3 flex flex-wrap gap-3">{['approve', 'reject', 'revoke'].map((action, i) => <button type="button" className={button} key={action}
-        disabled={frozen || action !== 'revoke' && selected.eligibility.effective_status !== 'pending'} onClick={() => prepare(action)}>{['批准申请', '拒绝申请', '撤销授权'][i]}</button>)}</div>
+        disabled={frozen || sessionMode && action === 'approve' || action !== 'revoke' && selected.eligibility.effective_status !== 'pending'} onClick={() => prepare(action)}>{['批准申请', '拒绝申请', '撤销授权'][i]}</button>)}</div>
     </section>}
     {intent && <div className="border-2 border-black bg-[#fff0b2] p-4"><h3 className="mb-3 break-all text-xl font-bold">待确认：{intentLabel}</h3>
       <label className="block font-bold">本次操作依据／原因（必填，最多 200 字）<input maxLength={200} value={reason} disabled={frozen}

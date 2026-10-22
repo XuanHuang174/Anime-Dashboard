@@ -15,6 +15,7 @@ from .settings import *  # noqa: F403, E402
 
 DATABASE_URL = ''
 RECOMMENDATION_ALGORITHM_VERSION = 'content.v1'  # Tests opt into V2 explicitly.
+RECOMMENDATION_NSFW_SELF_SERVICE_ENABLED = False  # New mode requires explicit synthetic fixtures.
 RECOMMENDATION_V2_TEST_BYPASS = True  # Only this isolated test settings module.
 CACHES = {'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
                       'LOCATION': 'recommendation-isolated-tests'}}

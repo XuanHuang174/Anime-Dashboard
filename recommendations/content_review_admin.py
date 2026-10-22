@@ -31,12 +31,15 @@ class ReviewForm(forms.Form):
     days=forms.IntegerField(label='通过结论有效天数',min_value=1,max_value=30,initial=30)
     exclusions_confirmed=forms.BooleanField(required=False,label='已人工排除未成年人或年龄不明人物的性内容等禁止情形',
         help_text='审核通过时必选。此项是审核责任确认，不是自动内容识别或合法性证明。')
+    general_adult_confirmed=forms.BooleanField(required=False,
+        label='已有可靠依据确认：涉及性内容的人物均为成年人，属于一般成人内容',
+        help_text='不得仅凭 NSFW 标记、题材、管理员身份或缺少风险标签作确认。历史结论不自动继承此确认。')
     confirmed=forms.BooleanField(label='已核对完整名称、季度、类型及当前资料，确认仅提交本作品的审核操作')
 
     def clean(self):
         values=super().clean()
         if values.get('action')=='approve':
-            for key in ('evidence_reference','exclusions_confirmed'):
+            for key in ('evidence_reference','exclusions_confirmed','general_adult_confirmed'):
                 if not values.get(key): self.add_error(key,'审核通过必须填写/明确确认。')
         return values
 
@@ -90,10 +93,11 @@ class ContentReviewAdmin(ReadOnlyReviewAdmin):
                     data=form.cleaned_data
                     changes={'expected_version':body['version'],'expected_catalog_revision':body['catalog'],
                         'expected_policy_version':body['policy'],'operation_id':body['operation'],
-                        'reason':data['reason'],'days':data['days'],'exclusions_confirmed':data['exclusions_confirmed']}
+                        'reason':data['reason'],'days':data['days'],'exclusions_confirmed':data['exclusions_confirmed'],
+                        'general_adult_confirmed':data['general_adult_confirmed']}
                     if data['evidence_reference']: changes['evidence_reference']=data['evidence_reference']
                     mutate_review(actor=request.user,bangumi_id=body['work'],action=data['action'],changes=changes)
-                    self.message_user(request,'审核操作已确认；展示仍受总开关、用户授权和个人筛选约束。',messages.SUCCESS)
+                    self.message_user(request,'审核操作已确认；展示仍受当前访问模式、内容校验、总开关和个人筛选约束。',messages.SUCCESS)
                     return HttpResponseRedirect(reverse('admin:recommendations_content_review_control')+f'?bangumi_id={anime.bangumi_id}')
             else:
                 raw=request.GET.get('bangumi_id','')

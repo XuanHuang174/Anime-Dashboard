@@ -43,7 +43,8 @@ class ControlledServingTests(TransactionTestCase):
         return mutate_review(actor=self.manager, bangumi_id=90, action='approve', changes={
             'expected_version': 0, 'expected_catalog_revision': catalog_revision(anime),
             'expected_policy_version': POLICY_VERSION, 'operation_id': uuid4(),
-            'reason': 'Synthetic content review', 'evidence_reference': 'synthetic-only', 'exclusions_confirmed': True})
+            'reason': 'Synthetic content review', 'evidence_reference': 'synthetic-only',
+            'exclusions_confirmed': True, 'general_adult_confirmed': True})
 
     def enable(self):
         self.change(); self.change(action='approve', version=1); self.review(); self.control()
@@ -270,7 +271,8 @@ class ControlledServingTests(TransactionTestCase):
             mutate_review(actor=self.manager, bangumi_id=identity, action='approve', changes={
                 'expected_version': 0, 'expected_catalog_revision': catalog_revision(anime),
                 'expected_policy_version': POLICY_VERSION, 'operation_id': uuid4(),
-                'reason': 'Synthetic', 'evidence_reference': 'synthetic-only', 'exclusions_confirmed': True})
+                'reason': 'Synthetic', 'evidence_reference': 'synthetic-only',
+                'exclusions_confirmed': True, 'general_adult_confirmed': True})
         self.get(browse=True, page_size=1)  # warm the public-only scoped cache
         with CaptureQueriesContext(connection) as one:
             small = self.get(browse=True, page_size=1)

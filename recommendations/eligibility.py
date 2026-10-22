@@ -11,6 +11,7 @@ from rest_framework import serializers
 from rest_framework.exceptions import APIException, NotAuthenticated, NotFound, PermissionDenied, ValidationError
 
 from .models import RecommendationContentEligibility as Eligibility, RecommendationEligibilityEvent as Event
+from .adult_policy import self_service_enabled, SESSION_CONTRACT, SESSION_POLICY
 
 CONTRACT_VERSION = 'recommendations.eligibility.manual.m2.v1'
 POLICY_VERSION = 'eligibility.manual.m2.v1'
@@ -90,12 +91,21 @@ def _contract(user, row, *, now=None):
     subject = salted_hmac(CONTRACT_VERSION + '.subject', str(user.pk), algorithm='sha256').hexdigest()
     from .serving_control import control_state
     serving = control_state()
+    session = self_service_enabled()
+    contract, policy = (SESSION_CONTRACT, SESSION_POLICY) if session else (CONTRACT_VERSION, POLICY_VERSION)
+    available = bool(user.is_active) if session else usable
+    release_revision = None
+    if session:
+        # A read-only adapter; no account grant, directory import or approval.
+        from .content_scope import release_snapshot
+        released, release_revision, _ = release_snapshot()
+        available = available and bool(released)
     revision = salted_hmac(CONTRACT_VERSION + '.revision', json.dumps(
-        [subject, POLICY_VERSION, version, source, effective, valid_until.isoformat() if valid_until else None,
-         serving['version'], serving['effective_enabled']], separators=(',', ':')), algorithm='sha256').hexdigest()
+        [subject, policy, version, source, effective, valid_until.isoformat() if valid_until else None,
+         serving['version'], serving['effective_enabled'], release_revision], separators=(',', ':')), algorithm='sha256').hexdigest()
     from .scope_control import scope_control_contract
-    return {'contract_version': CONTRACT_VERSION, 'policy_version': POLICY_VERSION,
-        'scope_control': scope_control_contract(available=usable,
+    return {'contract_version': contract, 'policy_version': policy,
+        'scope_control': scope_control_contract(available=available,
             serving_enabled=serving['effective_enabled'], revision=revision),
         'administrative_status': administrative, 'effective_status': effective,
         'authorization_source': source, 'manual_authorization_valid': usable,
@@ -103,8 +113,8 @@ def _contract(user, row, *, now=None):
         'age_assurance_status': 'not_performed', 'valid_until': valid_until,
         'requested_at': row.requested_at if row else None,
         'decision_message': row.decision_message if row and source == 'manual' and administrative == 'rejected' else '',
-        'can_apply': bool(user.is_active and not usable and not (source == 'manual' and administrative == 'pending')),
-        'adult_access_allowed': bool(usable and serving['effective_enabled']),
+        'can_apply': bool(not session and user.is_active and not usable and not (source == 'manual' and administrative == 'pending')),
+        'adult_access_allowed': bool(available and serving['effective_enabled']),
         'serving_integration': serving['effective_enabled'], 'effective_scope': 'safe',
         'serving_control_version': serving['version'],
         'subject_binding': subject, 'eligibility_revision': revision}
@@ -132,6 +142,8 @@ def mutate_eligibility(*, actor, subject_id, action, changes):
     if current_actor is None:
         raise PermissionDenied('账号不可用。')
     own_action = action in ('apply', 'self_revoke')
+    if action in ('apply', 'approve') and self_service_enabled():
+        raise ValidationError('本次浏览使用筛选开关，不再提交账号访问申请。')
     if own_action:
         if actor.pk != subject_id:
             raise PermissionDenied('只能申请或停用自己的访问授权。')

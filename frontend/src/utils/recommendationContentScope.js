@@ -1,9 +1,12 @@
 export const CONTROLLED_SCOPE_POLICY = 'content-scope.controlled.m2.v1'
+export const GENERAL_ADULT_SCOPE_POLICY = 'content-scope.general-adult.v1'
 export function controlledScope(scope) {
+  const session = scope?.content_scope_policy_version === GENERAL_ADULT_SCOPE_POLICY
   return scope?.content_scope === 'include_adult'
     && scope.content_scope_contract_version === 'recommendations.content-scope.n2-2.v1'
-    && scope.content_scope_policy_version === CONTROLLED_SCOPE_POLICY
-    && Number.isInteger(scope.eligibility_version) && scope.eligibility_version > 0
+    && (session || scope.content_scope_policy_version === CONTROLLED_SCOPE_POLICY)
+    && (!session || scope.content_release_policy_version === 'release-review.general-adult.v2')
+    && Number.isInteger(scope.eligibility_version) && scope.eligibility_version >= (session ? 0 : 1)
     && Number.isInteger(scope.content_review_version) && scope.content_review_version > 0
     && Number.isInteger(scope.serving_control_version) && scope.serving_control_version > 0
     && typeof scope.release_revision === 'string' && /^[a-f0-9]{64}$/.test(scope.release_revision)
