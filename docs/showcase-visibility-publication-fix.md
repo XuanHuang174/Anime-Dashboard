@@ -1,5 +1,7 @@
 # XHcode 公共番剧搜索可见性修复（阶段 1）
 
+2026-10-23 更新：当前已补齐审核有效的一般成人作品公共发布，参见[主理人一般成人作品公共发布](showcase-general-adult-publication-20261023.md)。下文记录此前阶段的范围及验证，旧的“所有 NSFW 拒绝”规则已被新实现替代。
+
 ## 范围与兼容性
 
 修复“普通用户先创建非公开共享资料，XHcode 后加入时仍不可被公共搜索找到”的状态衔接缺陷。普通添加、推荐想看、Bangumi 收藏导入统一调用 `anime.showcase_services.publish_new_showcase_record`；标准 records 创建接口也复用该规则。

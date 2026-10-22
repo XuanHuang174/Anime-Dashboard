@@ -87,7 +87,7 @@ def add_want(*, user, bangumi_id, scope_context=None):
                 'poster_url': public_cover_url(catalog, scope), 'base_tags': tags,
                 # Same new-row visibility policy as Bangumi imports. Existing
                 # rows are coordinated separately, only for a NEW owner record.
-                **({'is_active': False} if catalog.nsfw else imported_visibility_defaults(user))}
+                **({'is_active': False, 'hidden_reason': Anime.HiddenReason.PRIVATE_ONLY} if catalog.nsfw else imported_visibility_defaults(user))}
     try:
         # Savepoint keeps the enclosing transaction usable after unique-key races.
         # NEVER title-merge, update_or_create, truncate, or assign an ID to an old row.
@@ -110,7 +110,7 @@ def add_want(*, user, bangumi_id, scope_context=None):
     })
     if created:
         initialize_record_tag_colors(record=record, user=user)
-    publication = None if catalog.nsfw else publish_new_showcase_record(record=record, created=created)
+    publication = publish_new_showcase_record(record=record, created=created)
     result = want_contract(record, bangumi_id, created, 'adult' if catalog.nsfw else 'non_adult')
     if publication is not None:
         result['showcase_publication'] = publication

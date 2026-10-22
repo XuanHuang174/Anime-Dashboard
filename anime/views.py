@@ -101,7 +101,8 @@ from .tag_services import (
 )
 from .throttles import SensitiveAuthRateThrottle
 from .showcase_services import (PUBLICATION_CONTRACT, confirm_showcase_publication,
-    imported_visibility_defaults, publication_candidate, publish_new_showcase_record)
+    imported_visibility_defaults, publication_candidates, publish_new_showcase_record)
+from .showcase_policy import filter_publication_content, PublicContentResponseMixin
 from .utils.scraper import MetadataScraper, MetadataScraperError
 
 
@@ -2035,7 +2036,7 @@ class UserJournalImportView(APIView):
 
 
 @method_decorator(never_cache, name="dispatch")
-class AnimeViewSet(viewsets.ModelViewSet):
+class AnimeViewSet(PublicContentResponseMixin, viewsets.ModelViewSet):
     """Public reads/creates; only superusers may mutate shared library rows."""
 
     serializer_class = AnimeSerializer
@@ -2043,7 +2044,7 @@ class AnimeViewSet(viewsets.ModelViewSet):
     filter_backends = ()
 
     def get_queryset(self):
-        queryset = Anime.objects.filter(is_active=True)
+        queryset = filter_publication_content(Anime.objects.filter(is_active=True))
         search = self.request.query_params.get("search", "").strip()
         if search:
             search_query = Q()
@@ -2097,7 +2098,8 @@ class AnimeViewSet(viewsets.ModelViewSet):
         return [IsSuperUser()]
 
 
-class PublicShowcaseViewSet(viewsets.ReadOnlyModelViewSet):
+@method_decorator(never_cache, name="dispatch")
+class PublicShowcaseViewSet(PublicContentResponseMixin, viewsets.ReadOnlyModelViewSet):
     """Public homepage data backed by the configured owner's private journal."""
 
     serializer_class = UserAnimeRecordSerializer
@@ -2106,10 +2108,10 @@ class PublicShowcaseViewSet(viewsets.ReadOnlyModelViewSet):
 
     def _base_queryset(self):
         return (
-            UserAnimeRecord.objects.filter(
+            filter_publication_content(UserAnimeRecord.objects.filter(
                 user__username=settings.PUBLIC_SHOWCASE_USERNAME,
                 anime__is_active=True,
-            )
+            ), 'anime__bgm_id')
             .select_related("user", "anime")
             .prefetch_related("tag_preferences")
         )
@@ -2189,7 +2191,7 @@ class UserAnimeRecordViewSet(viewsets.ModelViewSet):
         count, page = query.count(), int(request.query_params.get("page", "1"))
         offset = (page - 1) * 12
         return Response({"contract_version": PUBLICATION_CONTRACT, "can_publish": True, "count": count,
-            "results": [publication_candidate(record) for record in query[offset:offset + 12]],
+            "results": publication_candidates(query[offset:offset + 12]),
             "next_page": page + 1 if offset + 12 < count else None}, headers={"Cache-Control": "private, no-store", "Vary": "Authorization, Cookie"})
 
     @action(detail=True, methods=("post",), url_path="publish-showcase")

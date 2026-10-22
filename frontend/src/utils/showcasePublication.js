@@ -1,4 +1,10 @@
 export const PUBLICATION_VERSION = 'showcase.publication.v1'
+const PUBLICATION_ERRORS = {
+  showcase_content_excluded: '该条目命中内容边界排除，不能公开。',
+  showcase_review_required: 'NSFW 作品需要当前有效的一般成人内容审核，请先更新作品核验，再重新读取列表。',
+  showcase_unknown_rating: '作品分级尚不明确，暂不能公开。',
+  showcase_catalog_missing: '此 Bangumi ID 的目录资料缺失，请先补齐资料并核对分级。',
+}
 
 export function validatePublicationList(data) {
   if (data?.contract_version !== PUBLICATION_VERSION || typeof data.can_publish !== 'boolean'
@@ -11,6 +17,7 @@ export function validatePublicationList(data) {
     if (!Number.isInteger(item.record_id) || item.record_id < 1 || ids.has(item.record_id)
       || !Number.isInteger(item.anime_id) || item.anime_id < 1 || typeof item.title !== 'string'
       || typeof item.season !== 'string' || typeof item.detail !== 'string' || typeof item.requires_confirmation !== 'boolean'
+      || item.content_rating !== undefined && !['adult', 'non_adult', 'unavailable'].includes(item.content_rating)
       || (item.requires_confirmation ? typeof item.ticket !== 'string' || !item.ticket : item.ticket !== null)) {
       throw new Error('公共库确认合同不兼容，请重新读取。')
     }
@@ -76,7 +83,7 @@ export function createPublicationController(client, isCurrent = () => true) {
       }).catch(error => {
         if (live() && epoch === generation) update({ busy: null, error: error?.response?.status === 409
           ? '资料或确认凭据已变化，请重新读取列表后再次确认。'
-          : error?.response?.status === 403 ? '该作品不能通过此入口公开，请重新读取或联系管理员。'
+          : error?.response?.status === 403 ? (PUBLICATION_ERRORS[error.response.data?.code] || '该作品不能通过此入口公开，请重新读取或联系管理员。')
             : '公开请求尚未确认，请先重新读取列表。已成功的公开不会重复执行。' })
         return null
       })

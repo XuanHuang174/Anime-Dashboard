@@ -10,7 +10,7 @@ SESSION_POLICY = 'eligibility.session.v1'
 
 # Known exclusions are not overridden by an administrative approval.
 # Only identities are retained; do not fetch, display or redistribute the media.
-PROHIBITED_IDENTITIES = frozenset((184740, 500544))
+PROHIBITED_IDENTITIES = frozenset((8019, 184740, 500544))
 RISK_TERMS = ('萝莉', '幼女', '幼儿', '儿童', '小学生', '中学生', '未成年',
               'loli', 'shota', 'ロリ', 'ショタ', '幼児', 'underage')
 

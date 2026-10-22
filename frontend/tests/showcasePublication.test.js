@@ -26,6 +26,29 @@ test('list validation rejects duplicates, wrong owner capability, absent proof, 
     list([{ ...item, record_id: '7' }]), { ...list(), contract_version: 'unknown' }]) assert.throws(() => validatePublicationList(data))
 })
 
+test('reviewed adult publication uses the same explicit confirmation while unavailable items cannot submit', async () => {
+  const adult = { ...item, content_rating: 'adult', code: 'showcase_confirmation_required' }
+  const blocked = { ...item, record_id: 8, content_rating: 'unavailable', code: 'showcase_review_required',
+    requires_confirmation: false, ticket: null, detail: '需要有效作品核验' }
+  assert.equal(validatePublicationList(list([adult, blocked])).count, 2)
+  assert.throws(() => validatePublicationList(list([{ ...adult, content_rating: 'anything' }])))
+  let writes = 0
+  const controller = createPublicationController({ pending: async () => list([adult, blocked]),
+    publish: async () => { writes++; return ack } })
+  await controller.read(); await controller.publish(blocked)
+  assert.equal(writes, 0)
+  await controller.publish(adult); assert.equal(writes, 1)
+})
+
+test('publication content failure explains the exact blocker without suggesting an administrative bypass', async () => {
+  const controller = createPublicationController({ pending: async () => list(), publish: async () => {
+    throw { response: { status: 403, data: { code: 'showcase_review_required' } } }
+  } })
+  await controller.read(); await controller.publish(item)
+  assert.match(controller.getSnapshot().error, /有效的一般成人内容审核/)
+  assert.doesNotMatch(controller.getSnapshot().error, /联系管理员/)
+})
+
 test('one write while clicking quickly; successful acknowledgement refreshes rather than creating records', async () => {
   const request = deferred(); let writes = 0, reads = 0
   const controller = createPublicationController({ pending: async () => ++reads === 1 ? list() : list([]),

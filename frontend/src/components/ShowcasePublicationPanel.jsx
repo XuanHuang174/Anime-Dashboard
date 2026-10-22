@@ -43,12 +43,13 @@ function PublicationWorkspace({ refreshKey, scope, client = defaultClient }) {
       <button type="button" disabled={busy} onClick={() => { setSelected({}); controller.read(1) }}>重新读取列表</button>
       <ul>{state.items.map(item => <li key={item.record_id}>
         <strong>{item.title}</strong><p>{item.original} · {item.season} {item.bangumi_id ? `· BGM ${item.bangumi_id}` : ''}</p>
+        {item.content_rating === 'adult' && item.requires_confirmation && <p>NSFW · 一般成人审核有效，确认后直接进入公共展示。</p>}
         <p>{item.detail}</p>
         {item.requires_confirmation && <label><input type="checkbox" disabled={busy || Boolean(state.error)}
           checked={Boolean(selected[item.record_id])} onChange={event => setSelected(current => ({ ...current, [item.record_id]: event.target.checked }))} />
           我确认将本账号这部作品的手账信息公开展示</label>}
         <button type="button" disabled={busy || Boolean(state.error) || !selected[item.record_id] || !item.requires_confirmation}
-          onClick={() => controller.publish(item)}>{state.busy === item.record_id ? '正在确认…' : item.requires_confirmation ? '确认公开到番剧库' : '需管理员核对'}</button>
+          onClick={() => controller.publish(item)}>{state.busy === item.record_id ? '正在确认…' : item.requires_confirmation ? '确认公开到番剧库' : '暂不能公开'}</button>
       </li>)}</ul>
       <div className="showcase-publication__pages">
         {state.page > 1 && <button type="button" disabled={busy} onClick={() => controller.read(state.page - 1)}>上一页</button>}

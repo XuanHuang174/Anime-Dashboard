@@ -12,6 +12,7 @@ from django.utils import timezone
 from rest_framework.exceptions import APIException, NotFound, PermissionDenied
 
 from .models import Anime, UserAnimeRecord
+from .showcase_policy import publication_content, UNSET
 
 PUBLICATION_CONTRACT = "showcase.publication.v1"
 PUBLICATION_SALT = "showcase.explicit-publication.v1"
@@ -22,27 +23,55 @@ class PublicationConflict(APIException):
     default_detail = "作品资料或公开状态已变化，请重新读取待公开列表后确认。"
 
 
-def _publication_state(record):
+def _publication_state(record, content=None):
     shared = record.anime
     return {"owner": record.user_id, "record": record.pk, "anime": shared.pk,
             "bangumi": shared.bgm_id, "shared_updated": shared.updated_at.isoformat(),
             "record_updated": record.updated_at.isoformat(), "hidden_reason": shared.hidden_reason,
-            "active": shared.is_active}
+            "active": shared.is_active, "content": content}
 
 
-def publication_candidate(record):
+def publication_candidate(record, *, catalog=UNSET, identity_conflict=None):
     """Owner-only minimal read contract; never reads scores/reviews/tags."""
     shared = record.anime
     allowed = shared.hidden_reason in (Anime.HiddenReason.PRIVATE_ONLY,
         Anime.HiddenReason.SHOWCASE_REMOVED, Anime.HiddenReason.LEGACY_UNKNOWN)
+    content = publication_content(shared, catalog)
+    code, detail = 'showcase_confirmation_required', '确认后，本账号这部作品的手账信息会直接进入公共展示。'
+    if not allowed:
+        code = 'showcase_admin_retired' if shared.hidden_reason == Anime.HiddenReason.ADMIN_RETIRED else 'showcase_hidden_reason_unknown'
+        detail = '作品已被管理员下架或隐藏原因无法识别，不能通过此入口恢复。'
+    elif not content['allowed']:
+        allowed, code, detail = False, content['code'], content['detail']
+    else:
+        if identity_conflict is None:
+            from recommendations.models import RecommendationRecordIdentity
+            identity_conflict = RecommendationRecordIdentity.objects.filter(record=record, active=True).exclude(
+                catalog_anime__bangumi_id=shared.bgm_id).exists()
+        if identity_conflict:
+            allowed, code, detail = False, 'showcase_identity_conflict', '作品存在不同 Bangumi ID 的身份关联，请先核对身份。'
     return {"record_id": record.pk, "anime_id": shared.pk, "bangumi_id": shared.bgm_id,
             "title": record.private_chinese_title if record.metadata_initialized else shared.chinese_title,
             "original": record.private_japanese_title if record.metadata_initialized else shared.japanese_title,
             "season": record.private_airing_period if record.metadata_initialized else shared.airing_period,
             "requires_confirmation": allowed,
-            "detail": ("历史隐藏资料，确认后才会公开展示本账号这部作品的手账信息。" if allowed
-                       else "作品已被管理员下架或隐藏原因无法识别，不能通过此入口恢复。"),
-            "ticket": signing.dumps(_publication_state(record), salt=PUBLICATION_SALT) if allowed else None}
+            "code": code, "content_rating": 'adult' if content['signature'] else 'non_adult' if content['allowed'] else 'unavailable',
+            "detail": detail,
+            "ticket": signing.dumps(_publication_state(record, content['signature']), salt=PUBLICATION_SALT) if allowed else None}
+
+
+def publication_candidates(records):
+    """Bounded bulk preflight for a page; never reads journal scores/reviews."""
+    from recommendations.models import RecommendationAnime, RecommendationRecordIdentity
+    records = list(records)
+    catalogs = {a.bangumi_id: a for a in RecommendationAnime.objects.select_related('content_review').filter(
+        bangumi_id__in=[r.anime.bgm_id for r in records if r.anime.bgm_id is not None])}
+    linked = {}
+    for record_id, identity in RecommendationRecordIdentity.objects.filter(
+            record_id__in=[r.pk for r in records], active=True).values_list('record_id', 'catalog_anime__bangumi_id'):
+        linked[record_id] = identity
+    return [publication_candidate(record, catalog=catalogs.get(record.anime.bgm_id),
+        identity_conflict=record.pk in linked and linked[record.pk] != record.anime.bgm_id) for record in records]
 
 
 @transaction.atomic
@@ -69,13 +98,16 @@ def confirm_showcase_publication(*, user, record_id, ticket):
     # catalog then shared. The owner lock serializes this with want/import.
     target = None
     if proof.get("bangumi") is not None:
-        target = RecommendationAnime.objects.select_for_update().filter(bangumi_id=proof["bangumi"]).only("pk", "nsfw").first()
-        if target is None or target.nsfw is not False:
-            raise PermissionDenied("作品分级不可用，不能恢复公开。")
+        target = RecommendationAnime.objects.select_for_update().filter(bangumi_id=proof["bangumi"]).first()
     shared = Anime.objects.select_for_update().get(pk=record.anime_id)
     record.anime = shared
     if shared.bgm_id != proof.get("bangumi"):
         raise PublicationConflict()
+    content = publication_content(shared, target)
+    if not content['allowed']:
+        raise PermissionDenied({'code': content['code'], 'detail': content['detail']})
+    if proof.get('content') != content['signature']:
+        raise PublicationConflict('作品内容审核已变化，请重新读取后确认。')
     if RecommendationRecordIdentity.objects.filter(record=record, active=True).exclude(
         catalog_anime__bangumi_id=shared.bgm_id).exists():
         raise PublicationConflict("作品身份存在待核对的关联，不能公开。")
@@ -86,7 +118,7 @@ def confirm_showcase_publication(*, user, record_id, ticket):
     if shared.hidden_reason not in (Anime.HiddenReason.PRIVATE_ONLY,
         Anime.HiddenReason.SHOWCASE_REMOVED, Anime.HiddenReason.LEGACY_UNKNOWN):
         raise PermissionDenied("管理员下架或未识别的隐藏原因不可通过此入口恢复。")
-    if proof != _publication_state(record):
+    if proof != _publication_state(record, content['signature']):
         raise PublicationConflict()
     shared.is_active = True
     shared.hidden_reason = ""
@@ -116,7 +148,16 @@ def publish_new_showcase_record(*, record, created):
     ).exists():
         return None
     shared = Anime.objects.select_for_update().get(pk=record.anime_id)
-    if shared.is_active:
+    # Ordinary new manual works need not exist in the recommendation directory.
+    # Known restrictions and any existing classification still take precedence.
+    content = publication_content(shared, allow_missing=True)
+    if not content['allowed']:
+        if shared.is_active:
+            shared.is_active = False
+            shared.hidden_reason = Anime.HiddenReason.PRIVATE_ONLY
+            shared.save(update_fields=('is_active', 'hidden_reason', 'updated_at'))
+        result = {'status': 'review_required', 'code': content['code'], 'detail': content['detail']}
+    elif shared.is_active:
         result = {"status": "already_public", "detail": "作品已在公共库中可用。"}
     elif shared.hidden_reason in (
         Anime.HiddenReason.PRIVATE_ONLY, Anime.HiddenReason.SHOWCASE_REMOVED,
