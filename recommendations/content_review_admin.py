@@ -1,4 +1,4 @@
-"""Single-work signed confirmation only; never bulk-approves or renders covers."""
+"""Signed single-work and explicit TXT batch confirmation; never renders covers."""
 from uuid import uuid4
 
 from django import forms
@@ -16,6 +16,7 @@ from rest_framework.exceptions import APIException
 
 from .content_review import can_review, reviewer_contract, mutate_review
 from .eligibility_admin import _error_text
+from . import content_review_batch as batch
 from .models import RecommendationContentReview as Review, RecommendationContentReviewEvent as Event
 
 SALT='recommendations.content-review.admin.v1'
@@ -54,6 +55,33 @@ class ReadOnlyReviewAdmin(admin.ModelAdmin):
     def has_delete_permission(self,request,obj=None): return False
 
 
+class BatchUploadForm(forms.Form):
+    id_file = forms.FileField(label='Bangumi ID 清单（TXT）',
+        widget=forms.ClearableFileInput(attrs={'accept': '.txt,text/plain'}),
+        help_text='每行一个正整数；最多 500 个非空行、64 KiB。支持 UTF-8 和带 BOM 的 UTF-16，重复 ID 自动去重。')
+
+    def clean_id_file(self):
+        try:
+            return batch.parse_id_file(self.cleaned_data['id_file'])
+        except ValueError as exc:
+            raise forms.ValidationError(str(exc)) from None
+
+
+class BatchConfirmationForm(ReviewForm):
+    action = None
+    ticket = forms.CharField(widget=forms.HiddenInput, max_length=batch.MAX_TICKET_LENGTH)
+    evidence_reference = forms.RegexField(r'^[A-Za-z0-9][A-Za-z0-9._:-]{0,99}$', max_length=100,
+        label='本批核验依据编号', help_text='填写对应本批逐作品核验记录的内部编号；系统为每部作品追加 .bgm.ID 并分别留存审计。')
+    confirmed = forms.BooleanField(label='已逐部核对本批清单及核验依据，确认提交本批可审核作品；已有效审核项保持原样')
+
+    def clean(self):
+        values = super().clean()
+        for key in ('exclusions_confirmed', 'general_adult_confirmed'):
+            if not values.get(key):
+                self.add_error(key, '批量审核通过必须明确确认，且确认覆盖本批每部待审核作品。')
+        return values
+
+
 @admin.register(Review)
 class ContentReviewAdmin(ReadOnlyReviewAdmin):
     list_display=('anime','status','review_version','validity_display','updated_at','control_link')
@@ -74,11 +102,60 @@ class ContentReviewAdmin(ReadOnlyReviewAdmin):
 
     def changelist_view(self,request,extra_context=None):
         return super().changelist_view(request,{**(extra_context or {}),
-            'review_control_url':reverse('admin:recommendations_content_review_control')})
+            'review_control_url':reverse('admin:recommendations_content_review_control'),
+            'batch_review_url':reverse('admin:recommendations_content_review_batch')})
 
     def get_urls(self):
-        return [path('control/',self.admin_site.admin_view(self.control_view),
+        return [path('batch/',self.admin_site.admin_view(self.batch_view),
+                     name='recommendations_content_review_batch'),
+                path('control/',self.admin_site.admin_view(self.control_view),
                      name='recommendations_content_review_control')]+super().get_urls()
+
+    @method_decorator(never_cache)
+    def batch_view(self, request):
+        if not can_review(request.user):
+            raise PermissionDenied
+        upload_form, confirm_form, preview, error, duplicates = BatchUploadForm(), None, None, None, 0
+        try:
+            if request.method == 'POST' and request.POST.get('stage') == 'preview':
+                upload_form = BatchUploadForm(request.POST, request.FILES)
+                if upload_form.is_valid():
+                    parsed = upload_form.cleaned_data['id_file']
+                    duplicates = parsed['duplicates']
+                    preview = batch.prepare_batch(request.user, parsed['ids'])
+                    if preview['can_submit']:
+                        confirm_form = BatchConfirmationForm(initial={'ticket': preview['ticket']})
+            elif request.method == 'POST' and request.POST.get('stage') == 'confirm':
+                confirm_form = BatchConfirmationForm(request.POST)
+                if confirm_form.is_valid():
+                    data = confirm_form.cleaned_data
+                    result = batch.approve_batch(actor=request.user, ticket=data['ticket'], changes={
+                        key: data[key] for key in ('reason', 'evidence_reference', 'days',
+                            'exclusions_confirmed', 'general_adult_confirmed', 'confirmed')})
+                    text = ('原批次已登记，本次未重复写入。' if result['replayed'] else '批量审核登记成功。')
+                    self.message_user(request, text + f'登记 {result["approved"]} 部，跳过已有有效审核 {result["skipped"]} 部。'
+                        + '推荐服务总开关保持原样。', messages.SUCCESS)
+                    return HttpResponseRedirect(reverse('admin:recommendations_content_review_batch'))
+                preview = batch.restore_preview(request.user, request.POST.get('ticket', ''))
+            elif request.method == 'POST':
+                error = '操作类型无效，请重新上传文件并预检。'
+        except signing.BadSignature:
+            error = '批量审核凭据无效或已过期（15 分钟），请重新上传文件并预检。'
+            confirm_form = None
+        except APIException as exc:
+            error = _error_text(exc.detail)
+            if confirm_form is not None:
+                try:
+                    preview = batch.restore_preview(request.user, request.POST.get('ticket', ''))
+                except (signing.BadSignature, APIException):
+                    confirm_form = None
+        except DatabaseError:
+            error = '批量审核未能完成；请确认数据库迁移和连接正常。结果不确定时可重试原提交，不要重新生成批次。'
+        return TemplateResponse(request, 'admin/recommendations/content_review_batch.html', {
+            **self.admin_site.each_context(request), 'opts': self.model._meta, 'title': 'TXT 批量作品审核',
+            'upload_form': upload_form, 'confirm_form': confirm_form, 'preview': preview,
+            'duplicates': duplicates, 'error': error,
+            'single_url': reverse('admin:recommendations_content_review_control')})
 
     @method_decorator(never_cache)
     def control_view(self,request):

@@ -1,6 +1,7 @@
 {% extends "admin/base_site.html" %}
 {% block content %}
 <p><strong>一般成人内容核验台账，登记结论不自动开启推荐。</strong>普通安全 V1 不依赖本台账。NSFW 标记不是审核依据；风险标签仅用于保守排除，缺少标签不能证明人物为成年人。</p>
+<p><a href="{% url 'admin:recommendations_content_review_batch' %}">导入 TXT 批量审核作品</a></p>
 <form method="get"><label for="review-work">作品 Bangumi ID（不是手账记录 ID）</label>
   <input id="review-work" name="bangumi_id" inputmode="numeric" required value="{{ anime.bangumi_id|default:'' }}">
   <button type="submit">读取并核对单部作品</button>

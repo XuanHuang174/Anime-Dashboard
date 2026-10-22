@@ -120,6 +120,12 @@ class MutationSerializer(serializers.Serializer):
         return super().to_internal_value(data)
 
 
+def review_fingerprint(reviewer, identity, action, data):
+    """Shared receipt contract for single-work and atomic batch confirmations."""
+    return hashlib.sha256(json.dumps({'actor':reviewer.pk,'work':identity,'action':action,**data},
+        default=str,sort_keys=True,separators=(',', ':')).encode()).hexdigest()
+
+
 @transaction.atomic
 def mutate_review(*, actor, bangumi_id, action, changes):
     reviewer = require_reviewer(actor)
@@ -134,8 +140,7 @@ def mutate_review(*, actor, bangumi_id, action, changes):
     anime=RecommendationAnime.objects.select_for_update().filter(bangumi_id=identity).first()
     if anime is None: raise NotFound('作品不存在。')
     row=Review.objects.filter(anime=anime).first()
-    fingerprint=hashlib.sha256(json.dumps({'actor':reviewer.pk,'work':identity,'action':action,**data},
-        default=str,sort_keys=True,separators=(',', ':')).encode()).hexdigest()
+    fingerprint=review_fingerprint(reviewer,identity,action,data)
     receipt=Event.objects.filter(review=row,operation_id=data['operation_id']).first() if row else None
     if receipt:
         if receipt.request_fingerprint != fingerprint: raise ReviewConflict('操作编号已用于其他审核内容。')

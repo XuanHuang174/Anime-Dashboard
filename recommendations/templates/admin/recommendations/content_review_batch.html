@@ -1,0 +1,57 @@
+{% extends "admin/base_site.html" %}
+{% block extrastyle %}{{ block.super }}
+<style>
+  .batch-review { padding: 16px; max-width: 1280px; box-sizing: border-box; }
+  .batch-review .batch-field { margin: 16px 0; }
+  .batch-review .batch-field > label { display: block; margin-bottom: 6px; }
+  .batch-review .batch-field input[type=text] { width: min(100%, 32rem); box-sizing: border-box; }
+  .batch-review .batch-field input[type=number] { width: 6rem; }
+  .batch-review .batch-help { display: block; margin-top: 6px; color: var(--body-quiet-color, #666); font-size: 13px; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="batch-review">
+<h1>TXT 批量作品审核</h1>
+{% if messages %}<ul class="messagelist" role="status">{% for message in messages %}<li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>{% endfor %}</ul>{% endif %}
+<p>导入你已完成逐部核验的 Bangumi ID 清单。上传和预检不会写入审核；确认后为每部作品登记独立依据和审计，不自动开启推荐总开关。</p>
+{% if error %}<p class="errornote" role="alert">{{ error }}</p>{% endif %}
+<form method="post" enctype="multipart/form-data">{% csrf_token %}
+  <input type="hidden" name="stage" value="preview">
+  {{ upload_form.as_p }}
+  <div class="submit-row"><input type="submit" class="default" value="上传 TXT 并预检"></div>
+</form>
+{% if preview %}
+<h2>批次预检：共 {{ preview.rows|length }} 部</h2>
+<p>可审核 {{ preview.counts.ready }} 部 · 已有效审核（跳过）{{ preview.counts.skip }} 部 · 拦截 {{ preview.counts.blocked }} 部{% if duplicates %} · 已合并 {{ duplicates }} 个重复 ID{% endif %}</p>
+{% if preview.counts.blocked %}<p class="errornote" role="alert">存在被拦截项，本批不能提交。请核对并调整 TXT 后重新上传；系统不会自动批准或静默略过这些项目。</p>{% endif %}
+{% if not preview.counts.ready and not preview.counts.blocked %}<p>全部作品已有有效审核，无需重复登记。</p>{% endif %}
+<div tabindex="0" aria-label="批次作品清单" style="max-height: 55vh; overflow: auto; margin-bottom: 20px;">
+<table style="width:100%"><thead><tr><th>Bangumi ID</th><th>作品</th><th>季度 / 类型</th><th>当前审核</th><th>本次处理</th></tr></thead>
+<tbody>{% for item in preview.rows %}<tr>
+  <td>{{ item.bangumi_id }}</td><td>{{ item.title_zh }}{% if item.title_jp %}<br>{{ item.title_jp }}{% endif %}</td>
+  <td>{{ item.season|default:'未知' }} / {{ item.status_type|default:'未知' }}</td>
+  <td>{{ item.current_status_label }}</td><td>{{ item.reason }}</td>
+</tr>{% endfor %}</tbody></table>
+</div>
+{% endif %}
+{% if confirm_form %}
+<h2>确认本批人工审核结论</h2>
+<p>已有有效审核的作品保持原依据和期限。默认 0 天为永久有效；目录资料或审核状态变化时整批停止，不产生部分写入。</p>
+<form method="post">{% csrf_token %}<input type="hidden" name="stage" value="confirm">
+  {{ confirm_form.non_field_errors }}
+  {% for field in confirm_form %}
+    {% if field.is_hidden %}{{ field }}{{ field.errors }}{% else %}
+      <div class="batch-field">{{ field.errors }}
+      {% if field.field.widget.input_type == 'checkbox' %}
+        <label for="{{ field.id_for_label }}">{{ field }} {{ field.label }}</label>
+      {% else %}{{ field.label_tag }} {{ field }}{% endif %}
+      {% if field.help_text %}<span class="batch-help">{{ field.help_text }}</span>{% endif %}
+      </div>
+    {% endif %}
+  {% endfor %}
+  <div class="submit-row"><input type="submit" class="default" value="确认批量审核通过"></div>
+</form>
+{% endif %}
+<p><a href="{{ single_url }}">返回单作品审核</a></p>
+</div>
+{% endblock %}
