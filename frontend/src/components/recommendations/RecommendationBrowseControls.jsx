@@ -3,7 +3,8 @@ import { REC_CATEGORIES } from '../../utils/recommendations.js'
 import { DEFAULT_BROWSE_FILTERS, REC_STYLES, filterChips, filterDraftError } from '../../utils/recommendationBrowse.js'
 import RecommendationCategoryGuide from './RecommendationCategoryGuide.jsx'
 import { recommendationAlgorithmLabel } from '../../utils/recommendationExplanation.js'
-import RecommendationAccessApplication from './RecommendationAccessApplication.jsx'
+import RecommendationContentScopeToggle from './RecommendationContentScopeToggle.jsx'
+import { withAvailableScope } from '../../utils/recommendationScopeControl.js'
 
 export function RecommendationBrowseControls({ category, style, filters, onCategory, onStyle, onFilter, onRemove, onReset, legacy = false, algorithmVersion, mode }) {
   const chips = filterChips(filters)
@@ -33,11 +34,12 @@ export function RecommendationBrowseControls({ category, style, filters, onCateg
   </>
 }
 
-export function RecommendationFilterPanel({ initialFilters, onApply, legacy = false, client, onAccessChanged }) {
+export function RecommendationFilterPanel({ initialFilters, onApply, legacy = false, client }) {
   const [draft, setDraft] = useState(() => ({ ...initialFilters }))
+  const [scopeAvailable, setScopeAvailable] = useState(false)
   const [error, setError] = useState('')
   const field = (key, value) => { setDraft(current => ({ ...current, [key]: value })); setError('') }
-  return <form className="rec-filter-form" onSubmit={event => { event.preventDefault(); const message = filterDraftError(draft); setError(message); if (!message) onApply(draft) }}>
+  return <form className="rec-filter-form" onSubmit={event => { event.preventDefault(); const message = filterDraftError(draft); setError(message); if (!message) onApply(withAvailableScope(draft, scopeAvailable)) }}>
     <div className="rec-filter-scroll">
     <p className="rec-muted rec-filter-intro">仅筛选本次浏览，不修改偏好；默认排除成人作品，未知分级始终排除。</p>
     <label className="rec-field">作品类型<select aria-label="作品类型" value={draft.type} onChange={event => field('type', event.target.value)}>
@@ -52,7 +54,7 @@ export function RecommendationFilterPanel({ initialFilters, onApply, legacy = fa
       <option value="0">不限评分</option><option value="lt6">6.0 以下</option>{['6', '7', '8', '9'].map(score => <option key={score} value={score}>{score}.0 及以上</option>)}</select></label>
     {draft.minScore === 'lt6' && <p className="rec-muted">仅包含有效正数公共评分 &lt;6.0 的作品（不含 6.0）；来源不明的 0 值不归入低分作品。</p>}
     <label className="rec-checkbox"><input type="checkbox" checked={draft.hideRecorded} onChange={event => field('hideRecorded', event.target.checked)} />隐藏手账中已记录的作品</label>
-    {client?.eligibility && <RecommendationAccessApplication client={client} onChanged={onAccessChanged} includeAdult={!!draft.includeAdult} onIncludeAdult={value => field('includeAdult', value)} />}
+    {client?.eligibility && <RecommendationContentScopeToggle client={client} includeAdult={!!draft.includeAdult} onChange={value => field('includeAdult', value)} onAvailability={setScopeAvailable} />}
     </div>
     <footer className="rec-filter-footer">{error && <p role="alert" className="rec-inline-error">{error}</p>}
     <div className="rec-dialog-actions"><button type="button" className="rec-button" onClick={() => { setDraft({ ...DEFAULT_BROWSE_FILTERS }); setError('') }}>恢复默认</button>

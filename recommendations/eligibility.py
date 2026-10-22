@@ -93,7 +93,10 @@ def _contract(user, row, *, now=None):
     revision = salted_hmac(CONTRACT_VERSION + '.revision', json.dumps(
         [subject, POLICY_VERSION, version, source, effective, valid_until.isoformat() if valid_until else None,
          serving['version'], serving['effective_enabled']], separators=(',', ':')), algorithm='sha256').hexdigest()
+    from .scope_control import scope_control_contract
     return {'contract_version': CONTRACT_VERSION, 'policy_version': POLICY_VERSION,
+        'scope_control': scope_control_contract(available=usable,
+            serving_enabled=serving['effective_enabled'], revision=revision),
         'administrative_status': administrative, 'effective_status': effective,
         'authorization_source': source, 'manual_authorization_valid': usable,
         'administrative_qualification_valid': usable, 'eligibility_version': version,

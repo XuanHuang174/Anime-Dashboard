@@ -144,7 +144,7 @@ test('M1 application controls never submit parent filter form or mutate filters'
   assert.doesNotMatch(html, /<form|type="submit"/)
   assert.match(html, /type="button"[^>]*disabled=""[^>]*>申请开启/)
   const panel = readFileSync(new URL('../src/components/recommendations/RecommendationBrowseControls.jsx', import.meta.url), 'utf8')
-  assert.match(panel, /RecommendationAccessApplication client=\{client\}/)
+  assert.match(panel, /RecommendationContentScopeToggle client=\{client\}/)
   const controller = readFileSync(new URL('../src/utils/recommendationEligibility.js', import.meta.url), 'utf8')
   assert.doesNotMatch(controller, /content_scope\s*:|setInterval|localStorage/)
 })
