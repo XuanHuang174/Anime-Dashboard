@@ -329,6 +329,7 @@ class RecommendationContentReview(models.Model):
     exclusions_confirmed = models.BooleanField(default=False, editable=False)
     reviewed_at = models.DateTimeField(null=True, blank=True, editable=False)
     expires_at = models.DateTimeField(null=True, blank=True, editable=False)
+    never_expires = models.BooleanField(default=False, db_default=False, editable=False, verbose_name='永久有效')
     reviewer = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name='+', editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -342,8 +343,11 @@ class RecommendationContentReview(models.Model):
             models.CheckConstraint(condition=(models.Q(status='pending')
                 | models.Q(status__in=('rejected', 'revoked'), review_version__gte=1)
                 | (models.Q(status='approved', review_version__gte=1, reviewed_at__isnull=False,
-                            expires_at__isnull=False, exclusions_confirmed=True)
-                   & ~models.Q(evidence_reference='') & models.Q(expires_at__gt=models.F('reviewed_at')))),
+                            exclusions_confirmed=True)
+                   & ~models.Q(evidence_reference='')
+                   & (models.Q(never_expires=True, expires_at__isnull=True)
+                      | (models.Q(never_expires=False, expires_at__isnull=False)
+                         & models.Q(expires_at__gt=models.F('reviewed_at')))))),
                 name='rec_review_state_valid'),
         ]
 
@@ -367,6 +371,7 @@ class RecommendationContentReviewEvent(models.Model):
     catalog_revision = models.CharField(max_length=64)
     policy_version = models.CharField(max_length=64)
     resulting_expires_at = models.DateTimeField(null=True)
+    resulting_never_expires = models.BooleanField(default=False, db_default=False, verbose_name='结论永久有效')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

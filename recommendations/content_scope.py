@@ -38,8 +38,10 @@ def release_snapshot():
     """Bulk CURRENT content/review read. No N+1, inference, media fetch or user data."""
     now = timezone.now()
     rows = list(RecommendationContentReview.objects.select_related('anime').filter(
-        status='approved', policy_version=RELEASE_POLICY_VERSION, expires_at__gt=now,
+        status='approved', policy_version=RELEASE_POLICY_VERSION,
         exclusions_confirmed=True, anime__nsfw=True, anime__bangumi_id__isnull=False)
+        .filter(Q(never_expires=True, expires_at__isnull=True)
+                | Q(never_expires=False, expires_at__gt=now))
         .exclude(evidence_reference='').order_by('anime__bangumi_id')[:5001])
     if len(rows) > 5000:
         from .engine import RecommendationUnavailable
@@ -47,8 +49,10 @@ def release_snapshot():
     valid = [r for r in rows if general_adult_boundary(r.anime)
              and r.catalog_revision == catalog_revision(r.anime)]
     revision = hashlib.sha256(json.dumps([(r.anime.bangumi_id, r.review_version,
-        r.catalog_revision, r.expires_at.isoformat()) for r in valid], separators=(',', ':')).encode()).hexdigest()
-    return {r.anime.bangumi_id for r in valid}, revision, min((r.expires_at for r in valid), default=None)
+        r.catalog_revision, r.never_expires, r.expires_at.isoformat() if r.expires_at else None)
+        for r in valid], separators=(',', ':')).encode()).hexdigest()
+    return {r.anime.bangumi_id for r in valid}, revision, min(
+        (r.expires_at for r in valid if r.expires_at is not None), default=None)
 
 
 def catalog_for_scope(scope=None):

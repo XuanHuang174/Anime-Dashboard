@@ -10,9 +10,9 @@
 <h2>{{ anime.title_zh }} / {{ anime.title_jp }}</h2>
 <p>Bangumi {{ anime.bangumi_id }} · 季度 {{ anime.season|default:'未知' }} · {{ anime.status_type|default:'类型未知' }} · 成人标记 {{ anime.nsfw|yesno:'是,否,未知' }}</p>
 {% endif %}
-{% if decision %}<p>管理结论 {{ decision.administrative_status }} · 实时判定 {{ decision.effective_status }} · v{{ decision.review_version }} · 截止 {{ decision.expires_at|default:'无' }}</p>{% endif %}
+{% if decision %}<p>管理结论 {{ decision.administrative_status }} · 实时判定 {{ decision.effective_status }} · v{{ decision.review_version }} · {% if decision.never_expires %}有效期：永久有效{% else %}截止 {{ decision.expires_at|default:'无' }}{% endif %}</p>{% endif %}
 {% if form %}<form method="post">{% csrf_token %}{{ form.as_p }}
-  <p>通过仅登记人工结论；未知分级不能通过。资料/规则变更或到期需重新审核。不自动下载原图、读取私人手账或调用外部模型。</p>
+  <p>通过仅登记人工结论；未知分级不能通过。默认永久有效；资料/规则变更、撤销或定期结论到期后需重新审核。不自动下载原图、读取私人手账或调用外部模型。</p>
   <button type="submit">确认提交本作品审核操作</button>
 </form>{% endif %}
 <p><a href="{{ reload_url }}{% if anime %}?bangumi_id={{ anime.bangumi_id }}{% endif %}">重新读取作品和最新版本</a></p>

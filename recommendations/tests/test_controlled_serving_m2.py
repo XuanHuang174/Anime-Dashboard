@@ -44,7 +44,7 @@ class ControlledServingTests(TransactionTestCase):
             'expected_version': 0, 'expected_catalog_revision': catalog_revision(anime),
             'expected_policy_version': POLICY_VERSION, 'operation_id': uuid4(),
             'reason': 'Synthetic content review', 'evidence_reference': 'synthetic-only',
-            'exclusions_confirmed': True, 'general_adult_confirmed': True})
+            'exclusions_confirmed': True, 'general_adult_confirmed': True, 'days': 30})
 
     def enable(self):
         self.change(); self.change(action='approve', version=1); self.review(); self.control()

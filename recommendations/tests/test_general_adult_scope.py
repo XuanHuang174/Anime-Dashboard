@@ -46,7 +46,22 @@ class GeneralAdultScopeTests(TransactionTestCase):
             'expected_catalog_revision': content_review.catalog_revision(anime),
             'expected_policy_version': content_review.POLICY_VERSION, 'operation_id': uuid4(),
             'reason': 'Isolated synthetic adult-only test', 'evidence_reference': 'synthetic-only',
-            'exclusions_confirmed': True, 'general_adult_confirmed': True}
+            'exclusions_confirmed': True, 'general_adult_confirmed': True, 'days': 30}
+
+    def test_permanent_session_review_has_no_review_deadline_but_snapshots_still_expire(self):
+        self.control()
+        payload=self.review_payload(90)
+        payload.pop('days')  # Exercise the production default, not a test-only override.
+        content_review.mutate_review(actor=self.manager,bangumi_id=90,action='approve',changes=payload)
+        scope=require_scope(self.owner,'include_adult')
+        self.assertIsNone(scope['scope_valid_until'])
+        first=self.get(browse=True,page_size=2)
+        self.assertEqual(first.status_code,200,first.data)
+        self.assertGreater(first.data['snapshot_expires_at'],timezone.now().timestamp())
+        self.assertLess(first.data['snapshot_expires_at'],(timezone.now()+timedelta(days=1)).timestamp())
+        RecommendationAnime.objects.filter(bangumi_id=90).update(synopsis='Changed synthetic public metadata')
+        self.assertEqual(self.get(cursor=first.data['next_page_cursor']).status_code,409)
+        self.assertEqual(self.get('90/').status_code,403)
 
     def test_opt_in_never_needs_or_creates_account_approval(self):
         self.enable()

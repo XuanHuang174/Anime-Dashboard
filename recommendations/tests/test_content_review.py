@@ -20,7 +20,7 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from anime.models import UserAnimeRecord
 from recommendations import content_review as service
 from recommendations.content_review_admin import SALT
-from recommendations.content_scope import require_scope
+from recommendations.content_scope import require_scope, release_snapshot
 from recommendations.models import (RecommendationAnime, RecommendationPreference,
     RecommendationContentReview as Review, RecommendationContentReviewEvent as Event,
     RecommendationContentReviewState as State, UserRecommendationFeedback as Feedback)
@@ -49,7 +49,7 @@ class ReviewFixtures(TransactionTestCase):
 
     def approve(self,version=0,work=90):
         return self.change('approve',work=work,payload=self.payload(version,work,
-            evidence_reference='internal-synthetic-only',exclusions_confirmed=True,general_adult_confirmed=True))
+            evidence_reference='internal-synthetic-only',exclusions_confirmed=True,general_adult_confirmed=True,days=30))
 
     def page(self,**query): return scope_fixtures.ClosedScopeTests.page(self,**query)
 
@@ -91,7 +91,7 @@ class ReviewServiceTests(ReviewFixtures):
         self.assertFalse(Review.objects.exists()); self.assertFalse(State.objects.exists())
 
     def test_strict_inputs_old_policy_and_changed_catalog_are_rejected(self):
-        for changes in ({'user_id':1},{'status':'approved'},{'days':31},{'expected_version':True},
+        for changes in ({'user_id':1},{'status':'approved'},{'days':31},{'days':-1},{'days':True},{'days':'0'},{'expected_version':True},
                         {'evidence_reference':'https://external.invalid/file'}):
             with self.assertRaises(ValidationError): self.change(payload=self.payload(**changes))
         for changes in ({'expected_catalog_revision':'0'*64},{'expected_policy_version':'old-policy'}):
@@ -116,6 +116,64 @@ class ReviewServiceTests(ReviewFixtures):
         RecommendationAnime.objects.filter(pk=self.adult.pk).update(nsfw=None)
         self.assertEqual(service.release_decision(self.adult)['effective_status'],'unknown_rating')
         self.assertEqual(original,list(Review.objects.values()))
+
+    def test_default_permanent_review_is_explicit_audited_and_revocable(self):
+        payload=self.payload(evidence_reference='synthetic-permanent',exclusions_confirmed=True,general_adult_confirmed=True)
+        decision=self.change('approve',payload=payload)['review']
+        self.assertTrue(decision['never_expires']); self.assertIsNone(decision['expires_at'])
+        self.assertTrue(service.release_decision(self.adult,now=timezone.now()+timedelta(days=36500))['review_valid'])
+        self.assertTrue(Event.objects.get().resulting_never_expires)
+        self.assertIsNone(Event.objects.get().resulting_expires_at)
+        self.assertEqual(release_snapshot()[0],{90}); self.assertIsNone(release_snapshot()[2])
+        self.change('revoke',version=1)
+        self.assertEqual(release_snapshot()[0],set())
+        self.assertEqual(service.release_decision(self.adult)['effective_status'],'revoked')
+        replay=self.change('approve',payload=payload)
+        self.assertTrue(replay['replayed']); self.assertFalse(replay['review']['review_valid'])
+
+    def test_permanent_and_finite_reviews_keep_separate_deadlines_and_receipts(self):
+        self.change('approve',payload=self.payload(evidence_reference='synthetic-permanent',
+            exclusions_confirmed=True,general_adult_confirmed=True,days=0))
+        permanent_revision=release_snapshot()[1]
+        self.approve(work=92)
+        deadline=Review.objects.get(anime__bangumi_id=92).expires_at
+        self.assertEqual(release_snapshot()[0],{90,92}); self.assertEqual(release_snapshot()[2],deadline)
+        with patch('recommendations.content_scope.timezone.now',return_value=deadline):
+            ids,revision,expiry=release_snapshot()
+        self.assertEqual(ids,{90}); self.assertIsNone(expiry)
+        self.assertEqual(revision,permanent_revision)
+        self.approve(version=1)
+        self.assertFalse(Review.objects.get(anime=self.adult).never_expires)
+        self.assertNotEqual(release_snapshot()[1],permanent_revision)
+        first=Event.objects.get(review__anime=self.adult,applied_version=1)
+        self.assertTrue(first.resulting_never_expires); self.assertIsNone(first.resulting_expires_at)
+        self.change('approve',payload=self.payload(2,evidence_reference='synthetic-permanent-renewal',
+            exclusions_confirmed=True,general_adult_confirmed=True,days=0))
+        self.assertTrue(Review.objects.get(anime=self.adult).never_expires)
+        finite=Event.objects.get(review__anime=self.adult,applied_version=2)
+        self.assertFalse(finite.resulting_never_expires); self.assertIsNotNone(finite.resulting_expires_at)
+
+    def test_missing_expiry_without_permanent_marker_never_becomes_approval(self):
+        self.approve()
+        row=Review.objects.get()
+        row.expires_at=None
+        self.assertEqual(service._decision(self.adult,row)['effective_status'],'expired')
+        with self.assertRaises(IntegrityError),transaction.atomic():
+            Review.objects.filter(pk=row.pk).update(expires_at=None)
+        with self.assertRaises(IntegrityError),transaction.atomic():
+            Review.objects.filter(pk=row.pk).update(never_expires=True)
+
+    def test_permanent_review_still_requires_current_policy_catalog_and_content_boundary(self):
+        self.change('approve',payload=self.payload(evidence_reference='synthetic-permanent',
+            exclusions_confirmed=True,general_adult_confirmed=True,days=0))
+        for changes in ({'synopsis':'Changed public metadata'},{'nsfw':None},{'tags':'音乐,萝莉'}):
+            original={key:getattr(self.adult,key) for key in changes}
+            RecommendationAnime.objects.filter(pk=self.adult.pk).update(**changes)
+            self.assertFalse(service.release_decision(self.adult)['review_valid'])
+            self.assertEqual(release_snapshot()[0],set())
+            RecommendationAnime.objects.filter(pk=self.adult.pk).update(**original)
+        with patch('recommendations.content_review.POLICY_VERSION','new-policy'):
+            self.assertEqual(service.release_decision(self.adult)['effective_status'],'stale')
 
     def test_replay_never_resurrects_old_approval_or_accepts_uuid_drift(self):
         payload=self.payload(evidence_reference='internal',exclusions_confirmed=True,general_adult_confirmed=True)
@@ -187,6 +245,18 @@ class ReviewAdminTests(ReviewFixtures):
         response=self.browser.get(self.url,{'bangumi_id':90}); self.assertEqual(response.status_code,200)
         return {'ticket':response.context['form'].initial['ticket'],'action':action,
                 'reason':'隔离后台人工核对','days':30,'confirmed':'on'}
+
+    def test_permanent_default_form_submission_and_display(self):
+        self.browser.force_login(self.reviewer)
+        response=self.browser.get(self.url,{'bangumi_id':90})
+        self.assertEqual(response.context['form']['days'].value(),0)
+        payload=self.form('approve')
+        response=self.browser.post(self.url,{**payload,'days':0,'evidence_reference':'synthetic-admin-permanent',
+            'exclusions_confirmed':'on','general_adult_confirmed':'on'})
+        self.assertEqual(response.status_code,302)
+        self.assertTrue(Review.objects.get().never_expires)
+        self.assertTrue(Event.objects.get().resulting_never_expires)
+        self.assertContains(self.browser.get(self.url,{'bangumi_id':90}),'有效期：永久有效')
 
     def test_special_permission_single_confirmation_and_readonly_admin(self):
         self.browser.force_login(self.owner); self.assertEqual(self.browser.get(self.url).status_code,302)

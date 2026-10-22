@@ -70,12 +70,15 @@ def _decision(anime, row, now=None):
         elif (row.policy_version != POLICY_VERSION or row.catalog_revision != catalog_revision(anime)
                 or not row.exclusions_confirmed or not row.evidence_reference):
             state = 'stale'
-        elif row.expires_at is None or row.expires_at <= now:
+        elif row.never_expires and row.expires_at is not None:
+            state = 'stale'
+        elif not row.never_expires and (row.expires_at is None or row.expires_at <= now):
             state = 'expired'
     return {'contract_version':CONTRACT_VERSION, 'bangumi_id':anime.bangumi_id,
             'administrative_status':row.status if row else 'unreviewed', 'effective_status':state,
             'review_version':row.review_version if row else 0, 'catalog_revision':catalog_revision(anime),
             'policy_version':POLICY_VERSION, 'expires_at':row.expires_at if row else None,
+            'never_expires':bool(row and row.never_expires),
             'review_valid':state == 'approved', 'adult_access_allowed':False, 'serving_enabled':False}
 
 
@@ -102,7 +105,8 @@ class MutationSerializer(serializers.Serializer):
     evidence_reference = serializers.RegexField(r'^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$', required=False)
     exclusions_confirmed = serializers.BooleanField(default=False)
     general_adult_confirmed = serializers.BooleanField(default=False)
-    days = serializers.IntegerField(min_value=1, max_value=30, default=30)
+    # 0 explicitly denotes a permanent decision, never a missing expiry date.
+    days = serializers.IntegerField(min_value=0, max_value=30, default=0)
 
     def to_internal_value(self, data):
         if not isinstance(data,dict) or set(data)-set(self.fields):
@@ -160,12 +164,14 @@ def mutate_review(*, actor, bangumi_id, action, changes):
         row.policy_version=POLICY_VERSION; row.catalog_revision=current_fp; row.reviewer=reviewer
         if action == 'approve':
             row.evidence_reference=data['evidence_reference']; row.exclusions_confirmed=True
-            row.reviewed_at=timezone.now(); row.expires_at=row.reviewed_at+timedelta(days=data['days'])
+            row.reviewed_at=timezone.now(); row.never_expires=data['days'] == 0
+            row.expires_at=None if row.never_expires else row.reviewed_at+timedelta(days=data['days'])
         row.save()
         state.version+=1; state.save(update_fields=['version'])
     Event.objects.create(review=row,actor=reviewer,operation_id=data['operation_id'],action=action,
         request_fingerprint=fingerprint,previous_status=previous,resulting_status=row.status,
         previous_version=version,applied_version=row.review_version,applied_release_version=state.version,
         changed=changed,reason=data['reason'],evidence_reference=row.evidence_reference,
-        catalog_revision=row.catalog_revision,policy_version=row.policy_version,resulting_expires_at=row.expires_at)
+        catalog_revision=row.catalog_revision,policy_version=row.policy_version,resulting_expires_at=row.expires_at,
+        resulting_never_expires=row.never_expires)
     return {'replayed':False,'changed':changed,'operation_version':row.review_version,'review':release_decision(anime)}

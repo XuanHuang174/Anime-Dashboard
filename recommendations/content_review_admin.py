@@ -28,7 +28,8 @@ class ReviewForm(forms.Form):
     reason=forms.CharField(label='审核原因',max_length=240,help_text='仅审核记录；不要填写用户身份材料或私人手账。')
     evidence_reference=forms.RegexField(r'^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$',max_length=128,required=False,
         label='内部依据编号',help_text='审核通过时必填。仅编号，不上传材料、不填外部链接；系统不会自动获取或核验材料。')
-    days=forms.IntegerField(label='通过结论有效天数',min_value=1,max_value=30,initial=30)
+    days=forms.IntegerField(label='通过结论有效天数',min_value=0,max_value=30,initial=0,
+        help_text='0 表示永久有效（默认）；1–30 表示定期有效。撤销或作品资料/规则变化仍会使结论失效。')
     exclusions_confirmed=forms.BooleanField(required=False,label='已人工排除未成年人或年龄不明人物的性内容等禁止情形',
         help_text='审核通过时必选。此项是审核责任确认，不是自动内容识别或合法性证明。')
     general_adult_confirmed=forms.BooleanField(required=False,
@@ -55,13 +56,17 @@ class ReadOnlyReviewAdmin(admin.ModelAdmin):
 
 @admin.register(Review)
 class ContentReviewAdmin(ReadOnlyReviewAdmin):
-    list_display=('anime','status','review_version','expires_at','updated_at','control_link')
+    list_display=('anime','status','review_version','validity_display','updated_at','control_link')
     list_filter=('status',)
     search_fields=('=anime__bangumi_id',)
     readonly_fields=tuple(field.name for field in Review._meta.fields)
     change_list_template='admin/recommendations/content_review_change_list.html'
 
     def get_queryset(self,request): return super().get_queryset(request).select_related('anime')
+
+    @admin.display(description='审核有效期')
+    def validity_display(self,obj):
+        return '永久有效' if obj.never_expires else obj.expires_at
 
     @admin.display(description='单作品核对')
     def control_link(self,obj):
