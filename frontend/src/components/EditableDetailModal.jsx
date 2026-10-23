@@ -12,6 +12,7 @@ import {
 } from '../utils/animeDisplay.js'
 import { getImageFileError, IMAGE_FILE_ACCEPT } from '../utils/imageUpload.js'
 import { mapRecordToAnimeItem } from '../utils/recordMapping.js'
+import './EditableDetailModal.css'
 
 gsap.registerPlugin(useGSAP)
 
@@ -426,14 +427,14 @@ function EditableDetailModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="editAnimeTitle"
-      className="fixed inset-0 z-[110] flex items-center justify-center overflow-y-auto bg-zinc-950/80 p-2 backdrop-blur-sm sm:p-4 lg:overflow-hidden"
+      className="fixed inset-0 z-[110] flex items-center justify-center overflow-y-auto bg-zinc-950/80 p-2 backdrop-blur-sm sm:p-4"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) handleClose()
       }}
     >
       <section
         ref={modalRef}
-        className="relative my-auto flex max-h-[96vh] w-full max-w-6xl flex-col overflow-hidden border-4 border-black bg-[#fff5ee] text-black shadow-[12px_12px_0_#111] lg:h-[96vh]"
+        className="edit-record-modal relative my-auto flex max-h-[calc(100dvh-2rem)] w-full max-w-6xl flex-col overflow-hidden border-4 border-black bg-[#fff5ee] text-black shadow-[12px_12px_0_#111]"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <header className="edit-modal-piece flex shrink-0 items-start justify-between gap-4 border-b-4 border-black bg-[#4ecdc4] px-4 py-3 sm:px-6">
@@ -455,10 +456,10 @@ function EditableDetailModal({
           </button>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-3 custom-scrollbar sm:p-4 lg:overflow-hidden">
-          <div className="grid gap-4 lg:h-full lg:min-h-0 lg:grid-cols-[220px_minmax(0,1fr)]">
-            <aside className="edit-modal-piece mx-auto w-full max-w-[240px] lg:mx-0 lg:flex lg:h-full lg:max-w-[220px] lg:min-h-0 lg:flex-col">
-              <div className="aspect-[3/4] overflow-hidden border-4 border-black bg-[#ff8fab] shadow-[7px_7px_0_#4ecdc4] lg:min-h-0 lg:flex-1">
+        <div className="edit-record-body min-h-0 flex-1 overflow-y-auto p-3 custom-scrollbar sm:p-4">
+          <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
+            <aside className="edit-modal-piece mx-auto w-full max-w-[240px] lg:mx-0 lg:flex lg:max-w-[220px] lg:flex-col">
+              <div className="aspect-[3/4] shrink-0 overflow-hidden border-4 border-black bg-[#ff8fab] shadow-[7px_7px_0_#4ecdc4]">
                 <img src={coverPreview} alt={`${formData.title} 海报`} className="h-full w-full object-cover" />
               </div>
 
@@ -531,16 +532,16 @@ function EditableDetailModal({
                 )}
               </div>
 
-              <section className="edit-modal-piece min-h-0 flex-1">
+              <section className="edit-record-editor edit-modal-piece min-h-0 flex-1">
                 {activeEditorPanel === 'tags' ? (
                   <div className="grid h-full min-h-0 gap-3 lg:grid-cols-2">
-                    <div className="flex min-h-0 flex-col border-[3px] border-black bg-white p-2.5 shadow-[6px_6px_0_#4ecdc4]">
+                    <div className="edit-record-tags-panel flex min-h-0 flex-col border-[3px] border-black bg-white p-2.5 shadow-[6px_6px_0_#4ecdc4]">
                       <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
                         <span className="text-xs font-black"><i className="fa-solid fa-tags mr-2"></i>当前标签</span>
                         <span className="rounded-full border-2 border-black bg-[#ffe66d] px-2.5 py-1 text-[10px] font-black">{formData.tags.length} 个</span>
                       </div>
 
-                      <div className="grid min-h-0 flex-1 gap-1.5 overflow-y-auto pr-1 custom-scrollbar sm:grid-cols-2">
+                      <div className="edit-record-tags-scroll grid min-h-0 flex-1 auto-rows-max content-start gap-1.5 overflow-y-auto pr-1 custom-scrollbar sm:grid-cols-2">
                         {formData.tags.map((tag, index) => {
                           const color = formData.tagColors[tag] || getDefaultTagColor(tag)
                           return (
@@ -559,7 +560,7 @@ function EditableDetailModal({
                         })}
                       </div>
 
-                      <div className="mt-2 flex shrink-0 border-[3px] border-black bg-[#ff8fab] p-1.5 shadow-[4px_4px_0_#111]">
+                      <div className="edit-record-new-tag mt-2 flex shrink-0 border-[3px] border-black bg-[#ff8fab] p-1.5 shadow-[4px_4px_0_#111]">
                         <input
                           value={newTag}
                           onChange={(event) => setNewTag(event.target.value)}
@@ -578,12 +579,12 @@ function EditableDetailModal({
                       </div>
                     </div>
 
-                    <div className="flex min-h-0 flex-col border-[3px] border-black bg-[#ffe66d] p-3 shadow-[6px_6px_0_#ff8fab]">
+                    <div className="edit-record-presets-panel flex min-h-0 flex-col border-[3px] border-black bg-[#ffe66d] p-3 shadow-[6px_6px_0_#ff8fab]">
                       <div className="mb-2 shrink-0">
                         <span className="text-xs font-black"><i className="fa-solid fa-wand-magic-sparkles mr-2"></i>快捷预设</span>
                         <p className="mt-1 text-[10px] font-bold">点击即可加入，再在左侧选择专属颜色。</p>
                       </div>
-                      <div className="flex min-h-0 flex-1 content-start flex-wrap gap-1.5">
+                      <div className="edit-record-presets-scroll flex min-h-0 flex-1 content-start flex-wrap gap-1.5 overflow-y-auto pr-1 custom-scrollbar">
                         {presetTags.map((tag) => {
                           const isSelected = formData.tags.includes(tag)
                           return (
@@ -593,7 +594,7 @@ function EditableDetailModal({
                           )
                         })}
                       </div>
-                      <div className="mt-3 shrink-0 border-t-[3px] border-black pt-3">
+                      <div className="edit-record-panel-switcher mt-3 shrink-0 border-t-[3px] border-black pt-3">
                         <p className="mb-2 text-[10px] font-black uppercase tracking-[0.12em]">切换编辑模块</p>
                         {editorPanelSwitcher}
                       </div>

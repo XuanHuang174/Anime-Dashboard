@@ -1,0 +1,9 @@
+/* Only the desktop editor workspace is bounded; the dialog sizes to its content.
+   Short windows scroll the body while the existing header/footer stay outside it.
+   Keep the existing mobile/tablet stack and visual styles. */
+@media (min-width: 1024px) {
+  .edit-record-editor {
+    height: clamp(18rem, calc(100dvh - 28rem), 26rem);
+    flex: none;
+  }
+}

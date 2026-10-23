@@ -178,6 +178,9 @@ select {
 /* Keep header spacing inside the painted page, without collapsing top margins. */
 .memphis-dashboard {
   display: flow-root;
+}
+
+.memphis-dashboard.dashboard-edit-mode {
   padding-top: 16px;
 }
 

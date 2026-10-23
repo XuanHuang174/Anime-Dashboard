@@ -929,7 +929,7 @@ function Dashboard() {
   return (
     <main
       ref={dashboardRef}
-      className={`memphis-public memphis-dashboard relative min-h-screen overflow-x-clip bg-[#fff5ee] text-black ${hasCompactResult ? 'pb-0' : 'pb-8'}`}
+      className={`memphis-public memphis-dashboard ${isPreviewMode ? 'dashboard-preview-mode' : 'dashboard-edit-mode'} relative min-h-screen overflow-x-clip bg-[#fff5ee] text-black ${hasCompactResult ? 'pb-0' : 'pb-8'}`}
     >
       <div className="memphis-grid-texture pointer-events-none absolute inset-0" aria-hidden="true" />
       <div className="memphis-float-ring pointer-events-none absolute right-[-64px] top-[30rem] z-0 h-32 w-32 rounded-full border-[18px] border-black bg-[#4ecdc4]" aria-hidden="true" />
