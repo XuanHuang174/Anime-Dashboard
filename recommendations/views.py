@@ -149,7 +149,8 @@ class RecommendationCapabilitiesView(OwnRecommendationAPIView):
     def get(self, request):
         self.check_query_contract(request)
         from .deployment import capabilities
-        return Response(capabilities())
+        from .exploration_contract import capabilities as exploration_capabilities
+        return Response({**capabilities(), 'exploration': exploration_capabilities()})
 
 
 class RecommendationContextView(OwnRecommendationAPIView):

@@ -1,0 +1,169 @@
+{
+  "contract_version": "recommendations.explore.query.v1",
+  "capabilities": {
+    "contract_version": "recommendations.explore.capabilities.v1",
+    "enabled": true,
+    "catalog_search_enabled": true,
+    "query_execution_enabled": false,
+    "query_contract_version": "recommendations.explore.query.v1",
+    "catalog_contract_version": "recommendations.explore.catalog.v1",
+    "evidence_contract_version": "recommendations.explore.evidence.v1",
+    "result_contract_version": "recommendations.explore.v1",
+    "navigation": [
+      {
+        "id": "personal",
+        "label": "个性化推荐",
+        "path": "/recommendations",
+        "available": true
+      },
+      {
+        "id": "similar",
+        "label": "单番相似",
+        "path": "/recommendations/similar",
+        "available": false
+      },
+      {
+        "id": "tags",
+        "label": "按标签找",
+        "path": "/recommendations/tags",
+        "available": false
+      }
+    ]
+  },
+  "taxonomy_version": "genres.v8",
+  "available_tags": [
+    "日常",
+    "治愈",
+    "喜剧",
+    "校园",
+    "恋爱",
+    "百合",
+    "科幻",
+    "奇幻",
+    "冒险",
+    "悬疑",
+    "推理",
+    "战斗",
+    "机战",
+    "音乐",
+    "运动",
+    "历史",
+    "职场",
+    "亲情",
+    "成长",
+    "友情",
+    "青春",
+    "魔法",
+    "异世界",
+    "偶像",
+    "美食",
+    "旅行",
+    "热血",
+    "后宫",
+    "玄幻",
+    "穿越",
+    "魔法少女",
+    "恐怖",
+    "武侠",
+    "萌系",
+    "战争",
+    "动作",
+    "励志",
+    "超能力",
+    "童话",
+    "犯罪",
+    "赛博朋克",
+    "竞技",
+    "动物",
+    "惊悚",
+    "讽刺",
+    "科普",
+    "吸血鬼",
+    "妖怪",
+    "家庭",
+    "末世",
+    "公路片"
+  ],
+  "search": {
+    "contract_version": "recommendations.explore.catalog.v1",
+    "limit": 15,
+    "max_query_length": 120,
+    "identity_namespace": "bangumi"
+  },
+  "query": {
+    "intents": {
+      "similar": "similarity.v1",
+      "tags": "tag-explore.v1"
+    },
+    "maximum_include_tags": 5,
+    "maximum_exclude_tags": 5,
+    "default_match": "all",
+    "matches": [
+      "all",
+      "any"
+    ],
+    "sorts": [
+      "relevance",
+      "score"
+    ],
+    "fields": [
+      "intent",
+      "seed_bangumi_id",
+      "include_tags",
+      "exclude_tags",
+      "match",
+      "sort",
+      "type",
+      "min_score",
+      "max_score",
+      "max_score_exclusive",
+      "year_from",
+      "year_to",
+      "hide_recorded",
+      "page_size"
+    ],
+    "requires_profile": false,
+    "saves_preferences": false
+  },
+  "evidence": {
+    "contract_version": "recommendations.explore.evidence.v1",
+    "kinds": {
+      "similar": "selected_work",
+      "tags": "selected_tags"
+    },
+    "interpretation": "shared_genre_association",
+    "is_probability": false,
+    "fields": [
+      "contract_version",
+      "kind",
+      "interpretation",
+      "is_probability",
+      "shared_tags",
+      "source",
+      "versions"
+    ],
+    "source_fields": {
+      "selected_work": [
+        "bangumi_id",
+        "title",
+        "tags"
+      ],
+      "selected_tags": []
+    },
+    "required_context": [
+      "query_fingerprint",
+      "catalog_feature_version",
+      "scope_revision",
+      "taxonomy_version",
+      "ranking_policy_version"
+    ],
+    "private_score_source": false
+  },
+  "limits": {
+    "catalog_rows": 50000,
+    "results": 120,
+    "batch_size": 24,
+    "page_size": 12,
+    "snapshot_ttl_seconds": 900
+  }
+}

@@ -357,6 +357,7 @@ RECOMMENDATION_V2_BROWSE_ENABLED = env.bool('RECOMMENDATION_V2_BROWSE_ENABLED', 
 RECOMMENDATION_V2_BROWSE_APPROVAL_FILE = env('RECOMMENDATION_V2_BROWSE_APPROVAL_FILE', default='')
 # 9A opt-in browse contract. Disabling it leaves the original V1 requests intact.
 RECOMMENDATION_BROWSE_ENABLED = env.bool('RECOMMENDATION_BROWSE_ENABLED', default=True)
+RECOMMENDATION_EXPLORATION_ENABLED = env.bool('RECOMMENDATION_EXPLORATION_ENABLED', default=False)
 RECOMMENDATION_RESTRICTED_CONTENT_ENABLED = env.bool('RECOMMENDATION_RESTRICTED_CONTENT_ENABLED', default=False)
 # Independent rollout: no user applications; current general-adult content checks
 # and both serving gates remain mandatory. Never auto-approve catalog records.

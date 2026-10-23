@@ -9,9 +9,13 @@ from .eligibility_views import RecommendationEligibilityView, RecommendationElig
 
 app_name = 'recommendations'
 
+from .exploration_views import ExplorationCatalogView, ExplorationContractView
+
 from .access_admin_views import AccessControlView, AccessApplicationsView, AccessApplicationView
 
 urlpatterns = [
+    path('explore/catalog/', ExplorationCatalogView.as_view(), name='explore-catalog'),
+    path('explore/contract/', ExplorationContractView.as_view(), name='explore-contract'),
     path('admin/control/', AccessControlView.as_view()),
     path('admin/applications/', AccessApplicationsView.as_view()),
     path('admin/applications/<int:user_id>/', AccessApplicationView.as_view()),

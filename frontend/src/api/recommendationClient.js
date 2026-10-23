@@ -3,7 +3,7 @@ import { validDetailContext } from '../utils/recommendationExecution.js'
 import { checkScopeResponse } from '../utils/recommendationContentScope.js'
 export function createRecommendationClient(transport, scope = 'safe', onLost = () => {}) {
   if (!['safe', 'include_adult'].includes(scope)) throw new Error('未知内容范围')
-  const scoped = path => /^recommendations\/(?:$|context\/|feedback\/|identities\/|[1-9]\d*\/)/.test(path)
+  const scoped = path => /^recommendations\/(?:$|context\/|explore\/|feedback\/|identities\/|[1-9]\d*\/)/.test(path)
   let lastScopeRevision = null, sequence = 0, lastScopeSequence = 0
   const call = (method, path, args, config = {}) => {
     const order = ++sequence
@@ -35,6 +35,8 @@ export function createRecommendationClient(transport, scope = 'safe', onLost = (
     eligibility: signal => client.get('recommendations/eligibility/', { signal }).then(r => r.data),
     applyEligibility: (changes, signal) => client.post('recommendations/eligibility/apply/', changes, { signal }).then(r => r.data),
     capabilities: signal => client.get('recommendations/capabilities/', { signal }).then(r => r.data),
+    explorationContract: signal => client.get('recommendations/explore/contract/', { signal }).then(r => r.data),
+    explorationCatalog: (q, signal) => client.get('recommendations/explore/catalog/', { params: { q }, signal }).then(r => r.data),
     context: signal => client.get('recommendations/context/', { signal }).then(r => r.data),
     profile: (signal) => client.get('recommendations/profile/', { signal }).then((r) => r.data),
     previewProfile: (profileMinScore, signal) => client.get('recommendations/profile/preview/', {
