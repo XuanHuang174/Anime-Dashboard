@@ -310,9 +310,9 @@ function RecommendationWorkspace({ client: baseClient, sessionScope }) {
             onPreferences={openPreferences} onIdentity={() => setPanel({ kind: 'identity' })} />
         </details>}
         {state.status === 'ready' && <>
-          {state.items.length > 1 && <><div className="rec-more-heading"><h2>还有更多</h2>
+          {state.items.length > 1 && <section className="rec-more-section" aria-labelledby="rec-more-title"><div className="rec-more-heading"><h2 id="rec-more-title">还有更多</h2>
             <span className="rec-result-count">{state.data ? `本轮 ${state.data.count} 部作品` : ''}</span></div>
-            <div className="rec-grid">{state.items.slice(1).map((item) => <RecommendationCard key={item.id} {...cardProps(item)} />)}</div></>}
+            <div className="rec-grid">{state.items.slice(1).map((item) => <RecommendationCard key={item.id} {...cardProps(item)} />)}</div></section>}
           <RecommendationBatchActions state={state} onMore={state.loadMore} onBatch={nextBatch}
             onReload={() => reload()} onFilter={openFilters} onRestart={() => reload()} /></>}
       </section>

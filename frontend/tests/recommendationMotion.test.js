@@ -1,127 +1,142 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createRecommendationMotion, REC_MOTION } from '../src/utils/recommendationMotion.js'
+import { createRecommendationMotion, createRecommendationEntranceState } from '../src/utils/recommendationMotion.js'
 
-function fixture({ reduced = false, observerAvailable = true } = {}) {
-  const calls = [], contexts = [], observers = [], listeners = new Map(), mediaListeners = new Set()
-  const node = (id, hero = false) => ({ isConnected: true, dataset: { recMotionId: id },
-    classList: { contains: name => hero && name === 'rec-card--hero' } })
-  const hero = node('101', true), card = node('102'), note = node('note'), masthead = node('head')
-  const root = { cards: [hero, card], isConnected: true,
-    contains: target => [masthead, note, ...root.cards, root.body, root.details].includes(target),
-    querySelectorAll: selector => selector === '.rec-masthead' ? [masthead] : root.cards,
-    querySelector: () => note,
+function fixture({ reduced = false, entrance = createRecommendationEntranceState() } = {}) {
+  const calls = [], contexts = [], timelines = [], listeners = new Map(), mediaListeners = new Set()
+  const node = id => ({ id, isConnected: true })
+  const head = node('head'), hero = node('hero'), note = node('note'), more = node('more')
+  const root = { isConnected: true, more,
+    contains: target => [head, hero, note, root.more, root.body, root.details].includes(target),
+    querySelectorAll: selector => selector === '.rec-masthead' ? [head] : [hero, note],
+    querySelector: () => root.more,
     addEventListener: (name, fn) => listeners.set(name, fn),
     removeEventListener: (name, fn) => { if (listeners.get(name) === fn) listeners.delete(name) } }
   const media = { matches: reduced, addEventListener: (_, fn) => mediaListeners.add(fn), removeEventListener: (_, fn) => mediaListeners.delete(fn) }
-  const gsap = { context: (fn, scope) => {
-    const context = { scope, reverts: 0, revert() { this.reverts++ } }; contexts.push(context); fn(); return context
-  }, fromTo: (targets, from, to) => calls.push({ targets, from, to }) }
-  const observe = observerAvailable ? callback => {
-    const observer = { callback, nodes: new Set(), disconnected: false,
-      observe(target) { this.nodes.add(target) }, unobserve(target) { this.nodes.delete(target) },
-      disconnect() { this.disconnected = true; this.nodes.clear() } }
-    observers.push(observer); return observer
-  } : null
-  const motion = createRecommendationMotion({ root, gsap, media, observe })
-  return { root, hero, card, note, calls, contexts, observers, listeners, mediaListeners, motion, node,
-    visible(observer = observers.at(-1), targets = [...observer.nodes]) { observer.callback(targets.map(target => ({ target, isIntersecting: true }))) },
+  const gsap = {
+    context(fn, scope) {
+      const context = { scope, reverts: 0, revert() { this.reverts++ } }
+      contexts.push(context); fn(); return context
+    },
+    set() {},
+    fromTo(targets, from, to) { calls.push({ targets, from, to }) },
+    timeline(options) {
+      const timeline = { options, steps: [], plays: 0,
+        fromTo(targets, from, to, position) { this.steps.push({ targets, from, to, position }); return this },
+        play() { this.plays++; return this } }
+      timelines.push(timeline); return timeline
+    },
+  }
+  const motion = createRecommendationMotion({ root, gsap, media, entrance })
+  return { root, head, hero, note, more, entrance, calls, contexts, timelines, listeners, mediaListeners, motion,
+    finishShell() { calls[0].to.onComplete() },
+    startResults() { for (const step of timelines.at(-1).steps) step.to.onStart() },
+    finishResults() { this.startResults(); timelines.at(-1).options.onComplete() },
     reduced(value) { media.matches = value; for (const fn of mediaListeners) fn() } }
 }
 
-test('R3 uses short scoped GSAP entries and once-only viewport card reveal without hiding static content', () => {
-  const f = fixture(); f.motion.enterPage(); f.motion.updateResults('a', true)
-  assert.equal(f.calls.length, 3) // masthead, hero, taste; offscreen card is untouched
-  f.visible(); assert.equal(f.calls.length, 4)
-  for (const call of f.calls) {
-    assert.ok(call.from.opacity >= .5); assert.ok(call.to.duration <= .4)
-    assert.equal(call.to.opacity, 1); assert.equal(call.to.y, 0)
-    assert.ok(call.to.stagger * (call.targets.length - 1) <= .12)
-  }
-  for (const call of f.calls) call.to.onComplete()
-  assert.ok(f.contexts.every(ctx => ctx.scope === f.root && ctx.reverts === 1))
+test('menu enters before featured/taste together, then the entire more section', () => {
+  const f = fixture(); f.motion.enterPage(); f.motion.updateResults('first', true)
+  assert.equal(f.calls.length, 1)
+  assert.deepEqual(f.calls[0].targets, [f.head])
+  const timeline = f.timelines[0]
+  assert.equal(timeline.plays, 0)
+  assert.deepEqual(timeline.steps[0].targets, [f.hero, f.note])
+  assert.equal(timeline.steps[1].targets, f.more)
+  assert.ok(timeline.steps[1].position > timeline.steps[0].to.duration + timeline.steps[0].to.stagger)
+  f.finishShell(); assert.equal(timeline.plays, 1)
+  f.finishResults(); assert.ok(f.contexts.every(ctx => ctx.scope === f.root && ctx.reverts === 1))
   f.motion.dispose()
 })
 
-test('R3 append animates only new DOM identities; ordinary button/status renders do not replay old cards', () => {
-  const f = fixture(); f.motion.updateResults('a', true); f.visible()
-  const before = f.calls.length
-  f.motion.updateResults('a', true); assert.equal(f.calls.length, before)
-  const added = f.node('103'); f.root.cards.push(added)
-  f.motion.updateResults('a', true); f.visible()
-  assert.equal(f.calls.length, before + 1)
-  assert.deepEqual(f.calls.at(-1).targets, [added])
-  f.motion.dispose()
+test('loading does not consume result entrance; delayed data starts after the completed menu', () => {
+  const f = fixture(); f.motion.enterPage(); f.motion.updateResults('loading', false)
+  f.finishShell(); assert.equal(f.timelines.length, 0)
+  assert.equal(f.entrance.featured, false)
+  f.motion.updateResults('ready', true)
+  assert.equal(f.timelines[0].plays, 1)
+  f.finishResults(); f.motion.dispose()
 })
 
-test('R3 changed context cancels old scopes and rejects disconnected or late observer callbacks', () => {
-  const f = fixture(); f.motion.updateResults('a', true)
-  const old = f.observers[0], oldCard = f.card
-  const oldComplete = f.calls[0].to.onComplete
-  f.root.cards = [f.node('201', true), f.node('202')]
-  f.motion.updateResults('b', true)
-  const count = f.calls.length
-  old.callback([{ target: oldCard, isIntersecting: true }]); oldComplete()
-  assert.equal(f.calls.length, count); assert.equal(old.disconnected, true)
-  assert.equal(f.contexts[0].reverts, 1)
-  f.visible(); assert.deepEqual(f.calls.at(-1).targets, [f.root.cards[1]])
+test('filters, reloads, batches and route remounts do not replay played modules; document refresh resets', () => {
+  const entrance = createRecommendationEntranceState()
+  const f = fixture({ entrance }); f.motion.enterPage(); f.motion.updateResults('first', true)
+  f.finishShell(); f.finishResults()
+  f.motion.updateResults('first', true)
+  f.motion.updateResults('loading', false); f.motion.updateResults('different-batch', true)
+  assert.equal(f.timelines.length, 1)
   f.motion.dispose()
+  const routeReturn = fixture({ entrance }); routeReturn.motion.enterPage(); routeReturn.motion.updateResults('new-route', true)
+  assert.equal(routeReturn.calls.length, 0); assert.equal(routeReturn.timelines.length, 0)
+  routeReturn.motion.dispose()
+  const refresh = fixture(); refresh.motion.enterPage()
+  assert.equal(refresh.calls.length, 1)
+  refresh.motion.dispose()
 })
 
-test('R3 reduced motion works on first render and cancels mid-flight scopes without replay on preference change', () => {
-  const f = fixture({ reduced: true }); f.motion.enterPage(); f.motion.updateResults('a', true)
-  assert.equal(f.calls.length, 0); assert.equal(f.observers.length, 0)
-  f.reduced(false); f.motion.updateResults('a', true); assert.equal(f.calls.length, 0)
-  f.root.cards.push(f.node('103')); f.motion.updateResults('a', true); f.visible()
-  const old = f.observers.at(-1); assert.equal(f.calls.length, 1)
-  f.reduced(true); assert.equal(f.contexts[0].reverts, 1); assert.equal(old.disconnected, true)
-  old.callback([{ target: f.root.cards[2], isIntersecting: true }]); assert.equal(f.calls.length, 1)
-  f.reduced(false)
-  f.root.cards.push(f.node('104')); f.motion.updateResults('a', true)
-  old.callback([{ target: f.root.cards[3], isIntersecting: true }]); assert.equal(f.calls.length, 1)
-  f.visible(); assert.equal(f.calls.length, 2)
-  f.motion.dispose()
+test('an initially absent section can enter when first available, without replaying featured', () => {
+  const f = fixture(); f.root.more = null
+  f.motion.enterPage(); f.finishShell(); f.motion.updateResults('single', true); f.finishResults()
+  assert.equal(f.entrance.more, false)
+  f.root.more = f.more; f.motion.updateResults('appended', true)
+  assert.equal(f.timelines[1].steps.length, 1)
+  assert.equal(f.timelines[1].steps[0].targets, f.more)
+  f.finishResults(); f.motion.dispose()
 })
 
-test('R3 loading/blocked transitions and repeated disposal release local contexts, listeners and observers', () => {
-  const f = fixture(); f.motion.updateResults('a', true)
-  f.motion.updateResults('a', false)
-  assert.ok(f.contexts.every(ctx => ctx.reverts === 1)); assert.ok(f.observers.every(observer => observer.disconnected))
+test('invalidation cancels hidden waiting stages; late shell completion cannot restart cancelled work', () => {
+  const f = fixture(); f.motion.enterPage(); f.motion.updateResults('first', true)
+  const cancelled = f.timelines[0]
+  f.motion.updateResults('first', false)
+  assert.equal(f.contexts[1].reverts, 1)
+  f.finishShell(); assert.equal(cancelled.plays, 0)
+  f.motion.updateResults('retry', true); assert.equal(f.timelines[1].plays, 1)
   f.motion.dispose(); f.motion.dispose()
+  assert.ok(f.contexts.every(ctx => ctx.reverts === 1))
   assert.equal(f.listeners.size, 0); assert.equal(f.mediaListeners.size, 0)
-  const count = f.calls.length; f.motion.updateResults('b', true); assert.equal(f.calls.length, count)
 })
 
-test('R3 missing IntersectionObserver still reveals cards, and total stagger is bounded for a full batch', () => {
-  const f = fixture({ observerAvailable: false })
-  f.root.cards.push(...Array.from({ length: 22 }, (_, index) => f.node(String(index + 103))))
-  f.motion.updateResults('a', true)
-  assert.equal(f.calls.at(-1).targets.length, 23)
-  assert.ok(f.calls.at(-1).to.stagger * 22 <= .12)
-  assert.equal(REC_MOTION.result, .36)
+test('reduced motion restores visible CSS mid-flight and never replays after preference changes', () => {
+  const f = fixture({ reduced: true }); f.motion.enterPage(); f.motion.updateResults('first', true)
+  f.reduced(false); f.motion.updateResults('second', true)
+  assert.equal(f.calls.length, 0); assert.equal(f.timelines.length, 0)
   f.motion.dispose()
+  const active = fixture(); active.motion.enterPage(); active.motion.updateResults('first', true)
+  active.reduced(true)
+  assert.ok(active.contexts.every(ctx => ctx.reverts === 1))
+  active.finishShell(); assert.equal(active.timelines[0].plays, 0)
+  active.reduced(false); active.motion.updateResults('second', true)
+  assert.equal(active.timelines.length, 1)
+  active.motion.dispose()
 })
 
-test('R3 evidence reveal has one owner; closing details cancels local motion without business callbacks', () => {
-  const f = fixture(); const body = f.node('body')
-  const details = { ...f.node('details'), open: true, matches: () => true, closest: () => null, querySelector: () => body }
+test('StrictMode cleanup before first completion leaves the real mount able to enter', () => {
+  const entrance = createRecommendationEntranceState()
+  const probe = fixture({ entrance }); probe.motion.enterPage(); probe.motion.dispose()
+  assert.equal(entrance.shell, false)
+  const real = fixture({ entrance }); real.motion.enterPage(); real.finishShell()
+  real.motion.updateResults('ready', true); real.finishResults(); real.motion.dispose()
+  assert.equal(entrance.shell, true)
+})
+
+test('leaving after the menu starts consumes its entrance even before completion', () => {
+  const entrance = createRecommendationEntranceState()
+  const first = fixture({ entrance }); first.motion.enterPage()
+  first.calls[0].to.onStart(); first.motion.dispose()
+  const returned = fixture({ entrance }); returned.motion.enterPage()
+  assert.equal(returned.calls.length, 0)
+  returned.motion.dispose()
+})
+
+test('dialog and evidence entrances stay local and independent of once-only page state', () => {
+  const f = fixture({ entrance: { shell: true, featured: true, more: true } })
+  f.motion.enterDialog('preferences'); assert.equal(f.calls.length, 1)
+  const body = { isConnected: true }
+  const details = { isConnected: true, open: true, matches: () => true, closest: () => null, querySelector: () => body }
   f.root.body = body; f.root.details = details
-  f.listeners.get('toggle')({ target: details }); assert.equal(f.calls.length, 1)
-  details.open = false; f.listeners.get('toggle')({ target: details }); assert.equal(f.contexts[0].reverts, 1)
-  details.open = true; details.closest = () => ({}) // page must not also own native-dialog evidence
-  f.listeners.get('toggle')({ target: details }); assert.equal(f.calls.length, 1)
+  f.listeners.get('toggle')({ target: details }); assert.equal(f.calls.length, 2)
+  details.open = false; f.listeners.get('toggle')({ target: details }); assert.equal(f.contexts[1].reverts, 1)
+  details.open = true; details.closest = () => ({})
+  f.listeners.get('toggle')({ target: details }); assert.equal(f.calls.length, 2)
   f.motion.dispose()
-})
-
-test('R3 reusing a DOM node for a new identity cancels its old tween before starting another', () => {
-  const f = fixture(); f.motion.updateResults('a', true)
-  const old = f.calls[0], oldContext = f.contexts[0]
-  f.hero.dataset.recMotionId = '201'
-  f.motion.updateResults('a', true)
-  assert.equal(oldContext.reverts, 1)
-  old.to.onComplete(); assert.equal(oldContext.reverts, 1)
-  const current = f.calls.findLast(call => call.targets.includes(f.hero))
-  assert.notEqual(current, old)
-  current.to.onComplete(); f.motion.dispose()
-  assert.ok(f.contexts.every(context => context.reverts === 1))
 })

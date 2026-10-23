@@ -1,12 +1,15 @@
 import { useLayoutEffect, useRef } from 'react'
 import gsap from 'gsap'
-import { createRecommendationMotion } from '../utils/recommendationMotion.js'
+import { createRecommendationMotion, createRecommendationEntranceState } from '../utils/recommendationMotion.js'
+
+// In-memory document lifetime: survives route remounts, resets on browser refresh.
+const pageEntrance = createRecommendationEntranceState()
 
 export default function useRecommendationMotion(rootRef, { status, epoch, ids, blocked }) {
   const motion = useRef(null)
   useLayoutEffect(() => {
     if (!rootRef.current) return undefined
-    const controller = createRecommendationMotion({ root: rootRef.current, gsap,
+    const controller = createRecommendationMotion({ root: rootRef.current, gsap, entrance: pageEntrance,
       media: window.matchMedia('(prefers-reduced-motion: reduce)') })
     motion.current = controller
     controller.enterPage()

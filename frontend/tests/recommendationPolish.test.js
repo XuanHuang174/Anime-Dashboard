@@ -50,7 +50,7 @@ test('journal banner preserves its own sparkle icon with shared animation and bo
 
 test('recommendation continuation heading is 还有更多', () => {
   const page = read('../src/pages/Recommendations.jsx')
-  assert.match(page, /<h2>还有更多<\/h2>/); assert.doesNotMatch(page, /继续发现/)
+  assert.match(page, /<h2\b[^>]*>还有更多<\/h2>/); assert.doesNotMatch(page, /继续发现/)
 })
 
 test('resource notice uses the exact supplied copy and stays within reusable drawer', () => {

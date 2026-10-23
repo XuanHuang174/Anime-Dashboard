@@ -175,6 +175,12 @@ select {
   isolation: isolate;
 }
 
+/* Keep header spacing inside the painted page, without collapsing top margins. */
+.memphis-dashboard {
+  display: flow-root;
+  padding-top: 16px;
+}
+
 .dashboard-console-pattern {
   opacity: 0.2;
   background-image:
@@ -1457,17 +1463,17 @@ select {
 }
 
 .memphis-back-to-top {
-  border: 4px solid var(--memphis-ink);
+  border: 4px solid var(--memphis-ink, #111111);
   border-radius: 0;
-  background: var(--memphis-yellow);
-  color: var(--memphis-ink);
-  box-shadow: 6px 6px 0 var(--memphis-coral);
+  background: var(--memphis-yellow, #ffe66d);
+  color: var(--memphis-ink, #111111);
+  box-shadow: 6px 6px 0 var(--memphis-coral, #ff6b6b);
 }
 
 .memphis-back-to-top:hover,
 .memphis-back-to-top:active {
   transform: translate(6px, 6px) !important;
-  background: var(--memphis-teal);
+  background: var(--memphis-teal, #4ecdc4);
   box-shadow: none;
 }
 
