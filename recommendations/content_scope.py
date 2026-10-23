@@ -156,6 +156,9 @@ def verify_response_catalog(data, scope):
         return
     rows = data.get('results', [data] if 'bangumi_id' in data else [])
     candidates, sources = set(), set()
+    selected_seed = data.get('selected_seed') or {}
+    if selected_seed.get('bangumi_id'):
+        candidates.add(selected_seed['bangumi_id'])
     for row in rows:
         if row.get('bangumi_id'):
             candidates.add(row['bangumi_id'])
@@ -163,6 +166,8 @@ def verify_response_catalog(data, scope):
         evidence = row.get('evidence') or {}
         if evidence.get('kind') == 'rated_work' and evidence.get('source', {}).get('bangumi_id'):
             sources.add(evidence['source']['bangumi_id'])
+        if evidence.get('kind') == 'selected_work' and evidence.get('source', {}).get('bangumi_id'):
+            candidates.add(evidence['source']['bangumi_id'])
     from .identity import safe_catalog
     from .engine import RecommendationSnapshotChanged
     if (candidates and candidates != set(catalog_for_scope(scope).filter(bangumi_id__in=candidates).values_list('bangumi_id', flat=True))

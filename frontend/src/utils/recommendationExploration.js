@@ -24,7 +24,9 @@ export function explorationNavigationLabel(id, current) {
 
 export function validateExplorationCapabilities(data) {
   if (data?.contract_version !== EXPLORATION_VERSIONS.capabilities || typeof data.enabled !== 'boolean'
-    || data.catalog_search_enabled !== data.enabled || data.query_execution_enabled !== false
+    || data.catalog_search_enabled !== data.enabled || typeof data.query_execution_enabled !== 'boolean'
+    || data.query_execution_enabled && (!data.enabled || JSON.stringify(data.supported_intents) !== '["similar"]')
+    || data.supported_intents !== undefined && JSON.stringify(data.supported_intents) !== '["similar"]'
     || !['query', 'catalog', 'evidence', 'result'].every(key => data[`${key}_contract_version`] === EXPLORATION_VERSIONS[key])
     || !Array.isArray(data.navigation) || data.navigation.length !== 3
     || !EXPLORATION_NAVIGATION.every((row, index) => Object.entries(row).every(([key, value]) => data.navigation[index]?.[key] === value)

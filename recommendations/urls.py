@@ -9,11 +9,15 @@ from .eligibility_views import RecommendationEligibilityView, RecommendationElig
 
 app_name = 'recommendations'
 
-from .exploration_views import ExplorationCatalogView, ExplorationContractView
+from .exploration_views import (ExplorationCatalogView, ExplorationContractView,
+    ExplorationListView, ExplorationDetailView, ExplorationContextView)
 
 from .access_admin_views import AccessControlView, AccessApplicationsView, AccessApplicationView
 
 urlpatterns = [
+    path('explore/', ExplorationListView.as_view(), name='explore-list'),
+    path('explore/context/', ExplorationContextView.as_view(), name='explore-context'),
+    path('explore/<int:bangumi_id>/', ExplorationDetailView.as_view(), name='explore-detail'),
     path('explore/catalog/', ExplorationCatalogView.as_view(), name='explore-catalog'),
     path('explore/contract/', ExplorationContractView.as_view(), name='explore-contract'),
     path('admin/control/', AccessControlView.as_view()),

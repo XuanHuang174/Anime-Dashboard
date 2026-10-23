@@ -112,6 +112,10 @@ GET /api/recommendations/explore/catalog/?q=https%3A%2F%2Fbgm.tv%2Fsubject%2F123
 
 本阶段不涉及新页面布局，未将浏览器视觉验收标记为通过。相关机器日志位于 Git 忽略的 `.tools/11a-*.log`。
 
-## 下一阶段
+## 后续进展
+
+2026-10-24：11B 已完成单番相似后端。下述 11A 记录中的 `query_execution_enabled=false` 为当时阶段状态；当前开关开启时单番执行为 true、`supported_intents=[similar]`，可视导航仍待 11C。详见 [11B 实施记录](recommendations-11b.md)。
+
+## 下一阶段（11A 完成时）
 
 11B 基于现有目录选择和严格查询规范，实现单番相似的真实排序、前置结果筛选、独立证据、签名快照及详情接入。11C 再接入最终导航和可交互页面。生产开关在完成相应发布验收前保持关闭。

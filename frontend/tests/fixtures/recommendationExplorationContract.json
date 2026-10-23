@@ -4,7 +4,10 @@
     "contract_version": "recommendations.explore.capabilities.v1",
     "enabled": true,
     "catalog_search_enabled": true,
-    "query_execution_enabled": false,
+    "query_execution_enabled": true,
+    "supported_intents": [
+      "similar"
+    ],
     "query_contract_version": "recommendations.explore.query.v1",
     "catalog_contract_version": "recommendations.explore.catalog.v1",
     "evidence_contract_version": "recommendations.explore.evidence.v1",

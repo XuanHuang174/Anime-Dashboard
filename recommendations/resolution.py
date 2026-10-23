@@ -19,11 +19,15 @@ def record_row(record):
     return UserAnimeRecord.objects.filter(pk=record.pk).values(*RECORD_FIELDS).get()
 
 
-def resolved_records(user, *, allowed_adult_ids=()):
+def resolved_records(user, *, allowed_adult_ids=(), include_profile=True, max_rows=None):
     query = UserAnimeRecord.objects.filter(user=user).order_by('pk')
+    if max_rows is not None:
+        query = query[:max_rows + 1]
+    fields = RECORD_FIELDS if include_profile else tuple(field for field in RECORD_FIELDS if field not in (
+        'personal_score', 'custom_tags', 'private_base_tags', 'anime__base_tags'))
     try:
         with transaction.atomic():
-            rows = ResolvedRecords(query.values(*RECORD_FIELDS, *LINK_FIELDS))
+            rows = ResolvedRecords(query.values(*fields, *LINK_FIELDS))
     except DatabaseError as exc:
         # Rolling deploy bridge ONLY for the new alias table. Other DB faults stay 503.
         cause = exc.__cause__
@@ -31,10 +35,17 @@ def resolved_records(user, *, allowed_adult_ids=()):
                    or 'no such table:' in str(exc))
         if not missing or 'recommendations_recommendationrecordidentity' not in str(exc):
             raise
-        rows = ResolvedRecords(query.values(*RECORD_FIELDS))
+        rows = ResolvedRecords(query.values(*fields))
         rows.schema_available = False
         for row in rows:
             row.update({field: None for field in LINK_FIELDS})
+    if max_rows is not None and len(rows) > max_rows:
+        from .engine import RecommendationUnavailable
+        raise RecommendationUnavailable('手账身份数量超出处理上限。')
+    if not include_profile:
+        for row in rows:
+            # Identity fingerprints use titles/quarter only, never these tags.
+            row.update(private_base_tags=[], anime__base_tags=[])
     ids = {value for row in rows for value in (row['anime__bgm_id'], row[LINK_FIELDS[0]]) if value}
     catalog = {row['bangumi_id']: row for row in RecommendationAnime.objects.filter(bangumi_id__in=ids)
                .values('pk', 'bangumi_id', 'title_zh', 'title_jp', 'season', 'status_type', 'nsfw')}

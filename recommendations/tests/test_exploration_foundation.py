@@ -105,7 +105,8 @@ class ExplorationContractTests(SimpleTestCase):
         with self.settings(RECOMMENDATION_EXPLORATION_ENABLED=True):
             data = capabilities()
             self.assertTrue(data['catalog_search_enabled'])
-            self.assertFalse(data['query_execution_enabled'])
+            self.assertTrue(data['query_execution_enabled'])
+            self.assertEqual(data['supported_intents'], ['similar'])
             self.assertEqual([row['label'] for row in data['navigation']], ['个性化推荐', '单番相似', '按标签找'])
             self.assertEqual([row['available'] for row in data['navigation']], [True, False, False])
 
@@ -248,7 +249,7 @@ class ExplorationCatalogTests(TestCase):
         data = self.client.get('/api/recommendations/explore/contract/').data
         self.assertEqual(data['query']['intents']['similar'], 'similarity.v1')
         self.assertEqual(data['evidence']['kinds']['tags'], 'selected_tags')
-        self.assertFalse(data['capabilities']['query_execution_enabled'])
+        self.assertTrue(data['capabilities']['query_execution_enabled'])
         self.assertEqual(self.client.get('/api/recommendations/explore/contract/', {'user_id': 1}).status_code, 400)
 
     def test_throttle_database_fault_and_catalog_limit_fail_explicitly(self):

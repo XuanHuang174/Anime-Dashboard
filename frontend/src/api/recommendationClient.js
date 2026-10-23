@@ -25,7 +25,10 @@ export function createRecommendationClient(transport, scope = 'safe', onLost = (
       }
       return response
     }).catch(error => {
-      if (controlled && scope === 'include_adult' && !config.signal?.aborted && (error.scopeLost || error.response?.status === 403 || error.response?.status === 409)) onLost()
+      const explorationChanged = path.startsWith('recommendations/explore/') && error.response?.status === 409
+        && error.response?.data?.code === 'exploration_snapshot_changed'
+      if (controlled && scope === 'include_adult' && !config.signal?.aborted
+        && (error.scopeLost || error.response?.status === 403 || error.response?.status === 409 && !explorationChanged)) onLost()
       throw error
     })
   }
@@ -37,6 +40,19 @@ export function createRecommendationClient(transport, scope = 'safe', onLost = (
     capabilities: signal => client.get('recommendations/capabilities/', { signal }).then(r => r.data),
     explorationContract: signal => client.get('recommendations/explore/contract/', { signal }).then(r => r.data),
     explorationCatalog: (q, signal) => client.get('recommendations/explore/catalog/', { params: { q }, signal }).then(r => r.data),
+    explorationBrowse: (query, signal) => client.get('recommendations/explore/', {
+      params: query.cursor ? { cursor: query.cursor } : query, signal }).then(r => r.data),
+    explorationContext: (snapshotContext, signal) => {
+      if (typeof snapshotContext !== 'string' || !snapshotContext.length || snapshotContext.length > 8192) return Promise.reject(new Error('探索上下文无效'))
+      return client.get('recommendations/explore/context/', { params: { snapshot_context: snapshotContext }, signal }).then(r => r.data)
+    },
+    explorationDetail: (identity, detailContext, signal, evidenceToken) => {
+      if (!Number.isInteger(identity) || identity < 1 || identity > 2147483647
+        || typeof detailContext !== 'string' || !detailContext.length || detailContext.length > 8192
+        || evidenceToken !== undefined && !/^[a-f0-9]{64}$/.test(evidenceToken)) return Promise.reject(new Error('探索详情上下文无效'))
+      return client.get(`recommendations/explore/${identity}/`, { signal, params: { detail_context: detailContext,
+        ...(evidenceToken ? { evidence_token: evidenceToken } : {}) } }).then(r => r.data)
+    },
     context: signal => client.get('recommendations/context/', { signal }).then(r => r.data),
     profile: (signal) => client.get('recommendations/profile/', { signal }).then((r) => r.data),
     previewProfile: (profileMinScore, signal) => client.get('recommendations/profile/preview/', {

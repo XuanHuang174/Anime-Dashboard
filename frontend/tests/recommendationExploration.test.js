@@ -101,6 +101,36 @@ test('exploration transport shares explicit scope checks and uses only GET', asy
   await assert.rejects(invalid.explorationCatalog('选择')); assert.equal(lost, 1)
 })
 
+test('11B execution/continuation/detail use separate scoped routes and reject bad identity/context', async () => {
+  const calls = [], transport = { get: async (path, config) => {
+    calls.push({ path, config }); return { data: { content_scope_context: adultScope } }
+  } }
+  const client = createRecommendationClient(transport).forScope('include_adult')
+  await client.explorationBrowse({ intent: 'similar', seed_bangumi_id: 12 })
+  await client.explorationBrowse({ cursor: 'signed-cursor' })
+  await client.explorationContext('signed-context')
+  await client.explorationDetail(13, 'signed-detail', undefined, 'd'.repeat(64))
+  assert.ok(calls.every(call => call.config.params.content_scope === 'include_adult'))
+  assert.deepEqual(calls[1].config.params, { cursor: 'signed-cursor', content_scope: 'include_adult' })
+  assert.equal(calls[3].path, 'recommendations/explore/13/')
+  assert.equal(calls[3].config.params.evidence_token, 'd'.repeat(64))
+  await assert.rejects(client.explorationDetail(2147483648, 'signed-detail'))
+  await assert.rejects(client.explorationDetail(13, ''))
+  await assert.rejects(client.explorationContext('x'.repeat(8193)))
+  assert.equal(calls.length, 4)
+})
+
+test('11B snapshot changes preserve a valid adult selection; actual scope failures still notify', async () => {
+  let lost = 0, data = { code: 'exploration_snapshot_changed' }
+  const client = createRecommendationClient({ get: async () => { throw { response: { status: 409, data } } } })
+    .forScope('include_adult', () => lost++)
+  await assert.rejects(client.explorationBrowse({ cursor: 'old' }))
+  await assert.rejects(client.explorationDetail(12, 'old'))
+  assert.equal(lost, 0)
+  data = { detail: '内容范围已变化' }
+  await assert.rejects(client.explorationBrowse({ cursor: 'old' })); assert.equal(lost, 1)
+})
+
 test('late query responses cannot overwrite new results, even when transport ignores abort', async () => {
   const first = deferred(), second = deferred(), calls = []
   const controller = createExplorationSearchController({ explorationCatalog(q, signal) {

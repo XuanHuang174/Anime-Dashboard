@@ -7,7 +7,7 @@ import unicodedata
 from django.conf import settings
 from rest_framework import serializers
 
-from .engine import RecommendationUnavailable
+from .engine import RecommendationUnavailable, RecommendationSnapshotChanged
 from .normalization import clean_id
 from .taxonomy import AVAILABLE_TAGS, TAXONOMY_VERSION, canonical_tag
 
@@ -35,6 +35,11 @@ class ExplorationDisabled(RecommendationUnavailable):
     default_detail = {'code': 'exploration_disabled', 'detail': '探索功能暂未开放。'}
 
 
+class ExplorationSnapshotChanged(RecommendationSnapshotChanged):
+    def __init__(self, detail='探索依据已变化，请重新探索。'):
+        super().__init__({'code': 'exploration_snapshot_changed', 'detail': detail})
+
+
 def require_enabled():
     if not enabled():
         raise ExplorationDisabled()
@@ -42,7 +47,8 @@ def require_enabled():
 
 def capabilities():
     return {'contract_version': CAPABILITIES_VERSION, 'enabled': enabled(),
-            'catalog_search_enabled': enabled(), 'query_execution_enabled': False,
+            'catalog_search_enabled': enabled(), 'query_execution_enabled': enabled(),
+            'supported_intents': ['similar'],
             'query_contract_version': QUERY_VERSION, 'catalog_contract_version': CATALOG_VERSION,
             'evidence_contract_version': EVIDENCE_VERSION, 'result_contract_version': RESULT_VERSION,
             'navigation': [dict(row) for row in NAVIGATION]}
@@ -121,7 +127,7 @@ class TopicSetField(serializers.CharField):
 
 
 class ExplorationQuerySerializer(StrictQuerySerializer):
-    """Normative first-query schema for 11B/11D; NOT an executable endpoint yet."""
+    """Initial-query schema. 11B executes similar; tags remains prepared for 11D."""
     intent = serializers.ChoiceField(choices=tuple(POLICIES))
     seed_bangumi_id = BangumiIDField(required=False)
     include_tags = TopicSetField(required=False)
@@ -159,6 +165,19 @@ class ExplorationQuerySerializer(StrictQuerySerializer):
             if set(attrs['include_tags']) & set(attrs['exclude_tags']):
                 raise serializers.ValidationError('同一题材不能同时包含与排除。')
         return attrs
+
+
+class ExplorationCursorQuerySerializer(StrictQuerySerializer):
+    cursor = serializers.CharField(max_length=8192, trim_whitespace=False)
+
+
+class ExplorationDetailQuerySerializer(StrictQuerySerializer):
+    detail_context = serializers.CharField(max_length=8192, trim_whitespace=False)
+    evidence_token = serializers.RegexField(r'\A[a-f0-9]{64}\Z', required=False)
+
+
+class ExplorationContextQuerySerializer(StrictQuerySerializer):
+    snapshot_context = serializers.CharField(max_length=8192, trim_whitespace=False)
 
 
 def query_fingerprint(validated_query):
