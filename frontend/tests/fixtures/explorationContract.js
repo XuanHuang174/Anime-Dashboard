@@ -29,4 +29,14 @@ export function detail(id = 10) {
   return { ...item(id), synopsis: '合成公开简介', contract_version: 'recommendations.explore.detail.v1', intent: 'similar', query: { ...query },
     selected_seed: seed, snapshot_expires_at: Math.floor(Date.now() / 1000) + 900, content_scope_context: scope }
 }
+export function tagPage(q, options = {}) {
+  const data = page(options), context = { ...versions, ranking_policy_version: 'tag-explore.v1' }
+  return { ...data, intent: 'tags', algorithm_version: 'tag-explore.v1', query: structuredClone(q), selected_seed: null, evidence_context: context,
+    results: data.results.map(row => ({ ...row, tags: [...q.include_tags], reason: `命中 ${q.include_tags.length}/${q.include_tags.length} 个所选题材。`, evidence_context: context,
+      evidence: { ...row.evidence, kind: 'selected_tags', source: null, shared_tags: [...q.include_tags], versions: context } })) }
+}
+export function tagDetail(q, id = 10) {
+  const data = tagPage(q)
+  return { ...detail(id), ...data.results[0], bangumi_id: id, title_zh: `合成故事${id}`, query: data.query, intent: 'tags', selected_seed: null, evidence_context: data.evidence_context }
+}
 export const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no }); return { promise, resolve, reject } }

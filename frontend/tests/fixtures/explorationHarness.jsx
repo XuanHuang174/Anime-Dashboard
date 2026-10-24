@@ -4,7 +4,7 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Route, Routes, Link } from 'react-router-dom'
 import Recommendations from '../../src/pages/Recommendations.jsx'
 import api from '../../src/api/api.js'
-import { page, detail, query, seed, versions, scope, adultScope } from './explorationContract.js'
+import { page, detail, tagPage, tagDetail, query, seed, versions, scope, adultScope } from './explorationContract.js'
 import contract from './recommendationExplorationContract.json'
 import { normalizeExplorationSearch } from '../../src/utils/recommendationExploration.js'
 import { preferences, profileData, coldState, versions as profileVersions } from './profileSampling.js'
@@ -16,7 +16,7 @@ localStorage.setItem('anime_journal_access_token', 'synthetic-11c-only')
 const owned = new Set(), hidden = new Map(), calls = []
 let expires = Math.floor(Date.now() / 1000) + 900
 let feedbackVersion = 0
-let activeQuery = query, activeScope = scope, activeSeed = seed
+const snapshots = new Map(); let serial = 0
 const fail = (status, code) => { throw { response: { status, data: { code } } } }
 const wait = async (name, signal) => {
   calls.push(name); await new Promise(resolve => setTimeout(resolve, 100))
@@ -41,30 +41,49 @@ function scopedClient(selectedScope = 'safe') {
     forScope: value => scopedClient(value),
     capabilities: async signal => { await wait('capabilities', signal); return { contract_version: 'recommendations.capabilities.v1',
       exploration: contract.capabilities, algorithm_version: 'content.v1', browse_enabled: true, rollout_revision: 'b'.repeat(64) } },
+    explorationContract: async signal => { await wait('contract', signal); return { ...contract, content_scope_context: scopeContext } },
+    explorationOptions: async signal => { await wait('options', signal); return { contract_version: contract.capabilities.options_contract_version, taxonomy_version: 'genres.v8',
+      feature_rule_version: 'journal-genres.v3', catalog_feature_version: versions.catalog_feature_version, count_definition: 'scoped_catalog_without_result_filters',
+      catalog_count: 30, count_description: '当前内容范围的目录数量，未叠加结果筛选；不扣除已有记录或隐藏反馈。',
+      exclusion_description: '按目录已有标注筛选，不能保证作品绝无相关内容。', content_scope_context: scopeContext,
+      tags: contract.available_tags.map((tag, i) => ({ tag, count: i < 4 || tag === '音乐' ? 30 : 0 })) } },
     explorationCatalog: async (raw, signal) => { await wait(`search:${raw}`, signal); const q = normalizeExplorationSearch(raw)
       return { contract_version: contract.search.contract_version, identity_namespace: 'bangumi', taxonomy_version: 'genres.v8', feature_rule_version: 'journal-genres.v3',
         query: q, limit: 15, has_more: false, content_scope_context: scopeContext,
         results: q.kind === 'bangumi_id' ? [catalogRow(Number(q.value))] : [catalogRow(1), catalogRow(3)] } },
     explorationBrowse: async (params, signal) => {
       await wait(`browse:${JSON.stringify(params)}`, signal)
-      if (!params.cursor) { activeQuery = params; activeSeed = catalogRow(params.seed_bangumi_id); activeScope = scopeContext; expires = Math.floor(Date.now() / 1000) + 900 }
-      const ids = Array.from({ length: 30 }, (_, n) => n + 10).filter(id => id !== activeQuery.seed_bangumi_id && !hidden.get(id)?.is_active && (!activeQuery.hide_recorded || !owned.has(id)))
-      const batch = params.cursor === 'batch-two' ? 2 : 1, part = params.cursor === 'page-two' ? 2 : 1
-      const data = page({ batch, part, count: ids.length }), offset = (batch - 1) * 24 + (part - 1) * 12
-      data.query = activeQuery; data.selected_seed = activeSeed; data.snapshot_expires_at = expires; data.content_scope_context = scopeContext
-      data.batch_hero_bangumi_id = ids[(batch - 1) * 24]
+      const snapshotId = params.cursor ? params.cursor.split(':')[0] : (++serial).toString(16).padStart(32, '0')
+      if (!params.cursor) snapshots.set(snapshotId, { query: params, seed: params.intent === 'tags' ? null : catalogRow(params.seed_bangumi_id),
+        scope: scopeContext, expires: Math.floor(Date.now() / 1000) + 900 })
+      const snap = snapshots.get(snapshotId), q = snap.query
+      const noMatch = q.intent === 'tags' && (q.include_tags.includes('悬疑') || q.include_tags.includes('音乐') && q.match === 'all' && q.include_tags.includes('校园'))
+      const ids = noMatch ? [] : Array.from({ length: 30 }, (_, n) => n + 10).filter(id => id !== q.seed_bangumi_id && !hidden.get(id)?.is_active && (!q.hide_recorded || !owned.has(id)))
+      const batch = params.cursor?.endsWith('batch-two') ? 2 : 1, part = params.cursor?.endsWith('page-two') ? 2 : 1
+      const data = q.intent === 'tags' ? tagPage(q, { batch, part, count: ids.length }) : page({ batch, part, count: ids.length })
+      const offset = (batch - 1) * 24 + (part - 1) * 12
+      data.query = q; data.selected_seed = snap.seed; data.snapshot_expires_at = snap.expires; data.content_scope_context = snap.scope
+      data.snapshot_id = snapshotId; data.snapshot_context = snapshotId
+      data.next_page_cursor = data.next_page_cursor ? `${snapshotId}:${data.next_page_cursor}` : null
+      data.next_batch_cursor = data.next_batch_cursor ? `${snapshotId}:${data.next_batch_cursor}` : null
+      data.batch_hero_bangumi_id = ids[(batch - 1) * 24] ?? null
       data.results = data.results.map((row, i) => ({ ...row, bangumi_id: ids[offset + i], title_zh: `合成故事${ids[offset + i]}`,
-        watch_status: owned.has(ids[offset + i]) ? 'plan' : null, evidence: { ...row.evidence, source: { bangumi_id: activeSeed.bangumi_id, title: activeSeed.title_zh, tags: activeSeed.tags } } }))
+        detail_context: `${snapshotId}:${ids[offset + i]}`,
+        watch_status: owned.has(ids[offset + i]) ? 'plan' : null, evidence: { ...row.evidence,
+          source: snap.seed ? { bangumi_id: snap.seed.bangumi_id, title: snap.seed.title_zh, tags: snap.seed.tags } : null } }))
       return data
     },
-    explorationContext: async (_, signal) => { await wait('context', signal); return { contract_version: 'recommendations.explore.context.v1', valid: true,
-      snapshot_id: '1'.repeat(32), snapshot_expires_at: expires, query_fingerprint: versions.query_fingerprint,
-      evidence_context: versions, selected_seed: { bangumi_id: activeQuery.seed_bangumi_id }, content_scope_context: activeScope } },
-    explorationDetail: async (id, _, signal) => { await wait(`detail:${id}`, signal); const data = detail(id)
-      return { ...data, query: activeQuery, selected_seed: activeSeed, content_scope_context: scopeContext,
-        snapshot_expires_at: expires,
+    explorationContext: async (context, signal) => { await wait('context', signal); const snap = snapshots.get(context)
+      return { contract_version: 'recommendations.explore.context.v1', intent: snap.query.intent, valid: true,
+      snapshot_id: context, snapshot_expires_at: snap.expires, query_fingerprint: versions.query_fingerprint,
+      evidence_context: { ...versions, ranking_policy_version: snap.query.intent === 'tags' ? 'tag-explore.v1' : 'similarity.v1' },
+      selected_seed: snap.seed ? { bangumi_id: snap.seed.bangumi_id } : null, content_scope_context: snap.scope } },
+    explorationDetail: async (id, context, signal) => { await wait(`detail:${id}`, signal); const snap = snapshots.get(context.split(':')[0])
+      const data = snap.query.intent === 'tags' ? tagDetail(snap.query, id) : detail(id)
+      return { ...data, query: snap.query, selected_seed: snap.seed, content_scope_context: snap.scope,
+        snapshot_expires_at: snap.expires, detail_context: context,
         watch_status: owned.has(id) ? 'plan' : null, evidence_token: owned.has(id) ? 'f'.repeat(64) : data.evidence_token,
-        evidence: { ...data.evidence, source: { bangumi_id: activeSeed.bangumi_id, title: activeSeed.title_zh, tags: activeSeed.tags } } } },
+        evidence: { ...data.evidence, source: snap.seed ? { bangumi_id: snap.seed.bangumi_id, title: snap.seed.title_zh, tags: snap.seed.tags } : null } } },
     explorationRecord: async (id, signal) => { await wait(`record:${id}`, signal); return { contract_version: 'recommendations.explore.record.v1',
       record_id: id, bangumi_id: 1, identity_state: 'linked', content_scope_context: scopeContext } },
     want: async (id, signal) => { await wait(`want:${id}`, signal); const created = !owned.has(id); owned.add(id)
@@ -75,7 +94,9 @@ function scopedClient(selectedScope = 'safe') {
         page: 1, page_size: params?.page_size || 12, next_page: null, results: rows.slice(0, params?.page_size || 12) } },
     hideFeedback: (body, signal) => feedbackResult('hide', body, signal),
     undoFeedback: (body, signal) => feedbackResult('undo', body, signal),
-    eligibility: async signal => { await wait('eligibility', signal); return { available: false } },
+    eligibility: async signal => { await wait('eligibility', signal); return { contract_version: 'recommendations.eligibility.session.v1', policy_version: 'eligibility.session.v1',
+      effective_status: 'not_requested', authorization_source: 'none', manual_authorization_valid: false, eligibility_version: 0, age_assurance_status: 'not_performed',
+      can_apply: false, adult_access_allowed: true, serving_integration: true, effective_scope: 'safe', decision_message: '', valid_until: null, eligibility_revision: 'a'.repeat(64) } },
     profile: async () => profileData(), preferences: async () => preferences(),
     context: async () => ({ contract_version: 'recommendations.context.v1', rollout_revision: 'b'.repeat(64), browse_enabled: true,
       context: { ...profileVersions('8.5'), feedback_version: 0 } }),
@@ -87,8 +108,8 @@ const viewport = new URLSearchParams(window.location.search).get('viewport')
 const app = <StrictMode><BrowserRouter><Routes>
   <Route path="/recommendations/*" element={<Recommendations client={client} />} />
   <Route path="/dashboard" element={<main><h1>11C 隔离手账</h1><Link to="/recommendations/similar" state={{ journalRecord: 2 }}>找相似</Link></main>} />
-  <Route path="*" element={<Link to="/recommendations/similar">开始验收单番相似</Link>} />
+  <Route path="*" element={<main><Link to="/recommendations/similar">开始验收单番相似</Link><br /><Link to="/recommendations/tags">开始验收按标签找</Link><br /><Link to="/recommendations/tags?include=日常,音乐&exclude=战斗">验收标签组合</Link></main>} />
 </Routes></BrowserRouter></StrictMode>
 // Fixed iframe gives a real CSS viewport for desktop/mobile checks in a narrow side panel.
 createRoot(document.getElementById('root')).render(viewport ? <iframe title={`${viewport}px 隔离验收视口`}
-  src="/tests/fixtures/explorationHarness.html" style={{ border: 0, width: `${Number(viewport)}px`, height: '2400px', transformOrigin: 'top left', transform: `scale(${Math.min(1, window.innerWidth / Number(viewport))})` }} /> : app)
+  src="/tests/fixtures/explorationHarness.html" style={{ border: 0, width: `${Number(viewport)}px`, height: viewport === '390' ? '844px' : '900px', transformOrigin: 'top left', transform: `scale(${Math.min(1, window.innerWidth / Number(viewport))})` }} /> : app)

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
+import ExplorationTagChips from './recommendations/ExplorationTagChips.jsx'
 import api from '../api/api.js'
 import { getCoverSrc, getTagClass } from '../utils/animeDisplay.js'
 import { formatAiringPeriod } from '../utils/featuredDisplay.js'
@@ -67,6 +68,7 @@ function DetailModal({
   onFeaturedAction = null,
   isPrivateJournal = false,
   onSimilar,
+  explorationTags = [],
 }) {
   const [selectedItem, setSelectedItem] = useState(activeItem)
   const [formData, setFormData] = useState({
@@ -594,7 +596,7 @@ function DetailModal({
                       key={tag}
                       className={`memphis-modal-tag ${index % 2 ? 'rotate-1' : '-rotate-1'} rounded-full px-3 py-1 text-xs font-black ${getTagClass(tag, selectedItem.tagColors?.[tag])}`}
                     >
-                      {tag}
+                      {isPrivateJournal && explorationTags.includes(tag) ? <ExplorationTagChips inline tags={[tag]} standardTags={explorationTags} beforeNavigate={closeModal} className="inline-flex" /> : tag}
                     </span>
                   ))}
                 </div>

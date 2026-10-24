@@ -1,27 +1,13 @@
+import useExplorationInteractions from '../hooks/useExplorationInteractions.jsx'
+import ExplorationDialogs from '../components/recommendations/ExplorationDialogs.jsx'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import useExploration from '../hooks/useExploration.js'
-import useRecommendationDetail from '../hooks/useRecommendationDetail.js'
-import useRecommendationWant from '../hooks/useRecommendationWant.js'
-import useRecommendationFeedback from '../hooks/useRecommendationFeedback.js'
 import useRecommendationMotion from '../hooks/useRecommendationMotion.js'
 import { createExplorationSearchController, parseSimilarSeed } from '../utils/recommendationExploration.js'
-import { explorationDetailAdapter, similarQuery } from '../utils/explorationResults.js'
+import { similarQuery } from '../utils/explorationResults.js'
 import { DEFAULT_BROWSE_FILTERS, filterChips } from '../utils/recommendationBrowse.js'
-import { createRecommendationWriteGate, validateHiddenFeedback } from '../utils/recommendationFeedback.js'
-import { notifyFeedbackChange, subscribeFeedbackChanges } from '../utils/recommendationFeedbackSync.js'
-import { notifyRecommendationChange } from '../utils/recommendationReload.js'
-import { getAccessToken } from '../auth/tokenStorage.js'
-import { recommendationSessionScope } from '../utils/recommendationSession.js'
-import RecommendationCard, { RecommendationCover, RecommendationMeta } from '../components/recommendations/RecommendationCard.jsx'
-import ExplorationEvidence from '../components/recommendations/ExplorationEvidence.jsx'
-import RecommendationDialog from '../components/recommendations/RecommendationDialog.jsx'
-import RecommendationDetailActions from '../components/recommendations/RecommendationDetailActions.jsx'
-import RecommendationResourcePanel from '../components/recommendations/RecommendationResourcePanel.jsx'
-import RecommendationFeedbackMenu from '../components/recommendations/RecommendationFeedbackMenu.jsx'
-import RecommendationFeedbackToast from '../components/recommendations/RecommendationFeedbackToast.jsx'
-import RecommendationHiddenWorks from '../components/recommendations/RecommendationHiddenWorks.jsx'
-import RecommendationIdentityReview from '../components/recommendations/RecommendationIdentityReview.jsx'
+import RecommendationCard from '../components/recommendations/RecommendationCard.jsx'
 import { RecommendationFilterPanel, RecommendationBatchActions } from '../components/recommendations/RecommendationBrowseControls.jsx'
 import { RecommendationSkeleton } from '../components/recommendations/RecommendationStates.jsx'
 import { RecommendationGridSkeleton } from '../components/recommendations/RecommendationLoading.jsx'
@@ -36,15 +22,13 @@ export default function SimilarRecommendations({ client, sessionScope, cache, ad
   const [selected, setSelected] = useState(cache.selected || null)
   const [finding, setFinding] = useState(!seedId)
   const [term, setTerm] = useState('')
-  const [panel, setPanel] = useState(null), [notice, setNotice] = useState('')
-  const [publicationRevision, setPublicationRevision] = useState(0)
   const journalRecord = location.state?.journalRecord
   const referenceRequest = useRef(null), referenceLive = useRef(true)
   useLayoutEffect(() => {
     referenceLive.current = true
     return () => { referenceLive.current = false; referenceRequest.current?.abort() }
   }, [client])
-  const pageRef = useRef(null), resultsRef = useRef(null), resourceTrigger = useRef(null), searchInput = useRef(null)
+  const pageRef = useRef(null), resultsRef = useRef(null), searchInput = useRef(null)
   const searchController = useMemo(() => createExplorationSearchController(client, scope), [client, scope])
   const search = useSyncExternalStore(searchController.subscribe, searchController.getSnapshot, searchController.getSnapshot)
   useEffect(() => { searchController.activate(); return () => searchController.dispose() }, [searchController])
@@ -52,10 +36,8 @@ export default function SimilarRecommendations({ client, sessionScope, cache, ad
   const seed = selected?.scope === scope && selected.item.bangumiId === seedId ? selected.item : null
   const query = seed?.canSeed ? similarQuery(seedId, filters) : null
   const state = useExploration(client, query, scope, cache)
-  const { detail, controller: detailController } = useRecommendationDetail(client, explorationDetailAdapter)
-  const close = () => { detailController.close(); setPanel(null) }
-  const reload = () => { close(); state.retry() }
-  const changed = () => { close(); state.controller.contextChanged() }
+  const interactions = useExplorationInteractions(client, sessionScope, state, scope)
+  const { panel, setPanel, notice, setNotice, publicationRevision, detailController, close, reload, feedback, openHidden, cardProps, toast } = interactions
   const resolveReference = async () => {
     referenceRequest.current?.abort()
     const request = new AbortController(); referenceRequest.current = request
@@ -85,52 +67,12 @@ export default function SimilarRecommendations({ client, sessionScope, cache, ad
       setSelected({ item: search.items[0], scope }); setFinding(false)
     }
   }, [search, seedId, seed, scope])
-  useLayoutEffect(() => { close() }, [seedId, scope, JSON.stringify(query), detailController])
-  useEffect(() => { if (state.snapshotDirty && !detail.confirmedMutation) close() }, [state.snapshotDirty])
   useEffect(() => {
     const previous = document.title; document.title = '单番相似 · 番剧探索手账'
     return () => { document.title = previous }
   }, [])
-  useEffect(() => {
-    if (!notice) return
-    const timer = window.setTimeout(() => setNotice(''), 6000)
-    return () => window.clearTimeout(timer)
-  }, [notice])
   useRecommendationMotion(pageRef, { status: state.status, epoch: JSON.stringify([state.key, state.data?.snapshot_id, state.data?.batch]),
     ids: state.items.map(item => item.bangumiId).join(','), blocked: state.snapshotDirty })
-  const writeGate = useMemo(() => createRecommendationWriteGate({ isCurrent: () => {
-    try { return recommendationSessionScope(getAccessToken()) === sessionScope } catch { return sessionScope === 'anonymous' }
-  } }), [client, sessionScope])
-  const feedback = useRecommendationFeedback(client, () => {
-    detailController.close(); setPanel(current => current?.kind === 'detail' ? null : current)
-    state.retry(); feedback.hidden.refresh(); notifyFeedbackChange(); notifyRecommendationChange({ local: false })
-  }, writeGate, changed)
-  const reloadFeedback = async (signal) => {
-    try {
-      const data = validateHiddenFeedback(await client.hiddenFeedback({ page: 1, page_size: 1 }, signal))
-      if (signal?.aborted) return
-      feedback.controller.observeVersion(data.feedback_version); feedback.controller.clearErrors()
-      return data
-    } catch { if (!signal?.aborted) setNotice('隐藏反馈状态读取失败，可重新读取后再操作。') }
-  }
-  useEffect(() => {
-    const request = new AbortController(); reloadFeedback(request.signal)
-    const unsubscribe = subscribeFeedbackChanges({ client, getVersion: () => feedback.controller.getSnapshot().version,
-      onChanged: version => { feedback.controller.observeVersion(version); changed() } })
-    return () => { request.abort(); unsubscribe() }
-  }, [client, feedback.controller])
-  useEffect(() => { if (panel?.kind !== 'hidden') feedback.hidden.close() }, [panel?.kind, feedback.hidden])
-  const want = useRecommendationWant(client, result => {
-    setPublicationRevision(value => value + 1)
-    const refreshed = detailController.afterWant(result)
-    state.controller.recordChanged(result.bangumi_id, result.watch_status)
-    notifyRecommendationChange({ local: false })
-    setNotice(result.showcase_publication?.status === 'review_required' ? '已加入手账，公开到公共库仍需逐部确认。'
-      : result.created ? '已加入想看。旧列表已保留，重新探索可更新结果。' : '手账已有此作品，已保留原有评分、长评及观看状态。')
-    return refreshed
-  }, writeGate)
-  useEffect(() => { want.reconcile(state.items) }, [state.items, want.reconcile])
-  useEffect(() => { if (detail.status === 'ready') want.reconcile([detail.item]) }, [detail, want.reconcile])
   const choose = item => {
     if (!item.canSeed) return
     close(); searchController.clear(); setSelected({ item, scope }); setFinding(false)
@@ -141,9 +83,7 @@ export default function SimilarRecommendations({ client, sessionScope, cache, ad
     navigate('/recommendations/similar'); searchInput.current?.focus()
   }
   const applyFilters = next => { close(); setLocalFilters(next); setAdult(!!next.includeAdult) }
-  const openHidden = () => { close(); setPanel({ kind: 'hidden' }); feedback.hidden.open() }
   const openFilters = () => { close(); setPanel({ kind: 'filters' }) }
-  const openIdentity = () => { close(); setPanel({ kind: 'identity' }) }
   const chips = filterChips(filters)
   const remove = id => applyFilters(id === 'years' ? { ...filters, yearFrom: '', yearTo: '' }
     : { ...filters, [id]: id === 'hideRecorded' ? false : DEFAULT_BROWSE_FILTERS[id] })
@@ -151,13 +91,6 @@ export default function SimilarRecommendations({ client, sessionScope, cache, ad
     close()
     if (await state.nextBatch()) { resultsRef.current?.focus({ preventScroll: true }); resultsRef.current?.scrollIntoView({ block: 'start', behavior: 'auto' }) }
   }
-  const cardProps = item => ({ item, EvidenceComponent: ExplorationEvidence, onWant: want.add, operation: want.operations[item.bangumiId], onIdentity: openIdentity,
-    onDetail: chosen => { detailController.open(chosen); setPanel({ kind: 'detail', item: chosen }) }, onReload: reload,
-    browseUnavailable: !!state.snapshotDirty, onHide: feedback.controller.hide, feedbackOperation: feedback.state.operations[item.bangumiId],
-    feedbackDisabled: feedback.state.pending || feedback.state.uncertain || feedback.state.version === null, onFeedbackReload: () => reloadFeedback() })
-  const toast = <RecommendationFeedbackToast toast={feedback.state.toast} busy={feedback.state.pending}
-    operation={feedback.state.operations[feedback.state.toast?.item.bangumiId]} onUndo={feedback.controller.undo}
-    onManage={openHidden} onDismiss={feedback.controller.dismissToast} onReload={() => reloadFeedback()} />
   const selectedSeed = state.data?.selectedSeed || seed
 
   return <main ref={pageRef} className="memphis-rec-container">
@@ -219,31 +152,10 @@ export default function SimilarRecommendations({ client, sessionScope, cache, ad
         <RecommendationBatchActions state={state} onMore={state.loadMore} onBatch={nextBatch} onReload={reload} onFilter={openFilters} onRestart={reload} /></>}
     </section><footer className="rec-footer">我的手账 / 单番相似</footer></div>
     <div className="rec-toast" role="status" aria-live="polite">{notice && <p>{notice}</p>}</div>{panel?.kind !== 'hidden' && toast}
-    {panel?.kind === 'identity' && <RecommendationIdentityReview client={client} scope="all" recordId={panel.recordId} onClose={close} onChanged={() => {
-      want.resetFailures(); changed(); notifyRecommendationChange({ local: false }); if (journalRecord) resolveReference()
-    }} />}
-    {panel && panel.kind !== 'identity' && <RecommendationDialog kind={panel.kind} title={panel.kind === 'filters' ? '给心动留一点范围' : panel.kind === 'hidden' ? '已隐藏作品' : panel.item.title}
-      onClose={close} resourceOpen={panel.kind === 'detail' && detail.status === 'ready' && detail.resourceOpen}
-      resourceTriggerRef={resourceTrigger} onResourceClose={detailController.closeResources}
-      headerActions={panel.kind === 'detail' && detail.status === 'ready' ? <RecommendationFeedbackMenu item={detail.item} onHide={feedback.controller.hide}
-        operation={feedback.state.operations[detail.item.bangumiId]} disabled={feedback.state.pending || feedback.state.uncertain || feedback.state.version === null || want.operations[detail.item.bangumiId]?.status === 'adding'} onReload={() => reloadFeedback()} /> : null}
-      resourcePanel={panel.kind === 'detail' && detail.status === 'ready' ? <RecommendationResourcePanel item={detail.item} open={detail.resourceOpen}
-        sessionKey={`${detail.selection.session}:${detail.resourceSession || 0}:${detail.item.bangumiId}:${detail.item.evidenceToken}`} onClose={detailController.closeResources} /> : null}>
-      {panel.kind === 'filters' ? <RecommendationFilterPanel initialFilters={filters} onApply={applyFilters} client={client} />
-        : panel.kind === 'hidden' ? <>{feedback.state.uncertain && <div role="alert"><p>反馈结果尚未确认。</p>
-          <button type="button" className="rec-button" disabled={feedback.state.pending} onClick={feedback.controller.retry}>重试确认原操作</button></div>}
-          <RecommendationHiddenWorks state={feedback.hiddenState} feedback={feedback.state} onPage={feedback.hidden.load}
-          onUndo={feedback.controller.undo} onReload={() => { feedback.controller.clearErrors(); feedback.hidden.refresh() }} writeBusy={id => want.operations[id]?.status === 'adding'} />{toast}</>
-          : ['closed', 'loading', 'refreshing'].includes(detail.status) ? <p role="status">{detail.status === 'refreshing' ? '加入操作已确认，正在重新读取完整详情…' : '正在读取作品详情…'}</p>
-            : detail.status === 'error' ? <div role="alert"><p>{detail.message}</p><button type="button" className="rec-button" onClick={detail.snapshotChanged ? reload : detailController.retry}>{detail.snapshotChanged ? '重新探索' : '重试详情'}</button></div>
-              : <div className="rec-detail-content"><RecommendationCover item={detail.item} priority /><div><p className="rec-original-title">{detail.item.originalTitle}</p>
-                <RecommendationMeta item={detail.item} /><h3>相似依据</h3><ExplorationEvidence item={detail.item} expanded onReload={reload} />
-                <h3>故事简介</h3><p>{detail.item.synopsis || '暂未收录简介。'}</p><RecommendationDetailActions item={detail.item} resourceOpen={detail.resourceOpen}
-                  resourceTriggerRef={resourceTrigger} onResourceOpen={detailController.openResources} onResourceClose={detailController.closeResources}
-                  onClose={close} onWant={want.add} operation={want.operations[detail.item.bangumiId]} onIdentity={openIdentity}
-                  onSimilar={capabilities?.navigation?.[1]?.available ? item => { close(); setSelected(null); navigate(`/recommendations/similar?seed=${item.bangumiId}`) } : undefined}
-                  writeBlocked={feedback.state.operations[detail.item.bangumiId]?.status === 'saving' || feedback.state.operations[detail.item.bangumiId]?.uncertain} /></div></div>}
-    </RecommendationDialog>}
+    <ExplorationDialogs interactions={interactions} client={client} capabilities={capabilities}
+      onSimilar={item => { close(); setSelected(null); navigate(`/recommendations/similar?seed=${item.bangumiId}`) }}
+      onIdentityChanged={() => { if (journalRecord) resolveReference() }}
+      editor={<RecommendationFilterPanel initialFilters={filters} onApply={applyFilters} client={client} />} />
     <BackToTop isModalOpen={Boolean(panel)} theme="memphis" />
   </main>
 }

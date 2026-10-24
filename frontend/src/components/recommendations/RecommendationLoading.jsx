@@ -12,7 +12,7 @@ export function RecommendationLoadingNotice({ phase = 'data' }) {
     return () => window.clearTimeout(timer)
   }, [])
   return <div className="rec-load-notice" role="status" aria-live="polite" aria-atomic="true">
-    <p>{phase === 'route' ? '正在翻开番剧探索手账…' : phase === 'explore' ? '正在读取参照与相似作品…' : '正在读取你的口味与推荐…'}</p>
+    <p>{phase === 'route' ? '正在翻开番剧探索手账…' : phase === 'tags' ? '正在寻找符合题材条件的作品…' : phase === 'explore' ? '正在读取参照与相似作品…' : '正在读取你的口味与推荐…'}</p>
     {slow && <small>这次加载较慢，请稍候。预计还需 5s~15s。</small>}
   </div>
 }
@@ -50,6 +50,7 @@ export function RecommendationGridSkeleton() {
 
 export function RecommendationRouteLoading({ failed = false }) {
   const similar = useLocation().pathname.startsWith('/recommendations/similar')
+  const tags = useLocation().pathname.startsWith('/recommendations/tags')
   return <main className="rec-loading-route" aria-label={failed ? '推荐页面暂不可用' : '正在打开推荐页面'}>
     <div className="rec-load-page">
       <div className="rec-load-masthead"><nav aria-label="推荐加载导航"><Link to="/dashboard">← 返回我的手账</Link>
@@ -62,7 +63,7 @@ export function RecommendationRouteLoading({ failed = false }) {
         <button type="button" onClick={() => window.location.reload()}>重新加载页面</button>
       </section> : <>
         <div className="rec-load-featured" aria-busy="true"><RecommendationHeroSkeleton phase="route" />
-          <aside className="rec-load-taste"><h2>{similar ? '本次参照' : '我的口味'}</h2><RecommendationTasteSkeleton /></aside></div>
+          <aside className="rec-load-taste"><h2>{similar ? '本次参照' : tags ? '探索条件' : '我的口味'}</h2><RecommendationTasteSkeleton /></aside></div>
         <RecommendationGridSkeleton />
       </>}
     </div>

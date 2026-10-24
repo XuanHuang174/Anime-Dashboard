@@ -166,12 +166,13 @@ test('empty, disabled, authentication and network errors have distinct states', 
   }
 })
 
-test('11D backend capabilities keep single-work navigation and defer the tag UI', () => {
+test('11E capabilities expose tag navigation only with its implemented contract', () => {
   const descriptor = JSON.parse(readFileSync(new URL('./fixtures/recommendationExplorationContract.json', import.meta.url)))
   const data = validateExplorationCapabilities(descriptor.capabilities)
   assert.deepEqual(data.supported_intents, ['similar', 'tags'])
-  assert.equal(data.navigation[1].available, true); assert.equal(data.navigation[2].available, false)
-  assert.equal(validateExplorationCapabilities({ ...data, supported_intents: ['similar'] }).enabled, true)
+  assert.equal(data.navigation[1].available, true); assert.equal(data.navigation[2].available, true)
+  const old = { ...data, supported_intents: ['similar'], navigation: data.navigation.map(row => row.id === 'tags' ? { ...row, available: false } : row) }
+  assert.equal(validateExplorationCapabilities(old).enabled, true)
   for (const supported_intents of [['tags'], ['similar', 'tags', 'unknown'], ['similar', 'similar'], []]) {
     assert.throws(() => validateExplorationCapabilities({ ...data, supported_intents }))
   }

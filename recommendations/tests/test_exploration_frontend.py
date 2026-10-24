@@ -15,6 +15,7 @@ from recommendations.matching import record_fingerprint, catalog_fingerprint
 from recommendations.models import RecommendationRecordIdentity
 from recommendations.resolution import record_row
 from . import test_exploration_browsing as prior
+from . import test_exploration_tags as tag_prior
 
 
 @override_settings(RECOMMENDATION_EXPLORATION_ENABLED=True, RECOMMENDATION_EXPLORATION_EPOCH='11c-tests',
@@ -106,6 +107,46 @@ class ExplorationFrontendTests(TransactionTestCase):
         self.assertIsNone(self.reference(record.pk).data['bangumi_id'])
         self.assertEqual(self.reference(record.pk, content_scope='include_adult').data['bangumi_id'], 90)
         first = self.start(seed_bangumi_id=90, content_scope='include_adult')
+        self.assertEqual(first.status_code, 200, first.data)
+        full = self.details(first.data['results'][0], content_scope='include_adult')
+        self.assertEqual(full.status_code, 200, full.data)
+        self.verify_wire(first.data, full.data)
+
+
+@override_settings(RECOMMENDATION_EXPLORATION_ENABLED=True, RECOMMENDATION_EXPLORATION_EPOCH='11e-tests',
+    RECOMMENDATION_V2_BROWSE_ENABLED=False, RECOMMENDATION_ALGORITHM_VERSION='content.v1')
+class TagFrontendWireTests(TransactionTestCase):
+    setUp = tag_prior.TagExplorationTests.setUp
+    catalog = tag_prior.TagExplorationTests.catalog
+    record = tag_prior.TagExplorationTests.record
+    details = tag_prior.TagExplorationTests.details
+    start = tag_prior.TagExplorationTests.start
+    verify_wire = ExplorationFrontendTests.verify_wire
+
+    def test_actual_tag_all_any_score_and_detail_match_frontend(self):
+        for mode in ('all', 'any'):
+            for sort in ('relevance', 'score'):
+                first = self.start(match=mode, sort=sort, exclude_tags='战斗')
+                self.assertEqual(first.status_code, 200, first.data)
+                full = self.details(first.data['results'][0])
+                self.assertEqual(full.status_code, 200, full.data)
+                self.verify_wire(first.data, full.data)
+
+    def test_actual_tag_paging_and_empty_contract_match_frontend(self):
+        for identity in range(100, 130):
+            self.catalog(identity, tags='音乐,日常')
+        first = self.start()
+        next_page = self.client.get('/api/recommendations/explore/', {'cursor': first.data['next_page_cursor']})
+        self.assertEqual(next_page.status_code, 200, next_page.data)
+        self.verify_wire(first.data, None, next_page.data)
+        empty = self.start(include_tags='音乐', exclude_tags='日常,奇幻', year_from=2000, year_to=2001)
+        self.assertEqual(empty.status_code, 200, empty.data)
+        self.verify_wire(empty.data, None)
+
+    @override_settings(RECOMMENDATION_RESTRICTED_CONTENT_ENABLED=True, RECOMMENDATION_NSFW_SELF_SERVICE_ENABLED=True)
+    def test_actual_adult_tag_wire_retains_permanent_review_scope(self):
+        prior.AdultSingleWorkTests.approve(self)
+        first = self.start(content_scope='include_adult')
         self.assertEqual(first.status_code, 200, first.data)
         full = self.details(first.data['results'][0], content_scope='include_adult')
         self.assertEqual(full.status_code, 200, full.data)

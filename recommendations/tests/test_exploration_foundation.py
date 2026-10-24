@@ -98,7 +98,7 @@ class ExplorationContractTests(SimpleTestCase):
             with self.subTest(raw=raw), self.assertRaises(ValidationError):
                 search_term(raw)
 
-    def test_capability_requires_literal_true_and_never_advertises_future_pages(self):
+    def test_capability_requires_literal_true_and_advertises_implemented_pages(self):
         for value in (False, 'True', 1, None):
             with self.settings(RECOMMENDATION_EXPLORATION_ENABLED=value):
                 self.assertFalse(capabilities()['enabled'])
@@ -108,7 +108,7 @@ class ExplorationContractTests(SimpleTestCase):
             self.assertTrue(data['query_execution_enabled'])
             self.assertEqual(data['supported_intents'], ['similar', 'tags'])
             self.assertEqual([row['label'] for row in data['navigation']], ['个性化推荐', '单番相似', '按标签找'])
-            self.assertEqual([row['available'] for row in data['navigation']], [True, True, False])
+            self.assertEqual([row['available'] for row in data['navigation']], [True, True, True])
 
     def evidence(self, intent='similar'):
         versions = dict(query_fingerprint='a'*64, catalog_feature_version='b'*64,

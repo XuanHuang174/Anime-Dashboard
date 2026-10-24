@@ -31,7 +31,7 @@
         "id": "tags",
         "label": "按标签找",
         "path": "/recommendations/tags",
-        "available": false
+        "available": true
       }
     ]
   },

@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import RecommendationHost from './RecommendationHost.jsx'
 import RecommendationCard, { RecommendationCover, RecommendationMeta } from '../components/recommendations/RecommendationCard.jsx'
+import ExplorationTagChips from '../components/recommendations/ExplorationTagChips.jsx'
 import { RecommendationGridSkeleton } from '../components/recommendations/RecommendationLoading.jsx'
 import RecommendationDialog from '../components/recommendations/RecommendationDialog.jsx'
 import RecommendationEvidence from '../components/recommendations/RecommendationEvidence.jsx'
@@ -359,7 +360,7 @@ function RecommendationWorkspace({ client, sessionScope, cache, adult, setAdult,
           : <div className="rec-detail-content"><RecommendationCover item={detail.item} priority />
             <div><p className="rec-original-title">{detail.item.originalTitle}</p><RecommendationMeta item={detail.item} />
               <h3>推荐依据</h3><RecommendationEvidence item={detail.item} expanded onReload={() => { closePanel(); reload() }} />
-              <h3>故事简介</h3><p>{detail.item.synopsis || '暂未收录简介。'}</p>
+              <ExplorationTagChips tags={detail.item.tags} beforeNavigate={closePanel} /><h3>故事简介</h3><p>{detail.item.synopsis || '暂未收录简介。'}</p>
               <RecommendationDetailActions item={detail.item} resourceOpen={detail.resourceOpen}
                 onSimilar={capabilities?.navigation?.[1]?.available ? item => { closePanel(); navigate(`/recommendations/similar?seed=${item.bangumiId}`) } : undefined}
                 resourceTriggerRef={resourceTrigger}

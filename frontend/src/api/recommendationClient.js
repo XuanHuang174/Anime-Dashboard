@@ -46,7 +46,8 @@ export function createRecommendationClient(transport, scope = 'safe', onLost = (
     },
     explorationCatalog: (q, signal) => client.get('recommendations/explore/catalog/', { params: { q }, signal }).then(r => r.data),
     explorationBrowse: (query, signal) => client.get('recommendations/explore/', {
-      params: query.cursor ? { cursor: query.cursor } : query, signal }).then(r => r.data),
+      params: query.cursor ? { cursor: query.cursor } : query.intent === 'tags'
+        ? { ...query, include_tags: query.include_tags.join(','), exclude_tags: query.exclude_tags.length ? query.exclude_tags.join(',') : undefined } : query, signal }).then(r => r.data),
     explorationContext: (snapshotContext, signal) => {
       if (typeof snapshotContext !== 'string' || !snapshotContext.length || snapshotContext.length > 8192) return Promise.reject(new Error('探索上下文无效'))
       return client.get('recommendations/explore/context/', { params: { snapshot_context: snapshotContext }, signal }).then(r => r.data)

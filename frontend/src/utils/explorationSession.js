@@ -7,7 +7,7 @@ export function explorationError(error) {
   if (status === 401) return '登录已失效，请重新登录。'
   if (status === 404) return '参照作品当前不可用，请更换作品；NSFW 作品需要先应用相应筛选。'
   if (status === 429) return '请求较频繁，请稍后重试。'
-  if (error?.response?.data?.code === 'exploration_disabled') return '单番相似暂未开放，请稍后再试。'
+  if (error?.response?.data?.code === 'exploration_disabled') return '探索功能暂未开放，请稍后再试。'
   if (status === 409) return '探索依据已变化，请重新探索。'
   return '探索读取失败，请重试。'
 }
@@ -76,6 +76,8 @@ export function createExplorationBrowseController(client, scope = 'safe') {
       if (data?.contract_version !== 'recommendations.explore.context.v1' || data.valid !== true
         || data.snapshot_id !== captured.snapshot_id || data.snapshot_expires_at !== captured.snapshot_expires_at
         || data.query_fingerprint !== captured.evidence_context.query_fingerprint
+        || data.intent !== undefined && data.intent !== captured.query.intent
+        || captured.query.intent === 'tags' && (data.intent !== 'tags' || data.selected_seed !== null)
         || data.selected_seed?.bangumi_id !== captured.query.seed_bangumi_id
         || !sameExplorationContext(data.evidence_context, captured.evidence_context)) changed()
     } catch (error) {

@@ -29,6 +29,8 @@ import { comparePeriod } from '../utils/animeDisplay.js'
 import { mapRecordToAnimeItem } from '../utils/recordMapping.js'
 import { notifyRecommendationChange } from '../utils/recommendationReload.js'
 import ShowcasePublicationPanel from '../components/ShowcasePublicationPanel.jsx'
+import recommendationClient from '../api/recommendations.js'
+import useExplorationTopics from '../hooks/useExplorationTopics.js'
 
 gsap.registerPlugin(useGSAP)
 
@@ -81,6 +83,7 @@ function Dashboard() {
   const location = useLocation()
   const { username: sharedUsername = '' } = useParams()
   const isSharedJournal = Boolean(sharedUsername)
+  const explorationTags = useExplorationTopics(recommendationClient, isSharedJournal ? false : undefined)
   const isAdminJournalReview = location.pathname.startsWith(
     '/admin-dashboard/public-journal-review/',
   )
@@ -1147,6 +1150,7 @@ function Dashboard() {
           selectedItem={selectedItem}
           closeModal={() => setSelectedItem(null)}
           isPrivateJournal={!isSharedJournal}
+          explorationTags={explorationTags}
           onSimilar={!isSharedJournal ? item => navigate('/recommendations/similar', { state: { journalRecord: item.id } }) : undefined}
           showToast={showToast}
           featuredAction={featuredAction ? {
@@ -1158,6 +1162,7 @@ function Dashboard() {
       ) : (
         <EditableDetailModal
           key={selectedItem?.id ?? 'closed-edit-modal'}
+          explorationTags={explorationTags}
           selectedItem={selectedItem}
           onSimilar={item => navigate('/recommendations/similar', { state: { journalRecord: item.id } })}
           closeModal={() => setSelectedItem(null)}

@@ -41,12 +41,13 @@ export function validateExplorationCapabilities(data) {
     || !Array.isArray(data.navigation) || data.navigation.length !== 3
     || !EXPLORATION_NAVIGATION.every((row, index) => Object.entries(row).every(([key, value]) => data.navigation[index]?.[key] === value)
       && typeof data.navigation[index].available === 'boolean'
-      && (row.id === 'personal' ? data.navigation[index].available : row.id === 'tags' ? !data.navigation[index].available
-        : !data.navigation[index].available || data.enabled && data.query_execution_enabled))) return invalid()
+      && (row.id === 'personal' ? data.navigation[index].available
+        : !data.navigation[index].available || data.enabled && data.query_execution_enabled
+          && (row.id !== 'tags' || data.supported_intents?.includes('tags') && data.options_contract_version === EXPLORATION_VERSIONS.options)))) return invalid()
   return data
 }
 
-// 11D read adapter only; tag query controls/results remain scheduled for 11E.
+// Counts describe the scoped catalog, never the filtered/private result set.
 export function validateExplorationOptions(data, scope = 'safe') {
   if (!['safe', 'include_adult'].includes(scope)) return invalid()
   checkScopeResponse(data, scope)

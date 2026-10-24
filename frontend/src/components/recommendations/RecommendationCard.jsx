@@ -4,6 +4,7 @@ import { wantButtonState } from '../../utils/recommendationWant.js'
 import RecommendationEvidence from './RecommendationEvidence.jsx'
 import { RecommendationPublicScore } from './RecommendationScore.jsx'
 import RecommendationFeedbackMenu from './RecommendationFeedbackMenu.jsx'
+import ExplorationTagChips from './ExplorationTagChips.jsx'
 
 export function RecommendationCover({ item, priority = false }) {
   const safeSrc = item.contentRating === 'adult' ? '' : getRecommendationCover(item.coverUrl)
@@ -53,7 +54,7 @@ export default function RecommendationCard({ item, hero = false, onDetail, onWan
       <RecommendationMeta item={item} />
       <EvidenceComponent item={item} onReload={onReload} />
       {hero && item.synopsis && <p className="rec-hero-synopsis">{item.synopsis}</p>}
-      <div className="rec-card-tags" aria-label="作品标签">{item.tags?.slice(0, 2).map((tag) => <span key={tag}>{tag}</span>)}</div>
+      <ExplorationTagChips tags={item.tags?.slice(0, 2)} />
       <RecommendationActions item={item} onDetail={onDetail} onWant={onWant} operation={operation} onIdentity={onIdentity}
         detailDisabled={browseUnavailable} writeBlocked={browseUnavailable || feedbackOperation?.status === 'saving' || feedbackOperation?.uncertain} />
     </div>
