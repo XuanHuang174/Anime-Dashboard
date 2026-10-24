@@ -3,6 +3,7 @@ import useRecommendationDetail from './useRecommendationDetail.js'
 import useRecommendationWant from './useRecommendationWant.js'
 import useRecommendationFeedback from './useRecommendationFeedback.js'
 import { explorationDetailAdapter } from '../utils/explorationResults.js'
+import { shouldCloseExplorationDetail } from '../utils/explorationSession.js'
 import { createRecommendationWriteGate, validateHiddenFeedback } from '../utils/recommendationFeedback.js'
 import { notifyFeedbackChange, subscribeFeedbackChanges } from '../utils/recommendationFeedbackSync.js'
 import { notifyRecommendationChange } from '../utils/recommendationReload.js'
@@ -21,7 +22,9 @@ export default function useExplorationInteractions(client, sessionScope, state, 
   const reload = () => { close(); state.retry() }
   const changed = () => { close(); state.controller.contextChanged() }
   useLayoutEffect(() => { close() }, [scope, state.key, detailController])
-  useEffect(() => { if (state.snapshotDirty && !detail.confirmedMutation) close() }, [state.snapshotDirty])
+  useEffect(() => {
+    if (shouldCloseExplorationDetail(state, detail)) close()
+  }, [state.snapshotDirty, state.invalidationVersion])
   useEffect(() => { if (!notice) return; const timer = window.setTimeout(() => setNotice(''), 6000); return () => window.clearTimeout(timer) }, [notice])
   const writeGate = useMemo(() => createRecommendationWriteGate({ isCurrent: () => {
     try { return recommendationSessionScope(getAccessToken()) === sessionScope } catch { return sessionScope === 'anonymous' }

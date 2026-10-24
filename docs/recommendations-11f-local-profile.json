@@ -1,0 +1,196 @@
+{
+  "scope": "local-isolated-postgresql-synthetic-1000",
+  "observations": [
+    {
+      "endpoint": "catalog",
+      "phase": "cold",
+      "wall_seconds": 0.6419,
+      "process_cpu_seconds": 0.625,
+      "python_traced_peak_bytes": 6463942,
+      "sql_queries": 5,
+      "public_cache_lookups": 0,
+      "public_cache_hits": 0
+    },
+    {
+      "endpoint": "catalog",
+      "phase": "warm",
+      "wall_seconds": 0.019,
+      "process_cpu_seconds": 0.0156,
+      "python_traced_peak_bytes": 112284,
+      "sql_queries": 5,
+      "public_cache_lookups": 0,
+      "public_cache_hits": 0
+    },
+    {
+      "endpoint": "options",
+      "phase": "cold",
+      "wall_seconds": 0.2057,
+      "process_cpu_seconds": 0.1875,
+      "python_traced_peak_bytes": 2204104,
+      "sql_queries": 11,
+      "public_cache_lookups": 1,
+      "public_cache_hits": 0
+    },
+    {
+      "endpoint": "options",
+      "phase": "warm",
+      "wall_seconds": 0.0848,
+      "process_cpu_seconds": 0.0625,
+      "python_traced_peak_bytes": 1380052,
+      "sql_queries": 10,
+      "public_cache_lookups": 1,
+      "public_cache_hits": 1
+    },
+    {
+      "endpoint": "similar_first",
+      "phase": "cold",
+      "wall_seconds": 0.266,
+      "process_cpu_seconds": 0.2344,
+      "python_traced_peak_bytes": 2296988,
+      "sql_queries": 20,
+      "public_cache_lookups": 1,
+      "public_cache_hits": 0
+    },
+    {
+      "endpoint": "similar_first",
+      "phase": "warm",
+      "wall_seconds": 0.1704,
+      "process_cpu_seconds": 0.1406,
+      "python_traced_peak_bytes": 2128631,
+      "sql_queries": 19,
+      "public_cache_lookups": 1,
+      "public_cache_hits": 1
+    },
+    {
+      "endpoint": "tags_first",
+      "phase": "cold",
+      "wall_seconds": 0.263,
+      "process_cpu_seconds": 0.2656,
+      "python_traced_peak_bytes": 2215411,
+      "sql_queries": 19,
+      "public_cache_lookups": 1,
+      "public_cache_hits": 0
+    },
+    {
+      "endpoint": "tags_first",
+      "phase": "warm",
+      "wall_seconds": 0.1689,
+      "process_cpu_seconds": 0.1719,
+      "python_traced_peak_bytes": 1973127,
+      "sql_queries": 18,
+      "public_cache_lookups": 1,
+      "public_cache_hits": 1
+    },
+    {
+      "endpoint": "similar_continuation",
+      "phase": "cold",
+      "wall_seconds": 0.1329,
+      "process_cpu_seconds": 0.1094,
+      "python_traced_peak_bytes": 843876,
+      "sql_queries": 19,
+      "public_cache_lookups": 0,
+      "public_cache_hits": 0
+    },
+    {
+      "endpoint": "similar_continuation",
+      "phase": "warm",
+      "wall_seconds": 0.1292,
+      "process_cpu_seconds": 0.125,
+      "python_traced_peak_bytes": 822592,
+      "sql_queries": 19,
+      "public_cache_lookups": 0,
+      "public_cache_hits": 0
+    },
+    {
+      "endpoint": "similar_detail",
+      "phase": "cold",
+      "wall_seconds": 0.0892,
+      "process_cpu_seconds": 0.0781,
+      "python_traced_peak_bytes": 493336,
+      "sql_queries": 19,
+      "public_cache_lookups": 0,
+      "public_cache_hits": 0
+    },
+    {
+      "endpoint": "similar_detail",
+      "phase": "warm",
+      "wall_seconds": 0.0858,
+      "process_cpu_seconds": 0.0781,
+      "python_traced_peak_bytes": 491545,
+      "sql_queries": 19,
+      "public_cache_lookups": 0,
+      "public_cache_hits": 0
+    },
+    {
+      "endpoint": "tags_continuation",
+      "phase": "cold",
+      "wall_seconds": 0.1231,
+      "process_cpu_seconds": 0.1094,
+      "python_traced_peak_bytes": 819820,
+      "sql_queries": 18,
+      "public_cache_lookups": 0,
+      "public_cache_hits": 0
+    },
+    {
+      "endpoint": "tags_continuation",
+      "phase": "warm",
+      "wall_seconds": 0.1276,
+      "process_cpu_seconds": 0.1094,
+      "python_traced_peak_bytes": 819037,
+      "sql_queries": 18,
+      "public_cache_lookups": 0,
+      "public_cache_hits": 0
+    },
+    {
+      "endpoint": "tags_detail",
+      "phase": "cold",
+      "wall_seconds": 0.0831,
+      "process_cpu_seconds": 0.0781,
+      "python_traced_peak_bytes": 479641,
+      "sql_queries": 18,
+      "public_cache_lookups": 0,
+      "public_cache_hits": 0
+    },
+    {
+      "endpoint": "tags_detail",
+      "phase": "warm",
+      "wall_seconds": 0.0837,
+      "process_cpu_seconds": 0.0938,
+      "python_traced_peak_bytes": 478326,
+      "sql_queries": 18,
+      "public_cache_lookups": 0,
+      "public_cache_hits": 0
+    },
+    {
+      "endpoint": "enhancement9_empty_journal",
+      "phase": "cold",
+      "wall_seconds": 0.0665,
+      "process_cpu_seconds": 0.0625,
+      "python_traced_peak_bytes": 470731,
+      "sql_queries": 19,
+      "public_cache_lookups": 0,
+      "public_cache_hits": 0
+    },
+    {
+      "endpoint": "enhancement9_empty_journal",
+      "phase": "warm",
+      "wall_seconds": 0.0668,
+      "process_cpu_seconds": 0.0625,
+      "python_traced_peak_bytes": 471950,
+      "sql_queries": 19,
+      "public_cache_lookups": 0,
+      "public_cache_hits": 0
+    }
+  ],
+  "budgets": {
+    "wall_seconds_with_tracing": 15,
+    "sql_queries": 36,
+    "python_traced_peak_bytes": 134217728
+  },
+  "limitations": [
+    "Single cold/warm samples, not p95 or load test.",
+    "CPU and traced allocation are Python client/process only, not PostgreSQL/server memory.",
+    "Enhancement 9 comparison uses the SAME empty-journal account.",
+    "50k SQL/wall bounds are measured separately without tracemalloc."
+  ]
+}

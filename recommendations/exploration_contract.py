@@ -17,6 +17,7 @@ CATALOG_VERSION = 'recommendations.explore.catalog.v1'
 EVIDENCE_VERSION = 'recommendations.explore.evidence.v1'
 RESULT_VERSION = 'recommendations.explore.v1'
 OPTIONS_VERSION = 'recommendations.explore.options.v1'
+ROLLOUT_VERSION = 'recommendations.explore.rollout.v1'
 MAX_SEARCH_LENGTH = 120
 SEARCH_LIMIT = 15
 MAX_TAGS = 5
@@ -28,8 +29,17 @@ NAVIGATION = (
 )
 
 
-def enabled():
-    return getattr(settings, 'RECOMMENDATION_EXPLORATION_ENABLED', False) is True
+def canary_users():
+    users = getattr(settings, 'RECOMMENDATION_EXPLORATION_CANARY_USERS', [])
+    if not isinstance(users, (list, tuple)) or any(not isinstance(name, str) or not name.strip() for name in users):
+        return None  # Invalid rollout configuration never becomes a full release.
+    return tuple(sorted(set(users)))
+
+
+def enabled(user=None):
+    users = canary_users()
+    return (getattr(settings, 'RECOMMENDATION_EXPLORATION_ENABLED', False) is True and users is not None
+            and (not users or user is not None and user.is_authenticated and user.is_active and user.get_username() in users))
 
 
 class ExplorationDisabled(RecommendationUnavailable):
@@ -41,19 +51,20 @@ class ExplorationSnapshotChanged(RecommendationSnapshotChanged):
         super().__init__({'code': 'exploration_snapshot_changed', 'detail': detail})
 
 
-def require_enabled():
-    if not enabled():
+def require_enabled(user=None):
+    if not enabled(user):
         raise ExplorationDisabled()
 
 
-def capabilities():
-    return {'contract_version': CAPABILITIES_VERSION, 'enabled': enabled(),
-            'catalog_search_enabled': enabled(), 'query_execution_enabled': enabled(),
+def capabilities(user=None):
+    available = enabled(user)
+    return {'contract_version': CAPABILITIES_VERSION, 'rollout_contract_version': ROLLOUT_VERSION, 'enabled': available,
+            'catalog_search_enabled': available, 'query_execution_enabled': available,
             'supported_intents': ['similar', 'tags'],
             'options_contract_version': OPTIONS_VERSION,
             'query_contract_version': QUERY_VERSION, 'catalog_contract_version': CATALOG_VERSION,
             'evidence_contract_version': EVIDENCE_VERSION, 'result_contract_version': RESULT_VERSION,
-            'navigation': [{**row, 'available': enabled() if row['id'] in ('similar', 'tags') else row['available']} for row in NAVIGATION]}
+            'navigation': [{**row, 'available': available if row['id'] in ('similar', 'tags') else row['available']} for row in NAVIGATION]}
 
 
 class StrictQuerySerializer(serializers.Serializer):
@@ -246,8 +257,8 @@ class ExplorationEvidenceSerializer(StrictObjectSerializer):
         return attrs
 
 
-def contract_descriptor():
-    return {'contract_version': QUERY_VERSION, 'capabilities': capabilities(),
+def contract_descriptor(user=None):
+    return {'contract_version': QUERY_VERSION, 'capabilities': capabilities(user),
             'taxonomy_version': TAXONOMY_VERSION, 'available_tags': list(AVAILABLE_TAGS),
             'search': {'contract_version': CATALOG_VERSION, 'limit': SEARCH_LIMIT,
                        'max_query_length': MAX_SEARCH_LENGTH, 'identity_namespace': 'bangumi'},

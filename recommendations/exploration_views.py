@@ -19,13 +19,13 @@ class ExplorationAPIView(OwnRecommendationAPIView):
 
     def initial(self, request, *args, **kwargs):
         super().initial(request, *args, **kwargs)
-        require_enabled()
+        require_enabled(request.user)
 
 
 class ExplorationContractView(ExplorationAPIView):
     def get(self, request):
         self.check_query_contract(request)
-        return Response(contract_descriptor())
+        return Response(contract_descriptor(request.user))
 
 
 class ExplorationCatalogView(ExplorationAPIView):

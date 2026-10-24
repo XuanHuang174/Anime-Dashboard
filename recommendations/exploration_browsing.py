@@ -24,7 +24,7 @@ from .evidence import _token
 from .exploration_catalog import catalog_item
 from .exploration_tags import matches_tags, rank_tags
 from .exploration_contract import (QUERY_VERSION, RESULT_VERSION, EVIDENCE_VERSION,
-    POLICIES, ExplorationEvidenceSerializer, ExplorationQuerySerializer, query_fingerprint, require_enabled, ExplorationSnapshotChanged)
+    POLICIES, ExplorationEvidenceSerializer, ExplorationQuerySerializer, query_fingerprint, require_enabled, canary_users, ExplorationSnapshotChanged)
 from .features import FEATURE_RULE_VERSION, feature_tags
 from .feedback import feedback_snapshot
 from .quality_readonly import readonly_snapshot
@@ -43,15 +43,16 @@ BATCH_SIZE = 24
 
 
 def epoch():
-    return _token(CURSOR_SALT + '.epoch', str(getattr(settings, 'RECOMMENDATION_EXPLORATION_EPOCH', '1')))
+    return _token(CURSOR_SALT + '.epoch', {'epoch': str(getattr(settings, 'RECOMMENDATION_EXPLORATION_EPOCH', '1')),
+                                         'canary_users': canary_users()})
 
 
 def canonical_query(validated):
     return dict(ExplorationQuerySerializer(instance=validated).data)
 
 
-def _require_snapshot():
-    require_enabled()
+def _require_snapshot(user=None):
+    require_enabled(user)
     if connection.vendor != 'postgresql' or connection.in_atomic_block:
         raise engine.RecommendationUnavailable('探索需要独立的 PostgreSQL 只读快照。')
 
@@ -233,7 +234,7 @@ def _item(anime, body, live, *, detail=False):
 
 
 def browse_page(user, validated, *, scope_context, metrics=None):
-    _require_snapshot()
+    _require_snapshot(user)
     metrics = metrics if metrics is not None else {}
     body = _load(validated['cursor'], CURSOR_SALT, user, 'browse') if 'cursor' in validated else None
     query = body['query'] if body else canonical_query(validated)
@@ -282,7 +283,7 @@ def browse_page(user, validated, *, scope_context, metrics=None):
 
 
 def detail(user, identity, validated, *, scope_context):
-    _require_snapshot()
+    _require_snapshot(user)
     body = _load(validated['detail_context'], DETAIL_SALT, user, 'detail')
     if body['candidate'] != identity:
         raise ExplorationSnapshotChanged('详情作品与探索上下文不一致。')
@@ -317,7 +318,7 @@ def detail(user, identity, validated, *, scope_context):
 
 
 def context_probe(user, token, *, scope_context):
-    _require_snapshot()
+    _require_snapshot(user)
     body = _load(token, CONTEXT_SALT, user, 'context')
     with readonly_snapshot():
         live = _live(user, body['query'], scope_context)

@@ -10,6 +10,19 @@ import { normalizeExplorationSearch } from '../../src/utils/recommendationExplor
 import { preferences, profileData, coldState, versions as profileVersions } from './profileSampling.js'
 import { browsePage } from './browseContract.js'
 
+const harnessParams = new URLSearchParams(window.location.search)
+const reducedMotion = harnessParams.get('motion') === 'reduce'
+if (reducedMotion) {
+  // Isolated preference simulation, never changes browser/OS settings.
+  const originalMatchMedia = window.matchMedia.bind(window)
+  window.matchMedia = query => query === '(prefers-reduced-motion: reduce)' ? {
+    media: query, matches: true, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {},
+  } : originalMatchMedia(query)
+  const style = document.createElement('style')
+  style.textContent = '* { animation: none !important; transition: none !important; scroll-behavior: auto !important; }'
+  document.head.append(style)
+}
+
 api.defaults.adapter = async config => ({ config, status: 200, statusText: 'OK', headers: {},
   data: { contract_version: 'showcase.publication.v1', can_publish: false, count: 0, results: [], next_page: null } })
 localStorage.setItem('anime_journal_access_token', 'synthetic-11c-only')
@@ -104,12 +117,16 @@ function scopedClient(selectedScope = 'safe') {
   }
 }
 const client = scopedClient()
-const viewport = new URLSearchParams(window.location.search).get('viewport')
+const viewport = harnessParams.get('viewport'), height = Number(harnessParams.get('height')) || (viewport === '390' ? 844 : 900)
+// Test gesture is visible on the landing page and works inside native dialogs.
+window.addEventListener('keydown', event => {
+  if (event.altKey && event.shiftKey && event.code === 'KeyU') window.dispatchEvent(new Event('recommendation-data-changed'))
+})
 const app = <StrictMode><BrowserRouter><Routes>
   <Route path="/recommendations/*" element={<Recommendations client={client} />} />
   <Route path="/dashboard" element={<main><h1>11C 隔离手账</h1><Link to="/recommendations/similar" state={{ journalRecord: 2 }}>找相似</Link></main>} />
-  <Route path="*" element={<main><Link to="/recommendations/similar">开始验收单番相似</Link><br /><Link to="/recommendations/tags">开始验收按标签找</Link><br /><Link to="/recommendations/tags?include=日常,音乐&exclude=战斗">验收标签组合</Link></main>} />
+  <Route path="*" element={<main><Link to="/recommendations/similar">开始验收单番相似</Link><br /><Link to="/recommendations/tags">开始验收按标签找</Link><br /><Link to="/recommendations/tags?include=日常,音乐&exclude=战斗">验收标签组合</Link><p>隔离验收快捷键：Alt+Shift+U 模拟后续数据失效。</p>{reducedMotion && <p>正在模拟 prefers-reduced-motion；没有更改浏览器设置。</p>}</main>} />
 </Routes></BrowserRouter></StrictMode>
 // Fixed iframe gives a real CSS viewport for desktop/mobile checks in a narrow side panel.
 createRoot(document.getElementById('root')).render(viewport ? <iframe title={`${viewport}px 隔离验收视口`}
-  src="/tests/fixtures/explorationHarness.html" style={{ border: 0, width: `${Number(viewport)}px`, height: viewport === '390' ? '844px' : '900px', transformOrigin: 'top left', transform: `scale(${Math.min(1, window.innerWidth / Number(viewport))})` }} /> : app)
+  src={`/tests/fixtures/explorationHarness.html${reducedMotion ? '?motion=reduce' : ''}`} style={{ border: 0, width: `${Number(viewport)}px`, height: `${height}px`, transformOrigin: 'top left', transform: `scale(${Math.min(1, window.innerWidth / Number(viewport))})` }} /> : app)

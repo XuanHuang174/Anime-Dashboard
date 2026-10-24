@@ -358,6 +358,9 @@ RECOMMENDATION_V2_BROWSE_APPROVAL_FILE = env('RECOMMENDATION_V2_BROWSE_APPROVAL_
 # 9A opt-in browse contract. Disabling it leaves the original V1 requests intact.
 RECOMMENDATION_BROWSE_ENABLED = env.bool('RECOMMENDATION_BROWSE_ENABLED', default=True)
 RECOMMENDATION_EXPLORATION_ENABLED = env.bool('RECOMMENDATION_EXPLORATION_ENABLED', default=False)
+# Empty means all authenticated users; a nonempty list is an exact-account canary.
+# This gate does not grant NSFW access or change the personal recommendation gate.
+RECOMMENDATION_EXPLORATION_CANARY_USERS = env.list('RECOMMENDATION_EXPLORATION_CANARY_USERS', default=[])
 RECOMMENDATION_EXPLORATION_EPOCH = env('RECOMMENDATION_EXPLORATION_EPOCH', default='1')
 RECOMMENDATION_RESTRICTED_CONTENT_ENABLED = env.bool('RECOMMENDATION_RESTRICTED_CONTENT_ENABLED', default=False)
 # Independent rollout: no user applications; current general-adult content checks

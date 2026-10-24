@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { mapExplorationPage, explorationDetailAdapter, similarQuery } from '../src/utils/explorationResults.js'
-import { createExplorationBrowseController } from '../src/utils/explorationSession.js'
+import { createExplorationBrowseController, shouldCloseExplorationDetail } from '../src/utils/explorationSession.js'
 import { createRecommendationDetailController } from '../src/utils/recommendationDetail.js'
 import { validateExplorationCapabilities, parseSimilarSeed } from '../src/utils/recommendationExploration.js'
 import { page, detail, deferred, query, adultScope } from './fixtures/explorationContract.js'
@@ -124,4 +124,42 @@ test('late detail/resource requests cannot reopen a closed or newer selection', 
   const pending = deferred(), controller = createRecommendationDetailController({ explorationDetail: () => pending.promise }, explorationDetailAdapter)
   const task = controller.open(mapExplorationPage(page(), query).items[0]); controller.close()
   pending.resolve(detail()); await task; assert.deepEqual(controller.getSnapshot(), { status: 'closed' })
+})
+
+test('a later invalidation closes confirmed fresh detail even when its original list is already dirty', async () => {
+  const browse = createExplorationBrowseController({ explorationBrowse: async () => page() })
+  await browse.start({ key: 'one', query })
+  const controller = createRecommendationDetailController({ explorationDetail: async () => detail() }, explorationDetailAdapter)
+  await controller.open(browse.getSnapshot().items[0])
+  const refreshed = controller.afterWant({ contract_version: 'recommendations.want.v1', content_rating: 'non_adult', bangumi_id: 10,
+    record_id: 4, anime_id: 9, created: true, outcome: 'created', watch_status: 'plan' })
+  browse.recordChanged(10, 'plan'); await refreshed
+  const first = browse.getSnapshot().invalidationVersion
+  assert.equal(shouldCloseExplorationDetail(browse.getSnapshot(), controller.getSnapshot()), false)
+  controller.openResources()
+  browse.contextChanged()
+  assert.equal(browse.getSnapshot().snapshotDirty, true)
+  assert.equal(browse.getSnapshot().invalidationVersion, first + 1)
+  if (shouldCloseExplorationDetail(browse.getSnapshot(), controller.getSnapshot())) controller.close()
+  assert.deepEqual(controller.getSnapshot(), { status: 'closed' })
+  assert.equal(browse.getSnapshot().items.length, 12)
+})
+
+test('invalidation during the first query leaves a retryable error and discards its late response', async () => {
+  const pending = deferred()
+  let calls = 0, signal
+  const browse = createExplorationBrowseController({ explorationBrowse: async (_, requestSignal) => {
+    signal = requestSignal
+    return ++calls === 1 ? pending.promise : page()
+  } })
+  const task = browse.start({ key: 'first', query })
+  browse.contextChanged()
+  assert.equal(signal.aborted, true)
+  assert.equal(browse.getSnapshot().status, 'error')
+  assert.match(browse.getSnapshot().error, /重新探索/)
+  pending.resolve(page()); await task
+  assert.equal(browse.getSnapshot().status, 'error')
+  await browse.retry()
+  assert.equal(browse.getSnapshot().status, 'ready')
+  assert.equal(calls, 2)
 })

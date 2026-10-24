@@ -33,7 +33,8 @@
         "path": "/recommendations/tags",
         "available": true
       }
-    ]
+    ],
+    "rollout_contract_version": "recommendations.explore.rollout.v1"
   },
   "taxonomy_version": "genres.v8",
   "available_tags": [

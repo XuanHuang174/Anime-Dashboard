@@ -13,6 +13,8 @@ export function explorationError(error) {
 }
 const stale = error => [400, 409].includes(error?.response?.status) || error?.message?.startsWith('探索合同')
 const discard = item => ({ ...item, reason: '', evidence: null, evidenceToken: undefined, detailContext: undefined })
+export const shouldCloseExplorationDetail = (state, detail) => !!state.snapshotDirty
+  && !(state.invalidationReason === 'own_record' && detail.confirmedMutation)
 
 // Session/owner-local only, retained by the route host, never storage/global caches.
 export function createExplorationBrowseController(client, scope = 'safe') {
@@ -22,8 +24,12 @@ export function createExplorationBrowseController(client, scope = 'safe') {
   const cancel = () => { root.cancel(); continuation.cancel(); probe.cancel(); busy = false }
   const changed = (reason = 'changed') => {
     cancel()
-    if (!state.data) return
+    if (!state.data) {
+      if (state.status === 'loading') emit({ ...state, status: 'error', error: '探索依据已变化，请重新探索。', items: [] })
+      return
+    }
     emit({ ...state, snapshotDirty: true, contextUpdated: true, contextExpired: reason === 'expired',
+      invalidationVersion: (state.invalidationVersion || 0) + 1, invalidationReason: reason,
       moreLoading: false, batchLoading: false, items: state.items.map(discard) })
   }
   async function start(options = selection) {
@@ -96,7 +102,7 @@ export function createExplorationBrowseController(client, scope = 'safe') {
     },
     start, retry: () => start(), loadMore: () => advance('more'), nextBatch: () => advance('batch'), verify,
     cancel, contextChanged: changed,
-    recordChanged(identity, status) { changed(); emit({ ...state, items: state.items.map(item => item.bangumiId === identity ? { ...item, watchStatus: status } : item) }) },
+    recordChanged(identity, status) { changed('own_record'); emit({ ...state, items: state.items.map(item => item.bangumiId === identity ? { ...item, watchStatus: status } : item) }) },
     dispose() { active = false; cancel() },
   }
 }

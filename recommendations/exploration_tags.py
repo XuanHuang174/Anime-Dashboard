@@ -51,7 +51,7 @@ def rank_tags(index, rows, query, excluded):
 def tag_options(user, scope_context, metrics=None):
     # Import only at request time: the shared snapshot pipeline calls rank_tags.
     from .exploration_browsing import _require_snapshot
-    _require_snapshot()
+    _require_snapshot(user)
     metrics = metrics if metrics is not None else {}
     with readonly_snapshot():
         scope = ensure_scope(user, scope_context)
