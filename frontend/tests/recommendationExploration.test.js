@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs'
 import { createRecommendationClient } from '../src/api/recommendationClient.js'
 import { EXPLORATION_NAVIGATION, EXPLORATION_VERSIONS, explorationNavigationLabel,
   normalizeExplorationSearch, validateExplorationCapabilities, validateExplorationContract, validateExplorationCatalog,
-  createExplorationSearchController } from '../src/utils/recommendationExploration.js'
+  createExplorationSearchController, validateExplorationOptions } from '../src/utils/recommendationExploration.js'
 import { mapRecommendationPage } from '../src/utils/recommendations.js'
 
 const safeScope = { content_scope: 'safe', scope_revision: 'b'.repeat(64) }
@@ -164,4 +164,45 @@ test('empty, disabled, authentication and network errors have distinct states', 
     await controller.search('选择'); assert.equal(controller.getSnapshot().status, expected)
     assert.equal(controller.getSnapshot().items.length, 0)
   }
+})
+
+test('11D backend capabilities keep single-work navigation and defer the tag UI', () => {
+  const descriptor = JSON.parse(readFileSync(new URL('./fixtures/recommendationExplorationContract.json', import.meta.url)))
+  const data = validateExplorationCapabilities(descriptor.capabilities)
+  assert.deepEqual(data.supported_intents, ['similar', 'tags'])
+  assert.equal(data.navigation[1].available, true); assert.equal(data.navigation[2].available, false)
+  assert.equal(validateExplorationCapabilities({ ...data, supported_intents: ['similar'] }).enabled, true)
+  for (const supported_intents of [['tags'], ['similar', 'tags', 'unknown'], ['similar', 'similar'], []]) {
+    assert.throws(() => validateExplorationCapabilities({ ...data, supported_intents }))
+  }
+})
+
+test('11D option counts require a full scoped catalog definition and bounded distinct labels', () => {
+  const descriptor = JSON.parse(readFileSync(new URL('./fixtures/recommendationExplorationContract.json', import.meta.url)))
+  const data = { contract_version: 'recommendations.explore.options.v1', taxonomy_version: 'genres.v8',
+    feature_rule_version: 'journal-genres.v3', catalog_feature_version: 'a'.repeat(64),
+    count_definition: 'scoped_catalog_without_result_filters', catalog_count: 10,
+    count_description: '当前内容范围目录数量', exclusion_description: '按目录已有题材标注筛选',
+    tags: descriptor.available_tags.map(tag => ({ tag, count: 0 })), content_scope_context: safeScope }
+  assert.equal(validateExplorationOptions(data).tags.length, 51)
+  assert.equal(validateExplorationOptions({ ...data, content_scope_context: adultScope }, 'include_adult').catalog_count, 10)
+  for (const mutate of [item => item.count_definition = 'filtered_results', item => item.catalog_count = 50001,
+    item => item.tags[0].count = 11, item => item.tags[0].count = -1, item => item.tags[0].count = .5,
+    item => item.tags[1].tag = item.tags[0].tag, item => item.tags.pop(), item => item.tags[0] = null,
+    item => item.content_scope_context.content_scope = 'include_adult']) {
+    const copy = structuredClone(data); mutate(copy); assert.throws(() => validateExplorationOptions(copy))
+  }
+  assert.throws(() => validateExplorationOptions(data, 'include_adult'))
+})
+
+test('11D option client sends no private or query filters and honors requested scope', async () => {
+  const calls = [], signal = new AbortController().signal
+  const client = createRecommendationClient({ get: async (path, config) => { calls.push({ path, config }); return { data: { content_scope_context: adultScope } } } })
+  await client.explorationOptions(signal)
+    .catch(error => { assert.equal(error.scopeLost, true) }) // safe scope refuses an adult envelope
+  await client.forScope('include_adult').explorationOptions(signal)
+  assert.equal(calls[1].path, 'recommendations/explore/options/')
+  assert.deepEqual(calls[1].config.params, { content_scope: 'include_adult' })
+  assert.equal(calls[1].config.signal, signal)
+  assert.equal(calls.length, 2)
 })

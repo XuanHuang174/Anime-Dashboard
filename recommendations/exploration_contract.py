@@ -16,6 +16,7 @@ QUERY_VERSION = 'recommendations.explore.query.v1'
 CATALOG_VERSION = 'recommendations.explore.catalog.v1'
 EVIDENCE_VERSION = 'recommendations.explore.evidence.v1'
 RESULT_VERSION = 'recommendations.explore.v1'
+OPTIONS_VERSION = 'recommendations.explore.options.v1'
 MAX_SEARCH_LENGTH = 120
 SEARCH_LIMIT = 15
 MAX_TAGS = 5
@@ -48,7 +49,8 @@ def require_enabled():
 def capabilities():
     return {'contract_version': CAPABILITIES_VERSION, 'enabled': enabled(),
             'catalog_search_enabled': enabled(), 'query_execution_enabled': enabled(),
-            'supported_intents': ['similar'],
+            'supported_intents': ['similar', 'tags'],
+            'options_contract_version': OPTIONS_VERSION,
             'query_contract_version': QUERY_VERSION, 'catalog_contract_version': CATALOG_VERSION,
             'evidence_contract_version': EVIDENCE_VERSION, 'result_contract_version': RESULT_VERSION,
             'navigation': [{**row, 'available': enabled() if row['id'] == 'similar' else row['available']} for row in NAVIGATION]}
@@ -127,7 +129,7 @@ class TopicSetField(serializers.CharField):
 
 
 class ExplorationQuerySerializer(StrictQuerySerializer):
-    """Initial-query schema. 11B executes similar; tags remains prepared for 11D."""
+    """Initial-query schema for disjoint single-work and tag exploration."""
     intent = serializers.ChoiceField(choices=tuple(POLICIES))
     seed_bangumi_id = BangumiIDField(required=False)
     include_tags = TopicSetField(required=False)
@@ -204,7 +206,7 @@ class ExplorationEvidenceContextSerializer(StrictObjectSerializer):
 class ExplorationEvidenceSerializer(StrictObjectSerializer):
     """Validate provenance against the CALLER's query/candidate/current context.
 
-    This is not a token issuer or authorization check. 11B must first authenticate
+    This is not a token issuer or authorization check. 11B/11D must first authenticate
     and load the scoped seed/candidate and sign its snapshot; no profile is used.
     """
     contract_version = serializers.ChoiceField(choices=(EVIDENCE_VERSION,))
@@ -249,6 +251,9 @@ def contract_descriptor():
             'taxonomy_version': TAXONOMY_VERSION, 'available_tags': list(AVAILABLE_TAGS),
             'search': {'contract_version': CATALOG_VERSION, 'limit': SEARCH_LIMIT,
                        'max_query_length': MAX_SEARCH_LENGTH, 'identity_namespace': 'bangumi'},
+            'options': {'contract_version': OPTIONS_VERSION,
+                        'count_definition': 'scoped_catalog_without_result_filters',
+                        'result_filters_applied': False, 'requires_profile': False},
             'query': {'intents': dict(POLICIES), 'maximum_include_tags': MAX_TAGS,
                       'maximum_exclude_tags': MAX_TAGS, 'default_match': 'all',
                       'matches': ['all', 'any'], 'sorts': ['relevance', 'score'],

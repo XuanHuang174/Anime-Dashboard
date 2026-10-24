@@ -1,4 +1,4 @@
-"""Protected exploration selection, single-work snapshots and scoped details."""
+"""Protected work/tag selection, intent-bound snapshots and scoped details."""
 from django.db import DatabaseError
 from rest_framework.exceptions import APIException
 from rest_framework.exceptions import NotFound
@@ -59,7 +59,8 @@ class ExplorationSnapshotAPIView(ExplorationAPIView):
         # Outside the read-only snapshot: direct catalog UPDATE must not send an
         # old selected source or evidence, including zero-result/context replies.
         if response.status_code < 400 and isinstance(response.data, dict):
-            expected = response.data.get('evidence_context', {}).get('catalog_feature_version')
+            expected = (response.data.get('evidence_context', {}).get('catalog_feature_version')
+                        or response.data.get('catalog_feature_version'))
             if expected:
                 try:
                     from .browsing import catalog_revision
@@ -78,6 +79,13 @@ class ExplorationListView(ExplorationSnapshotAPIView):
         query.is_valid(raise_exception=True)
         from .exploration_browsing import browse_page
         return Response(browse_page(request.user, query.validated_data, scope_context=request.content_scope))
+
+
+class ExplorationOptionsView(ExplorationSnapshotAPIView):
+    def get(self, request):
+        self.check_query_contract(request)
+        from .exploration_tags import tag_options
+        return Response(tag_options(request.user, request.content_scope))
 
 
 class ExplorationDetailView(ExplorationSnapshotAPIView):

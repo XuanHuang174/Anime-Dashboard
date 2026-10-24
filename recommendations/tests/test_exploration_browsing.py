@@ -260,7 +260,7 @@ class SingleWorkSnapshotTests(TransactionTestCase):
         with patch('recommendations.exploration_browsing.browse_page', side_effect=changed):
             self.assertEqual(self.start().status_code, 409)
 
-    def test_cache_fault_and_unsupported_intent_never_fallback_to_personal(self):
+    def test_cache_fault_and_tag_intent_never_fallback_to_personal(self):
         original = cache.get
         def get(key, *args, **kwargs):
             if str(key).startswith('recommendations.browse.public'):
@@ -274,7 +274,9 @@ class SingleWorkSnapshotTests(TransactionTestCase):
         with patch('recommendations.browsing.cache.get', side_effect=RuntimeError('synthetic-all-cache')):
             self.assertEqual(self.start().status_code, 503)
         tags = self.client.get('/api/recommendations/explore/', {'intent': 'tags', 'include_tags': '音乐'})
-        self.assertEqual(tags.status_code, 503); self.assertEqual(tags.data['code'], 'exploration_intent_unavailable')
+        self.assertEqual(tags.status_code, 200, tags.data)
+        self.assertEqual(tags.data['intent'], 'tags')
+        self.assertEqual(tags.data['results'][0]['evidence']['kind'], 'selected_tags')
         for params in ({'intent':'similar'}, {'intent':'similar','seed_bangumi_id':1,'user_id':self.other.pk}):
             self.assertEqual(self.client.get('/api/recommendations/explore/', params).status_code, 400)
         self.client.force_authenticate(None); self.assertEqual(self.start().status_code, 401)

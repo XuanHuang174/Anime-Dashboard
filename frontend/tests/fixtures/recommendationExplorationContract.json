@@ -6,8 +6,10 @@
     "catalog_search_enabled": true,
     "query_execution_enabled": true,
     "supported_intents": [
-      "similar"
+      "similar",
+      "tags"
     ],
+    "options_contract_version": "recommendations.explore.options.v1",
     "query_contract_version": "recommendations.explore.query.v1",
     "catalog_contract_version": "recommendations.explore.catalog.v1",
     "evidence_contract_version": "recommendations.explore.evidence.v1",
@@ -92,6 +94,12 @@
     "limit": 15,
     "max_query_length": 120,
     "identity_namespace": "bangumi"
+  },
+  "options": {
+    "contract_version": "recommendations.explore.options.v1",
+    "count_definition": "scoped_catalog_without_result_filters",
+    "result_filters_applied": false,
+    "requires_profile": false
   },
   "query": {
     "intents": {

@@ -6,6 +6,7 @@ export const EXPLORATION_VERSIONS = Object.freeze({
   capabilities: 'recommendations.explore.capabilities.v1', query: 'recommendations.explore.query.v1',
   catalog: 'recommendations.explore.catalog.v1', evidence: 'recommendations.explore.evidence.v1',
   result: 'recommendations.explore.v1',
+  options: 'recommendations.explore.options.v1',
 })
 export const EXPLORATION_NAVIGATION = Object.freeze([
   Object.freeze({ id: 'personal', label: '个性化推荐', path: '/recommendations' }),
@@ -30,16 +31,35 @@ export function parseSimilarSeed(search) {
 }
 
 export function validateExplorationCapabilities(data) {
+  const supported = ['["similar"]', '["similar","tags"]'].includes(JSON.stringify(data?.supported_intents))
   if (data?.contract_version !== EXPLORATION_VERSIONS.capabilities || typeof data.enabled !== 'boolean'
     || data.catalog_search_enabled !== data.enabled || typeof data.query_execution_enabled !== 'boolean'
-    || data.query_execution_enabled && (!data.enabled || JSON.stringify(data.supported_intents) !== '["similar"]')
-    || data.supported_intents !== undefined && JSON.stringify(data.supported_intents) !== '["similar"]'
+    || data.query_execution_enabled && (!data.enabled || !supported)
+    || data.supported_intents !== undefined && !supported
+    || data.options_contract_version !== undefined && data.options_contract_version !== EXPLORATION_VERSIONS.options
     || !['query', 'catalog', 'evidence', 'result'].every(key => data[`${key}_contract_version`] === EXPLORATION_VERSIONS[key])
     || !Array.isArray(data.navigation) || data.navigation.length !== 3
     || !EXPLORATION_NAVIGATION.every((row, index) => Object.entries(row).every(([key, value]) => data.navigation[index]?.[key] === value)
       && typeof data.navigation[index].available === 'boolean'
       && (row.id === 'personal' ? data.navigation[index].available : row.id === 'tags' ? !data.navigation[index].available
         : !data.navigation[index].available || data.enabled && data.query_execution_enabled))) return invalid()
+  return data
+}
+
+// 11D read adapter only; tag query controls/results remain scheduled for 11E.
+export function validateExplorationOptions(data, scope = 'safe') {
+  if (!['safe', 'include_adult'].includes(scope)) return invalid()
+  checkScopeResponse(data, scope)
+  if (data?.contract_version !== EXPLORATION_VERSIONS.options || data.taxonomy_version !== 'genres.v8'
+    || data.feature_rule_version !== 'journal-genres.v3' || !hash(data.catalog_feature_version)
+    || data.count_definition !== 'scoped_catalog_without_result_filters'
+    || !Number.isInteger(data.catalog_count) || data.catalog_count < 0 || data.catalog_count > 50000
+    || typeof data.count_description !== 'string' || typeof data.exclusion_description !== 'string'
+    || data.content_scope_context?.content_scope !== scope || !hash(data.content_scope_context.scope_revision)
+    || !Array.isArray(data.tags) || data.tags.length !== 51
+    || new Set(data.tags.map(row => row?.tag)).size !== data.tags.length
+    || !data.tags.every(row => row && typeof row.tag === 'string' && row.tag.trim() && row.tag.length <= 50
+      && Number.isInteger(row.count) && row.count >= 0 && row.count <= data.catalog_count)) return invalid()
   return data
 }
 

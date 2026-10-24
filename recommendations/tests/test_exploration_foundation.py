@@ -106,7 +106,7 @@ class ExplorationContractTests(SimpleTestCase):
             data = capabilities()
             self.assertTrue(data['catalog_search_enabled'])
             self.assertTrue(data['query_execution_enabled'])
-            self.assertEqual(data['supported_intents'], ['similar'])
+            self.assertEqual(data['supported_intents'], ['similar', 'tags'])
             self.assertEqual([row['label'] for row in data['navigation']], ['个性化推荐', '单番相似', '按标签找'])
             self.assertEqual([row['available'] for row in data['navigation']], [True, True, False])
 
