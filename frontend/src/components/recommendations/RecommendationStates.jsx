@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom'
 import { RecommendationHeroSkeleton, RecommendationGridSkeleton } from './RecommendationLoading.jsx'
 
-export function RecommendationSkeleton({ featuredOnly = false }) {
+export function RecommendationSkeleton({ featuredOnly = false, phase = 'data' }) {
   return <section className="rec-skeleton" aria-busy="true" aria-label="正在加载推荐">
-    <RecommendationHeroSkeleton />
+    <RecommendationHeroSkeleton phase={phase} />
     {!featuredOnly && <RecommendationGridSkeleton />}
   </section>
 }

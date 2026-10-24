@@ -51,7 +51,7 @@ def capabilities():
             'supported_intents': ['similar'],
             'query_contract_version': QUERY_VERSION, 'catalog_contract_version': CATALOG_VERSION,
             'evidence_contract_version': EVIDENCE_VERSION, 'result_contract_version': RESULT_VERSION,
-            'navigation': [dict(row) for row in NAVIGATION]}
+            'navigation': [{**row, 'available': enabled() if row['id'] == 'similar' else row['available']} for row in NAVIGATION]}
 
 
 class StrictQuerySerializer(serializers.Serializer):

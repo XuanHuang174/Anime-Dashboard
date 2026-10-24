@@ -69,7 +69,7 @@ test('real page has no mock fallback or acceptance controls and route remains pr
   assert.match(detail, /client.detail/)
   assert.doesNotMatch(detail, /recommendationPreview|localStorage|sessionStorage/)
   const router = readFileSync(new URL('../src/router/AppRouter.jsx', import.meta.url), 'utf8')
-  assert.match(router, /path="\/recommendations" element=\{<ProtectedRoute><RecommendationRoute\s*\/><\/ProtectedRoute>/)
+  assert.match(router, /path="\/recommendations\/\*" element=\{<ProtectedRoute><RecommendationRoute\s*\/><\/ProtectedRoute>/)
   const route = readFileSync(new URL('../src/router/RecommendationRoute.jsx', import.meta.url), 'utf8')
   assert.match(route, /<RecommendationRouteBoundary><Suspense fallback=\{<RecommendationRouteLoading/)
   assert.match(route, /lazy\(\(\) => import\('\.\.\/pages\/Recommendations.jsx'\)\)/)

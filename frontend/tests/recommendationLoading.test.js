@@ -14,6 +14,7 @@ const { RecommendationRouteLoading: RouteLoading, RecommendationHeroSkeleton: He
   RecommendationTasteSkeleton: Taste, RecommendationGridSkeleton: Grid, RECOMMENDATION_SLOW_LOAD_MS } =
   await server.ssrLoadModule('/src/components/recommendations/RecommendationLoading.jsx')
 const render = (component, props = {}) => renderToStaticMarkup(React.createElement(MemoryRouter, {}, React.createElement(component, props)))
+const { default: ModeNavigation } = await server.ssrLoadModule('/src/components/recommendations/RecommendationModeNavigation.jsx')
 
 test('route fallback carries real navigation and truthful code-loading copy, without preference numbers or fake progress', () => {
   const html = render(RouteLoading)
@@ -35,6 +36,22 @@ test('data skeleton preserves hero poster, title, metadata, reason, tags and two
   for (const part of ['poster', 'title', 'meta', 'reason', 'tags', 'actions']) assert.match(html, new RegExp(`rec-load-${part}`))
   assert.doesNotMatch(html, /<button|<img|已完成|正在分析|匹配率|progressbar/)
   assert.match(html, /aria-hidden="true"/)
+})
+
+test('single-work skeleton never claims it is loading a personal profile', () => {
+  assert.match(render(Hero, { phase: 'explore' }), /正在读取参照与相似作品/)
+  assert.doesNotMatch(render(Hero, { phase: 'explore' }), /你的口味|个人评分/)
+  const html = renderToStaticMarkup(React.createElement(MemoryRouter, { initialEntries: ['/recommendations/similar'] }, React.createElement(RouteLoading)))
+  assert.match(html, /本次参照/); assert.doesNotMatch(html, /我的口味/)
+})
+
+test('mode navigation exposes approved labels, current marker, seed URL and unavailable tags', () => {
+  const caps = { navigation: [{ id: 'personal', available: true }, { id: 'similar', available: true }, { id: 'tags', available: false }] }
+  const html = render(ModeNavigation, { current: 'personal', capabilities: caps, similarSeed: 123 })
+  assert.match(html, /个性化推荐 · 当前/); assert.match(html, /aria-current="page"/)
+  assert.match(html, /href="\/recommendations\/similar\?seed=123"/)
+  assert.match(html, /按标签找，尚未开放/)
+  assert.doesNotMatch(render(ModeNavigation, { current: 'personal' }), /href="\/recommendations\/similar/)
 })
 
 test('taste and small grid placeholders contain no fabricated user data or recommendations', () => {

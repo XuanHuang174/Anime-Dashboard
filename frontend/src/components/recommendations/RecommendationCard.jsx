@@ -42,7 +42,7 @@ export function RecommendationActions({ item, onDetail, detailLabel = '查看详
 }
 
 export default function RecommendationCard({ item, hero = false, onDetail, onWant, operation, onIdentity, onReload,
-  onHide, feedbackOperation, feedbackDisabled, onFeedbackReload, browseUnavailable = false }) {
+  onHide, feedbackOperation, feedbackDisabled, onFeedbackReload, browseUnavailable = false, EvidenceComponent = RecommendationEvidence }) {
   return <article className={`rec-card ${hero ? 'rec-card--hero' : ''}`} data-rec-motion-id={item.bangumiId}>
     <RecommendationCover item={item} priority={hero} />
     <div className="rec-card-body">
@@ -51,7 +51,7 @@ export default function RecommendationCard({ item, hero = false, onDetail, onWan
         {onHide && <RecommendationFeedbackMenu item={item} onHide={onHide} operation={feedbackOperation}
           disabled={browseUnavailable || feedbackDisabled || operation?.status === 'adding'} onReload={onFeedbackReload} />}</div>
       <RecommendationMeta item={item} />
-      <RecommendationEvidence item={item} onReload={onReload} />
+      <EvidenceComponent item={item} onReload={onReload} />
       {hero && item.synopsis && <p className="rec-hero-synopsis">{item.synopsis}</p>}
       <div className="rec-card-tags" aria-label="作品标签">{item.tags?.slice(0, 2).map((tag) => <span key={tag}>{tag}</span>)}</div>
       <RecommendationActions item={item} onDetail={onDetail} onWant={onWant} operation={operation} onIdentity={onIdentity}

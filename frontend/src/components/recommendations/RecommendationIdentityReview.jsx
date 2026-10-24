@@ -3,12 +3,12 @@ import RecommendationDialog from './RecommendationDialog.jsx'
 import { createIdentityReviewController, MAX_IDENTITY_BATCH, identitySeasonDiffers } from '../../utils/recommendationIdentityBatch.js'
 import '../../styles/recommendations-identity.css'
 
-export default function RecommendationIdentityReview({ client, onClose, onChanged, scope = 'high-score' }) {
+export default function RecommendationIdentityReview({ client, onClose, onChanged, scope = 'high-score', recordId = null }) {
   const controller = useMemo(() => createIdentityReviewController(client, scope), [client, scope])
   const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot)
   const [discard, setDiscard] = useState(false)
   const closed = useRef(false)
-  useEffect(() => { controller.activate(); controller.loadPage(); return () => controller.dispose() }, [controller])
+  useEffect(() => { controller.activate(); controller.loadPage(1, recordId); return () => controller.dispose() }, [controller, recordId])
   const drafts = Object.values(state.drafts), checked = drafts.filter(row => row.confirmed && !row.error).length
   const sending = state.batch?.status === 'sending'
   const unresolved = ['uncertain', 'retryable'].includes(state.batch?.status)

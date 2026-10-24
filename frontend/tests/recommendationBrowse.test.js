@@ -63,6 +63,21 @@ test('9B append stays within batch, switching replaces cards, and round ends wit
   assert.equal(await controller.nextBatch(), false)
 })
 
+test('11C leaving and returning to personal keeps its batch without reranking, and cancels suspended work', async () => {
+  const env = service(); await env.controller.start(selection()); await env.controller.loadMore()
+  const snapshot = env.controller.getSnapshot().data.snapshot_id
+  env.controller.dispose(); env.controller.activate(); await env.controller.resume(selection())
+  assert.equal(env.controller.getSnapshot().items.length, 24)
+  assert.equal(env.controller.getSnapshot().data.snapshot_id, snapshot)
+  assert.equal(env.calls.length, 2)
+  const held = deferred(); env.behavior.request = () => held.promise
+  const task = env.controller.nextBatch(); env.controller.dispose()
+  held.resolve(browsePage({ offset: 24 })); await task
+  env.controller.activate(); await env.controller.resume(selection())
+  assert.equal(env.controller.getSnapshot().data.batch, 1)
+  assert.equal(env.controller.getSnapshot().batchLoading, false)
+})
+
 test('9B rapid clicks across both actions produce exactly one continuation request', async () => {
   const { controller, behavior, calls } = service(); await controller.start(selection())
   const held = deferred(); behavior.request = () => held.promise

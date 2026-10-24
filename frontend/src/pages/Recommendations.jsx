@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import RecommendationHost from './RecommendationHost.jsx'
 import RecommendationCard, { RecommendationCover, RecommendationMeta } from '../components/recommendations/RecommendationCard.jsx'
 import { RecommendationGridSkeleton } from '../components/recommendations/RecommendationLoading.jsx'
 import RecommendationDialog from '../components/recommendations/RecommendationDialog.jsx'
@@ -48,17 +49,23 @@ export default function Recommendations({ client = recommendationApi }) {
     document.addEventListener('visibilitychange', check)
     return () => { window.removeEventListener('storage', check); window.removeEventListener('focus', check); document.removeEventListener('visibilitychange', check) }
   }, [])
-  return <RecommendationWorkspace key={sessionScope} client={client} sessionScope={sessionScope} />
+  return <RecommendationHost key={sessionScope} client={client} sessionScope={sessionScope} Personal={RecommendationWorkspace} />
 }
 
-function RecommendationWorkspace({ client: baseClient, sessionScope }) {
-  const [category, setCategory] = useState('all')
-  const [style, setStyle] = useState('balanced')
-  const [filters, setFilters] = useState({ ...DEFAULT_BROWSE_FILTERS })
+function RecommendationWorkspace({ client, sessionScope, cache, adult, setAdult, navigation, capabilities }) {
+  const navigate = useNavigate()
+  const [category, setCategory] = useState(cache.controls?.category || 'all')
+  const [style, setStyle] = useState(cache.controls?.style || 'balanced')
+  const [localFilters, setLocalFilters] = useState(cache.controls?.filters || { ...DEFAULT_BROWSE_FILTERS })
+  const filters = { ...localFilters, includeAdult: adult }
+  const setFilters = update => {
+    const next = typeof update === 'function' ? update(filters) : update
+    setLocalFilters(next); setAdult(!!next.includeAdult)
+  }
+  useLayoutEffect(() => { cache.controls = { category, style, filters } }, [cache, category, style, localFilters, adult])
   const [panel, setPanel] = useState(null)
   const [notice, setNotice] = useState('')
   const scopeLost = useRef(() => {})
-  const client = useMemo(() => baseClient.forScope ? baseClient.forScope(filters.includeAdult ? 'include_adult' : 'safe', () => scopeLost.current()) : baseClient, [baseClient, !!filters.includeAdult])
   const [publicationRevision, setPublicationRevision] = useState(0)
   const resourceTrigger = useRef(null)
   const preferenceTrigger = useRef(null)
@@ -68,7 +75,7 @@ function RecommendationWorkspace({ client: baseClient, sessionScope }) {
   const resultsRef = useRef(null)
   const pageRef = useRef(null)
   const { detail, controller: detailController } = useRecommendationDetail(client)
-  const state = useRecommendations(category, filters, client, style)
+  const state = useRecommendations(category, filters, client, style, cache)
   useRecommendationMotion(pageRef, { status: state.status,
     epoch: JSON.stringify([state.key, state.data?.snapshot_id, state.data?.state_token, state.data?.batch]),
     ids: state.items.map(item => item.bangumiId).join(','), blocked: state.snapshotExpired || state.snapshotDirty })
@@ -202,7 +209,7 @@ function RecommendationWorkspace({ client: baseClient, sessionScope }) {
   const resetFilters = () => applyFilters({ ...DEFAULT_BROWSE_FILTERS })
   const reset = () => {
     discardDetail(); state.cancelBrowse()
-    if (category === 'all' && style === 'balanced' && JSON.stringify(filters) === JSON.stringify(DEFAULT_BROWSE_FILTERS)) reload()
+    if (category === 'all' && style === 'balanced' && JSON.stringify(filters) === JSON.stringify({ ...DEFAULT_BROWSE_FILTERS, includeAdult: false })) reload()
     else { setCategory('all'); setStyle('balanced'); setFilters({ ...DEFAULT_BROWSE_FILTERS }) }
   }
   const openFilters = () => { discardDetail(); setPanel({ kind: 'filters' }) }
@@ -264,10 +271,10 @@ function RecommendationWorkspace({ client: baseClient, sessionScope }) {
       <nav className="rec-nav" aria-label="推荐页面导航"><Link className="rec-back" to="/dashboard">← 返回我的手账</Link>
         <div className="rec-nav-tools"><button type="button" className="rec-text-button" onClick={openHidden}>已隐藏作品</button>
           <button type="button" className="rec-button rec-preferences" ref={preferenceTrigger} disabled={!preferences} onClick={openPreferences}>☷ 偏好设置</button></div></nav>
-      <header className="rec-page-heading">
-        <span className="rec-chapter-label">我的手账 / 个性化推荐</span>
+      <header className="rec-page-heading rec-explore-heading">
+        <span className="rec-chapter-label">我的手账</span>
         <h1>番剧探索</h1>
-        <span className="rec-chapter-mark" aria-hidden="true">✦</span>
+        {navigation}
       </header>
       <RecommendationRefreshNotice confirmedPreferences={state.confirmedPreferences} status={state.status} onRetry={() => reload()} />
       {(state.confirmedFeedback && state.status === 'error' || feedback.state.syncError) && <section className="rec-feedback-refresh" role="alert">
@@ -354,6 +361,7 @@ function RecommendationWorkspace({ client: baseClient, sessionScope }) {
               <h3>推荐依据</h3><RecommendationEvidence item={detail.item} expanded onReload={() => { closePanel(); reload() }} />
               <h3>故事简介</h3><p>{detail.item.synopsis || '暂未收录简介。'}</p>
               <RecommendationDetailActions item={detail.item} resourceOpen={detail.resourceOpen}
+                onSimilar={capabilities?.navigation?.[1]?.available ? item => { closePanel(); navigate(`/recommendations/similar?seed=${item.bangumiId}`) } : undefined}
                 resourceTriggerRef={resourceTrigger}
                 onResourceOpen={detailController.openResources} onResourceClose={detailController.closeResources} onClose={closePanel}
                 onWant={addWant} operation={want.operations[detail.item.bangumiId]} onIdentity={openWantIdentity}

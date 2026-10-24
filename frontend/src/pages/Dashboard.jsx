@@ -1147,6 +1147,7 @@ function Dashboard() {
           selectedItem={selectedItem}
           closeModal={() => setSelectedItem(null)}
           isPrivateJournal={!isSharedJournal}
+          onSimilar={!isSharedJournal ? item => navigate('/recommendations/similar', { state: { journalRecord: item.id } }) : undefined}
           showToast={showToast}
           featuredAction={featuredAction ? {
             ...featuredAction,
@@ -1158,6 +1159,7 @@ function Dashboard() {
         <EditableDetailModal
           key={selectedItem?.id ?? 'closed-edit-modal'}
           selectedItem={selectedItem}
+          onSimilar={item => navigate('/recommendations/similar', { state: { journalRecord: item.id } })}
           closeModal={() => setSelectedItem(null)}
           onRecordUpdated={handleRecordUpdated}
           onRecordDeleted={handleRecordDeleted}

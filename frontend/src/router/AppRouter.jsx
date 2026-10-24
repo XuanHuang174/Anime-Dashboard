@@ -22,7 +22,7 @@ function AppRouter() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/activate" element={<ActivatePage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
-      <Route path="/recommendations" element={<ProtectedRoute><RecommendationRoute /></ProtectedRoute>} />
+      <Route path="/recommendations/*" element={<ProtectedRoute><RecommendationRoute /></ProtectedRoute>} />
       <Route path="/admin-login" element={<AdminLogin />} />
       <Route
         path="/admin-dashboard"

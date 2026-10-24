@@ -1,6 +1,7 @@
 """Protected exploration selection, single-work snapshots and scoped details."""
 from django.db import DatabaseError
 from rest_framework.exceptions import APIException
+from rest_framework.exceptions import NotFound
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle, UserRateThrottle
 
@@ -32,6 +33,25 @@ class ExplorationCatalogView(ExplorationAPIView):
         query = ExplorationSearchQuerySerializer(data=self.query_params(request))
         query.is_valid(raise_exception=True)
         return Response(search_catalog(query.validated_data['q'], request.content_scope))
+
+
+class ExplorationRecordReferenceView(ExplorationAPIView):
+    """Resolve an exact OWN journal record without guessing an external ID."""
+    def get(self, request, record_id):
+        self.check_query_contract(request)
+        from .content_scope import catalog_for_scope
+        from .resolution import resolved_records
+        from .engine import RecommendationUnavailable
+        scope = request.content_scope
+        allowed = catalog_for_scope(scope).filter(nsfw=True).values_list('bangumi_id', flat=True) if scope['content_scope'] == 'include_adult' else ()
+        rows = resolved_records(request.user, allowed_adult_ids=allowed, include_profile=False, record_id=record_id)
+        if not rows:
+            raise NotFound('手账记录不存在。')
+        if not rows.schema_available:
+            raise RecommendationUnavailable('作品身份服务尚未就绪。')
+        row = rows[0]
+        return Response({'contract_version': 'recommendations.explore.record.v1', 'record_id': record_id,
+                         'identity_state': row['identity_state'], 'bangumi_id': row['resolved_bangumi_id']})
 
 
 class ExplorationSnapshotAPIView(ExplorationAPIView):

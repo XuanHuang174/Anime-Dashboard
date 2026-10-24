@@ -39,6 +39,10 @@ export function createRecommendationClient(transport, scope = 'safe', onLost = (
     applyEligibility: (changes, signal) => client.post('recommendations/eligibility/apply/', changes, { signal }).then(r => r.data),
     capabilities: signal => client.get('recommendations/capabilities/', { signal }).then(r => r.data),
     explorationContract: signal => client.get('recommendations/explore/contract/', { signal }).then(r => r.data),
+    explorationRecord: (recordId, signal) => {
+      if (!Number.isSafeInteger(recordId) || recordId < 1) return Promise.reject(new Error('手账记录身份无效'))
+      return client.get(`recommendations/explore/record/${recordId}/`, { signal }).then(r => r.data)
+    },
     explorationCatalog: (q, signal) => client.get('recommendations/explore/catalog/', { params: { q }, signal }).then(r => r.data),
     explorationBrowse: (query, signal) => client.get('recommendations/explore/', {
       params: query.cursor ? { cursor: query.cursor } : query, signal }).then(r => r.data),

@@ -22,6 +22,13 @@ export function explorationNavigationLabel(id, current) {
   return `${item.label}${current === id ? ' · 当前' : ''}`
 }
 
+export function parseSimilarSeed(search) {
+  const values = new URLSearchParams(search).getAll('seed')
+  if (!values.length) return { id: null }
+  if (values.length !== 1 || !/^[1-9]\d{0,9}$/.test(values[0]) || Number(values[0]) > 2147483647) return { id: null, error: '链接中的 Bangumi ID 无效，请重新选择参照作品。' }
+  return { id: Number(values[0]) }
+}
+
 export function validateExplorationCapabilities(data) {
   if (data?.contract_version !== EXPLORATION_VERSIONS.capabilities || typeof data.enabled !== 'boolean'
     || data.catalog_search_enabled !== data.enabled || typeof data.query_execution_enabled !== 'boolean'
@@ -30,7 +37,9 @@ export function validateExplorationCapabilities(data) {
     || !['query', 'catalog', 'evidence', 'result'].every(key => data[`${key}_contract_version`] === EXPLORATION_VERSIONS[key])
     || !Array.isArray(data.navigation) || data.navigation.length !== 3
     || !EXPLORATION_NAVIGATION.every((row, index) => Object.entries(row).every(([key, value]) => data.navigation[index]?.[key] === value)
-      && data.navigation[index].available === (row.id === 'personal'))) return invalid()
+      && typeof data.navigation[index].available === 'boolean'
+      && (row.id === 'personal' ? data.navigation[index].available : row.id === 'tags' ? !data.navigation[index].available
+        : !data.navigation[index].available || data.enabled && data.query_execution_enabled))) return invalid()
   return data
 }
 
@@ -111,7 +120,8 @@ export function createExplorationSearchController(client, scope = 'safe') {
     getSnapshot: () => state,
     subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener) },
     clear,
-    dispose: () => { active = false; gate.cancel(); listeners.clear() },
+    activate: () => { active = true },
+    dispose: () => { active = false; gate.cancel() },
     async search(raw) {
       if (!active) return
       gate.cancel()

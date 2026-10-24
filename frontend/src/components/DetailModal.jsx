@@ -66,6 +66,7 @@ function DetailModal({
   featuredAction = null,
   onFeaturedAction = null,
   isPrivateJournal = false,
+  onSimilar,
 }) {
   const [selectedItem, setSelectedItem] = useState(activeItem)
   const [formData, setFormData] = useState({
@@ -732,6 +733,8 @@ function DetailModal({
               className={`${arcadeButtonClass} bg-[#ffe66d] hover:bg-[#ff8fab]`}>
               🧲 寻找资源
             </button>
+            {isPrivateJournal && onSimilar && <button type="button" disabled={isClosing || isSaving || isDeleting}
+              className={`${arcadeButtonClass} bg-[#ffe66d] hover:bg-[#ff8fab]`} onClick={() => onSimilar(selectedItem)}>找相似</button>}
           </div>
 
           <div className="detail-modal-actions__right ml-auto flex flex-wrap items-center justify-end gap-2">

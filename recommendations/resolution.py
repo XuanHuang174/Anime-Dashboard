@@ -19,8 +19,10 @@ def record_row(record):
     return UserAnimeRecord.objects.filter(pk=record.pk).values(*RECORD_FIELDS).get()
 
 
-def resolved_records(user, *, allowed_adult_ids=(), include_profile=True, max_rows=None):
+def resolved_records(user, *, allowed_adult_ids=(), include_profile=True, max_rows=None, record_id=None):
     query = UserAnimeRecord.objects.filter(user=user).order_by('pk')
+    if record_id is not None:
+        query = query.filter(pk=record_id)
     if max_rows is not None:
         query = query[:max_rows + 1]
     fields = RECORD_FIELDS if include_profile else tuple(field for field in RECORD_FIELDS if field not in (

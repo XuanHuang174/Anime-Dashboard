@@ -23,7 +23,7 @@
         "id": "similar",
         "label": "单番相似",
         "path": "/recommendations/similar",
-        "available": false
+        "available": true
       },
       {
         "id": "tags",

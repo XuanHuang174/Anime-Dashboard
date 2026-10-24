@@ -108,7 +108,7 @@ class ExplorationContractTests(SimpleTestCase):
             self.assertTrue(data['query_execution_enabled'])
             self.assertEqual(data['supported_intents'], ['similar'])
             self.assertEqual([row['label'] for row in data['navigation']], ['个性化推荐', '单番相似', '按标签找'])
-            self.assertEqual([row['available'] for row in data['navigation']], [True, False, False])
+            self.assertEqual([row['available'] for row in data['navigation']], [True, True, False])
 
     def evidence(self, intent='similar'):
         versions = dict(query_fingerprint='a'*64, catalog_feature_version='b'*64,

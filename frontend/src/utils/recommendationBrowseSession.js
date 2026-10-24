@@ -3,6 +3,7 @@ import { requireNextRecommendationEpoch } from './recommendationEpoch.js'
 import { loadRecommendationSnapshot } from './recommendationSnapshot.js'
 import { BROWSE_UPDATED, browseConditions, mapBrowsePage, requireBrowseTransition, sameConditions } from './recommendationBrowse.js'
 import { validExecutionRecipe, sameExecutionRecipe } from './recommendationExecution.js'
+import { contextChanged } from './recommendationContext.js'
 
 const discardEvidence = item => ({ ...item, evidence: null, reason: '', evidenceToken: undefined, evidenceContext: undefined, detailContext: undefined })
 const rollbackSignal = error => [409, 503].includes(error?.response?.status)
@@ -109,6 +110,20 @@ export function createBrowseController(client) {
     subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener) },
     getSnapshot: () => state,
     activate() { active = true }, start, retry: acknowledged => start(selection, acknowledged),
+    async resume(options) {
+      if (state.key !== options.key || !state.data) return start(options)
+      selection = options
+      emit({ ...state, moreLoading: false, batchLoading: false })
+      if (state.snapshotDirty || state.snapshotExpired) return
+      if (state.data.snapshot_expires_at * 1000 <= Date.now()) { this.contextChanged('expired'); return }
+      if (!client.context) return
+      const captured = state.data, epoch = generation, request = root.begin()
+      try {
+        const data = await client.context(request.signal)
+        if (!active || epoch !== generation || !request.isCurrent() || state.data !== captured) return
+        if (contextChanged(data, { context: captured.evidence_context, rollout_revision: state.rolloutRevision, browse_enabled: state.transport !== 'legacy' })) this.contextChanged()
+      } catch { /* A failed background probe does not erase the retained browse session. */ }
+    },
     loadMore: () => advance('more'), nextBatch: () => advance('batch'), cancel,
     contextChanged(reason = 'changed') {
       if (!state.data || state.status === 'loading' || state.contextUpdated) return

@@ -1,5 +1,5 @@
 import { Component, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 // Eagerly imported by the route, not dependent on the lazy page's CSS/GSAP.
 import '../../styles/recommendations-loading.css'
 
@@ -12,7 +12,7 @@ export function RecommendationLoadingNotice({ phase = 'data' }) {
     return () => window.clearTimeout(timer)
   }, [])
   return <div className="rec-load-notice" role="status" aria-live="polite" aria-atomic="true">
-    <p>{phase === 'route' ? '正在翻开番剧探索手账…' : '正在读取你的口味与推荐…'}</p>
+    <p>{phase === 'route' ? '正在翻开番剧探索手账…' : phase === 'explore' ? '正在读取参照与相似作品…' : '正在读取你的口味与推荐…'}</p>
     {slow && <small>这次加载较慢，请稍候。预计还需 5s~15s。</small>}
   </div>
 }
@@ -49,11 +49,12 @@ export function RecommendationGridSkeleton() {
 }
 
 export function RecommendationRouteLoading({ failed = false }) {
+  const similar = useLocation().pathname.startsWith('/recommendations/similar')
   return <main className="rec-loading-route" aria-label={failed ? '推荐页面暂不可用' : '正在打开推荐页面'}>
     <div className="rec-load-page">
       <div className="rec-load-masthead"><nav aria-label="推荐加载导航"><Link to="/dashboard">← 返回我的手账</Link>
         <span className="rec-load-nav-placeholder" aria-hidden="true"><i /><i /></span></nav>
-        <header><span>我的手账 / 个性化推荐</span><h1>番剧探索</h1></header>
+        <header><span>我的手账</span><h1>番剧探索</h1></header>
         <div className="rec-load-controls" aria-hidden="true"><span /><span /><span /><i /></div>
       </div>
       {failed ? <section className="rec-load-route-error" role="alert"><span aria-hidden="true">↻</span>
@@ -61,7 +62,7 @@ export function RecommendationRouteLoading({ failed = false }) {
         <button type="button" onClick={() => window.location.reload()}>重新加载页面</button>
       </section> : <>
         <div className="rec-load-featured" aria-busy="true"><RecommendationHeroSkeleton phase="route" />
-          <aside className="rec-load-taste"><h2>我的口味</h2><RecommendationTasteSkeleton /></aside></div>
+          <aside className="rec-load-taste"><h2>{similar ? '本次参照' : '我的口味'}</h2><RecommendationTasteSkeleton /></aside></div>
         <RecommendationGridSkeleton />
       </>}
     </div>

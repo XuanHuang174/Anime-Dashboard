@@ -70,6 +70,7 @@ function EditableDetailModal({
   onRecordUpdated,
   onRecordDeleted,
   showToast,
+  onSimilar,
 }) {
   const overlayRef = useRef(null)
   const modalRef = useRef(null)
@@ -206,6 +207,7 @@ function EditableDetailModal({
   }, [renderedItem])
 
   if (!renderedItem) return null
+  const hasUnsavedChanges = Boolean(posterFile) || JSON.stringify(formData) !== JSON.stringify(createForm(renderedItem))
 
   const updateField = (event) => {
     const { name, value } = event.target
@@ -630,6 +632,9 @@ function EditableDetailModal({
             <i className={`fa-solid ${isDeleting ? 'fa-spinner animate-spin' : 'fa-trash-can'} mr-2`}></i>{isDeleting ? '删除中...' : '删除私人记录'}
           </button>
           <div className="flex gap-3">
+            {onSimilar && <button type="button" disabled={busy || hasUnsavedChanges} className={`${arcadeButton} bg-white`}
+              title={hasUnsavedChanges ? '请先保存当前修改，再进入单番相似' : '以这部作品为参照找相似'}
+              onClick={() => onSimilar(renderedItem)}>{hasUnsavedChanges ? '保存后找相似' : '找相似'}</button>}
             <button type="button" onClick={handleSave} disabled={busy} className={`${arcadeButton} bg-[#ff4f9a]`}>
               <i className={`fa-solid ${isSaving ? 'fa-spinner animate-spin' : 'fa-floppy-disk'} mr-2`}></i>{isSaving ? '保存中...' : '保存全部修改'}
             </button>
