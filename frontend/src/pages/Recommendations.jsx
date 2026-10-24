@@ -324,7 +324,7 @@ function RecommendationWorkspace({ client, sessionScope, cache, adult, setAdult,
           <RecommendationBatchActions state={state} onMore={state.loadMore} onBatch={nextBatch}
             onReload={() => reload()} onFilter={openFilters} onRestart={() => reload()} /></>}
       </section>
-      <footer className="rec-footer"><span>我的手账 / 番剧探索</span></footer>
+      <footer className="rec-footer"><span>我的手账 / 个性化推荐</span></footer>
     </div>
     <div className="rec-toast" role="status" aria-live="polite">{notice && <p>{notice}</p>}</div>
     {panel?.kind !== 'hidden' && feedbackToast}

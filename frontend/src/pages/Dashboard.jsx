@@ -1162,9 +1162,7 @@ function Dashboard() {
       ) : (
         <EditableDetailModal
           key={selectedItem?.id ?? 'closed-edit-modal'}
-          explorationTags={explorationTags}
           selectedItem={selectedItem}
-          onSimilar={item => navigate('/recommendations/similar', { state: { journalRecord: item.id } })}
           closeModal={() => setSelectedItem(null)}
           onRecordUpdated={handleRecordUpdated}
           onRecordDeleted={handleRecordDeleted}

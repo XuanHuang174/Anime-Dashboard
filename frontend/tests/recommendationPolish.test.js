@@ -31,7 +31,7 @@ test('loaded page and lazy-route shell share the new exploration naming', () => 
     assert.match(code, /我的手账/); assert.match(code, /<h1>番剧探索<\/h1>/)
     assert.doesNotMatch(code, /番剧发现|发现篇/)
   }
-  assert.match(page, /我的手账 \/ 番剧探索/)
+  assert.match(page, /我的手账 \/ 个性化推荐/)
   assert.match(page, /rec-explore-heading/)
 })
 

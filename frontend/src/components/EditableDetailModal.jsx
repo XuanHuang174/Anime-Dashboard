@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
-import ExplorationTagChips from './recommendations/ExplorationTagChips.jsx'
 import api from '../api/api.js'
 import SearchableSelect from './SearchableSelect.jsx'
 import {
@@ -71,8 +70,6 @@ function EditableDetailModal({
   onRecordUpdated,
   onRecordDeleted,
   showToast,
-  onSimilar,
-  explorationTags = [],
 }) {
   const overlayRef = useRef(null)
   const modalRef = useRef(null)
@@ -624,10 +621,6 @@ function EditableDetailModal({
                 )}
               </section>
 
-              {!busy && !hasUnsavedChanges && renderedItem?.tags?.some(tag => explorationTags.includes(tag)) && <div className="edit-modal-piece border-[3px] border-black bg-white px-4 py-2 text-xs font-black">
-                <span>探索这个题材：</span><ExplorationTagChips tags={renderedItem.tags.filter(tag => explorationTags.includes(tag))} standardTags={explorationTags} beforeNavigate={closeModal} className="flex flex-wrap gap-3 mt-2" />
-              </div>}
-
               {error && <p role="alert" className="edit-modal-piece border-[3px] border-black bg-[#ff6b6b] px-4 py-3 text-sm font-black shadow-[4px_4px_0_#111]"><i className="fa-solid fa-circle-exclamation mr-2"></i>{error}</p>}
             </div>
           </div>
@@ -638,9 +631,6 @@ function EditableDetailModal({
             <i className={`fa-solid ${isDeleting ? 'fa-spinner animate-spin' : 'fa-trash-can'} mr-2`}></i>{isDeleting ? '删除中...' : '删除私人记录'}
           </button>
           <div className="flex gap-3">
-            {onSimilar && <button type="button" disabled={busy || hasUnsavedChanges} className={`${arcadeButton} bg-white`}
-              title={hasUnsavedChanges ? '请先保存当前修改，再进入单番相似' : '以这部作品为参照找相似'}
-              onClick={() => onSimilar(renderedItem)}>{hasUnsavedChanges ? '保存后找相似' : '找相似'}</button>}
             <button type="button" onClick={handleSave} disabled={busy} className={`${arcadeButton} bg-[#ff4f9a]`}>
               <i className={`fa-solid ${isSaving ? 'fa-spinner animate-spin' : 'fa-floppy-disk'} mr-2`}></i>{isSaving ? '保存中...' : '保存全部修改'}
             </button>
