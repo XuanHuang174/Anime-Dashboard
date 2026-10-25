@@ -1,5 +1,6 @@
 """Versioned allowlist extraction. No writes, guessing, reviews or external calls."""
 from collections import Counter
+from functools import lru_cache
 import re
 import unicodedata
 
@@ -63,6 +64,45 @@ def extract_genres(base_tags, custom_tags=(), *, titles=(), base_source='private
     }
 
 
+@lru_cache(maxsize=8)
+def _genre_title_keys(available):
+    # Only the small, immutable released vocabulary is cached, never raw tags,
+    # catalog titles or private values. Keys also provide constant-time membership.
+    return {tag: normalized_title(tag) for tag in available}
+
+
 def feature_tags(raw, titles=(), *, taxonomy_version=None):
-    # Public candidate features use the same vocabulary, not users' private rows.
-    return extract_genres(raw, titles=titles, base_source='shared_base_tags', taxonomy_version=taxonomy_version)['tags']
+    """Exact tag-only projection without constructing discarded audit metadata.
+
+    Public index builds do this for every catalog row. Unknown labels cannot
+    contribute a feature, so they need no title/rejection-reason processing.
+    Keep the full provenance/reason extractor for profile and audit callers.
+    No input strings or user data are memoized across requests.
+    """
+    available, aliases = genre_rules(taxonomy_version)  # Validate even empty input.
+    known = _genre_title_keys(available)
+    names = {normalized_title(title) for title in titles if isinstance(title, str) and title}
+    if isinstance(raw, str):
+        values = unicodedata.normalize('NFKC', raw).split(',')
+    elif isinstance(raw, (list, tuple)):
+        values = raw
+    else:
+        return frozenset()
+    tags = set()
+    for value in values:
+        if not isinstance(value, str) or not value.strip():
+            continue
+        value = unicodedata.normalize('NFKC', value).strip()
+        # Same NFKC/strip/casefold/alias steps as canonical_tag; avoid normalizing
+        # an already-normalized string again and linearly scanning the vocabulary.
+        tag = aliases.get(value.casefold(), value)
+        if tag not in known:
+            continue
+        value_key = known[value] if value in known else normalized_title(value)
+        if (value_key in names or known[tag] in names
+                or re.fullmatch(r'\d{4}(?:年.*|[-/]\d{1,2}(?:[-/]\d{1,2})?)?', value)
+                or value.casefold() in COUNTRIES or value in MANAGEMENT_TAGS
+                or re.fullmatch(r'[二三四五六七八九十\d]+刷', value)):
+            continue
+        tags.add(tag)
+    return frozenset(tags)

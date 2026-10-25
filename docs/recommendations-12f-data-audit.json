@@ -1,0 +1,173 @@
+{
+  "generated_at": "2026-10-25T19:36:56.216568+00:00",
+  "scope": "configured-project-neon-readonly",
+  "status": "passed_data_preflight",
+  "checks": {
+    "current_heads_have_matching_sources": true,
+    "last_attempts_have_matching_sources": true,
+    "partial_observations_not_published": true,
+    "no_review_assertions_published": true,
+    "no_manual_overrides_created": true,
+    "catalog_identity_unchanged_during_import": true,
+    "safe_fresh_coverage_at_least_90_percent": true,
+    "read_bounds_not_exceeded": true,
+    "migrations_applied": true
+  },
+  "counts": {
+    "SeriesNode": 73826,
+    "SeriesHead": 31103,
+    "SeriesObservation": 31103,
+    "SeriesAssertion": 84705,
+    "SeriesOverrideEvent": 0
+  },
+  "migrations": {
+    "0013_series_relations": "2026-10-25T07:35:41.247461+00:00",
+    "0014_series_reminders": "2026-10-25T15:47:15.342849+00:00"
+  },
+  "source": {
+    "snapshot_version": "dump-2026-10-20.210332Z",
+    "archive_sha256": "9fe8de272398ff4bd12994b73e25aac37cca631372383f6aadc503528623aa93",
+    "plan_fingerprint": "f25b33dfb54bee9daf1dfe5cedbef2400f01d8cf0fc550c90ec227ecebaa9eb0",
+    "complete_sources": 30848,
+    "partial_sources": 255,
+    "skipped_sources": [
+      350964
+    ],
+    "issue_counts": {
+      "chronology_cycle_component": 24,
+      "reciprocal_mismatch": 10,
+      "source_metadata_unverified": 1,
+      "target_metadata_unverified": 221,
+      "unknown_count": 221
+    }
+  },
+  "render_runtime_configuration_verified": false,
+  "authenticated_live_acceptance": {
+    "result": "failed_or_blocked",
+    "phase": "before_cold_index_optimization_deployment",
+    "failed_check": "http_budget_12",
+    "failed_endpoint": "/api/recommendations/explore/series/",
+    "failed_seconds": 13.742,
+    "http_budget_seconds": 10,
+    "passed_checks": {
+      "normal_login": true,
+      "exact_authorized_account": true,
+      "existing_three_modes_remain_open": true,
+      "series_capability_matches_account": true,
+      "fresh_known_relations_safe": true,
+      "frontend_contract_9": true,
+      "frontend_contract_10": true,
+      "frontend_contract_11": true
+    },
+    "post_deployment_retest": "pending",
+    "full_release": "not_performed"
+  },
+  "release_switches_changed": false,
+  "coverage": {
+    "catalog_count": 31104,
+    "segments": {
+      "safe": {
+        "catalog_count": 28636,
+        "identity_consistent": 28635,
+        "coverage_states": {
+          "empty_observed": 10177,
+          "not_loaded": 208,
+          "observed": 18251
+        },
+        "last_attempt_states": {
+          "empty_observed": 10177,
+          "not_loaded": 1,
+          "observed": 18251,
+          "partial": 207
+        },
+        "fresh_complete_count": 28428,
+        "fresh_complete_percent": 99.274
+      },
+      "adult": {
+        "catalog_count": 2468,
+        "identity_consistent": 2468,
+        "coverage_states": {
+          "empty_observed": 983,
+          "not_loaded": 48,
+          "observed": 1437
+        },
+        "last_attempt_states": {
+          "empty_observed": 983,
+          "observed": 1437,
+          "partial": 48
+        },
+        "fresh_complete_count": 2420,
+        "fresh_complete_percent": 98.055
+      },
+      "unknown": {
+        "catalog_count": 0,
+        "identity_consistent": 0,
+        "coverage_states": {},
+        "last_attempt_states": {},
+        "fresh_complete_count": 0,
+        "fresh_complete_percent": null
+      }
+    },
+    "series_revision": 312,
+    "fingerprint": "0ac99172970b3cf2e5af23afb1fd9d698ba47d2a6c93a972c4791f5eaee2a2c0",
+    "current_touching_assertions": 81149,
+    "raw_displayable_kind_counts": {
+      "adaptation": 92,
+      "alternative_setting": 893,
+      "alternative_version": 2393,
+      "character": 1437,
+      "collaboration": 166,
+      "full_story": 837,
+      "other": 1966,
+      "parent_story": 2842,
+      "prequel": 6606,
+      "same_setting": 1694,
+      "sequel": 6599,
+      "side_story": 1573,
+      "spin_off": 1041,
+      "summary": 785
+    },
+    "raw_blocked_counts": {
+      "identity_or_catalog_scope": 31,
+      "unknown_kind": 52194
+    },
+    "maximum_raw_touching_degree": 375,
+    "catalog_ids_over_read_bound": 0,
+    "semantics": "source_observation_coverage_not_complete_franchise_or_effective_manual_graph",
+    "adult_review_or_access_verified": false,
+    "private_records_read": false
+  },
+  "public_http_baseline": {
+    "result": "passed_public_baseline_only",
+    "request_seconds": [
+      0.809,
+      0.749,
+      0.361
+    ],
+    "scope": "unauthenticated_only_not_functional_acceptance"
+  },
+  "local_public_index_comparison": {
+    "scope": "local-python-public-real-catalog-in-memory-not-render",
+    "catalog_count": 28636,
+    "samples_seconds": {
+      "original": [
+        0.814867,
+        0.815406,
+        0.807046
+      ],
+      "optimized": [
+        0.294765,
+        0.262968,
+        0.267367
+      ]
+    },
+    "median_seconds": {
+      "original": 0.814867,
+      "optimized": 0.267367
+    },
+    "exact_full_index_equivalence": true,
+    "production_writes": false,
+    "private_records_read": false,
+    "render_performance_acceptance": "pending_after_deployment"
+  }
+}

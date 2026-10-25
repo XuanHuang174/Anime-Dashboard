@@ -52,7 +52,8 @@ def publish_archive(prepared):
         'source': identity, 'nodes': [nodes[key] for key in sorted({identity} | {row['target_bangumi_id'] for row in rows[identity]})],
         'assertions': rows[identity]}) for identity in seeds}
     for identity, observation in existing.items():
-        if observation.fingerprint != fingerprints[identity]:
+        expected_coverage = 'partial' if prepared['partial'] else ('observed' if rows[identity] else 'empty_observed')
+        if observation.fingerprint != fingerprints[identity] or observation.coverage != expected_coverage:
             raise SeriesConflict('同一快照的条目内容不同，拒绝覆盖历史观察。')
     pending = [identity for identity in seeds if identity not in existing]
     if not pending:
@@ -66,24 +67,29 @@ def publish_archive(prepared):
             update_fields=[key for key in next(iter(nodes.values())) if key != 'bangumi_id'], batch_size=500)
     SeriesHead.objects.bulk_create([SeriesHead(source_id=identity) for identity in pending], ignore_conflicts=True)
     heads = {row.source_id: row for row in SeriesHead.objects.filter(source_id__in=pending)}
-    published = 0
+    observations = []
     for identity in pending:
         coverage = 'partial' if prepared['partial'] else ('observed' if rows[identity] else 'empty_observed')
-        observation = SeriesObservation.objects.create(source_id=identity,
+        observations.append(SeriesObservation(source_id=identity,
             snapshot_version=prepared['snapshot_version'], source_at=source_at, observed_at=timezone.now(),
             source_reference=prepared['source_reference'], archive_sha256=prepared['archive_sha256'],
             payload_sha256=prepared['payload_sha256'], mapping_version=MAPPING_VERSION,
             fingerprint=fingerprints[identity], coverage=coverage, diagnostics={
-                **prepared['diagnostics'], 'subject_payload_sha256': prepared['subject_payload_sha256']})
-        SeriesAssertion.objects.bulk_create([SeriesAssertion(observation=observation,
+                **prepared['diagnostics'], 'subject_payload_sha256': prepared['subject_payload_sha256']}))
+    # PostgreSQL/SQLite return generated IDs. Keep the same bounded transaction,
+    # immutable observations and shared revision lock without per-root round trips.
+    SeriesObservation.objects.bulk_create(observations, batch_size=100)
+    SeriesAssertion.objects.bulk_create([SeriesAssertion(observation=observation,
             target_id=row['target_bangumi_id'], kind=row['kind'], source_relation=row['source_relation'],
-            source_order=row['source_order'], requires_review=row['requires_review']) for row in rows[identity]], batch_size=500)
-        head = heads[identity]
+            source_order=row['source_order'], requires_review=row['requires_review'])
+        for observation in observations for row in rows[observation.source_id]], batch_size=500)
+    for observation in observations:
+        head = heads[observation.source_id]
         head.last_attempt = observation
         if not prepared['partial']:
             head.current = observation
-            published += 1
-        head.save(update_fields=('current', 'last_attempt'))
+    SeriesHead.objects.bulk_update(list(heads.values()), ('current', 'last_attempt'), batch_size=100)
+    published = 0 if prepared['partial'] else len(pending)
     state.revision += 1
     if not prepared['partial']:
         state.latest_source_at = source_at

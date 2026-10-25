@@ -85,6 +85,75 @@ class SeriesBackendTests(TransactionTestCase):
         self.assertEqual(publish_archive(second)['published'], 1)
         self.assertEqual(SeriesObservation.objects.count(), 2)
 
+    def test_hundred_source_publication_has_bounded_queries_and_correct_pointers(self):
+        value = batch(kinds=(), seeds=range(1, 101))
+        value['nodes'] = [_node({'id': i, 'type': 2, 'nsfw': False}) for i in range(1, 101)]
+        value = resign(value)
+        with CaptureQueriesContext(connection) as queries:
+            result = publish_archive(value)
+        self.assertEqual(result['published'], 100)
+        self.assertLessEqual(len(queries), 18)
+        self.assertEqual(SeriesObservation.objects.filter(coverage='empty_observed').count(), 100)
+        self.assertEqual(SeriesHead.objects.exclude(current_id=None).count(), 100)
+        for head in SeriesHead.objects.select_related('current', 'last_attempt'):
+            self.assertEqual(head.source_id, head.current.source_id)
+            self.assertEqual(head.current_id, head.last_attempt_id)
+        replay = publish_archive(value)
+        self.assertEqual(replay['replayed'], 100)
+        self.assertFalse(replay['changed'])
+
+    def test_bulk_pointer_failure_rolls_back_all_sources_and_command_write_guard(self):
+        from recommendations.management.commands.sync_series_catalog import SeriesWriteGuard
+        from recommendations.source_pipeline import SourceError
+        guard = SeriesWriteGuard()
+        for sql in ('UPDATE "recommendations_recommendationanime" SET nsfw=false',
+                    'DELETE FROM "anime_useranimerecord"', 'TRUNCATE recommendations_seriesnode'):
+            with self.assertRaises(SourceError):
+                guard(lambda *args: None, sql, [], False, {})
+        value = resign({**batch(kinds=(), seeds=(1, 2, 3))})
+        with patch.object(SeriesHead.objects, 'bulk_update', side_effect=IntegrityError('synthetic')), self.assertRaises(IntegrityError):
+            publish_archive(value)
+        self.assertEqual(SeriesNode.objects.count(), 0)
+        self.assertEqual(SeriesObservation.objects.count(), 0)
+        self.assertEqual(SeriesHead.objects.count(), 0)
+
+    def test_catalog_command_requires_identical_preview_and_replays_without_business_writes(self):
+        import json
+        from pathlib import Path
+        import tempfile
+        from django.core.management.base import CommandError
+        from .test_series_source import SeriesArchiveSourceTests
+        fixture = SeriesArchiveSourceTests()
+        fixture.setUp()
+        preview = fixture.folder / 'preview.json'
+        applied = fixture.folder / 'applied.json'
+        replayed = fixture.folder / 'replayed.json'
+        try:
+            checksum = fixture.archive()
+            arguments = dict(input=fixture.path, expected_sha256=checksum, stdout=io.StringIO())
+            call_command('sync_series_catalog', report=preview, **arguments)
+            report = json.loads(preview.read_text(encoding='utf-8'))
+            self.assertEqual(SeriesObservation.objects.count(), 0)
+            with self.assertRaises(CommandError):
+                call_command('sync_series_catalog', report=applied, apply=True, expected_plan='wrong', **arguments)
+            before = list(RecommendationAnime.objects.values())
+            with CaptureQueriesContext(connection) as queries:
+                call_command('sync_series_catalog', report=applied, apply=True,
+                             expected_plan=report['plan_fingerprint'], **arguments)
+            writes = [row['sql'] for row in queries if row['sql'].lstrip().startswith(('INSERT', 'UPDATE', 'DELETE'))]
+            self.assertTrue(writes)
+            self.assertTrue(all('recommendations_series' in sql for sql in writes))
+            self.assertEqual(SeriesObservation.objects.count(), 3)
+            self.assertEqual(before, list(RecommendationAnime.objects.values()))
+            call_command('sync_series_catalog', report=replayed, apply=True,
+                         expected_plan=report['plan_fingerprint'], **arguments)
+            self.assertFalse(json.loads(replayed.read_text(encoding='utf-8'))['database_writes'])
+        finally:
+            preview.unlink(missing_ok=True)
+            applied.unlink(missing_ok=True)
+            replayed.unlink(missing_ok=True)
+            fixture.tearDown()
+
     def test_same_version_mutation_old_archive_and_tampered_precheck_rejected(self):
         value = batch()
         publish_archive(value)
@@ -92,6 +161,9 @@ class SeriesBackendTests(TransactionTestCase):
         bad['assertions'][0]['kind'] = 'side_story'
         with self.assertRaises(ValidationError): publish_archive(bad)
         with self.assertRaises(SeriesConflict): publish_archive(resign(bad))
+        # Wider catalog preflight may discover conflicts across old batch edges.
+        # The same snapshot must not silently replay a different quality status.
+        with self.assertRaises(SeriesConflict): publish_archive(resign({**value, 'partial': True}))
         with self.assertRaises(SeriesConflict): publish_archive(batch('dump-2026-09-20.000000Z'))
         self.assertEqual(SeriesObservation.objects.count(), 1)
 
