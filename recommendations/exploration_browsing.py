@@ -79,6 +79,8 @@ def _live(user, query, scope, *, series=False):
     revision = catalog_revision()
     relations = None
     if series:
+        from .series_rollout import require_access
+        require_access(user)
         from .series_exploration import seed_graph
         relations = seed_graph(query['seed_bangumi_id'], scope)
     context_revision = _token(CURSOR_SALT + '.revision', {

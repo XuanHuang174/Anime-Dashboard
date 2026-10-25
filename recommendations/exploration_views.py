@@ -22,6 +22,8 @@ class ExplorationAPIView(OwnRecommendationAPIView):
         super().initial(request, *args, **kwargs)
         require_enabled(request.user)
         if self.series:
+            from .series_rollout import require_access
+            require_access(request.user)
             from .series_exploration import require_enabled as require_series
             require_series()
 
@@ -65,6 +67,8 @@ class ExplorationSnapshotAPIView(ExplorationAPIView):
         if response.status_code < 400 and isinstance(response.data, dict):
             if self.series:
                 try:
+                    from .series_rollout import require_access
+                    require_access(request.user)
                     from .series_exploration import verify
                     verify(response.data, request.content_scope)
                 except (APIException, DatabaseError) as exc:

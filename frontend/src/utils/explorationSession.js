@@ -1,6 +1,7 @@
 import { createLatestRequestGate } from './recommendations.js'
 import { mapExplorationPage, sameExplorationContext, requireExplorationTransition } from './explorationResults.js'
 import { sameSeriesContext } from './seriesExploration.js'
+import { isSeriesDisabled } from './recommendationSeries.js'
 
 export function explorationError(error) {
   const status = error?.response?.status
@@ -9,10 +10,11 @@ export function explorationError(error) {
   if (status === 404) return '参照作品当前不可用，请更换作品；NSFW 作品需要先应用相应筛选。'
   if (status === 429) return '请求较频繁，请稍后重试。'
   if (error?.response?.data?.code === 'exploration_disabled') return '探索功能暂未开放，请稍后再试。'
+  if (isSeriesDisabled(error)) return '系列功能已暂停，请刷新页面读取当前服务状态。'
   if (status === 409) return '探索依据已变化，请重新探索。'
   return '探索读取失败，请重试。'
 }
-const stale = error => [400, 409].includes(error?.response?.status) || error?.message?.startsWith('探索合同')
+const stale = error => [400, 409].includes(error?.response?.status) || isSeriesDisabled(error) || error?.message?.startsWith('探索合同')
 const discard = item => ({ ...item, reason: '', evidence: null, evidenceToken: undefined, detailContext: undefined })
 export const shouldCloseExplorationDetail = (state, detail) => !!state.snapshotDirty
   && !(state.invalidationReason === 'own_record' && detail.confirmedMutation)

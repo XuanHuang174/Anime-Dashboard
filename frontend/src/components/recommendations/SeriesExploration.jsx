@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import useSeriesSession, { seriesSession } from '../../hooks/useSeriesSession.js'
-import { COVERAGE, seriesBackground, seriesStatus } from '../../utils/recommendationSeries.js'
+import { COVERAGE, seriesBackground, seriesStatus, isSeriesDisabled } from '../../utils/recommendationSeries.js'
 import { validateAnnotations, relationText } from '../../utils/seriesExploration.js'
 import { watchRecommendationScope } from '../../utils/recommendationScopeMonitor.js'
 import '../../styles/series-exploration.css'
@@ -25,7 +25,7 @@ export function SeriesAnnotationsProvider({ client, items, enabled, blocked = fa
     }
     client.seriesAnnotations(ids, request.signal).then(accept).catch(error => {
       if (!request.signal.aborted && seriesSession() === session) {
-        if (error?.seriesChanged || error?.response?.data?.code === 'series_snapshot_changed') changed.current?.()
+        if (error?.seriesChanged || isSeriesDisabled(error) || error?.response?.data?.code === 'series_snapshot_changed') changed.current?.()
         setState({ key, client, error: true })
       }
     })
@@ -35,7 +35,10 @@ export function SeriesAnnotationsProvider({ client, items, enabled, blocked = fa
     if (!state?.scopeContext || state.key !== key || state.client !== client) return
     const expiry = state.scopeContext.scope_valid_until
     const monitor = watchRecommendationScope({ deadline: expiry ? Date.parse(expiry) : null,
-      probe: signal => client.seriesAnnotations(ids, signal),
+      probe: signal => client.seriesAnnotations(ids, signal).catch(error => {
+        if (!signal.aborted && seriesSession() === session && isSeriesDisabled(error)) { changed.current?.(); setState({ key, client, error: true }) }
+        throw error
+      }),
       onContext: raw => {
         if (seriesSession() !== session) return
         try {

@@ -19,6 +19,9 @@ RECOMMENDATION_NSFW_SELF_SERVICE_ENABLED = False  # New mode requires explicit s
 RECOMMENDATION_EXPLORATION_ENABLED = False  # 11A fixtures must explicitly enable selection.
 RECOMMENDATION_EXPLORATION_CANARY_USERS = []  # Never inherit a production canary list.
 RECOMMENDATION_SERIES_ENABLED = False
+RECOMMENDATION_SERIES_CANARY_USERS = []
+RECOMMENDATION_SERIES_EXPLORATION_ENABLED = False
+RECOMMENDATION_SERIES_REMINDERS_ENABLED = False
 RECOMMENDATION_V2_TEST_BYPASS = True  # Only this isolated test settings module.
 CACHES = {'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
                       'LOCATION': 'recommendation-isolated-tests'}}

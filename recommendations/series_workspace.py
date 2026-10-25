@@ -74,6 +74,8 @@ def detail(user, source_id, target_id, scope, context):
 
 
 def record_reference(user, record_id, scope):
+    from .series_rollout import require_access
+    require_access(user)
     allowed = catalog_for_scope(scope).filter(nsfw=True).values_list('bangumi_id', flat=True) if scope['content_scope'] == 'include_adult' else ()
     rows = resolved_records(user, allowed_adult_ids=allowed, include_profile=False, record_id=record_id)
     if not rows:
@@ -87,7 +89,8 @@ def record_reference(user, record_id, scope):
 
 @transaction.atomic
 def want(user, source_id, target_id, scope, context):
-    require_enabled()
+    from .series_rollout import require_access
+    require_access(user)
     # Same ordering as journal writes/manual corrections: owner -> series -> catalog.
     if not get_user_model().objects.select_for_update().filter(pk=user.pk, is_active=True).exists():
         raise NotFound('账号不可用。')

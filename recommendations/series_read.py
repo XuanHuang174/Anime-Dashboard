@@ -44,7 +44,8 @@ def _visible(node, catalog):
 
 
 def read_relations(user, source_id, scope, context=None, *, snapshot=True):
-    require_enabled()
+    from .series_rollout import require_access
+    require_access(user)
     if context is not None and (not isinstance(context, str) or len(context) > 4096):
         raise ValidationError('系列上下文无效。')
     with readonly_snapshot() if snapshot else nullcontext():

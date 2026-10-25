@@ -137,6 +137,8 @@ def related_block(live, query):
 
 
 def annotations(user, ids, scope):
+    from .series_rollout import require_access
+    require_access(user)
     from .feedback import feedback_snapshot
     from .quality_readonly import readonly_snapshot
     with readonly_snapshot():

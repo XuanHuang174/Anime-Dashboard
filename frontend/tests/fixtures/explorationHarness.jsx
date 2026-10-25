@@ -16,7 +16,8 @@ import { seriesPage, seriesDetail } from './seriesContract.js'
 import { reminders } from './seriesRemindersContract.js'
 
 const harnessParams = new URLSearchParams(window.location.search)
-const remindersEnabled = harnessParams.get('reminders') === '1' || location.pathname.endsWith('/seriesRemindersHarness.html')
+const releaseHarness = location.pathname.endsWith('/seriesReleaseHarness.html')
+const remindersEnabled = releaseHarness || harnessParams.get('reminders') === '1' || location.pathname.endsWith('/seriesRemindersHarness.html')
 const seriesEnabled = remindersEnabled || harnessParams.get('series') === '1' || location.pathname.endsWith('/seriesExplorationHarness.html')
 const reducedMotion = harnessParams.get('motion') === 'reduce'
 if (reducedMotion) {
@@ -40,6 +41,8 @@ let reminderVersion = 0, remindersCollapsed = false
 const reminderHidden = new Set()
 const snapshots = new Map(); let serial = 0
 const fail = (status, code) => { throw { response: { status, data: { code } } } }
+let seriesWithdrawn = false
+const guardSeries = () => { if (seriesWithdrawn) fail(503, 'series_disabled') }
 const wait = async (name, signal) => {
   calls.push(name); await new Promise(resolve => setTimeout(resolve, 100))
   if (signal?.aborted) { const error = new Error('cancelled'); error.name = 'AbortError'; throw error }
@@ -64,21 +67,22 @@ function scopedClient(selectedScope = 'safe', seriesPolicy = false) {
     forSeries: value => scopedClient(selectedScope, value),
     forScope: value => scopedClient(value, seriesPolicy),
     capabilities: async signal => { await wait('capabilities', signal); return { contract_version: 'recommendations.capabilities.v1',
-      exploration: { ...contract.capabilities, series_exploration: { enabled: seriesEnabled, policy_version: 'series-explore.direct.v1' },
-        ...(remindersEnabled ? { series_reminders: { enabled: true, policy_version: 'series-reminders.completed-direct.v1' } } : {}) }, algorithm_version: 'content.v1', browse_enabled: true, rollout_revision: 'b'.repeat(64) } },
-    seriesReminders: async signal => { await wait('reminders', signal); return reminders({ hidden: reminderHidden, owned, collapsed: remindersCollapsed, version: reminderVersion, contentScope: scopeContext }) },
+      exploration: { ...contract.capabilities, series_exploration: { enabled: seriesEnabled && !seriesWithdrawn, policy_version: 'series-explore.direct.v1' },
+        ...(remindersEnabled && !seriesWithdrawn ? { series_reminders: { enabled: true, policy_version: 'series-reminders.completed-direct.v1' } } : {}) }, algorithm_version: 'content.v1', browse_enabled: true, rollout_revision: 'b'.repeat(64) } },
+    seriesReminders: async signal => { await wait('reminders', signal); guardSeries(); return reminders({ hidden: reminderHidden, owned, collapsed: remindersCollapsed, version: reminderVersion, contentScope: scopeContext }) },
     changeSeriesReminders: async (body, signal) => {
       await wait('reminder-change', signal)
+      guardSeries()
       if (body.expected_version !== reminderVersion) fail(409, 'series_snapshot_changed')
       if (body.action === 'hide') reminderHidden.add(body.bangumi_id)
       if (body.action === 'restore') reminderHidden.clear()
       if (body.action === 'collapse') remindersCollapsed = body.collapsed
       return { contract_version: 'recommendations.series.reminders.v1', action: body.action, saved: true, version: ++reminderVersion, content_scope_context: scopeContext }
     },
-    seriesAnnotations: async (ids, signal) => { await wait('annotations', signal); return { ...annotations(ids), catalog_revision: versions.catalog_feature_version, content_scope_context: scopeContext } },
+    seriesAnnotations: async (ids, signal) => { await wait('annotations', signal); guardSeries(); return { ...annotations(ids), catalog_revision: versions.catalog_feature_version, content_scope_context: scopeContext } },
     series: async (source, context, signal) => { await wait('series', signal); return { ...mockSeries(source), content_scope_context: scopeContext } },
     seriesDetail: async (source, target, context, signal) => { await wait('seriesDetail', signal); return { ...seriesDetail(mockSeries(source), target), content_scope_context: scopeContext } },
-    seriesWant: async (source, target, context, signal) => { await wait('seriesWant', signal); const created = !owned.has(target); owned.add(target)
+    seriesWant: async (source, target, context, signal) => { await wait('seriesWant', signal); guardSeries(); const created = !owned.has(target); owned.add(target)
       return { contract_version: 'recommendations.want.v1', bangumi_id: target, anime_id: 2000 + target, record_id: 1000 + target, created,
         outcome: created ? 'created' : 'existing', watch_status: 'plan', content_rating: 'non_adult', content_scope_context: scopeContext } },
     explorationContract: async signal => { await wait('contract', signal); return { ...contract, content_scope_context: scopeContext } },
@@ -92,6 +96,7 @@ function scopedClient(selectedScope = 'safe', seriesPolicy = false) {
         query: q, limit: 15, has_more: false, content_scope_context: scopeContext,
         results: q.kind === 'bangumi_id' ? [catalogRow(Number(q.value))] : [catalogRow(1), catalogRow(3)] } },
     explorationBrowse: async (params, signal, withSeries = false) => {
+      if (withSeries) guardSeries()
       await wait(`browse:${JSON.stringify(params)}`, signal)
       const snapshotId = params.cursor ? params.cursor.split(':')[0] : (++serial).toString(16).padStart(32, '0')
       if (!params.cursor) snapshots.set(snapshotId, { query: params, seed: params.intent === 'tags' ? null : catalogRow(params.seed_bangumi_id),
@@ -115,12 +120,14 @@ function scopedClient(selectedScope = 'safe', seriesPolicy = false) {
       return data
     },
     explorationContext: async (context, signal) => { await wait('context', signal); const snap = snapshots.get(context)
+      if (snap.withSeries) guardSeries()
       return { contract_version: 'recommendations.explore.context.v1', intent: snap.query.intent, valid: true,
       snapshot_id: context, snapshot_expires_at: snap.expires, query_fingerprint: versions.query_fingerprint,
       evidence_context: { ...versions, ranking_policy_version: snap.query.intent === 'tags' ? 'tag-explore.v1' : 'similarity.v1' },
       selected_seed: snap.seed ? { bangumi_id: snap.seed.bangumi_id } : null, content_scope_context: snap.scope,
       ...(snap.withSeries ? { series_context: related() } : {}) } },
     explorationDetail: async (id, context, signal) => { await wait(`detail:${id}`, signal); const snap = snapshots.get(context.split(':')[0])
+      if (snap.withSeries) guardSeries()
       const data = snap.query.intent === 'tags' ? tagDetail(snap.query, id) : detail(id)
       return { ...data, query: snap.query, selected_seed: snap.seed, content_scope_context: snap.scope,
         ...(snap.withSeries ? { series_context: related() } : {}),
@@ -147,6 +154,7 @@ function scopedClient(selectedScope = 'safe', seriesPolicy = false) {
   }
 }
 function mockSeries(source) {
+  guardSeries()
   const data = seriesPage({ source })
   if (remindersEnabled) data.results = data.results.map(row => ({ ...row,
     ...(row.bangumi_id === 4 ? { kind: 'sequel', section: 'chronology', relation_label: '续集', title_zh: '合成故事：后续新篇' } : {}),
@@ -159,6 +167,10 @@ const client = scopedClient()
 const viewport = harnessParams.get('viewport'), height = Number(harnessParams.get('height')) || (viewport === '390' ? 844 : 900)
 // Test gesture is visible on the landing page and works inside native dialogs.
 window.addEventListener('keydown', event => {
+  if (releaseHarness && event.altKey && event.shiftKey && event.code === 'KeyR') {
+    seriesWithdrawn = true
+    window.dispatchEvent(new Event('recommendation-data-changed')); window.dispatchEvent(new Event('focus'))
+  }
   if (event.altKey && event.shiftKey && event.code === 'KeyU') window.dispatchEvent(new Event('recommendation-data-changed'))
 })
 const app = <StrictMode><BrowserRouter><SeriesNavigation renderSeries={overlay => <SeriesRelations client={client} overlay={overlay} />}>

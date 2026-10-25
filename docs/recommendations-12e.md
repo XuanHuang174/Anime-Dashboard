@@ -54,6 +54,8 @@ RECOMMENDATION_SERIES_REMINDERS_ENABLED=True
 
 新提醒开关默认 False，沿用探索灰度账号名单。所有依赖开启且账号在范围内，能力描述才增加 `series_reminders`；关闭时保持旧合同。关闭新开关并刷新页面即可移除区块，原推荐及详情继续可用，已保存设置保留。关系服务失败只影响本区，不阻断原推荐页。
 
+12F 已增加独立 `RECOMMENDATION_SERIES_CANARY_USERS`，系列功能还须满足该名单。当前部署请按 [12F 操作说明](recommendations-12f.md) 配置，不要为了系列灰度收窄已全量开放的原探索名单。
+
 ## 验证
 
 自动化覆盖方向、总集篇及间接关联排除、重复来源、任意已有状态、失效身份、NSFW 审核撤销、人工修订、过期资料、隐藏/恢复/收起、跨账号、旧上下文、只读 SQL、展示上限、真实 Python→JavaScript 合同和不确定写入。

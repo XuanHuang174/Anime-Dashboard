@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import defaultClient from '../../api/recommendations.js'
 import useSeriesSession, { seriesSession } from '../../hooks/useSeriesSession.js'
-import { COVERAGE, validateSeries, seriesBackground, seriesFailure } from '../../utils/recommendationSeries.js'
+import { COVERAGE, validateSeries, seriesBackground, seriesFailure, isSeriesDisabled } from '../../utils/recommendationSeries.js'
 import { watchRecommendationScope } from '../../utils/recommendationScopeMonitor.js'
 import '../../styles/recommendation-series.css'
 
@@ -42,7 +42,10 @@ function Summary({ client: baseClient = defaultClient, bangumiId, recordId, sess
     const expiry = data.content_scope_context.scope_valid_until
     const deadline = Math.min(Date.now() + 900000, expiry === null || expiry === undefined ? Infinity : Date.parse(expiry))
     const monitor = watchRecommendationScope({ deadline,
-      probe: signal => client.series(data.selected_seed.bangumi_id, data.context, signal),
+      probe: signal => client.series(data.selected_seed.bangumi_id, data.context, signal).catch(error => {
+        if (!signal.aborted && seriesSession() === session && isSeriesDisabled(error)) setState({ status: 'disabled' })
+        throw error
+      }),
       onContext: raw => {
         if (seriesSession() !== session) return
         try { setState({ status: 'ready', data: validateSeries(raw, data.selected_seed.bangumi_id, scope) }) }

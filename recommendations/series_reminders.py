@@ -26,7 +26,8 @@ LIMIT = 6
 
 
 def enabled(user=None):
-    return (graph_enabled() and exploration_enabled(user)
+    from .series_rollout import available
+    return (graph_enabled() and available(user) and exploration_enabled(user)
             and getattr(settings, 'RECOMMENDATION_SERIES_REMINDERS_ENABLED', False) is True)
 
 

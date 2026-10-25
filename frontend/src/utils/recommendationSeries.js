@@ -1,5 +1,7 @@
 import { checkScopeResponse, controlledScope } from './recommendationContentScope.js'
 
+export const isSeriesDisabled = error => error?.response?.status === 503 && error?.response?.data?.code === 'series_disabled'
+
 export const SERIES_SECTIONS = { chronology: '故事前后', branches: '番外与分支', editions: '总集与其他版本', related: '其他关联' }
 export const SERIES_KINDS = { prequel: ['前传', 'chronology'], sequel: ['续集', 'chronology'], summary: ['总集篇', 'editions'], full_story: ['全集', 'editions'],
   side_story: ['番外篇', 'branches'], alternative_setting: ['不同世界观', 'branches'], alternative_version: ['不同演绎', 'branches'], spin_off: ['衍生', 'branches'], parent_story: ['主线故事', 'branches'],

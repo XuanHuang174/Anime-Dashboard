@@ -13,6 +13,11 @@ class SeriesRelationsView(OwnRecommendationAPIView):
     throttle_classes = (UserRateThrottle, ScopedRateThrottle)
     throttle_scope = 'recommendation_read'
 
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        from .series_rollout import require_access
+        require_access(request.user)
+
     def handle_exception(self, exc):
         if isinstance(exc, SeriesConflict):
             response = Response({'code': 'series_snapshot_changed', 'detail': str(exc.detail)}, status=409)
@@ -30,7 +35,8 @@ class SeriesRelationsView(OwnRecommendationAPIView):
     def finalize_response(self, request, response, *args, **kwargs):
         if request.method == 'GET' and response.status_code < 400 and isinstance(response.data, dict):
             try:
-                require_enabled()
+                from .series_rollout import require_access
+                require_access(request.user)
                 if '_node_revision' in response.data:
                     verify_response(response.data)
             except (APIException, DatabaseError) as exc:
