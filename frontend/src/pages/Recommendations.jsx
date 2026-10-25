@@ -40,6 +40,7 @@ import '../styles/recommendations-preferences.css'
 import ShowcasePublicationPanel from '../components/ShowcasePublicationPanel.jsx'
 import BackToTop from '../components/BackToTop.jsx'
 import SeriesSummary from '../components/recommendations/SeriesSummary.jsx'
+import { SeriesAnnotationsProvider } from '../components/recommendations/SeriesExploration.jsx'
 
 export default function Recommendations({ client = recommendationApi }) {
   const readScope = () => { try { return recommendationSessionScope(getAccessToken()) } catch { return 'anonymous' } }
@@ -266,7 +267,8 @@ function RecommendationWorkspace({ client, sessionScope, cache, adult, setAdult,
     operation={feedback.state.operations[feedback.state.toast?.item.bangumiId]}
     onUndo={feedback.controller.undo} onManage={openHidden} onDismiss={feedback.controller.dismissToast} onReload={reloadFeedback} />
 
-  return <main ref={pageRef} className="memphis-rec-container">
+  return <SeriesAnnotationsProvider client={client} items={state.items} enabled={capabilities?.series_exploration?.enabled}
+    blocked={!!state.snapshotDirty || !!state.snapshotExpired}><main ref={pageRef} className="memphis-rec-container">
     <a className="rec-skip-link" href="#rec-results">跳到推荐内容</a>
     <div className="rec-page">
       <div className="rec-masthead">
@@ -372,5 +374,5 @@ function RecommendationWorkspace({ client, sessionScope, cache, adult, setAdult,
             </div></div>}
     </RecommendationDialog>}
     <BackToTop isModalOpen={Boolean(panel)} theme="memphis" />
-  </main>
+  </main></SeriesAnnotationsProvider>
 }

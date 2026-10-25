@@ -1,7 +1,7 @@
 // Local synthetic UI only. No network/API adapter, account or external covers.
 import React, { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { BrowserRouter, Route, Routes, Link } from 'react-router-dom'
+import { BrowserRouter, Route, Link } from 'react-router-dom'
 import Recommendations from '../../src/pages/Recommendations.jsx'
 import api from '../../src/api/api.js'
 import { page, detail, tagPage, tagDetail, query, seed, versions, scope, adultScope } from './explorationContract.js'
@@ -9,8 +9,13 @@ import contract from './recommendationExplorationContract.json'
 import { normalizeExplorationSearch } from '../../src/utils/recommendationExploration.js'
 import { preferences, profileData, coldState, versions as profileVersions } from './profileSampling.js'
 import { browsePage } from './browseContract.js'
+import SeriesNavigation from '../../src/router/SeriesNavigation.jsx'
+import SeriesRelations from '../../src/pages/SeriesRelations.jsx'
+import { related, annotations } from './seriesExplorationContract.js'
+import { seriesPage, seriesDetail } from './seriesContract.js'
 
 const harnessParams = new URLSearchParams(window.location.search)
+const seriesEnabled = harnessParams.get('series') === '1' || location.pathname.endsWith('/seriesExplorationHarness.html')
 const reducedMotion = harnessParams.get('motion') === 'reduce'
 if (reducedMotion) {
   // Isolated preference simulation, never changes browser/OS settings.
@@ -48,12 +53,20 @@ async function feedbackResult(action, body, signal) {
   return { contract_version: 'recommendations.feedback.v1', action, operation_id: body.operation_id,
     feedback_version: feedbackVersion, operation_feedback_version: feedbackVersion, changed: true, replayed: false, feedback: row }
 }
-function scopedClient(selectedScope = 'safe') {
+function scopedClient(selectedScope = 'safe', seriesPolicy = false) {
   const scopeContext = selectedScope === 'include_adult' ? adultScope : scope
   return {
-    forScope: value => scopedClient(value),
+    contentScope: selectedScope, seriesExploration: seriesPolicy,
+    forSeries: value => scopedClient(selectedScope, value),
+    forScope: value => scopedClient(value, seriesPolicy),
     capabilities: async signal => { await wait('capabilities', signal); return { contract_version: 'recommendations.capabilities.v1',
-      exploration: contract.capabilities, algorithm_version: 'content.v1', browse_enabled: true, rollout_revision: 'b'.repeat(64) } },
+      exploration: { ...contract.capabilities, series_exploration: { enabled: seriesEnabled, policy_version: 'series-explore.direct.v1' } }, algorithm_version: 'content.v1', browse_enabled: true, rollout_revision: 'b'.repeat(64) } },
+    seriesAnnotations: async (ids, signal) => { await wait('annotations', signal); return { ...annotations(ids), catalog_revision: versions.catalog_feature_version, content_scope_context: scopeContext } },
+    series: async (source, context, signal) => { await wait('series', signal); return { ...mockSeries(source), content_scope_context: scopeContext } },
+    seriesDetail: async (source, target, context, signal) => { await wait('seriesDetail', signal); return { ...seriesDetail(mockSeries(source), target), content_scope_context: scopeContext } },
+    seriesWant: async (source, target, context, signal) => { await wait('seriesWant', signal); const created = !owned.has(target); owned.add(target)
+      return { contract_version: 'recommendations.want.v1', bangumi_id: target, anime_id: 2000 + target, record_id: 1000 + target, created,
+        outcome: created ? 'created' : 'existing', watch_status: 'plan', content_rating: 'non_adult', content_scope_context: scopeContext } },
     explorationContract: async signal => { await wait('contract', signal); return { ...contract, content_scope_context: scopeContext } },
     explorationOptions: async signal => { await wait('options', signal); return { contract_version: contract.capabilities.options_contract_version, taxonomy_version: 'genres.v8',
       feature_rule_version: 'journal-genres.v3', catalog_feature_version: versions.catalog_feature_version, count_definition: 'scoped_catalog_without_result_filters',
@@ -64,16 +77,17 @@ function scopedClient(selectedScope = 'safe') {
       return { contract_version: contract.search.contract_version, identity_namespace: 'bangumi', taxonomy_version: 'genres.v8', feature_rule_version: 'journal-genres.v3',
         query: q, limit: 15, has_more: false, content_scope_context: scopeContext,
         results: q.kind === 'bangumi_id' ? [catalogRow(Number(q.value))] : [catalogRow(1), catalogRow(3)] } },
-    explorationBrowse: async (params, signal) => {
+    explorationBrowse: async (params, signal, withSeries = false) => {
       await wait(`browse:${JSON.stringify(params)}`, signal)
       const snapshotId = params.cursor ? params.cursor.split(':')[0] : (++serial).toString(16).padStart(32, '0')
       if (!params.cursor) snapshots.set(snapshotId, { query: params, seed: params.intent === 'tags' ? null : catalogRow(params.seed_bangumi_id),
-        scope: scopeContext, expires: Math.floor(Date.now() / 1000) + 900 })
+        scope: scopeContext, expires: Math.floor(Date.now() / 1000) + 900, withSeries })
       const snap = snapshots.get(snapshotId), q = snap.query
       const noMatch = q.intent === 'tags' && (q.include_tags.includes('悬疑') || q.include_tags.includes('音乐') && q.match === 'all' && q.include_tags.includes('校园'))
       const ids = noMatch ? [] : Array.from({ length: 30 }, (_, n) => n + 10).filter(id => id !== q.seed_bangumi_id && !hidden.get(id)?.is_active && (!q.hide_recorded || !owned.has(id)))
       const batch = params.cursor?.endsWith('batch-two') ? 2 : 1, part = params.cursor?.endsWith('page-two') ? 2 : 1
       const data = q.intent === 'tags' ? tagPage(q, { batch, part, count: ids.length }) : page({ batch, part, count: ids.length })
+      if (snap.withSeries) { data.contract_version = 'recommendations.explore.series.v1'; data.series_context = related() }
       const offset = (batch - 1) * 24 + (part - 1) * 12
       data.query = q; data.selected_seed = snap.seed; data.snapshot_expires_at = snap.expires; data.content_scope_context = snap.scope
       data.snapshot_id = snapshotId; data.snapshot_context = snapshotId
@@ -90,10 +104,12 @@ function scopedClient(selectedScope = 'safe') {
       return { contract_version: 'recommendations.explore.context.v1', intent: snap.query.intent, valid: true,
       snapshot_id: context, snapshot_expires_at: snap.expires, query_fingerprint: versions.query_fingerprint,
       evidence_context: { ...versions, ranking_policy_version: snap.query.intent === 'tags' ? 'tag-explore.v1' : 'similarity.v1' },
-      selected_seed: snap.seed ? { bangumi_id: snap.seed.bangumi_id } : null, content_scope_context: snap.scope } },
+      selected_seed: snap.seed ? { bangumi_id: snap.seed.bangumi_id } : null, content_scope_context: snap.scope,
+      ...(snap.withSeries ? { series_context: related() } : {}) } },
     explorationDetail: async (id, context, signal) => { await wait(`detail:${id}`, signal); const snap = snapshots.get(context.split(':')[0])
       const data = snap.query.intent === 'tags' ? tagDetail(snap.query, id) : detail(id)
       return { ...data, query: snap.query, selected_seed: snap.seed, content_scope_context: snap.scope,
+        ...(snap.withSeries ? { series_context: related() } : {}),
         snapshot_expires_at: snap.expires, detail_context: context,
         watch_status: owned.has(id) ? 'plan' : null, evidence_token: owned.has(id) ? 'f'.repeat(64) : data.evidence_token,
         evidence: { ...data.evidence, source: snap.seed ? { bangumi_id: snap.seed.bangumi_id, title: snap.seed.title_zh, tags: snap.seed.tags } : null } } },
@@ -116,17 +132,23 @@ function scopedClient(selectedScope = 'safe') {
     browse: async options => ({ ...browsePage({ ...options, context: { ...profileVersions('8.5'), feedback_version: 0 } }), cold_start_state: coldState() }),
   }
 }
+function mockSeries(source) {
+  const data = seriesPage({ source })
+  if (source === 100) data.results = Array.from({ length: 30 }, (_, n) => ({ ...data.results[0], bangumi_id: n + 10, title_zh: `合成故事${n + 10}`, title_jp: '',
+    watch_status: owned.has(n + 10) ? 'plan' : null, record_state: owned.has(n + 10) ? 'linked' : 'no_confirmed_record', can_add_from_series: !owned.has(n + 10) }))
+  return data
+}
 const client = scopedClient()
 const viewport = harnessParams.get('viewport'), height = Number(harnessParams.get('height')) || (viewport === '390' ? 844 : 900)
 // Test gesture is visible on the landing page and works inside native dialogs.
 window.addEventListener('keydown', event => {
   if (event.altKey && event.shiftKey && event.code === 'KeyU') window.dispatchEvent(new Event('recommendation-data-changed'))
 })
-const app = <StrictMode><BrowserRouter><Routes>
+const app = <StrictMode><BrowserRouter><SeriesNavigation renderSeries={overlay => <SeriesRelations client={client} overlay={overlay} />}>
   <Route path="/recommendations/*" element={<Recommendations client={client} />} />
   <Route path="/dashboard" element={<main><h1>11C 隔离手账</h1><Link to="/recommendations/similar" state={{ journalRecord: 2 }}>找相似</Link></main>} />
-  <Route path="*" element={<main><Link to="/recommendations/similar">开始验收单番相似</Link><br /><Link to="/recommendations/tags">开始验收按标签找</Link><br /><Link to="/recommendations/tags?include=日常,音乐&exclude=战斗">验收标签组合</Link><p>隔离验收快捷键：Alt+Shift+U 模拟后续数据失效。</p>{reducedMotion && <p>正在模拟 prefers-reduced-motion；没有更改浏览器设置。</p>}</main>} />
-</Routes></BrowserRouter></StrictMode>
+  <Route path="*" element={<main><Link to="/recommendations">开始验收个性化推荐</Link><br /><Link to="/recommendations/similar">开始验收单番相似</Link><br /><Link to="/recommendations/tags">开始验收按标签找</Link><br /><Link to="/recommendations/tags?include=日常,音乐&exclude=战斗">验收标签组合</Link><p>隔离验收快捷键：Alt+Shift+U 模拟后续数据失效。</p>{reducedMotion && <p>正在模拟 prefers-reduced-motion；没有更改浏览器设置。</p>}</main>} />
+</SeriesNavigation></BrowserRouter></StrictMode>
 // Fixed iframe gives a real CSS viewport for desktop/mobile checks in a narrow side panel.
 createRoot(document.getElementById('root')).render(viewport ? <iframe title={`${viewport}px 隔离验收视口`}
-  src={`/tests/fixtures/explorationHarness.html${reducedMotion ? '?motion=reduce' : ''}`} style={{ border: 0, width: `${Number(viewport)}px`, height: `${height}px`, transformOrigin: 'top left', transform: `scale(${Math.min(1, window.innerWidth / Number(viewport))})` }} /> : app)
+  src={`/tests/fixtures/explorationHarness.html?${new URLSearchParams({ ...(seriesEnabled ? { series: '1' } : {}), ...(reducedMotion ? { motion: 'reduce' } : {}) })}`} style={{ border: 0, width: `${Number(viewport)}px`, height: `${height}px`, transformOrigin: 'top left', transform: `scale(${Math.min(1, window.innerWidth / Number(viewport))})` }} /> : app)

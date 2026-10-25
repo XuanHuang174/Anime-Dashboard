@@ -13,6 +13,7 @@ import { RecommendationSkeleton } from '../components/recommendations/Recommenda
 import { RecommendationGridSkeleton } from '../components/recommendations/RecommendationLoading.jsx'
 import ShowcasePublicationPanel from '../components/ShowcasePublicationPanel.jsx'
 import BackToTop from '../components/BackToTop.jsx'
+import { SeriesAnnotationsProvider, RelatedWorks } from '../components/recommendations/SeriesExploration.jsx'
 
 export default function SimilarRecommendations({ client, sessionScope, cache, adult, setAdult, navigation, capabilities }) {
   const location = useLocation(), navigate = useNavigate(), parsed = parseSimilarSeed(location.search)
@@ -93,7 +94,9 @@ export default function SimilarRecommendations({ client, sessionScope, cache, ad
   }
   const selectedSeed = state.data?.selectedSeed || seed
 
-  return <main ref={pageRef} className="memphis-rec-container">
+  return <SeriesAnnotationsProvider client={client} items={state.items} enabled={capabilities?.series_exploration?.enabled}
+    blocked={!!state.snapshotDirty} catalogRevision={state.data?.evidence_context.catalog_feature_version}
+    seriesRevision={state.data?.series_context?.series_revision} onSeriesChanged={state.controller.contextChanged}><main ref={pageRef} className="memphis-rec-container">
     <a className="rec-skip-link" href="#similar-results">跳到相似作品</a>
     <div className="rec-page"><div className="rec-masthead">
       <nav className="rec-nav" aria-label="探索页面导航"><Link className="rec-back" to="/dashboard">← 返回我的手账</Link>
@@ -132,6 +135,8 @@ export default function SimilarRecommendations({ client, sessionScope, cache, ad
     <section id="similar-results" ref={resultsRef} tabIndex={-1} className="rec-results" aria-label="相似作品">
       {state.snapshotDirty && <section id="rec-context-update" className="rec-feedback-refresh" role="status"><p>探索依据已更新，已保留浏览位置。重新探索后继续浏览。</p><button type="button" className="rec-button" onClick={reload}>重新探索</button></section>}
       {feedback.state.uncertain && <div className="rec-feedback-refresh" role="alert"><p>反馈结果尚未确认，请先确认原操作。</p><button type="button" className="rec-button" disabled={feedback.state.pending} onClick={feedback.controller.retry}>重试确认原操作</button></div>}
+      <RelatedWorks data={state.data?.series_context} scope={scope} blocked={!!state.snapshotDirty} />
+      {state.data?.series_context && <h2 className="series-other-heading">其他题材相近作品</h2>}
       <div className="rec-featured-layout"><div className="rec-featured-main">
         {state.status === 'loading' ? <RecommendationSkeleton featuredOnly phase="explore" /> : state.status === 'ready' ? <RecommendationCard {...cardProps(state.items[0])} hero />
           : <section className="rec-empty" role={state.status === 'error' ? 'alert' : 'status'}>
@@ -157,5 +162,5 @@ export default function SimilarRecommendations({ client, sessionScope, cache, ad
       onIdentityChanged={() => { if (journalRecord) resolveReference() }}
       editor={<RecommendationFilterPanel initialFilters={filters} onApply={applyFilters} client={client} />} />
     <BackToTop isModalOpen={Boolean(panel)} theme="memphis" />
-  </main>
+  </main></SeriesAnnotationsProvider>
 }

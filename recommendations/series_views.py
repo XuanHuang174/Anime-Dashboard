@@ -86,3 +86,29 @@ class SeriesRecordView(SeriesRelationsView):
         self.check_query_contract(request)
         from .series_workspace import record_reference
         return Response(record_reference(request.user, record_id, request.content_scope))
+
+
+class SeriesAnnotationsView(SeriesRelationsView):
+    def get(self, request):
+        import re
+        params = self.query_params(request)
+        if (set(params) != {'ids'} or len(params.getlist('ids')) != 1
+                or not re.fullmatch(r'[1-9]\d{0,9}(,[1-9]\d{0,9}){0,23}', params['ids'])):
+            raise ValidationError('请提供 1–24 个不同的 Bangumi ID。')
+        ids = [int(value) for value in params['ids'].split(',')]
+        if len(set(ids)) != len(ids) or max(ids) > 2147483647:
+            raise ValidationError('作品身份无效或重复。')
+        from .series_exploration import annotations
+        return Response(annotations(request.user, ids, request.content_scope))
+
+    def finalize_response(self, request, response, *args, **kwargs):
+        if response.status_code < 400 and isinstance(response.data, dict):
+            try:
+                from .series_exploration import verify
+                from .browsing import catalog_revision
+                verify(response.data, request.content_scope)
+                if response.data['catalog_revision'] != catalog_revision():
+                    raise SeriesConflict('目录资料已变化，请重新读取。')
+            except (APIException, DatabaseError) as exc:
+                response = self.handle_exception(exc)
+        return super().finalize_response(request, response, *args, **kwargs)

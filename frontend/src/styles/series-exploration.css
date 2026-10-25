@@ -1,0 +1,18 @@
+.series-badges { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+.series-badge { border: 2px solid #111; background: #fff0b3; padding: 5px 8px; color: #111; font-size: 11px !important; font-weight: 800; line-height: 1.6; text-align: left; overflow-wrap: anywhere; max-width: 100%; }
+.series-badge:hover { background: #ffe66d; }
+.series-badges small { display: block; width: 100%; font-size: 11px; color: #57534e; }
+.series-related { margin: 0 0 28px; padding: 20px; border: 3px solid #111; box-shadow: 4px 4px 0 #111; background: #effaf5; }
+.series-related header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 18px; margin-bottom: 12px; }
+.series-related h2 { font-size: 21px; font-weight: 900; margin: 0; }
+.series-related header span, .series-related p { font-size: 13px; line-height: 1.7; }
+.series-related ul { margin: 16px 0 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.series-related li { padding: 14px; background: white; border: 2px solid #111; display: flex; gap: 12px; justify-content: space-between; align-items: start; min-width: 0; }
+.series-related li > div { min-width: 0; overflow-wrap: anywhere; }
+.series-related h3 { font-size: 15px; font-weight: 900; margin: 0 0 8px; }
+.series-related li p { margin: 0 0 8px; font-size: 12px; }
+.series-related li small { font-size: 11px; color: #57534e; }
+.series-related li .rec-button { flex-shrink: 0; font-size: 11px; padding: 8px; }
+.series-other-heading { font-size: 23px; font-weight: 900; border-bottom: 3px solid #111; padding-bottom: 12px; margin: 30px 0 18px; }
+@media (max-width: 1000px) { .series-related ul { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 600px) { .series-related { padding: 14px; } .series-related li { flex-direction: column; } .series-related h2 { font-size: 18px; } }

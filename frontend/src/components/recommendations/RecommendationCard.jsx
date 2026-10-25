@@ -5,6 +5,7 @@ import RecommendationEvidence from './RecommendationEvidence.jsx'
 import { RecommendationPublicScore } from './RecommendationScore.jsx'
 import RecommendationFeedbackMenu from './RecommendationFeedbackMenu.jsx'
 import ExplorationTagChips from './ExplorationTagChips.jsx'
+import { SeriesBadges } from './SeriesExploration.jsx'
 
 export function RecommendationCover({ item, priority = false }) {
   const safeSrc = item.contentRating === 'adult' ? '' : getRecommendationCover(item.coverUrl)
@@ -52,6 +53,7 @@ export default function RecommendationCard({ item, hero = false, onDetail, onWan
         {onHide && <RecommendationFeedbackMenu item={item} onHide={onHide} operation={feedbackOperation}
           disabled={browseUnavailable || feedbackDisabled || operation?.status === 'adding'} onReload={onFeedbackReload} />}</div>
       <RecommendationMeta item={item} />
+      <SeriesBadges item={item} />
       <EvidenceComponent item={item} onReload={onReload} />
       {hero && item.synopsis && <p className="rec-hero-synopsis">{item.synopsis}</p>}
       <ExplorationTagChips tags={item.tags?.slice(0, 2)} />

@@ -2,6 +2,7 @@
 import { checkScopeResponse } from './recommendationContentScope.js'
 import { EXPLORATION_VERSIONS as V, validateExplorationCatalog } from './recommendationExploration.js'
 import { getRecommendationCover } from './recommendations.js'
+import { SERIES_EXPLORE_RESULT, validateRelated, sameSeriesContext } from './seriesExploration.js'
 
 const hash = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value)
 const int = (value, low, high) => Number.isInteger(value) && value >= low && value <= high
@@ -49,7 +50,7 @@ export function mapExplorationSeed(row, scopeContext, scope = 'safe') {
     has_more: false, content_scope_context: scopeContext, results: [row] }, { kind: 'bangumi_id', value: String(row?.bangumi_id) }, scope).items[0]
 }
 
-function mapItem(row, query, seed, versions, scope) {
+function mapItem(row, query, seed, versions, scope, seriesContext) {
   const e = row?.evidence, source = e?.source
   validateVersions(row?.evidence_context, query.intent); validateVersions(e?.versions, query.intent)
   if (!int(row?.bangumi_id, 1, 2147483647) || row.bangumi_id === query.seed_bangumi_id
@@ -82,13 +83,16 @@ function mapItem(row, query, seed, versions, scope) {
     tags: [...row.tags], synopsis: text(row.synopsis, 100000) ? row.synopsis : '', contentRating: row.content_rating,
     coverUrl: row.content_rating === 'adult' ? '' : getRecommendationCover(row.cover_url), watchStatus: row.watch_status,
     reason: row.reason, evidence: e, evidenceContext: row.evidence_context, evidenceToken: row.evidence_token,
-    detailContext: row.detail_context, explorationQuery: query, explorationSeed: seed, explorationScope: scope }
+    detailContext: row.detail_context, explorationQuery: query, explorationSeed: seed, explorationScope: scope, seriesContext }
 }
 
-export function mapExplorationPage(data, expectedQuery, scope = 'safe') {
+export function mapExplorationPage(data, expectedQuery, scope = 'safe', expectedSeries) {
   checkScopeResponse(data, scope)
   validateExplorationQuery(data?.query); validateVersions(data?.evidence_context, data.query.intent)
-  if (data.contract_version !== V.result || data.query_contract_version !== V.query || data.evidence_contract_version !== V.evidence
+  const series = data.contract_version === SERIES_EXPLORE_RESULT
+  if (series) validateRelated(data.series_context, data.query)
+  if (expectedSeries !== undefined && series !== expectedSeries || !series && data.series_context !== undefined) explorationInvalid()
+  if (!series && data.contract_version !== V.result || data.query_contract_version !== V.query || data.evidence_contract_version !== V.evidence
     || data.intent !== data.query.intent || data.algorithm_version !== (data.intent === 'tags' ? 'tag-explore.v1' : 'similarity.v1') || expectedQuery && !sameExplorationQuery(data.query, expectedQuery)
     || data.evidence_context.scope_revision !== data.content_scope_context?.scope_revision
     || !/^[a-f0-9]{32}$/.test(data.snapshot_id) || !int(data.snapshot_expires_at, 1, Number.MAX_SAFE_INTEGER)
@@ -107,7 +111,8 @@ export function mapExplorationPage(data, expectedQuery, scope = 'safe') {
   const seed = data.intent === 'tags' ? null : mapExplorationSeed(data.selected_seed, data.content_scope_context, scope)
   if ((data.intent === 'tags' ? data.selected_seed !== null : seed.bangumiId !== data.query.seed_bangumi_id)
     || data.empty_reason !== (seed && !seed.canSeed ? 'seed_without_topics' : !data.returned_count ? 'no_matches' : null)) explorationInvalid()
-  const items = data.results.map(row => mapItem(row, data.query, seed, data.evidence_context, scope))
+  const items = data.results.map(row => mapItem(row, data.query, seed, data.evidence_context, scope, data.series_context))
+  if (series && items.some(item => data.series_context.items.some(row => row.bangumi_id === item.bangumiId))) explorationInvalid()
   if (new Set(items.map(item => item.bangumiId)).size !== items.length) explorationInvalid()
   return { ...data, selectedSeed: seed, items, count: data.returned_count }
 }
@@ -116,6 +121,7 @@ export function requireExplorationTransition(current, next, action, seen) {
   // Django may re-sign the same context in another second. Its signature bytes
   // are opaque; compare server-owned snapshot/query/version invariants instead.
   if (['snapshot_id', 'snapshot_expires_at', 'returned_count', 'eligible_count', 'algorithm_version'].some(key => current[key] !== next[key])
+    || current.contract_version !== next.contract_version || !sameSeriesContext(current.series_context, next.series_context)
     || !sameExplorationQuery(current.query, next.query) || !sameExplorationContext(current.evidence_context, next.evidence_context)
     || current.selectedSeed?.featureRevision !== next.selectedSeed?.featureRevision
     || (action === 'more' ? next.batch !== current.batch || next.page !== current.page + 1 || next.batch_hero_bangumi_id !== current.batch_hero_bangumi_id
@@ -125,11 +131,13 @@ export function requireExplorationTransition(current, next, action, seen) {
 
 // The shared detail state machine still discards the WHOLE old item after a POST.
 export const explorationDetailAdapter = {
-  select: item => ({ explorationQuery: item.explorationQuery, explorationScope: item.explorationScope }),
-  load: (client, selection, expectation, signal) => client.explorationDetail(selection.bangumiId, selection.detailContext, signal, expectation?.token),
+  select: item => ({ explorationQuery: item.explorationQuery, explorationScope: item.explorationScope, seriesContext: item.seriesContext }),
+  load: (client, selection, expectation, signal) => client.explorationDetail(selection.bangumiId, selection.detailContext, signal, expectation?.token, !!selection.seriesContext),
   map(raw, selection, expectation) {
     const scope = selection.explorationScope
     checkScopeResponse(raw, scope); validateExplorationQuery(raw?.query); validateVersions(raw?.evidence_context, raw.query.intent)
+    if (raw.series_context) validateRelated(raw.series_context, raw.query)
+    if (!sameSeriesContext(raw.series_context, selection.seriesContext)) explorationInvalid()
     if (raw.contract_version !== 'recommendations.explore.detail.v1' || raw.intent !== raw.query.intent
       || !sameExplorationQuery(raw.query, selection.explorationQuery) || !int(raw.snapshot_expires_at, 1, Number.MAX_SAFE_INTEGER)
       || raw.snapshot_expires_at * 1000 <= Date.now()
@@ -138,7 +146,7 @@ export const explorationDetailAdapter = {
     const seed = raw.intent === 'tags' ? null : mapExplorationSeed(raw.selected_seed, raw.content_scope_context, scope)
     if (raw.intent === 'tags' ? raw.selected_seed !== null : seed.bangumiId !== raw.query.seed_bangumi_id) explorationInvalid()
     // A confirmed own write may now make this candidate owned; all other query constraints remain.
-    const item = mapItem(raw, { ...raw.query, hide_recorded: false }, seed, raw.evidence_context, scope)
+    const item = mapItem(raw, { ...raw.query, hide_recorded: false }, seed, raw.evidence_context, scope, raw.series_context)
     return { ...item, explorationQuery: raw.query }
   },
 }

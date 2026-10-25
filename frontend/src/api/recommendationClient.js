@@ -1,7 +1,7 @@
 // Dependency injection keeps test fixtures out of the production bundle.
 import { validDetailContext } from '../utils/recommendationExecution.js'
 import { checkScopeResponse } from '../utils/recommendationContentScope.js'
-export function createRecommendationClient(transport, scope = 'safe', onLost = () => {}) {
+export function createRecommendationClient(transport, scope = 'safe', onLost = () => {}, seriesExploration = false) {
   if (!['safe', 'include_adult'].includes(scope)) throw new Error('未知内容范围')
   const scoped = path => /^recommendations\/(?:$|context\/|series\/|explore\/|feedback\/|identities\/|[1-9]\d*\/)/.test(path)
   let lastScopeRevision = null, sequence = 0, lastScopeSequence = 0
@@ -37,7 +37,10 @@ export function createRecommendationClient(transport, scope = 'safe', onLost = (
   const client = { get: (p, c) => call('get', p, null, c), post: (p, a, c) => call('post', p, a, c), patch: (p, a, c) => call('patch', p, a, c) }
   return {
     contentScope: scope,
-    forScope: (value, callback) => createRecommendationClient(transport, value, callback),
+    seriesExploration,
+    forSeries: value => createRecommendationClient(transport, scope, onLost, value === true),
+    forScope: (value, callback) => createRecommendationClient(transport, value, callback, seriesExploration),
+    seriesAnnotations: (ids, signal) => client.get('recommendations/series/annotations/', { params: { ids: ids.map(seriesId).join(',') }, signal }).then(r => r.data),
     series: (id, context, signal) => client.get(`recommendations/series/${seriesId(id)}/workspace/`, { params: context ? { context: seriesContext(context) } : {}, signal }).then(r => r.data),
     seriesRecord: (id, signal) => client.get(`recommendations/series/record/${seriesId(id)}/`, { signal }).then(r => r.data),
     seriesDetail: (source, target, context, signal) => client.get(`recommendations/series/${seriesId(source)}/items/${seriesId(target)}/`, { params: { context: seriesContext(context) }, signal }).then(r => r.data),
@@ -52,18 +55,18 @@ export function createRecommendationClient(transport, scope = 'safe', onLost = (
       return client.get(`recommendations/explore/record/${recordId}/`, { signal }).then(r => r.data)
     },
     explorationCatalog: (q, signal) => client.get('recommendations/explore/catalog/', { params: { q }, signal }).then(r => r.data),
-    explorationBrowse: (query, signal) => client.get('recommendations/explore/', {
+    explorationBrowse: (query, signal, series = false) => client.get(series ? 'recommendations/explore/series/' : 'recommendations/explore/', {
       params: query.cursor ? { cursor: query.cursor } : query.intent === 'tags'
         ? { ...query, include_tags: query.include_tags.join(','), exclude_tags: query.exclude_tags.length ? query.exclude_tags.join(',') : undefined } : query, signal }).then(r => r.data),
-    explorationContext: (snapshotContext, signal) => {
+    explorationContext: (snapshotContext, signal, series = false) => {
       if (typeof snapshotContext !== 'string' || !snapshotContext.length || snapshotContext.length > 8192) return Promise.reject(new Error('探索上下文无效'))
-      return client.get('recommendations/explore/context/', { params: { snapshot_context: snapshotContext }, signal }).then(r => r.data)
+      return client.get(series ? 'recommendations/explore/series/context/' : 'recommendations/explore/context/', { params: { snapshot_context: snapshotContext }, signal }).then(r => r.data)
     },
-    explorationDetail: (identity, detailContext, signal, evidenceToken) => {
+    explorationDetail: (identity, detailContext, signal, evidenceToken, series = false) => {
       if (!Number.isInteger(identity) || identity < 1 || identity > 2147483647
         || typeof detailContext !== 'string' || !detailContext.length || detailContext.length > 8192
         || evidenceToken !== undefined && !/^[a-f0-9]{64}$/.test(evidenceToken)) return Promise.reject(new Error('探索详情上下文无效'))
-      return client.get(`recommendations/explore/${identity}/`, { signal, params: { detail_context: detailContext,
+      return client.get(`recommendations/explore/${series ? 'series/' : ''}${identity}/`, { signal, params: { detail_context: detailContext,
         ...(evidenceToken ? { evidence_token: evidenceToken } : {}) } }).then(r => r.data)
     },
     context: signal => client.get('recommendations/context/', { signal }).then(r => r.data),

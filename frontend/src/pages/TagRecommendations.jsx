@@ -14,6 +14,7 @@ import { RecommendationSkeleton } from '../components/recommendations/Recommenda
 import { RecommendationGridSkeleton } from '../components/recommendations/RecommendationLoading.jsx'
 import ShowcasePublicationPanel from '../components/ShowcasePublicationPanel.jsx'
 import BackToTop from '../components/BackToTop.jsx'
+import { SeriesAnnotationsProvider } from '../components/recommendations/SeriesExploration.jsx'
 
 export default function TagRecommendations({ client, sessionScope, cache, adult, setAdult, navigation, capabilities }) {
   const location = useLocation(), navigate = useNavigate(), scope = adult ? 'include_adult' : 'safe'
@@ -75,7 +76,8 @@ export default function TagRecommendations({ client, sessionScope, cache, adult,
   const nextBatch = async () => { close(); if (await state.nextBatch()) { resultsRef.current?.focus({ preventScroll: true }); resultsRef.current?.scrollIntoView({ block: 'start', behavior: 'auto' }) } }
   const editor = <ExplorationTagEditor draft={draft} onChange={setDraft} options={currentOptions}
     status={options.client === client ? options.status : 'loading'} onReload={() => setAttempt(value => value + 1)} onApply={apply} client={client} adult={adult} />
-  return <main ref={pageRef} className="memphis-rec-container">
+  return <SeriesAnnotationsProvider client={client} items={state.items} enabled={capabilities?.series_exploration?.enabled}
+    blocked={!!state.snapshotDirty} catalogRevision={state.data?.evidence_context.catalog_feature_version}><main ref={pageRef} className="memphis-rec-container">
     <a className="rec-skip-link" href="#tag-results">跳到题材探索结果</a><div className="rec-page"><div className="rec-masthead">
       <nav className="rec-nav" aria-label="探索页面导航"><Link className="rec-back" to="/dashboard">← 返回我的手账</Link><div className="rec-nav-tools"><button type="button" className="rec-text-button" onClick={openHidden}>已隐藏作品</button></div></nav>
       <header className="rec-page-heading rec-explore-heading"><span className="rec-chapter-label">我的手账</span><h1>番剧探索</h1>{navigation}</header>
@@ -113,5 +115,5 @@ export default function TagRecommendations({ client, sessionScope, cache, adult,
     <ExplorationDialogs interactions={interactions} client={client} capabilities={capabilities} editor={editor} editorTitle="选择这次想看的题材"
       onSimilar={item => { close(); navigate(`/recommendations/similar?seed=${item.bangumiId}`) }} />
     <BackToTop isModalOpen={Boolean(panel)} theme="memphis" />
-  </main>
+  </main></SeriesAnnotationsProvider>
 }

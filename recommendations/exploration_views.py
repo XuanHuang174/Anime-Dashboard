@@ -13,6 +13,7 @@ from .exploration_contract import (ExplorationSearchQuerySerializer, contract_de
 
 
 class ExplorationAPIView(OwnRecommendationAPIView):
+    series = False
     scoped = True
     throttle_classes = (UserRateThrottle, ScopedRateThrottle)
     throttle_scope = 'recommendation_read'
@@ -20,6 +21,9 @@ class ExplorationAPIView(OwnRecommendationAPIView):
     def initial(self, request, *args, **kwargs):
         super().initial(request, *args, **kwargs)
         require_enabled(request.user)
+        if self.series:
+            from .series_exploration import require_enabled as require_series
+            require_series()
 
 
 class ExplorationContractView(ExplorationAPIView):
@@ -59,8 +63,14 @@ class ExplorationSnapshotAPIView(ExplorationAPIView):
         # Outside the read-only snapshot: direct catalog UPDATE must not send an
         # old selected source or evidence, including zero-result/context replies.
         if response.status_code < 400 and isinstance(response.data, dict):
-            expected = (response.data.get('evidence_context', {}).get('catalog_feature_version')
-                        or response.data.get('catalog_feature_version'))
+            if self.series:
+                try:
+                    from .series_exploration import verify
+                    verify(response.data, request.content_scope)
+                except (APIException, DatabaseError) as exc:
+                    response = self.handle_exception(exc)
+            expected = ((response.data.get('evidence_context', {}).get('catalog_feature_version')
+                        or response.data.get('catalog_feature_version')) if response.status_code < 400 else None)
             if expected:
                 try:
                     from .browsing import catalog_revision
@@ -78,7 +88,7 @@ class ExplorationListView(ExplorationSnapshotAPIView):
         query = serializer(data=params)
         query.is_valid(raise_exception=True)
         from .exploration_browsing import browse_page
-        return Response(browse_page(request.user, query.validated_data, scope_context=request.content_scope))
+        return Response(browse_page(request.user, query.validated_data, scope_context=request.content_scope, series=self.series))
 
 
 class ExplorationOptionsView(ExplorationSnapshotAPIView):
@@ -93,7 +103,7 @@ class ExplorationDetailView(ExplorationSnapshotAPIView):
         query = ExplorationDetailQuerySerializer(data=self.query_params(request))
         query.is_valid(raise_exception=True)
         from .exploration_browsing import detail
-        return Response(detail(request.user, bangumi_id, query.validated_data, scope_context=request.content_scope))
+        return Response(detail(request.user, bangumi_id, query.validated_data, scope_context=request.content_scope, series=self.series))
 
 
 class ExplorationContextView(ExplorationSnapshotAPIView):
@@ -101,4 +111,16 @@ class ExplorationContextView(ExplorationSnapshotAPIView):
         query = ExplorationContextQuerySerializer(data=self.query_params(request))
         query.is_valid(raise_exception=True)
         from .exploration_browsing import context_probe
-        return Response(context_probe(request.user, query.validated_data['snapshot_context'], scope_context=request.content_scope))
+        return Response(context_probe(request.user, query.validated_data['snapshot_context'], scope_context=request.content_scope, series=self.series))
+
+
+class SeriesExplorationListView(ExplorationListView):
+    series = True
+
+
+class SeriesExplorationDetailView(ExplorationDetailView):
+    series = True
+
+
+class SeriesExplorationContextView(ExplorationContextView):
+    series = True

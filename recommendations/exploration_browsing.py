@@ -57,7 +57,7 @@ def _require_snapshot(user=None):
         raise engine.RecommendationUnavailable('探索需要独立的 PostgreSQL 只读快照。')
 
 
-def _live(user, query, scope):
+def _live(user, query, scope, *, series=False):
     scope = ensure_scope(user, scope)
     catalog = catalog_for_scope(scope)
     seed = (catalog.filter(bangumi_id=query['seed_bangumi_id']).defer('synopsis', 'source_cover_url').first()
@@ -77,6 +77,10 @@ def _live(user, query, scope):
             owned[identity] = status
     feedback = feedback_snapshot(user)
     revision = catalog_revision()
+    relations = None
+    if series:
+        from .series_exploration import seed_graph
+        relations = seed_graph(query['seed_bangumi_id'], scope)
     context_revision = _token(CURSOR_SALT + '.revision', {
         'owner': user.pk, 'owned': sorted(owned.items()),
         'feedback': [feedback['version'], sorted(feedback['hidden_ids'])],
@@ -84,9 +88,10 @@ def _live(user, query, scope):
         'epoch': epoch(), 'policy': POLICIES[query['intent']], 'feature': engine.FEATURE_VERSION,
         'feature_rule': FEATURE_RULE_VERSION, 'taxonomy': TAXONOMY_VERSION,
         'query_contract': QUERY_VERSION, 'evidence_contract': EVIDENCE_VERSION,
-        'limits': [engine.MAX_RESULTS, BATCH_SIZE, TTL]})
+        'limits': [engine.MAX_RESULTS, BATCH_SIZE, TTL],
+        **({'series': relations['fingerprint']} if series else {})})
     return {'seed': seed, 'owned': owned, 'feedback': feedback, 'scope': scope,
-            'catalog': revision, 'revision': context_revision}
+            'catalog': revision, 'revision': context_revision, **({'series': relations} if series else {})}
 
 
 def rank_similar(index, rows, query, seed_tags, excluded):
@@ -117,7 +122,8 @@ def _dump(body, salt):
     return value
 
 
-def _load(token, salt, user, purpose):
+def _load(token, salt, user, purpose, *, series=False):
+    from .series_exploration import RESULT_VERSION as SERIES_RESULT, POLICY as SERIES_POLICY
     if not isinstance(token, str) or not 1 <= len(token) <= MAX_TOKEN:
         raise ValidationError('探索上下文长度无效。')
     try:
@@ -128,7 +134,9 @@ def _load(token, salt, user, purpose):
         raise ValidationError('探索上下文无效或已被修改。') from None
     try:
         if (body['owner'] != _token(CURSOR_SALT + '.owner', user.pk)
-                or body['epoch'] != epoch() or body['contract'] != RESULT_VERSION
+                or body['epoch'] != epoch() or body['contract'] != (SERIES_RESULT if series else RESULT_VERSION)
+                or body.get('series_policy') != (SERIES_POLICY if series else None)
+                or series and not re.fullmatch('[a-f0-9]{64}', body.get('series_fingerprint', ''))
                 or body['purpose'] != purpose or body['policy'] not in POLICIES.values()
                 or body['feature_rule'] != FEATURE_RULE_VERSION or body['taxonomy'] != TAXONOMY_VERSION
                 or type(body['issued']) is not int or type(body['expires']) is not int
@@ -172,12 +180,14 @@ def _load(token, salt, user, purpose):
 
 
 def _base_body(user, query, live):
+    from .series_exploration import RESULT_VERSION as SERIES_RESULT, POLICY as SERIES_POLICY
     now = int(time.time())
     deadline = live['scope'].get('scope_valid_until')
     expires = min(now + TTL, int(datetime.fromisoformat(deadline).timestamp())) if deadline else now + TTL
     if expires <= now:
         raise ExplorationSnapshotChanged('内容范围已到期。')
-    return {'contract': RESULT_VERSION, 'policy': POLICIES[query['intent']], 'query': query,
+    return {'contract': SERIES_RESULT if 'series' in live else RESULT_VERSION, 'policy': POLICIES[query['intent']], 'query': query,
+            **({'series_policy': SERIES_POLICY, 'series_fingerprint': live['series']['fingerprint']} if 'series' in live else {}),
             'owner': _token(CURSOR_SALT + '.owner', user.pk), 'epoch': epoch(),
             'snapshot': uuid.uuid4().hex, 'issued': now, 'expires': expires,
             'revision': live['revision'], 'feature_rule': FEATURE_RULE_VERSION, 'taxonomy': TAXONOMY_VERSION}
@@ -233,13 +243,15 @@ def _item(anime, body, live, *, detail=False):
             'detail_context': _context(body, 'detail', candidate=anime.bangumi_id)}
 
 
-def browse_page(user, validated, *, scope_context, metrics=None):
+def browse_page(user, validated, *, scope_context, metrics=None, series=False):
     _require_snapshot(user)
     metrics = metrics if metrics is not None else {}
-    body = _load(validated['cursor'], CURSOR_SALT, user, 'browse') if 'cursor' in validated else None
+    body = _load(validated['cursor'], CURSOR_SALT, user, 'browse', series=series) if 'cursor' in validated else None
     query = body['query'] if body else canonical_query(validated)
+    if series and query['intent'] != 'similar':
+        raise ValidationError('系列分区仅支持单番相似。标签探索保留原匹配结果。')
     with readonly_snapshot():
-        live = _live(user, query, scope_context)
+        live = _live(user, query, scope_context, series=series)
         if body and not hmac.compare_digest(body['revision'], live['revision']):
             raise ExplorationSnapshotChanged('目录、范围、手账状态或隐藏反馈已变化，请重新探索。')
         source = _source(live)
@@ -251,6 +263,8 @@ def browse_page(user, validated, *, scope_context, metrics=None):
                 excluded.add(query['seed_bangumi_id'])
             if query['hide_recorded']:
                 excluded.update(live['owned'])
+            if series:
+                excluded.update(live['series']['strong_ids'])
             ids, eligible = (rank_similar(index, rows, query, frozenset(source['tags']), excluded)
                              if source is not None else rank_tags(index, rows, query, excluded))
             metrics['selection_ms'] = round((perf_counter() - started) * 1000, 3)
@@ -265,7 +279,9 @@ def browse_page(user, validated, *, scope_context, metrics=None):
         if len(current) != len(ids[offset:end]):
             raise ExplorationSnapshotChanged('探索作品已不可用。')
         cursor = lambda at: _dump({**body, 'offset': at}, CURSOR_SALT)
-        return {'contract_version': RESULT_VERSION, 'query_contract_version': QUERY_VERSION,
+        from .series_exploration import related_block
+        return {'contract_version': body['contract'], 'query_contract_version': QUERY_VERSION,
+                **({'series_context': related_block(live, query), '_series_subjects': [query['seed_bangumi_id']]} if series else {}),
                 'intent': query['intent'], 'algorithm_version': POLICIES[query['intent']], 'query': query,
                 'evidence_contract_version': EVIDENCE_VERSION, 'evidence_context': _versions(query, live),
                 'selected_seed': catalog_item(live['seed'], live['scope']) if source is not None else None,
@@ -282,16 +298,20 @@ def browse_page(user, validated, *, scope_context, metrics=None):
                 'results': [_item(current[i], body, live) for i in ids[offset:end]]}
 
 
-def detail(user, identity, validated, *, scope_context):
+def detail(user, identity, validated, *, scope_context, series=False):
     _require_snapshot(user)
-    body = _load(validated['detail_context'], DETAIL_SALT, user, 'detail')
+    body = _load(validated['detail_context'], DETAIL_SALT, user, 'detail', series=series)
     if body['candidate'] != identity:
         raise ExplorationSnapshotChanged('详情作品与探索上下文不一致。')
     expected = validated.get('evidence_token')
     with readonly_snapshot():
-        live = _live(user, body['query'], scope_context)
+        live = _live(user, body['query'], scope_context, series=series)
         if expected and not hmac.compare_digest(body['revision'], live['revision']):
             raise ExplorationSnapshotChanged('探索依据已变化，请重新读取详情。')
+        if series and body['series_fingerprint'] != live['series']['fingerprint']:
+            raise ExplorationSnapshotChanged('系列资料已变化，请重新探索。')
+        if series and identity in live['series']['strong_ids']:
+            raise ExplorationSnapshotChanged('作品属于已确认直接关联，请从关联区查看。')
         anime = catalog_for_scope(live['scope']).filter(bangumi_id=identity).first()
         if anime is None:
             raise NotFound('作品当前不可用于探索。')
@@ -312,19 +332,23 @@ def detail(user, identity, validated, *, scope_context):
         item = _item(anime, body, live, detail=True)
         if expected and not hmac.compare_digest(expected, item['evidence_token']):
             raise ExplorationSnapshotChanged('探索证据已变化。')
+        from .series_exploration import related_block
         return {**item, 'contract_version': DETAIL_VERSION, 'intent': body['query']['intent'], 'query': body['query'],
+                **({'series_context': related_block(live, body['query']), '_series_subjects': [body['query']['seed_bangumi_id']]} if series else {}),
                 'selected_seed': catalog_item(live['seed'], live['scope']) if source is not None else None,
                 'snapshot_expires_at': body['expires']}
 
 
-def context_probe(user, token, *, scope_context):
+def context_probe(user, token, *, scope_context, series=False):
     _require_snapshot(user)
-    body = _load(token, CONTEXT_SALT, user, 'context')
+    body = _load(token, CONTEXT_SALT, user, 'context', series=series)
     with readonly_snapshot():
-        live = _live(user, body['query'], scope_context)
+        live = _live(user, body['query'], scope_context, series=series)
         if not hmac.compare_digest(live['revision'], body['revision']):
             raise ExplorationSnapshotChanged('探索上下文已变化，请重新探索。')
+        from .series_exploration import related_block
         return {'contract_version': CONTEXT_VERSION, 'valid': True,
+                **({'series_context': related_block(live, body['query']), '_series_subjects': [body['query']['seed_bangumi_id']]} if series else {}),
                 'intent': body['query']['intent'],
                 'snapshot_id': body['snapshot'], 'snapshot_expires_at': body['expires'],
                 'query_fingerprint': query_fingerprint(body['query']),

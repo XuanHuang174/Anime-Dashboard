@@ -58,9 +58,11 @@ def require_enabled(user=None):
 
 def capabilities(user=None):
     available = enabled(user)
+    from .series_exploration import enabled as series_enabled, POLICY
     return {'contract_version': CAPABILITIES_VERSION, 'rollout_contract_version': ROLLOUT_VERSION, 'enabled': available,
             'catalog_search_enabled': available, 'query_execution_enabled': available,
             'supported_intents': ['similar', 'tags'],
+            **({'series_exploration': {'enabled': True, 'policy_version': POLICY}} if available and series_enabled() else {}),
             'options_contract_version': OPTIONS_VERSION,
             'query_contract_version': QUERY_VERSION, 'catalog_contract_version': CATALOG_VERSION,
             'evidence_contract_version': EVIDENCE_VERSION, 'result_contract_version': RESULT_VERSION,

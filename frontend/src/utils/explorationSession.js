@@ -1,5 +1,6 @@
 import { createLatestRequestGate } from './recommendations.js'
 import { mapExplorationPage, sameExplorationContext, requireExplorationTransition } from './explorationResults.js'
+import { sameSeriesContext } from './seriesExploration.js'
 
 export function explorationError(error) {
   const status = error?.response?.status
@@ -39,9 +40,10 @@ export function createExplorationBrowseController(client, scope = 'safe') {
     const request = root.begin()
     emit({ key: options.key, status: 'loading', items: [], transport: 'explore' })
     try {
-      const raw = await client.explorationBrowse(options.query, request.signal)
+      const series = options.query.intent === 'similar' && client.seriesExploration === true
+      const raw = await client.explorationBrowse(options.query, request.signal, series)
       if (!active || !request.isCurrent()) return
-      const data = mapExplorationPage(raw, options.query, scope)
+      const data = mapExplorationPage(raw, options.query, scope, series)
       if (data.batch !== 1 || data.page !== 1) throw new Error('探索合同不兼容，请重新探索。')
       seen = new Set(data.items.map(item => item.bangumiId))
       emit({ key: options.key, status: data.items.length ? 'ready' : 'empty', items: data.items, data, transport: 'explore' })
@@ -58,9 +60,9 @@ export function createExplorationBrowseController(client, scope = 'safe') {
     const request = continuation.begin()
     emit({ ...state, moreLoading: action === 'more', batchLoading: action === 'batch', moreError: '', batchError: '' })
     try {
-      const raw = await client.explorationBrowse({ cursor }, request.signal)
+      const raw = await client.explorationBrowse({ cursor }, request.signal, !!captured.series_context)
       if (!active || !request.isCurrent()) return false
-      const data = mapExplorationPage(raw, selection.query, scope)
+      const data = mapExplorationPage(raw, selection.query, scope, !!captured.series_context)
       requireExplorationTransition(captured, data, action, seen)
       data.items.forEach(item => seen.add(item.bangumiId))
       emit({ ...state, data, items: action === 'more' ? [...state.items, ...data.items] : data.items, moreLoading: false, batchLoading: false })
@@ -77,7 +79,7 @@ export function createExplorationBrowseController(client, scope = 'safe') {
     if (Date.now() >= state.data.snapshot_expires_at * 1000) { changed('expired'); return }
     const captured = state.data, request = probe.begin()
     try {
-      const data = await client.explorationContext(captured.snapshot_context, request.signal)
+      const data = await client.explorationContext(captured.snapshot_context, request.signal, !!captured.series_context)
       if (!active || !request.isCurrent() || state.data !== captured) return
       if (data?.contract_version !== 'recommendations.explore.context.v1' || data.valid !== true
         || data.snapshot_id !== captured.snapshot_id || data.snapshot_expires_at !== captured.snapshot_expires_at
@@ -86,6 +88,7 @@ export function createExplorationBrowseController(client, scope = 'safe') {
         || captured.query.intent === 'tags' && (data.intent !== 'tags' || data.selected_seed !== null)
         || data.selected_seed?.bangumi_id !== captured.query.seed_bangumi_id
         || !sameExplorationContext(data.evidence_context, captured.evidence_context)) changed()
+      else if (!sameSeriesContext(data.series_context, captured.series_context)) changed()
     } catch (error) {
       if (active && request.isCurrent() && state.data === captured && (stale(error) || error?.response?.data?.code === 'exploration_disabled')) changed()
       // Offline/429/temporary 503 never discard a valid session or NSFW choice.

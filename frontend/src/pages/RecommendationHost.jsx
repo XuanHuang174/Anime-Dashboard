@@ -18,9 +18,12 @@ export default function RecommendationHost({ client: baseClient, sessionScope, P
   const [capability, setCapability] = useState({ status: 'loading' })
   const [attempt, setAttempt] = useState(0)
   const topics = useExplorationTopics(baseClient, capability.data?.navigation?.[2]?.available === true)
-  const client = useMemo(() => baseClient.forScope ? baseClient.forScope(adult ? 'include_adult' : 'safe', () => {
+  const client = useMemo(() => {
+    const configured = baseClient.forSeries ? baseClient.forSeries(capability.data?.series_exploration?.enabled === true) : baseClient
+    return configured.forScope ? configured.forScope(adult ? 'include_adult' : 'safe', () => {
     setAdult(false); setNotice('访问授权或服务状态已变化，已恢复安全范围。')
-  }) : baseClient, [baseClient, adult])
+    }) : configured
+  }, [baseClient, adult, capability.data?.series_exploration?.enabled === true])
   useEffect(() => {
     const request = new AbortController()
     setCapability({ status: 'loading' })
