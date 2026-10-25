@@ -1,7 +1,7 @@
 {
   "generated_at": "2026-10-25T19:36:56.216568+00:00",
   "scope": "configured-project-neon-readonly",
-  "status": "passed_data_preflight",
+  "status": "full_rollout_operator_confirmed",
   "checks": {
     "current_heads_have_matching_sources": true,
     "last_attempts_have_matching_sources": true,
@@ -43,24 +43,21 @@
   },
   "render_runtime_configuration_verified": false,
   "authenticated_live_acceptance": {
-    "result": "failed_or_blocked",
-    "phase": "before_cold_index_optimization_deployment",
-    "failed_check": "http_budget_12",
-    "failed_endpoint": "/api/recommendations/explore/series/",
-    "failed_seconds": 13.742,
+    "result": "passed_series_readonly",
+    "phase": "after_cold_index_optimization_before_full_rollout",
+    "report_filename": "20261025T204140402593Z.json",
+    "report_sha256": "a4c1ea6f893b1bf01c4596e770cd1ece2df7a4691b98b6a066b6eb80834f458d",
+    "requests": 20,
+    "all_checks_passed": true,
+    "maximum_http_seconds": 7.855,
+    "partition_initial_seconds": 7.828,
+    "partition_context_seconds": 1.805,
+    "partition_continuation_seconds": 1.905,
     "http_budget_seconds": 10,
-    "passed_checks": {
-      "normal_login": true,
-      "exact_authorized_account": true,
-      "existing_three_modes_remain_open": true,
-      "series_capability_matches_account": true,
-      "fresh_known_relations_safe": true,
-      "frontend_contract_9": true,
-      "frontend_contract_10": true,
-      "frontend_contract_11": true
-    },
-    "post_deployment_retest": "pending",
-    "full_release": "not_performed"
+    "preferences_and_feedback_unchanged": true,
+    "automated_browser_tested": false,
+    "adult_scope_included_in_this_script_run": false,
+    "production_write_endpoints_called": []
   },
   "release_switches_changed": false,
   "coverage": {
@@ -168,6 +165,53 @@
     "exact_full_index_equivalence": true,
     "production_writes": false,
     "private_records_read": false,
-    "render_performance_acceptance": "pending_after_deployment"
-  }
+    "render_performance_acceptance": "passed_single_xhcode_readonly_run_not_p95"
+  },
+  "prior_failed_acceptance": {
+    "result": "failed_or_blocked",
+    "phase": "before_cold_index_optimization_deployment",
+    "failed_check": "http_budget_12",
+    "failed_endpoint": "/api/recommendations/explore/series/",
+    "failed_seconds": 13.742,
+    "http_budget_seconds": 10,
+    "passed_checks": {
+      "normal_login": true,
+      "exact_authorized_account": true,
+      "existing_three_modes_remain_open": true,
+      "series_capability_matches_account": true,
+      "fresh_known_relations_safe": true,
+      "frontend_contract_9": true,
+      "frontend_contract_10": true,
+      "frontend_contract_11": true
+    },
+    "post_deployment_retest": "pending",
+    "full_release": "not_performed"
+  },
+  "coverage_rechecked_at": "2026-10-25T21:00:03.723424+00:00",
+  "user_manual_acceptance": {
+    "account": "XHcode",
+    "confirmed": true,
+    "scope": "extension_12_module_and_related_functions",
+    "evidence": "explicit_user_confirmation_2026-10-26"
+  },
+  "full_rollout": {
+    "status": "operator_confirmed_live_pending_ordinary_account_recheck",
+    "series_canary_list_cleared": "confirmed_by_user",
+    "three_series_flags_true": "confirmed_by_user",
+    "deployment_live": "confirmed_by_user",
+    "runtime_environment_independently_verified": false,
+    "render_shell_audit": "not_run_shell_unavailable_on_current_plan",
+    "ordinary_account_readonly_acceptance": "deferred_by_user",
+    "agent_changed_render_environment": false
+  },
+  "post_rollout_public_http_baseline": {
+    "result": "passed_public_baseline_only",
+    "request_seconds": [
+      0.811,
+      0.37,
+      0.756
+    ],
+    "scope": "unauthenticated_only_not_ordinary_account_acceptance"
+  },
+  "updated_at": "2026-10-25T21:08:15.461101+00:00"
 }
