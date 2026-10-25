@@ -15,8 +15,10 @@ from .exploration_views import (ExplorationCatalogView, ExplorationContractView,
 from .access_admin_views import AccessControlView, AccessApplicationsView, AccessApplicationView
 from .series_views import SeriesRelationsView, SeriesWorkspaceView, SeriesDetailView, SeriesWantView, SeriesRecordView, SeriesAnnotationsView
 from .exploration_views import SeriesExplorationListView, SeriesExplorationContextView, SeriesExplorationDetailView
+from .series_reminder_views import SeriesRemindersView
 
 urlpatterns = [
+    path('series/reminders/', SeriesRemindersView.as_view(), name='series-reminders'),
     path('series/annotations/', SeriesAnnotationsView.as_view(), name='series-annotations'),
     path('explore/series/', SeriesExplorationListView.as_view(), name='series-explore-list'),
     path('explore/series/context/', SeriesExplorationContextView.as_view(), name='series-explore-context'),

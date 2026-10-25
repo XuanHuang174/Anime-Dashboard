@@ -6,7 +6,7 @@ from .taxonomy import validate_preference_tags
 from .profile_policy import PROFILE_POLICY_VERSION, PROFILE_SCORE_OPTIONS, validate_profile_min_score
 from decimal import Decimal
 from .series_models import (SeriesState, SeriesNode, SeriesObservation, SeriesHead,
-                            SeriesAssertion, SeriesOverrideEvent)  # noqa: F401
+                            SeriesAssertion, SeriesOverrideEvent, SeriesReminderState, SeriesReminderDismissal)  # noqa: F401
 
 
 class RecommendationAnime(models.Model):

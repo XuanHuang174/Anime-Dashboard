@@ -1,0 +1,13 @@
+.series-reminders { margin: 24px 0; padding: 20px; background: #fff9db; border: 3px solid #171717; box-shadow: 5px 5px 0 #171717; }
+.series-reminders header, .series-reminders footer { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+.series-reminders h2 { font-size: 1.25rem; margin: 0 0 6px; }
+.series-reminders h3 { margin: 0 0 8px; overflow-wrap: anywhere; }
+.series-reminders header p { margin: 0; font-size: .85rem; }
+.series-reminders ul { list-style: none; padding: 0; margin: 16px 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.series-reminders li { padding: 14px; background: white; border: 2px solid #171717; display: flex; flex-direction: column; justify-content: space-between; gap: 16px; }
+.series-reminders li > div { min-width: 0; }
+.series-reminders li p { font-size: .85rem; line-height: 1.6; margin: 4px 0; overflow-wrap: anywhere; }
+.series-reminders small { font-size: .78rem; line-height: 1.6; }
+.series-reminder-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.series-reminders footer { border-top: 2px solid #171717; padding-top: 12px; margin-top: 14px; }
+@media (max-width: 600px) { .series-reminders { padding: 14px; } .series-reminders ul { grid-template-columns: minmax(0, 1fr); } }

@@ -13,9 +13,11 @@ import SeriesNavigation from '../../src/router/SeriesNavigation.jsx'
 import SeriesRelations from '../../src/pages/SeriesRelations.jsx'
 import { related, annotations } from './seriesExplorationContract.js'
 import { seriesPage, seriesDetail } from './seriesContract.js'
+import { reminders } from './seriesRemindersContract.js'
 
 const harnessParams = new URLSearchParams(window.location.search)
-const seriesEnabled = harnessParams.get('series') === '1' || location.pathname.endsWith('/seriesExplorationHarness.html')
+const remindersEnabled = harnessParams.get('reminders') === '1' || location.pathname.endsWith('/seriesRemindersHarness.html')
+const seriesEnabled = remindersEnabled || harnessParams.get('series') === '1' || location.pathname.endsWith('/seriesExplorationHarness.html')
 const reducedMotion = harnessParams.get('motion') === 'reduce'
 if (reducedMotion) {
   // Isolated preference simulation, never changes browser/OS settings.
@@ -34,6 +36,8 @@ localStorage.setItem('anime_journal_access_token', 'synthetic-11c-only')
 const owned = new Set(), hidden = new Map(), calls = []
 let expires = Math.floor(Date.now() / 1000) + 900
 let feedbackVersion = 0
+let reminderVersion = 0, remindersCollapsed = false
+const reminderHidden = new Set()
 const snapshots = new Map(); let serial = 0
 const fail = (status, code) => { throw { response: { status, data: { code } } } }
 const wait = async (name, signal) => {
@@ -60,7 +64,17 @@ function scopedClient(selectedScope = 'safe', seriesPolicy = false) {
     forSeries: value => scopedClient(selectedScope, value),
     forScope: value => scopedClient(value, seriesPolicy),
     capabilities: async signal => { await wait('capabilities', signal); return { contract_version: 'recommendations.capabilities.v1',
-      exploration: { ...contract.capabilities, series_exploration: { enabled: seriesEnabled, policy_version: 'series-explore.direct.v1' } }, algorithm_version: 'content.v1', browse_enabled: true, rollout_revision: 'b'.repeat(64) } },
+      exploration: { ...contract.capabilities, series_exploration: { enabled: seriesEnabled, policy_version: 'series-explore.direct.v1' },
+        ...(remindersEnabled ? { series_reminders: { enabled: true, policy_version: 'series-reminders.completed-direct.v1' } } : {}) }, algorithm_version: 'content.v1', browse_enabled: true, rollout_revision: 'b'.repeat(64) } },
+    seriesReminders: async signal => { await wait('reminders', signal); return reminders({ hidden: reminderHidden, owned, collapsed: remindersCollapsed, version: reminderVersion, contentScope: scopeContext }) },
+    changeSeriesReminders: async (body, signal) => {
+      await wait('reminder-change', signal)
+      if (body.expected_version !== reminderVersion) fail(409, 'series_snapshot_changed')
+      if (body.action === 'hide') reminderHidden.add(body.bangumi_id)
+      if (body.action === 'restore') reminderHidden.clear()
+      if (body.action === 'collapse') remindersCollapsed = body.collapsed
+      return { contract_version: 'recommendations.series.reminders.v1', action: body.action, saved: true, version: ++reminderVersion, content_scope_context: scopeContext }
+    },
     seriesAnnotations: async (ids, signal) => { await wait('annotations', signal); return { ...annotations(ids), catalog_revision: versions.catalog_feature_version, content_scope_context: scopeContext } },
     series: async (source, context, signal) => { await wait('series', signal); return { ...mockSeries(source), content_scope_context: scopeContext } },
     seriesDetail: async (source, target, context, signal) => { await wait('seriesDetail', signal); return { ...seriesDetail(mockSeries(source), target), content_scope_context: scopeContext } },
@@ -134,6 +148,9 @@ function scopedClient(selectedScope = 'safe', seriesPolicy = false) {
 }
 function mockSeries(source) {
   const data = seriesPage({ source })
+  if (remindersEnabled) data.results = data.results.map(row => ({ ...row,
+    ...(row.bangumi_id === 4 ? { kind: 'sequel', section: 'chronology', relation_label: '续集', title_zh: '合成故事：后续新篇' } : {}),
+    ...(owned.has(row.bangumi_id) ? { watch_status: 'plan', record_state: 'linked', can_add_from_series: false } : {}) }))
   if (source === 100) data.results = Array.from({ length: 30 }, (_, n) => ({ ...data.results[0], bangumi_id: n + 10, title_zh: `合成故事${n + 10}`, title_jp: '',
     watch_status: owned.has(n + 10) ? 'plan' : null, record_state: owned.has(n + 10) ? 'linked' : 'no_confirmed_record', can_add_from_series: !owned.has(n + 10) }))
   return data
@@ -151,4 +168,4 @@ const app = <StrictMode><BrowserRouter><SeriesNavigation renderSeries={overlay =
 </SeriesNavigation></BrowserRouter></StrictMode>
 // Fixed iframe gives a real CSS viewport for desktop/mobile checks in a narrow side panel.
 createRoot(document.getElementById('root')).render(viewport ? <iframe title={`${viewport}px 隔离验收视口`}
-  src={`/tests/fixtures/explorationHarness.html?${new URLSearchParams({ ...(seriesEnabled ? { series: '1' } : {}), ...(reducedMotion ? { motion: 'reduce' } : {}) })}`} style={{ border: 0, width: `${Number(viewport)}px`, height: `${height}px`, transformOrigin: 'top left', transform: `scale(${Math.min(1, window.innerWidth / Number(viewport))})` }} /> : app)
+  src={`/tests/fixtures/explorationHarness.html?${new URLSearchParams({ ...(seriesEnabled ? { series: '1' } : {}), ...(remindersEnabled ? { reminders: '1' } : {}), ...(reducedMotion ? { motion: 'reduce' } : {}) })}`} style={{ border: 0, width: `${Number(viewport)}px`, height: `${height}px`, transformOrigin: 'top left', transform: `scale(${Math.min(1, window.innerWidth / Number(viewport))})` }} /> : app)

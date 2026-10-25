@@ -31,6 +31,8 @@ export function parseSimilarSeed(search) {
 }
 
 export function validateExplorationCapabilities(data) {
+  if (data?.series_reminders !== undefined && (data.series_reminders?.enabled !== true
+    || data.series_reminders.policy_version !== 'series-reminders.completed-direct.v1')) return invalid()
   if (data?.series_exploration !== undefined && (typeof data.series_exploration?.enabled !== 'boolean'
     || data.series_exploration.policy_version !== 'series-explore.direct.v1')) return invalid()
   const supported = ['["similar"]', '["similar","tags"]'].includes(JSON.stringify(data?.supported_intents))

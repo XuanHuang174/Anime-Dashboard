@@ -365,6 +365,7 @@ RECOMMENDATION_EXPLORATION_EPOCH = env('RECOMMENDATION_EXPLORATION_EPOCH', defau
 # 12B backend only. Importing series data never enables this read endpoint.
 RECOMMENDATION_SERIES_ENABLED = env.bool('RECOMMENDATION_SERIES_ENABLED', default=False)
 RECOMMENDATION_SERIES_EXPLORATION_ENABLED = env.bool('RECOMMENDATION_SERIES_EXPLORATION_ENABLED', default=False)
+RECOMMENDATION_SERIES_REMINDERS_ENABLED = env.bool('RECOMMENDATION_SERIES_REMINDERS_ENABLED', default=False)
 RECOMMENDATION_RESTRICTED_CONTENT_ENABLED = env.bool('RECOMMENDATION_RESTRICTED_CONTENT_ENABLED', default=False)
 # Independent rollout: no user applications; current general-adult content checks
 # and both serving gates remain mandatory. Never auto-approve catalog records.

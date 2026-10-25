@@ -4,6 +4,23 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 
 
+class SeriesReminderState(models.Model):
+    """Own presentation choices only; independent of ranking and journal records."""
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='+')
+    collapsed = models.BooleanField(default=False)
+    version = models.PositiveIntegerField(default=0)
+
+
+class SeriesReminderDismissal(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='+')
+    bangumi_id = models.PositiveIntegerField()
+    hidden = models.BooleanField(default=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=('user', 'bangumi_id'), name='series_reminder_user_work'),
+                       models.CheckConstraint(condition=models.Q(bangumi_id__gt=0, bangumi_id__lte=2147483647), name='series_reminder_id_range')]
+
+
 class SeriesState(models.Model):
     id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
     revision = models.PositiveBigIntegerField(default=0)

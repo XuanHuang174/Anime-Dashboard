@@ -40,6 +40,8 @@ export function createRecommendationClient(transport, scope = 'safe', onLost = (
     seriesExploration,
     forSeries: value => createRecommendationClient(transport, scope, onLost, value === true),
     forScope: (value, callback) => createRecommendationClient(transport, value, callback, seriesExploration),
+    seriesReminders: signal => client.get('recommendations/series/reminders/', { signal }).then(r => r.data),
+    changeSeriesReminders: (changes, signal) => client.patch('recommendations/series/reminders/', changes, { signal }).then(r => r.data),
     seriesAnnotations: (ids, signal) => client.get('recommendations/series/annotations/', { params: { ids: ids.map(seriesId).join(',') }, signal }).then(r => r.data),
     series: (id, context, signal) => client.get(`recommendations/series/${seriesId(id)}/workspace/`, { params: context ? { context: seriesContext(context) } : {}, signal }).then(r => r.data),
     seriesRecord: (id, signal) => client.get(`recommendations/series/record/${seriesId(id)}/`, { signal }).then(r => r.data),

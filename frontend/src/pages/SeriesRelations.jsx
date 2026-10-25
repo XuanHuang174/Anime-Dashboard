@@ -18,10 +18,11 @@ import '../styles/recommendation-series.css'
 export default function SeriesRelations({ client = defaultClient, overlay = false }) {
   const { bangumiId } = useParams(), session = useSeriesSession(), location = useLocation()
   const scope = location.state?.seriesScope === 'include_adult' ? 'include_adult' : 'safe'
-  return <SeriesWorkspace key={`${session}:${bangumiId}:${scope}`} baseClient={client} source={Number(bangumiId)} scope={scope} session={session} overlay={overlay} />
+  return <SeriesWorkspace key={`${session}:${bangumiId}:${scope}`} baseClient={client} source={Number(bangumiId)} scope={scope} session={session} overlay={overlay} target={location.state?.seriesTarget} />
 }
-function SeriesWorkspace({ baseClient, source, scope, session, overlay }) {
+function SeriesWorkspace({ baseClient, source, scope, session, overlay, target }) {
   const navigate = useNavigate(), resourceTrigger = useRef(null), [resources, setResources] = useState(false)
+  const initialTarget = useRef(null)
   const client = useMemo(() => baseClient.forScope(scope), [baseClient, scope])
   const controller = useMemo(() => createSeriesWorkspace({ client, source, scope,
     isCurrent: () => seriesSession() === session, onConfirmed: () => notifyRecommendationChange() }), [client, source, scope, session])
@@ -33,6 +34,11 @@ function SeriesWorkspace({ baseClient, source, scope, session, overlay }) {
   }, [controller])
   useEffect(() => setResources(false), [state.detail?.target, state.detail?.status])
   const data = state.data
+  useEffect(() => {
+    if (!data || initialTarget.current === controller || !Number.isInteger(target) || target < 1) return
+    initialTarget.current = controller
+    if (target === source || data.results.some(row => row.bangumi_id === target)) controller.select(target)
+  }, [controller, data, source, target])
   useEffect(() => {
     if (!data) return
     const expiry = data.content_scope_context.scope_valid_until
@@ -52,6 +58,7 @@ function SeriesWorkspace({ baseClient, source, scope, session, overlay }) {
           <p>下列关系均相对于「{data.selected_seed.title_zh || data.selected_seed.title_jp}」。按发行日期整理，不代表建议观看顺序或必看前置。</p>
           <p>{data.scope_note}</p><p>{data.record_note}</p>
           <p>本人本作状态：<strong>{seriesStatus(data.selected_seed)}</strong></p>
+          <button type="button" className="rec-button" onClick={() => controller.select(source)}>查看本作详情 ↗</button>
           {scope === 'include_adult' && <p>包含已审核 NSFW 关联，仅对本次浏览生效。</p>}
           <button type="button" className="series-link" onClick={() => controller.load()}>重新读取资料与状态</button>
           {data.snapshot_version && <small className="series-source">来源快照：{data.snapshot_version} · 系列版本 {data.series_revision}</small>}</section>
