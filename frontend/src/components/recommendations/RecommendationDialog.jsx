@@ -1,6 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import gsap from 'gsap'
 import { createRecommendationMotion } from '../../utils/recommendationMotion.js'
+import { lockDialogBody } from '../../utils/dialogBodyLock.js'
 
 // Native modal dialog supplies top-layer stacking, inert background and focus trap.
 export default function RecommendationDialog({ title, children, onClose, kind = 'detail', busy = false,
@@ -29,8 +30,7 @@ export default function RecommendationDialog({ title, children, onClose, kind = 
   useEffect(() => {
     const node = ref.current
     const previousFocus = document.activeElement
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
+    const releaseBody = lockDialogBody(document)
     node.showModal()
     node.querySelector('[data-initial-focus]')?.focus()
     const motion = createRecommendationMotion({ root: node, gsap, media: window.matchMedia('(prefers-reduced-motion: reduce)') })
@@ -38,12 +38,15 @@ export default function RecommendationDialog({ title, children, onClose, kind = 
     return () => {
       motion.dispose()
       node.close()
-      document.body.style.overflow = previousOverflow
+      releaseBody()
       if (previousFocus?.isConnected) previousFocus.focus()
-      else (fallbackFocusRef?.current || document.querySelector('.memphis-rec-container .rec-nav-tools button'))?.focus()
+      else if (document.activeElement === document.body || !document.activeElement?.isConnected) {
+        (fallbackFocusRef?.current || document.querySelector('.memphis-rec-container .rec-nav-tools button'))?.focus()
+      }
     }
   }, [])
   function keepResourceFocus(event) {
+    if (event.key === 'Escape') event.stopPropagation() // Do not close an underlying journal preview.
     // Apply the boundary to every modal, including the hidden-works drawer.
     // Some browser top-layer transitions briefly hand Tab back to browser chrome.
     if (event.key !== 'Tab') return

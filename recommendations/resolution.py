@@ -1,6 +1,7 @@
 """Own-record read contracts; never attaches identities during GET."""
 from anime.models import UserAnimeRecord
 from django.db import DatabaseError, transaction
+from django.db.models import Q
 from .matching import catalog_fingerprint, effective_metadata, record_fingerprint
 from .models import RecommendationAnime
 
@@ -19,8 +20,10 @@ def record_row(record):
     return UserAnimeRecord.objects.filter(pk=record.pk).values(*RECORD_FIELDS).get()
 
 
-def resolved_records(user, *, allowed_adult_ids=(), include_profile=True, max_rows=None, record_id=None):
+def resolved_records(user, *, allowed_adult_ids=(), include_profile=True, max_rows=None, record_id=None, bangumi_ids=None):
     query = UserAnimeRecord.objects.filter(user=user).order_by('pk')
+    if bangumi_ids is not None:
+        query = query.filter(Q(anime__bgm_id__in=bangumi_ids) | Q(recommendation_identity__catalog_anime__bangumi_id__in=bangumi_ids))
     if record_id is not None:
         query = query.filter(pk=record_id)
     if max_rows is not None:

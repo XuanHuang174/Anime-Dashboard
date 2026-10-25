@@ -1,4 +1,5 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route } from 'react-router-dom'
+import SeriesNavigation from './SeriesNavigation.jsx'
 import RecommendationRoute from './RecommendationRoute.jsx'
 import PublicHomePage from '../App.jsx'
 import AdminProtectedRoute from '../components/AdminProtectedRoute.jsx'
@@ -14,7 +15,7 @@ import ResetPasswordPage from '../pages/ResetPasswordPage.jsx'
 
 function AppRouter() {
   return (
-    <Routes>
+    <SeriesNavigation>
       <Route path="/" element={<PublicHomePage />} />
       <Route path="/featured" element={<FeaturedColumn />} />
       <Route path="/universe" element={<PublicUniverse />} />
@@ -57,7 +58,7 @@ function AppRouter() {
         )}
       />
       <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    </SeriesNavigation>
   )
 }
 

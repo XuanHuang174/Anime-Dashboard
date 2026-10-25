@@ -7,6 +7,8 @@ import { getCoverSrc, getTagClass } from '../utils/animeDisplay.js'
 import { formatAiringPeriod } from '../utils/featuredDisplay.js'
 import CompletionReportExporter from './CompletionReportExporter.jsx'
 import AnimeResourceDrawer from './AnimeResourceDrawer.jsx'
+import SeriesSummary from './recommendations/SeriesSummary.jsx'
+import { lockDialogBody } from '../utils/dialogBodyLock.js'
 
 gsap.registerPlugin(useGSAP)
 
@@ -233,7 +235,6 @@ function DetailModal({
   useEffect(() => {
     if (!selectedItem) return undefined
 
-    const previousOverflow = document.body.style.overflow
     const previousPaddingRight = document.body.style.paddingRight
     const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth
     const currentPaddingRight = Number.parseFloat(
@@ -243,7 +244,7 @@ function DetailModal({
     if (scrollbarWidth > 0) {
       document.body.style.paddingRight = `${currentPaddingRight + scrollbarWidth}px`
     }
-    document.body.style.overflow = 'hidden'
+    const releaseBody = lockDialogBody(document)
 
     const handleKeyDown = (event) => {
       if (event.key !== 'Escape') return
@@ -253,7 +254,7 @@ function DetailModal({
 
     window.addEventListener('keydown', handleKeyDown)
     return () => {
-      document.body.style.overflow = previousOverflow
+      releaseBody()
       document.body.style.paddingRight = previousPaddingRight
       window.removeEventListener('keydown', handleKeyDown)
     }
@@ -489,7 +490,7 @@ function DetailModal({
               </div>
             </div>
 
-            <div className="flex min-h-0 min-w-0 flex-col gap-3">
+            <div className={`flex min-h-0 min-w-0 flex-col gap-3${isPrivateJournal ? ' sm:overflow-y-auto sm:pr-2' : ''}`}>
               <div className="grid shrink-0 grid-cols-2 gap-2.5 text-sm lg:grid-cols-12">
                 {[
                   {
@@ -601,6 +602,8 @@ function DetailModal({
                   ))}
                 </div>
               </div>
+
+              {isPrivateJournal && !editable && <SeriesSummary compact recordId={selectedItem.id} />}
 
               {editable && (
                 <div className="memphis-modal-piece border-[3px] border-black bg-[#4ecdc4] p-3 shadow-[5px_5px_0_#111]">

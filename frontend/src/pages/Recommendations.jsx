@@ -39,6 +39,7 @@ import '../styles/recommendations-motion.css'
 import '../styles/recommendations-preferences.css'
 import ShowcasePublicationPanel from '../components/ShowcasePublicationPanel.jsx'
 import BackToTop from '../components/BackToTop.jsx'
+import SeriesSummary from '../components/recommendations/SeriesSummary.jsx'
 
 export default function Recommendations({ client = recommendationApi }) {
   const readScope = () => { try { return recommendationSessionScope(getAccessToken()) } catch { return 'anonymous' } }
@@ -361,6 +362,7 @@ function RecommendationWorkspace({ client, sessionScope, cache, adult, setAdult,
             <div><p className="rec-original-title">{detail.item.originalTitle}</p><RecommendationMeta item={detail.item} />
               <h3>推荐依据</h3><RecommendationEvidence item={detail.item} expanded onReload={() => { closePanel(); reload() }} />
               <ExplorationTagChips tags={detail.item.tags} beforeNavigate={closePanel} /><h3>故事简介</h3><p>{detail.item.synopsis || '暂未收录简介。'}</p>
+              <SeriesSummary client={client} bangumiId={detail.item.bangumiId} />
               <RecommendationDetailActions item={detail.item} resourceOpen={detail.resourceOpen}
                 onSimilar={capabilities?.navigation?.[1]?.available ? item => { closePanel(); navigate(`/recommendations/similar?seed=${item.bangumiId}`) } : undefined}
                 resourceTriggerRef={resourceTrigger}

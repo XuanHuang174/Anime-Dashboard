@@ -1,5 +1,6 @@
 """One-hop, scoped public relations. No profile, journal, title inference or IO."""
 from datetime import timedelta
+from contextlib import nullcontext
 
 from django.conf import settings
 from django.core import signing
@@ -42,11 +43,11 @@ def _visible(node, catalog):
             and node.nsfw == catalog[node.pk].nsfw)
 
 
-def read_relations(user, source_id, scope, context=None):
+def read_relations(user, source_id, scope, context=None, *, snapshot=True):
     require_enabled()
     if context is not None and (not isinstance(context, str) or len(context) > 4096):
         raise ValidationError('系列上下文无效。')
-    with readonly_snapshot():
+    with readonly_snapshot() if snapshot else nullcontext():
         source = catalog_for_scope(scope).filter(bangumi_id=source_id).first()
         if source is None:
             raise NotFound('作品不可用。')

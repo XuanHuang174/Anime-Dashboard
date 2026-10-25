@@ -31,6 +31,7 @@ import { notifyRecommendationChange } from '../utils/recommendationReload.js'
 import ShowcasePublicationPanel from '../components/ShowcasePublicationPanel.jsx'
 import recommendationClient from '../api/recommendations.js'
 import useExplorationTopics from '../hooks/useExplorationTopics.js'
+import useSeriesJournalReturn from '../hooks/useSeriesJournalReturn.js'
 
 gsap.registerPlugin(useGSAP)
 
@@ -118,6 +119,7 @@ function Dashboard() {
   const [pageSize, setPageSize] = useState('all')
   const [recordsTotal, setRecordsTotal] = useState(null)
   const [recordsRefreshKey, setRecordsRefreshKey] = useState(0)
+  useSeriesJournalReturn(() => { if (!isSharedJournal && !isAdminJournalReview) setRecordsRefreshKey(key => key + 1) })
   const [statsData, setStatsData] = useState(null)
   const [filterOptions, setFilterOptions] = useState({ tags: [], years: [] })
   const [featuredSubmissions, setFeaturedSubmissions] = useState([])

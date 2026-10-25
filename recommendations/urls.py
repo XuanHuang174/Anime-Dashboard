@@ -13,9 +13,13 @@ from .exploration_views import (ExplorationCatalogView, ExplorationContractView,
     ExplorationListView, ExplorationDetailView, ExplorationContextView, ExplorationRecordReferenceView, ExplorationOptionsView)
 
 from .access_admin_views import AccessControlView, AccessApplicationsView, AccessApplicationView
-from .series_views import SeriesRelationsView
+from .series_views import SeriesRelationsView, SeriesWorkspaceView, SeriesDetailView, SeriesWantView, SeriesRecordView
 
 urlpatterns = [
+    path('series/record/<int:record_id>/', SeriesRecordView.as_view(), name='series-record'),
+    path('series/<int:bangumi_id>/workspace/', SeriesWorkspaceView.as_view(), name='series-workspace'),
+    path('series/<int:bangumi_id>/items/<int:target_id>/', SeriesDetailView.as_view(), name='series-detail'),
+    path('series/<int:bangumi_id>/items/<int:target_id>/want/', SeriesWantView.as_view(), name='series-want'),
     path('series/<int:bangumi_id>/', SeriesRelationsView.as_view(), name='series-relations'),
     path('explore/', ExplorationListView.as_view(), name='explore-list'),
     path('explore/context/', ExplorationContextView.as_view(), name='explore-context'),
