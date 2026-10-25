@@ -3,6 +3,7 @@ from django.contrib import admin
 from .models import RecommendationAnime
 from . import eligibility_admin  # noqa: F401 - register the read-only controlled admin
 from . import content_review_admin  # noqa: F401 - single-work controlled review only
+from . import series_admin  # noqa: F401 - protected auditable relation corrections
 from .models import RecommendationServingControlEvent
 
 

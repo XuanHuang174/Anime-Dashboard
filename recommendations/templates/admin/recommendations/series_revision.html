@@ -1,0 +1,15 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<h2>{{ source.title }} · Bangumi {{ source.bangumi_id }}</h2>
+<p>关系描述的是目标相对于当前来源。发行顺序、故事关系和观看顺序分别处理；本页不会修改作品资料、私人记录或推荐开关。</p>
+{% if error %}<p class="errornote">{{ error }}</p>{% endif %}
+<form method="post">{% csrf_token %}{{ form.as_p }}<button type="submit">登记单条修订</button></form>
+<h3>最近来源断言（最多 100 条，包含历史观察）</h3>
+<table><thead><tr><th>快照/状态</th><th>目标</th><th>关系/原值</th><th>待复核</th></tr></thead><tbody>
+{% for row in assertions %}<tr><td>{{ row.observation.snapshot_version }} / {{ row.observation.coverage }}</td><td>{{ row.target_id }} {{ row.target.title }}</td><td>{{ row.kind }} / {{ row.source_relation }}</td><td>{{ row.requires_review }}</td></tr>{% empty %}<tr><td>尚无来源断言。</td></tr>{% endfor %}
+</tbody></table>
+<h3>人工修订历史（最近 50 条）</h3>
+<table><thead><tr><th>时间/操作者</th><th>目标/动作</th><th>原因/依据</th></tr></thead><tbody>
+{% for row in events %}<tr><td>{{ row.created_at }} {{ row.actor }}</td><td>{{ row.target_id }} / {{ row.action }} / {{ row.kind }}</td><td>{{ row.reason }} / {{ row.evidence_reference }}</td></tr>{% empty %}<tr><td>尚无人工修订。</td></tr>{% endfor %}
+</tbody></table>
+{% endblock %}
