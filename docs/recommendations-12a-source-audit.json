@@ -1,0 +1,839 @@
+{
+  "contract_version": "recommendations.series.assertion.v1",
+  "mapping_version": "bangumi.anime-relations.v1",
+  "scope": "curated_public_archive_sample_not_catalog_coverage",
+  "provenance": {
+    "source_kind": "bangumi_archive",
+    "source_reference": "https://github.com/bangumi/Archive/releases/download/archive/dump-2026-10-06.210359Z.zip",
+    "snapshot_version": "dump-2026-10-06.210359Z",
+    "observed_at": "2026-10-25T05:40:13.464807+00:00",
+    "payload_sha256": "88ff5fa3bfd547a0d32e115d4310f321e043f44a1d36125ec46d2006fe76d60c"
+  },
+  "seed_ids": [
+    1424,
+    3774,
+    328609,
+    436738,
+    459642,
+    265,
+    6048,
+    6049,
+    10639,
+    9717,
+    25833,
+    44693,
+    334105
+  ],
+  "input_rows": 415,
+  "normalized_rows": 415,
+  "anime_pair_rows": 64,
+  "kind_counts": {
+    "alternative_setting": 6,
+    "alternative_version": 2,
+    "character": 3,
+    "collaboration": 2,
+    "cross_media": 351,
+    "full_story": 4,
+    "other": 5,
+    "prequel": 7,
+    "same_setting": 1,
+    "sequel": 11,
+    "side_story": 4,
+    "spin_off": 9,
+    "summary": 10
+  },
+  "seed_ids_without_normalized_assertions": [],
+  "row_errors": [],
+  "diagnostics": {
+    "duplicate_count": 0,
+    "unknown_count": 0,
+    "cross_media_count": 351,
+    "multiple_relation_pairs": [],
+    "missing_reciprocals": [
+      [
+        265,
+        39923,
+        "summary",
+        "full_story"
+      ],
+      [
+        6048,
+        39923,
+        "summary",
+        "full_story"
+      ],
+      [
+        6049,
+        39923,
+        "summary",
+        "full_story"
+      ],
+      [
+        9717,
+        44692,
+        "summary",
+        "full_story"
+      ],
+      [
+        10639,
+        290,
+        "sequel",
+        "prequel"
+      ],
+      [
+        10639,
+        3484,
+        "sequel",
+        "prequel"
+      ],
+      [
+        10639,
+        36379,
+        "summary",
+        "full_story"
+      ],
+      [
+        10639,
+        95225,
+        "sequel",
+        "prequel"
+      ],
+      [
+        25833,
+        44692,
+        "sequel",
+        "prequel"
+      ],
+      [
+        25833,
+        579701,
+        "summary",
+        "full_story"
+      ],
+      [
+        44693,
+        44692,
+        "prequel",
+        "sequel"
+      ],
+      [
+        328609,
+        537409,
+        "sequel",
+        "prequel"
+      ]
+    ],
+    "reciprocal_mismatches": [],
+    "chronology_cycle": false
+  },
+  "anime_assertions": [
+    {
+      "source_bangumi_id": 265,
+      "target_bangumi_id": 772,
+      "target_subject_type": 2,
+      "kind": "alternative_version",
+      "source_relation": 10,
+      "source_order": 1,
+      "section": "branches",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 265,
+      "target_bangumi_id": 2682,
+      "target_subject_type": 2,
+      "kind": "character",
+      "source_relation": 7,
+      "source_order": 0,
+      "section": "related",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 265,
+      "target_bangumi_id": 6048,
+      "target_subject_type": 2,
+      "kind": "summary",
+      "source_relation": 4,
+      "source_order": 0,
+      "section": "editions",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 265,
+      "target_bangumi_id": 6049,
+      "target_subject_type": 2,
+      "kind": "sequel",
+      "source_relation": 3,
+      "source_order": 0,
+      "section": "chronology",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 265,
+      "target_bangumi_id": 39923,
+      "target_subject_type": 2,
+      "kind": "summary",
+      "source_relation": 4,
+      "source_order": 1,
+      "section": "editions",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 265,
+      "target_bangumi_id": 116370,
+      "target_subject_type": 2,
+      "kind": "other",
+      "source_relation": 99,
+      "source_order": 0,
+      "section": "related",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 265,
+      "target_bangumi_id": 235701,
+      "target_subject_type": 2,
+      "kind": "spin_off",
+      "source_relation": 11,
+      "source_order": 0,
+      "section": "branches",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 265,
+      "target_bangumi_id": 318769,
+      "target_subject_type": 2,
+      "kind": "other",
+      "source_relation": 99,
+      "source_order": 0,
+      "section": "related",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 265,
+      "target_bangumi_id": 318795,
+      "target_subject_type": 2,
+      "kind": "other",
+      "source_relation": 99,
+      "source_order": 0,
+      "section": "related",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 1424,
+      "target_bangumi_id": 3774,
+      "target_subject_type": 2,
+      "kind": "sequel",
+      "source_relation": 3,
+      "source_order": 0,
+      "section": "chronology",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 1424,
+      "target_bangumi_id": 31525,
+      "target_subject_type": 2,
+      "kind": "spin_off",
+      "source_relation": 11,
+      "source_order": 0,
+      "section": "branches",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 3774,
+      "target_bangumi_id": 1424,
+      "target_subject_type": 2,
+      "kind": "prequel",
+      "source_relation": 2,
+      "source_order": 0,
+      "section": "chronology",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 3774,
+      "target_bangumi_id": 12426,
+      "target_subject_type": 2,
+      "kind": "side_story",
+      "source_relation": 6,
+      "source_order": 0,
+      "section": "branches",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 3774,
+      "target_bangumi_id": 31531,
+      "target_subject_type": 2,
+      "kind": "spin_off",
+      "source_relation": 11,
+      "source_order": 0,
+      "section": "branches",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 6048,
+      "target_bangumi_id": 265,
+      "target_subject_type": 2,
+      "kind": "full_story",
+      "source_relation": 5,
+      "source_order": 0,
+      "section": "editions",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 6048,
+      "target_bangumi_id": 6049,
+      "target_subject_type": 2,
+      "kind": "sequel",
+      "source_relation": 3,
+      "source_order": 0,
+      "section": "chronology",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 6048,
+      "target_bangumi_id": 39923,
+      "target_subject_type": 2,
+      "kind": "summary",
+      "source_relation": 4,
+      "source_order": 0,
+      "section": "editions",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 6048,
+      "target_bangumi_id": 88598,
+      "target_subject_type": 2,
+      "kind": "other",
+      "source_relation": 99,
+      "source_order": 0,
+      "section": "related",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 6049,
+      "target_bangumi_id": 265,
+      "target_subject_type": 2,
+      "kind": "prequel",
+      "source_relation": 2,
+      "source_order": 0,
+      "section": "chronology",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 6049,
+      "target_bangumi_id": 6048,
+      "target_subject_type": 2,
+      "kind": "prequel",
+      "source_relation": 2,
+      "source_order": 0,
+      "section": "chronology",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 6049,
+      "target_bangumi_id": 39923,
+      "target_subject_type": 2,
+      "kind": "summary",
+      "source_relation": 4,
+      "source_order": 0,
+      "section": "editions",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 6049,
+      "target_bangumi_id": 616383,
+      "target_subject_type": 2,
+      "kind": "other",
+      "source_relation": 99,
+      "source_order": 0,
+      "section": "related",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 9717,
+      "target_bangumi_id": 25833,
+      "target_subject_type": 2,
+      "kind": "summary",
+      "source_relation": 4,
+      "source_order": 1,
+      "section": "editions",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 9717,
+      "target_bangumi_id": 44692,
+      "target_subject_type": 2,
+      "kind": "summary",
+      "source_relation": 4,
+      "source_order": 2,
+      "section": "editions",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 9717,
+      "target_bangumi_id": 44693,
+      "target_subject_type": 2,
+      "kind": "sequel",
+      "source_relation": 3,
+      "source_order": 3,
+      "section": "chronology",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 9717,
+      "target_bangumi_id": 157622,
+      "target_subject_type": 2,
+      "kind": "spin_off",
+      "source_relation": 11,
+      "source_order": 4,
+      "section": "branches",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 9717,
+      "target_bangumi_id": 159690,
+      "target_subject_type": 2,
+      "kind": "side_story",
+      "source_relation": 6,
+      "source_order": 5,
+      "section": "branches",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 9717,
+      "target_bangumi_id": 302875,
+      "target_subject_type": 2,
+      "kind": "side_story",
+      "source_relation": 6,
+      "source_order": 6,
+      "section": "branches",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 9717,
+      "target_bangumi_id": 339998,
+      "target_subject_type": 2,
+      "kind": "side_story",
+      "source_relation": 6,
+      "source_order": 7,
+      "section": "branches",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 9717,
+      "target_bangumi_id": 579701,
+      "target_subject_type": 2,
+      "kind": "alternative_version",
+      "source_relation": 10,
+      "source_order": 0,
+      "section": "branches",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 10639,
+      "target_bangumi_id": 290,
+      "target_subject_type": 2,
+      "kind": "sequel",
+      "source_relation": 3,
+      "source_order": 0,
+      "section": "chronology",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 10639,
+      "target_bangumi_id": 3484,
+      "target_subject_type": 2,
+      "kind": "sequel",
+      "source_relation": 3,
+      "source_order": 0,
+      "section": "chronology",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 10639,
+      "target_bangumi_id": 18882,
+      "target_subject_type": 2,
+      "kind": "character",
+      "source_relation": 7,
+      "source_order": 0,
+      "section": "related",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 10639,
+      "target_bangumi_id": 30055,
+      "target_subject_type": 2,
+      "kind": "alternative_setting",
+      "source_relation": 9,
+      "source_order": 0,
+      "section": "branches",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 10639,
+      "target_bangumi_id": 36379,
+      "target_subject_type": 2,
+      "kind": "summary",
+      "source_relation": 4,
+      "source_order": 0,
+      "section": "editions",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 10639,
+      "target_bangumi_id": 43951,
+      "target_subject_type": 2,
+      "kind": "alternative_setting",
+      "source_relation": 9,
+      "source_order": 0,
+      "section": "branches",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 10639,
+      "target_bangumi_id": 49619,
+      "target_subject_type": 2,
+      "kind": "spin_off",
+      "source_relation": 11,
+      "source_order": 0,
+      "section": "branches",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 10639,
+      "target_bangumi_id": 77552,
+      "target_subject_type": 2,
+      "kind": "spin_off",
+      "source_relation": 11,
+      "source_order": 0,
+      "section": "branches",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 10639,
+      "target_bangumi_id": 95225,
+      "target_subject_type": 2,
+      "kind": "sequel",
+      "source_relation": 3,
+      "source_order": 0,
+      "section": "chronology",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 10639,
+      "target_bangumi_id": 175601,
+      "target_subject_type": 2,
+      "kind": "alternative_setting",
+      "source_relation": 9,
+      "source_order": 0,
+      "section": "branches",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 10639,
+      "target_bangumi_id": 196773,
+      "target_subject_type": 2,
+      "kind": "alternative_setting",
+      "source_relation": 9,
+      "source_order": 0,
+      "section": "branches",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 10639,
+      "target_bangumi_id": 204855,
+      "target_subject_type": 2,
+      "kind": "alternative_setting",
+      "source_relation": 9,
+      "source_order": 0,
+      "section": "branches",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 10639,
+      "target_bangumi_id": 267732,
+      "target_subject_type": 2,
+      "kind": "same_setting",
+      "source_relation": 8,
+      "source_order": 0,
+      "section": "related",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 10639,
+      "target_bangumi_id": 443831,
+      "target_subject_type": 2,
+      "kind": "alternative_setting",
+      "source_relation": 9,
+      "source_order": 0,
+      "section": "branches",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 25833,
+      "target_bangumi_id": 9717,
+      "target_subject_type": 2,
+      "kind": "full_story",
+      "source_relation": 5,
+      "source_order": 0,
+      "section": "editions",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 25833,
+      "target_bangumi_id": 44692,
+      "target_subject_type": 2,
+      "kind": "sequel",
+      "source_relation": 3,
+      "source_order": 0,
+      "section": "chronology",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 25833,
+      "target_bangumi_id": 157622,
+      "target_subject_type": 2,
+      "kind": "spin_off",
+      "source_relation": 11,
+      "source_order": 0,
+      "section": "branches",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 25833,
+      "target_bangumi_id": 579701,
+      "target_subject_type": 2,
+      "kind": "summary",
+      "source_relation": 4,
+      "source_order": 0,
+      "section": "editions",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 44693,
+      "target_bangumi_id": 9717,
+      "target_subject_type": 2,
+      "kind": "prequel",
+      "source_relation": 2,
+      "source_order": 0,
+      "section": "chronology",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 44693,
+      "target_bangumi_id": 44692,
+      "target_subject_type": 2,
+      "kind": "prequel",
+      "source_relation": 2,
+      "source_order": 1,
+      "section": "chronology",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 44693,
+      "target_bangumi_id": 157622,
+      "target_subject_type": 2,
+      "kind": "spin_off",
+      "source_relation": 11,
+      "source_order": 0,
+      "section": "branches",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 44693,
+      "target_bangumi_id": 334105,
+      "target_subject_type": 2,
+      "kind": "sequel",
+      "source_relation": 3,
+      "source_order": 0,
+      "section": "chronology",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 328609,
+      "target_bangumi_id": 323626,
+      "target_subject_type": 2,
+      "kind": "character",
+      "source_relation": 7,
+      "source_order": 0,
+      "section": "related",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 328609,
+      "target_bangumi_id": 436738,
+      "target_subject_type": 2,
+      "kind": "summary",
+      "source_relation": 4,
+      "source_order": 1,
+      "section": "editions",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 328609,
+      "target_bangumi_id": 459642,
+      "target_subject_type": 2,
+      "kind": "summary",
+      "source_relation": 4,
+      "source_order": 2,
+      "section": "editions",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 328609,
+      "target_bangumi_id": 483776,
+      "target_subject_type": 2,
+      "kind": "collaboration",
+      "source_relation": 14,
+      "source_order": 0,
+      "section": "related",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 328609,
+      "target_bangumi_id": 537409,
+      "target_subject_type": 2,
+      "kind": "sequel",
+      "source_relation": 3,
+      "source_order": 0,
+      "section": "chronology",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 334105,
+      "target_bangumi_id": 44693,
+      "target_subject_type": 2,
+      "kind": "prequel",
+      "source_relation": 2,
+      "source_order": 0,
+      "section": "chronology",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 334105,
+      "target_bangumi_id": 157622,
+      "target_subject_type": 2,
+      "kind": "spin_off",
+      "source_relation": 11,
+      "source_order": 0,
+      "section": "branches",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 334105,
+      "target_bangumi_id": 696670,
+      "target_subject_type": 2,
+      "kind": "collaboration",
+      "source_relation": 14,
+      "source_order": 0,
+      "section": "related",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 436738,
+      "target_bangumi_id": 328609,
+      "target_subject_type": 2,
+      "kind": "full_story",
+      "source_relation": 5,
+      "source_order": 0,
+      "section": "editions",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 436738,
+      "target_bangumi_id": 459642,
+      "target_subject_type": 2,
+      "kind": "sequel",
+      "source_relation": 3,
+      "source_order": 0,
+      "section": "chronology",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 459642,
+      "target_bangumi_id": 328609,
+      "target_subject_type": 2,
+      "kind": "full_story",
+      "source_relation": 5,
+      "source_order": 0,
+      "section": "editions",
+      "anime_pair": true,
+      "requires_review": false
+    },
+    {
+      "source_bangumi_id": 459642,
+      "target_bangumi_id": 436738,
+      "target_subject_type": 2,
+      "kind": "prequel",
+      "source_relation": 2,
+      "source_order": 0,
+      "section": "chronology",
+      "anime_pair": true,
+      "requires_review": false
+    }
+  ],
+  "coverage_note": "Reciprocal diagnostics cover only selected source rows, not the full archive.",
+  "viewing_order_generated": false,
+  "production_writes": false,
+  "sample_sha256": "607e667d15b7f02bd3cd6962269543c092b59c8465e39d9c0a83a15d1d0e3ea9"
+}

@@ -1,0 +1,117 @@
+{
+  "contract_version": "recommendations.series.assertion.v1",
+  "mapping_version": "bangumi.anime-relations.v1",
+  "identity_namespace": "bangumi",
+  "source_subject_type": 2,
+  "direction": "target_relative_to_source",
+  "kinds": [
+    {
+      "code": 1,
+      "key": "adaptation",
+      "label": "改编",
+      "section": "related"
+    },
+    {
+      "code": 2,
+      "key": "prequel",
+      "label": "前传",
+      "section": "chronology"
+    },
+    {
+      "code": 3,
+      "key": "sequel",
+      "label": "续集",
+      "section": "chronology"
+    },
+    {
+      "code": 4,
+      "key": "summary",
+      "label": "总集篇",
+      "section": "editions"
+    },
+    {
+      "code": 5,
+      "key": "full_story",
+      "label": "全集",
+      "section": "editions"
+    },
+    {
+      "code": 6,
+      "key": "side_story",
+      "label": "番外篇",
+      "section": "branches"
+    },
+    {
+      "code": 7,
+      "key": "character",
+      "label": "角色出演",
+      "section": "related"
+    },
+    {
+      "code": 8,
+      "key": "same_setting",
+      "label": "相同世界观",
+      "section": "related"
+    },
+    {
+      "code": 9,
+      "key": "alternative_setting",
+      "label": "不同世界观",
+      "section": "branches"
+    },
+    {
+      "code": 10,
+      "key": "alternative_version",
+      "label": "不同演绎",
+      "section": "branches"
+    },
+    {
+      "code": 11,
+      "key": "spin_off",
+      "label": "衍生",
+      "section": "branches"
+    },
+    {
+      "code": 12,
+      "key": "parent_story",
+      "label": "主线故事",
+      "section": "branches"
+    },
+    {
+      "code": 14,
+      "key": "collaboration",
+      "label": "联动",
+      "section": "related"
+    },
+    {
+      "code": 99,
+      "key": "other",
+      "label": "其他",
+      "section": "related"
+    }
+  ],
+  "provenance_required": [
+    "source_kind",
+    "source_reference",
+    "snapshot_version",
+    "observed_at",
+    "payload_sha256"
+  ],
+  "coverage_states": [
+    "not_loaded",
+    "observed",
+    "empty_observed",
+    "partial",
+    "failed",
+    "stale"
+  ],
+  "classification_axes": [
+    "release_format",
+    "relation_kind"
+  ],
+  "serving_enabled": false,
+  "database_writes": false,
+  "infers_series_membership": false,
+  "infers_watch_order": false,
+  "changes_recommendations": false
+}
