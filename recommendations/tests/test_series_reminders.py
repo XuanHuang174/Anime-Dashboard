@@ -92,9 +92,51 @@ class SeriesReminderTests(TransactionTestCase):
         self.assertEqual(list(RecommendationPreference.objects.values()), preferences)
         self.assertEqual(current_version(self.owner), 0)
         self.client.force_authenticate(self.other)
-        self.assertFalse(self.read().data['collapsed'])
+        self.assertTrue(self.read().data['collapsed'])
         self.assertEqual(self.change('collapse', restored, collapsed=False).status_code, 409)
         self.assertFalse(SeriesReminderState.objects.filter(user=self.other).exists())
+
+    def test_light_presentation_default_existing_choice_and_no_graph_or_journal_reads(self):
+        self.prepare()
+        url = self.url + 'presentation/'
+        with patch('recommendations.series_reminders.snapshot', side_effect=AssertionError('no full reminder computation')):
+            with CaptureQueriesContext(connection) as queries:
+                data = self.client.get(url).data
+            self.assertTrue(data['collapsed'])
+            self.assertEqual(data['version'], 0)
+            self.assertEqual(len(data['dismissal_revision']), 64)
+            self.assertFalse(SeriesReminderState.objects.exists())
+            sql = '\n'.join(row['sql'].lower() for row in queries)
+            for forbidden in ('useranimerecord', 'seriesassertion', 'personal_score', 'insert into'):
+                self.assertNotIn(forbidden, sql)
+            saved = self.client.patch(url, {'collapsed': False, 'expected_version': 0}, format='json')
+            self.assertEqual(saved.status_code, 200, saved.data)
+            self.assertFalse(self.client.get(url).data['collapsed'])
+            self.assertEqual(self.client.patch(url, {'collapsed': True, 'expected_version': 0}, format='json').status_code, 409)
+        self.assertFalse(self.read().data['collapsed'])
+        self.client.force_authenticate(self.other)
+        self.assertTrue(self.client.get(url).data['collapsed'])
+        self.assertFalse(SeriesReminderState.objects.filter(user=self.other).exists())
+
+    def test_presentation_does_not_invalidate_content_binding_but_version_and_actual_changes_still_do(self):
+        self.prepare()
+        data = self.read().data
+        saved = self.client.patch(self.url + 'presentation/', {'collapsed': False, 'expected_version': 0}, format='json')
+        self.assertEqual(saved.status_code, 200)
+        current = self.read().data
+        self.assertEqual(data['fingerprint'], current['fingerprint'])
+        # Reuse the content context only after acknowledging the new setting version.
+        self.assertEqual(self.change('hide', data, bangumi_id=2).status_code, 409)
+        data['version'] = saved.data['version']
+        self.assertEqual(self.change('hide', data, bangumi_id=2).status_code, 200)
+        self.assertNotEqual(data['fingerprint'], self.read().data['fingerprint'])
+        for fields in ({'collapsed': 'true', 'expected_version': 2}, {'collapsed': True, 'expected_version': True},
+                       {'collapsed': True, 'expected_version': 2, 'user_id': self.other.pk}):
+            self.assertEqual(self.client.patch(self.url + 'presentation/', fields, format='json').status_code, 400)
+        with override_settings(RECOMMENDATION_SERIES_REMINDERS_ENABLED=False):
+            self.assertEqual(self.client.get(self.url + 'presentation/').status_code, 503)
+        self.client.force_authenticate(None)
+        self.assertEqual(self.client.get(self.url + 'presentation/').status_code, 401)
 
     def test_completed_or_relation_change_expires_mutations_and_final_read(self):
         self.prepare()

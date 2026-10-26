@@ -3,11 +3,19 @@ import { contextChanged, contextIdentity } from './recommendationContext.js'
 const CHANGE_KEY = 'anime-dashboard:recommendation-invalidate:v1'
 const CHANGE_EVENT = 'recommendation-data-changed'
 
-export function notifyRecommendationChange({ local = true } = {}, target = globalThis.window) {
+export function notifyRecommendationChange({ local = true, reminders = true } = {}, target = globalThis.window) {
   if (!target) return
   // Only an opaque invalidation nonce. No owner ID, titles, scores, tags or tokens.
-  try { target.localStorage.setItem(CHANGE_KEY, `${Date.now()}-${Math.random()}`) } catch { /* storage may be disabled */ }
-  if (local) target.dispatchEvent(new Event(CHANGE_EVENT))
+  const nonce = `${Date.now()}-${Math.random()}`
+  try {
+    if (!reminders) target.localStorage.setItem('anime-dashboard:series-reminder-skip:v1', nonce)
+    target.localStorage.setItem(CHANGE_KEY, nonce)
+  } catch { /* storage may be disabled */ }
+  if (local) {
+    const event = new Event(CHANGE_EVENT)
+    Object.defineProperty(event, 'reminders', { value: reminders })
+    target.dispatchEvent(event)
+  } else if (reminders) target.dispatchEvent(new Event('series-reminders-data-changed'))
 }
 
 export function subscribeRecommendationReload({ onReload, canReload = () => true,

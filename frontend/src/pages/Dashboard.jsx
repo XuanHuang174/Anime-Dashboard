@@ -28,6 +28,7 @@ import StatsSummary from '../components/StatsSummary.jsx'
 import { comparePeriod } from '../utils/animeDisplay.js'
 import { mapRecordToAnimeItem } from '../utils/recordMapping.js'
 import { notifyRecommendationChange } from '../utils/recommendationReload.js'
+import { reminderRecordChanged } from '../utils/seriesReminderUpdates.js'
 import ShowcasePublicationPanel from '../components/ShowcasePublicationPanel.jsx'
 import recommendationClient from '../api/recommendations.js'
 import useExplorationTopics from '../hooks/useExplorationTopics.js'
@@ -660,7 +661,9 @@ function Dashboard() {
   }
 
   const handleRecordUpdated = (updatedRecord) => {
-    if (!isSharedJournal && !isAdminJournalReview) notifyRecommendationChange()
+    if (!isSharedJournal && !isAdminJournalReview) notifyRecommendationChange({
+      reminders: reminderRecordChanged(records.find(record => record.id === updatedRecord.id), updatedRecord),
+    })
     setRecords((current) => current.map((record) => (
       record.id === updatedRecord.id ? updatedRecord : record
     )))

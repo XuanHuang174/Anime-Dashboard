@@ -4,6 +4,27 @@ from rest_framework.response import Response
 
 from .series_views import SeriesRelationsView
 from . import series_reminders as reminders
+from .quality_readonly import readonly_snapshot
+
+
+class SeriesReminderPresentationView(SeriesRelationsView):
+    def initial(self, request, *args, **kwargs):
+        self.throttle_scope = 'recommendation_read' if request.method == 'GET' else 'recommendation_write'
+        super().initial(request, *args, **kwargs)
+        reminders.require_enabled(request.user)
+        self.check_query_contract(request)
+
+    def get(self, request):
+        with readonly_snapshot():
+            return Response(reminders.presentation(request.user))
+
+    def patch(self, request):
+        body = request.data
+        if (not isinstance(body, dict) or set(body) != {'collapsed', 'expected_version'}
+                or type(body['collapsed']) is not bool or type(body['expected_version']) is not int
+                or not 0 <= body['expected_version'] <= 2147483647):
+            raise ValidationError('展示设置参数无效。')
+        return Response(reminders.set_presentation(request.user, request.content_scope, **body))
 
 
 class SeriesRemindersView(SeriesRelationsView):

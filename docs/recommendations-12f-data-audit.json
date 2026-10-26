@@ -195,13 +195,13 @@
     "evidence": "explicit_user_confirmation_2026-10-26"
   },
   "full_rollout": {
-    "status": "operator_confirmed_live_pending_ordinary_account_recheck",
+    "status": "operator_confirmed_live_and_ordinary_account_manual_acceptance",
     "series_canary_list_cleared": "confirmed_by_user",
     "three_series_flags_true": "confirmed_by_user",
     "deployment_live": "confirmed_by_user",
     "runtime_environment_independently_verified": false,
     "render_shell_audit": "not_run_shell_unavailable_on_current_plan",
-    "ordinary_account_readonly_acceptance": "deferred_by_user",
+    "ordinary_account_readonly_acceptance": "manual_page_acceptance_confirmed_by_user_2026-10-26_no_new_script_report",
     "agent_changed_render_environment": false
   },
   "post_rollout_public_http_baseline": {

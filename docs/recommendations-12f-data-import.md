@@ -64,7 +64,7 @@ python manage.py sync_series_catalog --input LOCAL_OFFICIAL_ZIP --expected-sha25
 
 放行前再次只读复核正式数据：系列修订仍为 312，普通/成人目录覆盖仍为 99.274% / 98.055%，迁移就绪、无读取上限超限。Live 后代理复测三个未登录系列接口，均返回 401，耗时 0.811 / 0.370 / 0.756 秒，访问保护保持正常。
 
-当前 Render 计划不提供 Shell；用户选择将普通账号自测或代理复核留待后续。不要求为这次验收购买 Shell，也不为绕过限制新增运维接口。全量配置上线状态来自用户明确确认，**独立 Render 环境审计与普通账号登录态验收尚未执行**。
+当前 Render 计划不提供 Shell，不要求为这次验收购买 Shell，也不为绕过限制新增运维接口。用户于 2026-10-26 随后明确确认：已验证普通账号登录态，扩展 12 功能均可正常使用。普通账号的页面验收据此记为用户手动通过；没有新增自动登录报告。全量配置上线状态来自用户明确确认，独立 Render 运行环境审计仍未执行。
 
 后续如果具备 Render Shell，可运行实际运行环境审计（当前不作为要求升级计划的阻塞项）：
 
@@ -72,4 +72,4 @@ python manage.py sync_series_catalog --input LOCAL_OFFICIAL_ZIP --expected-sha25
 python manage.py audit_series_release --stage full --output /tmp/series-full-NEW.json
 ```
 
-后续使用本人持有并授权的普通账号，在项目根目录复用上述脚本，将 `--expected-account XHcode` 换为该账号名，保留 `--expect enabled --seed-bangumi-id 328609`。密码只在本机隐藏输入，不上传聊天。普通账号通过后再补记对应报告；在此之前不将 XHcode 的通过结果写成所有账号均已验证。
+后续如需补充普通账号的自动化证据，可在项目根目录复用上述脚本，将 `--expected-account XHcode` 换为本人持有并授权的普通账号名，保留 `--expect enabled --seed-bangumi-id 328609`。密码只在本机隐藏输入，不上传聊天。用户已确认的页面验收与自动脚本报告分开记录，不把 XHcode 单账号结果写成所有账号均已自动验证。

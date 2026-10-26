@@ -7,7 +7,7 @@ from django.db import models
 class SeriesReminderState(models.Model):
     """Own presentation choices only; independent of ranking and journal records."""
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='+')
-    collapsed = models.BooleanField(default=False)
+    collapsed = models.BooleanField(default=True)
     version = models.PositiveIntegerField(default=0)
 
 

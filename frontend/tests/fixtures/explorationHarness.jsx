@@ -1,5 +1,5 @@
 // Local synthetic UI only. No network/API adapter, account or external covers.
-import React, { StrictMode } from 'react'
+import React, { StrictMode, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Route, Link } from 'react-router-dom'
 import Recommendations from '../../src/pages/Recommendations.jsx'
@@ -14,6 +14,7 @@ import SeriesRelations from '../../src/pages/SeriesRelations.jsx'
 import { related, annotations } from './seriesExplorationContract.js'
 import { seriesPage, seriesDetail } from './seriesContract.js'
 import { reminders } from './seriesRemindersContract.js'
+import { notifyRecommendationChange } from '../../src/utils/recommendationReload.js'
 
 const harnessParams = new URLSearchParams(window.location.search)
 const releaseHarness = location.pathname.endsWith('/seriesReleaseHarness.html')
@@ -37,7 +38,7 @@ localStorage.setItem('anime_journal_access_token', 'synthetic-11c-only')
 const owned = new Set(), hidden = new Map(), calls = []
 let expires = Math.floor(Date.now() / 1000) + 900
 let feedbackVersion = 0
-let reminderVersion = 0, remindersCollapsed = false
+let reminderVersion = 0, remindersCollapsed = true
 const reminderHidden = new Set()
 const snapshots = new Map(); let serial = 0
 const fail = (status, code) => { throw { response: { status, data: { code } } } }
@@ -70,6 +71,14 @@ function scopedClient(selectedScope = 'safe', seriesPolicy = false) {
       exploration: { ...contract.capabilities, series_exploration: { enabled: seriesEnabled && !seriesWithdrawn, policy_version: 'series-explore.direct.v1' },
         ...(remindersEnabled && !seriesWithdrawn ? { series_reminders: { enabled: true, policy_version: 'series-reminders.completed-direct.v1' } } : {}) }, algorithm_version: 'content.v1', browse_enabled: true, rollout_revision: 'b'.repeat(64) } },
     seriesReminders: async signal => { await wait('reminders', signal); guardSeries(); return reminders({ hidden: reminderHidden, owned, collapsed: remindersCollapsed, version: reminderVersion, contentScope: scopeContext }) },
+    reminderPresentation: async signal => { await wait('reminder-presentation', signal); guardSeries(); return {
+      contract_version: 'recommendations.series.reminders.presentation.v1', version: reminderVersion, collapsed: remindersCollapsed,
+      series_revision: 1, dismissal_revision: (reminderHidden.size ? 'b' : 'a').repeat(64), content_scope_context: scopeContext } },
+    saveReminderPresentation: async (body, signal) => { await wait('reminder-presentation-save', signal); guardSeries()
+      if (body.expected_version !== reminderVersion) fail(409, 'series_snapshot_changed')
+      remindersCollapsed = body.collapsed
+      return { contract_version: 'recommendations.series.reminders.presentation.v1', version: ++reminderVersion,
+        collapsed: remindersCollapsed, series_revision: 1, dismissal_revision: (reminderHidden.size ? 'b' : 'a').repeat(64), content_scope_context: scopeContext } },
     changeSeriesReminders: async (body, signal) => {
       await wait('reminder-change', signal)
       guardSeries()
@@ -173,7 +182,17 @@ window.addEventListener('keydown', event => {
   }
   if (event.altKey && event.shiftKey && event.code === 'KeyU') window.dispatchEvent(new Event('recommendation-data-changed'))
 })
-const app = <StrictMode><BrowserRouter><SeriesNavigation renderSeries={overlay => <SeriesRelations client={client} overlay={overlay} />}>
+function ReminderCounters() {
+  const [, update] = useState(0)
+  useEffect(() => { const timer = setInterval(() => update(value => value + 1), 250); return () => clearInterval(timer) }, [])
+  return <details style={{ fontSize: 12, padding: 6, background: '#fff' }}><summary>合成接口读取计数</summary>
+    <output aria-label="提醒接口计数">列表读取 {calls.filter(name => name === 'reminders').length} 次；设置读取 {calls.filter(name => name === 'reminder-presentation').length} 次；设置保存 {calls.filter(name => name === 'reminder-presentation-save').length} 次</output>
+    <button type="button" onClick={() => notifyRecommendationChange({ reminders: false })}>模拟仅修改评分</button>
+    <button type="button" onClick={() => notifyRecommendationChange()}>模拟手账状态变化</button>
+    <button type="button" onClick={() => window.dispatchEvent(new Event('focus'))}>模拟前台恢复</button>
+  </details>
+}
+const app = <StrictMode>{remindersEnabled && <ReminderCounters />}<BrowserRouter><SeriesNavigation renderSeries={overlay => <SeriesRelations client={client} overlay={overlay} />}>
   <Route path="/recommendations/*" element={<Recommendations client={client} />} />
   <Route path="/dashboard" element={<main><h1>11C 隔离手账</h1><Link to="/recommendations/similar" state={{ journalRecord: 2 }}>找相似</Link></main>} />
   <Route path="*" element={<main><Link to="/recommendations">开始验收个性化推荐</Link><br /><Link to="/recommendations/similar">开始验收单番相似</Link><br /><Link to="/recommendations/tags">开始验收按标签找</Link><br /><Link to="/recommendations/tags?include=日常,音乐&exclude=战斗">验收标签组合</Link><p>隔离验收快捷键：Alt+Shift+U 模拟后续数据失效。</p>{reducedMotion && <p>正在模拟 prefers-reduced-motion；没有更改浏览器设置。</p>}</main>} />

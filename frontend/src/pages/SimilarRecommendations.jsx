@@ -135,7 +135,7 @@ export default function SimilarRecommendations({ client, sessionScope, cache, ad
     <section id="similar-results" ref={resultsRef} tabIndex={-1} className="rec-results" aria-label="相似作品">
       {state.snapshotDirty && <section id="rec-context-update" className="rec-feedback-refresh" role="status"><p>探索依据已更新，已保留浏览位置。重新探索后继续浏览。</p><button type="button" className="rec-button" onClick={reload}>重新探索</button></section>}
       {feedback.state.uncertain && <div className="rec-feedback-refresh" role="alert"><p>反馈结果尚未确认，请先确认原操作。</p><button type="button" className="rec-button" disabled={feedback.state.pending} onClick={feedback.controller.retry}>重试确认原操作</button></div>}
-      <RelatedWorks data={state.data?.series_context} scope={scope} blocked={!!state.snapshotDirty} />
+      <RelatedWorks data={state.data?.series_context} scope={scope} blocked={!!state.snapshotDirty} seedId={seedId} cache={cache} />
       {state.data?.series_context && <h2 className="series-other-heading">其他题材相近作品</h2>}
       <div className="rec-featured-layout"><div className="rec-featured-main">
         {state.status === 'loading' ? <RecommendationSkeleton featuredOnly phase="explore" /> : state.status === 'ready' ? <RecommendationCard {...cardProps(state.items[0])} hero />

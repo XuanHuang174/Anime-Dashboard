@@ -603,7 +603,7 @@ function DetailModal({
                 </div>
               </div>
 
-              {isPrivateJournal && !editable && <SeriesSummary compact recordId={selectedItem.id} />}
+              {isPrivateJournal && !editable && <div className="memphis-modal-piece shrink-0"><SeriesSummary compact recordId={selectedItem.id} /></div>}
 
               {editable && (
                 <div className="memphis-modal-piece border-[3px] border-black bg-[#4ecdc4] p-3 shadow-[5px_5px_0_#111]">

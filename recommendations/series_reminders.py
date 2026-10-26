@@ -21,6 +21,7 @@ from .series_source import digest
 from .series_store import SeriesConflict
 
 VERSION = 'recommendations.series.reminders.v1'
+PRESENTATION_VERSION = 'recommendations.series.reminders.presentation.v1'
 POLICY = 'series-reminders.completed-direct.v1'
 LIMIT = 6
 
@@ -87,10 +88,10 @@ def snapshot(user, scope):
             'record_state': 'no_confirmed_record', 'facts': groups[identity][:2],
             'more_sources': len(groups[identity]) > 2})
     fingerprint = digest([POLICY, data['fingerprint'], catalog_revision(),
-        sorted(completed), sorted(owned), sorted(hidden), sorted(dismissals), groups,
-        state.version if state else 0, state.collapsed if state else False])
+        sorted(completed), sorted(owned), sorted(hidden), sorted(dismissals), groups])
     return {'contract_version': VERSION, 'policy_version': POLICY, 'fingerprint': fingerprint,
-        'version': state.version if state else 0, 'collapsed': state.collapsed if state else False,
+        'dismissal_revision': digest(sorted(dismissals)),
+        'version': state.version if state else 0, 'collapsed': state.collapsed if state else True,
         'limit': LIMIT, 'count': len(visible), 'hidden_count': len(set(ordered) & dismissals),
         'truncated': len(visible) > LIMIT, 'results': results,
         'record_note': '仅依据本人已看完的已确认记录；无已确认记录不代表没看过。发行日期不代表已播出或可观看。'}
@@ -108,8 +109,40 @@ def verify(user, scope, data):
     # Recheck own records, feedback, node classification, source age and presentation choices.
     with readonly_snapshot():
         current = snapshot(user, scope)
-    if data['fingerprint'] != current['fingerprint']:
+    if (data['fingerprint'] != current['fingerprint'] or data['version'] != current['version']
+            or data['collapsed'] != current['collapsed']):
         raise SeriesConflict('后续提醒依据已变化，请重新读取。')
+
+
+def presentation(user):
+    """Account preference and public series revision; never compute a reminder graph."""
+    require_enabled(user)
+    state = SeriesReminderState.objects.filter(user=user).first()
+    hidden = list(SeriesReminderDismissal.objects.filter(user=user, hidden=True)
+                  .order_by('bangumi_id').values_list('bangumi_id', flat=True)[:5001])
+    if len(hidden) > 5000:
+        raise RecommendationUnavailable('提醒隐藏记录超过处理上限。')
+    return {'contract_version': PRESENTATION_VERSION, 'version': state.version if state else 0,
+        'collapsed': state.collapsed if state else True,
+        'dismissal_revision': digest(hidden),
+        'series_revision': SeriesState.objects.filter(pk=1).values_list('revision', flat=True).first() or 0}
+
+
+@transaction.atomic
+def set_presentation(user, scope, *, collapsed, expected_version):
+    require_enabled(user)
+    if not get_user_model().objects.select_for_update().filter(pk=user.pk, is_active=True).exists():
+        raise NotFound('账号不可用。')
+    ensure_scope(user, scope)
+    state, _ = SeriesReminderState.objects.get_or_create(user=user)
+    if state.version != expected_version:
+        raise SeriesConflict('展示设置已变化，请重新读取。')
+    if state.version >= 2147483647:
+        raise RecommendationUnavailable('提醒版本已达到上限。')
+    state.collapsed = collapsed
+    state.version += 1
+    state.save(update_fields=('collapsed', 'version'))
+    return presentation(user)
 
 
 @transaction.atomic

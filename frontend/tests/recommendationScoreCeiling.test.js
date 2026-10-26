@@ -50,7 +50,7 @@ test('slow-loading copy and score selector are updated without enabling NSFW', (
   const loading = readFileSync(new URL('../src/components/recommendations/RecommendationLoading.jsx', import.meta.url), 'utf8')
   const panel = readFileSync(new URL('../src/components/recommendations/RecommendationBrowseControls.jsx', import.meta.url), 'utf8')
   assert.match(loading, /这次加载较慢，请稍候。预计还需 5s~15s。/)
-  assert.match(panel, /<option value="lt6">6.0 以下<\/option>/)
+  assert.match(panel, /<option value="lt6">6.0 以下（不含未知评分）<\/option>/)
   assert.match(panel, /来源不明的 0 值不归入低分作品/)
   assert.doesNotMatch(panel, /include_nsfw/)
 })

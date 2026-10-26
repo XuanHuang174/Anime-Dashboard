@@ -71,12 +71,24 @@ function BadgeLinks({ item, row, scope }) {
   </button>)}{row.truncated && <small>另有已收录关联</small>}</div>
 }
 
-export function RelatedWorks({ data, scope, blocked }) {
+export function RelatedWorks({ data, scope, blocked, seedId, cache }) {
   const open = useSeriesLink(scope)
+  const key = `${scope}:${seedId || data?.seed_bangumi_id || ''}`
+  const [expandedKey, setExpandedKey] = useState(cache?.relatedExpandedKey ?? null)
+  const previousKey = useRef(key)
+  useLayoutEffect(() => {
+    if (previousKey.current === key) return
+    previousKey.current = key
+    setExpandedKey(null)
+    if (cache) cache.relatedExpandedKey = null
+  }, [key, cache])
+  const expanded = expandedKey === key
+  const toggle = () => { const next = expanded ? null : key; setExpandedKey(next); if (cache) cache.relatedExpandedKey = next }
   if (!data) return null
-  return <section className="series-related" aria-label="本作已确认的直接关联">
-    <header><h2>本作已确认的直接关联</h2><span>与题材相似结果分开</span></header>
-    {blocked ? <p role="status">关系依据已变化，请重新探索后查看。</p> : <>
+  return <section className={`series-related${expanded ? '' : ' is-collapsed'}`} aria-label="本作已确认的直接关联">
+    <header><h2>本作已确认的直接关联</h2><span>{blocked ? '关联待更新' : `符合条件 ${data.filtered_count} 部`}</span>
+      <button type="button" className="rec-button" aria-expanded={expanded} aria-controls="series-related-items" onClick={toggle}>{expanded ? '− 收起关联' : '+ 展开关联'}</button></header>
+    {expanded && <div id="series-related-items">{blocked ? <p role="status">关系依据已变化，请重新探索后查看。</p> : <>
       <p className="series-related-note">{COVERAGE[data.coverage]}。只依据已收录的直接关系，不推断整个系列或建议观看顺序；未列出不代表独立作品。</p>
       {['partial', 'failed'].includes(data.last_attempt_status) && data.coverage !== data.last_attempt_status && <p>最近获取{data.last_attempt_status === 'failed' ? '失败' : '不完整'}，本区使用上次可用资料。</p>}
       {!data.items.length ? <p>当前筛选下没有可展示的已确认直接关联。年份、类型、评分、隐藏及已有记录条件均保持生效。</p>
@@ -84,6 +96,6 @@ export function RelatedWorks({ data, scope, blocked }) {
           <p>{relationText(row.facts[0], row.bangumi_id)}</p><small>{row.release_date || '发行日期未知'} · {row.release_format || '发行形式未知'} · {seriesStatus({ watch_status: row.watch_status, record_state: row.watch_status ? 'linked' : 'no_confirmed_record' })}</small></div>
           <button type="button" className="rec-button" onClick={() => open(row.facts[0].source_id)}>查看关系详情 ↗</button></li>)}</ul>}
       {data.truncated && <p>符合当前条件 {data.filtered_count} 部，本区展示前 12 部；相似区已排除全部已确认直接关联。</p>}
-    </>}
+    </>}</div>}
   </section>
 }

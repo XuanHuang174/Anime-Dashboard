@@ -7,6 +7,9 @@ import { ExplorationTopicsContext } from '../components/recommendations/Explorat
 import RecommendationModeNavigation from '../components/recommendations/RecommendationModeNavigation.jsx'
 import { validateExplorationCapabilities, parseSimilarSeed } from '../utils/recommendationExploration.js'
 import '../styles/recommendations-exploration.css'
+import { createSeriesReminderController } from '../utils/seriesReminders.js'
+import { connectSeriesReminderUpdates } from '../utils/seriesReminderUpdates.js'
+import { seriesSession } from '../hooks/useSeriesSession.js'
 
 export default function RecommendationHost({ client: baseClient, sessionScope, Personal }) {
   const location = useLocation()
@@ -24,6 +27,15 @@ export default function RecommendationHost({ client: baseClient, sessionScope, P
     setAdult(false); setNotice('访问授权或服务状态已变化，已恢复安全范围。')
     }) : configured
   }, [baseClient, adult, capability.data?.series_exploration?.enabled === true])
+  const reminders = useMemo(() => capability.data?.series_reminders?.enabled && client.seriesReminders
+    ? createSeriesReminderController(client, () => seriesSession() === sessionScope) : null,
+  [client, sessionScope, capability.data?.series_reminders?.enabled])
+  useLayoutEffect(() => {
+    if (!reminders) return
+    reminders.activate()
+    const disconnect = connectSeriesReminderUpdates(reminders)
+    return () => { disconnect(); reminders.dispose() }
+  }, [reminders])
   useEffect(() => {
     const request = new AbortController()
     setCapability({ status: 'loading' })
@@ -46,7 +58,7 @@ export default function RecommendationHost({ client: baseClient, sessionScope, P
   const navigation = <RecommendationModeNavigation current={mode} capabilities={capability.data}
     tagsPath={mode === 'tags' ? `/recommendations/tags${location.search}` : caches.current.tags.path}
     similarSeed={mode === 'similar' ? parseSimilarSeed(location.search).id : caches.current.similar.seedId} />
-  const shared = { client, sessionScope, adult, setAdult, navigation, capabilities: capability.data }
+  const shared = { client, sessionScope, adult, setAdult, navigation, capabilities: capability.data, reminders }
   return <ExplorationTopicsContext.Provider value={topics}>
     {mode === 'personal' ? <Personal {...shared} cache={caches.current.personal} />
       : mode === 'similar' && capability.data?.navigation?.[1]?.available

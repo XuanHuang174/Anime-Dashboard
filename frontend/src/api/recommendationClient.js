@@ -41,6 +41,8 @@ export function createRecommendationClient(transport, scope = 'safe', onLost = (
     forSeries: value => createRecommendationClient(transport, scope, onLost, value === true),
     forScope: (value, callback) => createRecommendationClient(transport, value, callback, seriesExploration),
     seriesReminders: signal => client.get('recommendations/series/reminders/', { signal }).then(r => r.data),
+    reminderPresentation: signal => client.get('recommendations/series/reminders/presentation/', { signal }).then(r => r.data),
+    saveReminderPresentation: (changes, signal) => client.patch('recommendations/series/reminders/presentation/', changes, { signal }).then(r => r.data),
     changeSeriesReminders: (changes, signal) => client.patch('recommendations/series/reminders/', changes, { signal }).then(r => r.data),
     seriesAnnotations: (ids, signal) => client.get('recommendations/series/annotations/', { params: { ids: ids.map(seriesId).join(',') }, signal }).then(r => r.data),
     series: (id, context, signal) => client.get(`recommendations/series/${seriesId(id)}/workspace/`, { params: context ? { context: seriesContext(context) } : {}, signal }).then(r => r.data),

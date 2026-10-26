@@ -1,6 +1,10 @@
 .series-reminders { margin: 24px 0; padding: 20px; background: #fff9db; border: 3px solid #171717; box-shadow: 5px 5px 0 #171717; }
 .series-reminders header, .series-reminders footer { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
 .series-reminders h2 { font-size: 1.25rem; margin: 0 0 6px; }
+.series-reminders.is-collapsed { padding: 14px 20px; }
+.series-reminders.is-collapsed h2 { margin: 0; }
+.series-reminder-heading-actions, .series-reminder-update { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; font-size: .8rem; }
+.series-reminder-update { justify-content: space-between; margin-top: 12px; }
 .series-reminders h3 { margin: 0 0 8px; overflow-wrap: anywhere; }
 .series-reminders header p { margin: 0; font-size: .85rem; }
 .series-reminders ul { list-style: none; padding: 0; margin: 16px 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }

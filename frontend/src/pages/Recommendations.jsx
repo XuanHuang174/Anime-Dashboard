@@ -56,7 +56,7 @@ export default function Recommendations({ client = recommendationApi }) {
   return <RecommendationHost key={sessionScope} client={client} sessionScope={sessionScope} Personal={RecommendationWorkspace} />
 }
 
-function RecommendationWorkspace({ client, sessionScope, cache, adult, setAdult, navigation, capabilities }) {
+function RecommendationWorkspace({ client, sessionScope, cache, adult, setAdult, navigation, capabilities, reminders }) {
   const navigate = useNavigate()
   const [category, setCategory] = useState(cache.controls?.category || 'all')
   const [style, setStyle] = useState(cache.controls?.style || 'balanced')
@@ -92,7 +92,7 @@ function RecommendationWorkspace({ client, sessionScope, cache, adult, setAdult,
     preferenceFocusPending.current = true
     setPanel(null); setNotice('偏好已保存，正在重新读取画像与推荐。')
     reload({ confirmedPreferences })
-    notifyRecommendationChange({ local: false })
+    notifyRecommendationChange({ local: false, reminders: false })
   })
   const saving = ['saving', 'reloading'].includes(preferenceEditor.editor.status)
   const preferences = state.preferences || state.confirmedPreferences
@@ -293,7 +293,7 @@ function RecommendationWorkspace({ client, sessionScope, cache, adult, setAdult,
         onFilter={openFilters} onRemove={removeFilter} onReset={reset} />
       </div>
       <ShowcasePublicationPanel refreshKey={publicationRevision} />
-      <SeriesReminders client={client} enabled={capabilities?.series_reminders?.enabled} />
+      <SeriesReminders client={client} enabled={capabilities?.series_reminders?.enabled} controller={reminders} />
       <section id="rec-results" ref={resultsRef} className="rec-results" tabIndex={-1} aria-labelledby="rec-results-title">
         <h2 id="rec-results-title" className="rec-sr-only">推荐作品</h2>
         {state.contextUpdated && <section id="rec-context-update" className="rec-feedback-refresh rec-context-update" role="status">
