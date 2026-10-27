@@ -1,0 +1,225 @@
+{
+  "scope": "13b-local-public-data-and-isolated-postgresql-only",
+  "production_database_accessed": false,
+  "production_writes": false,
+  "online_features_enabled": false,
+  "preflight": {
+    "contract_version": "recommendations.credits.import-plan.v1",
+    "snapshot": {
+      "snapshot_version": "dump-2026-10-20.210332Z",
+      "source_at": "2026-10-20T21:03:32+00:00",
+      "source_reference": "https://github.com/bangumi/Archive/releases/download/archive/dump-2026-10-20.210332Z.zip",
+      "archive_sha256": "9fe8de272398ff4bd12994b73e25aac37cca631372383f6aadc503528623aa93",
+      "member_hashes": {
+        "subject-persons.jsonlines": {
+          "sha256": "e65213f42f353a1536ff16242ade0de7dabf532738b4b6a3264a7c21b1d8bb05",
+          "rows": 2232175
+        },
+        "person-characters.jsonlines": {
+          "sha256": "3535b6179f49b5da163ac3c7d94df901b05fa39bd71c38a663a85e690c99cec7",
+          "rows": 292429
+        },
+        "subject-characters.jsonlines": {
+          "sha256": "ac6e3387fd22552ed3fce09090533c5f521d5e1728cd54a73d4ca97b4916feda",
+          "rows": 452377
+        },
+        "subject.jsonlines": {
+          "sha256": "2f0692ac644608b0f040d5fee96593d001ae7be2b8005cf3870591f1597145eb",
+          "rows": 697963
+        },
+        "person.jsonlines": {
+          "sha256": "c9905a28a65fc787a4376b5ee9f0f77a96b8df25b94759f0e5c4d3d9e8d92b0b",
+          "rows": 104055
+        },
+        "character.jsonlines": {
+          "sha256": "8822408d1619e3a318e075590a3e2a48eb86b3c4ed6d88adc658aa0a243bfe28",
+          "rows": 224679
+        }
+      },
+      "mapping_version": "bangumi.anime-credits.v1",
+      "alias_version": "bangumi.credits-names.v1",
+      "id": "78f5ff99145d439894df2e21b0a256254f0d9ae16f9551164e8464df1b5fd082"
+    },
+    "source_count": 31104,
+    "batch_count": 1245,
+    "scope": "catalog_source_preflight",
+    "coverage": {
+      "studio": {
+        "safe": {
+          "denominator": 28636,
+          "complete_observations": 26586,
+          "works_with_initial_relations": 13652,
+          "initial_scope_rows": 17444,
+          "raw_rows": 1053516,
+          "observed": 13652,
+          "missing_person": 0,
+          "missing_character": 0,
+          "missing_subject_character_binding": 0,
+          "partial": 2047,
+          "empty_observed": 12934,
+          "failed": 3,
+          "complete_percent": 92.841,
+          "endpoint_issue_rates": {
+            "missing_person": 0.0,
+            "missing_character": 0.0,
+            "missing_subject_character_binding": 0.0
+          }
+        },
+        "adult": {
+          "denominator": 2468,
+          "complete_observations": 2329,
+          "works_with_initial_relations": 801,
+          "initial_scope_rows": 955,
+          "raw_rows": 31840,
+          "observed": 801,
+          "missing_person": 0,
+          "missing_character": 0,
+          "missing_subject_character_binding": 0,
+          "empty_observed": 1528,
+          "partial": 139,
+          "complete_percent": 94.368,
+          "endpoint_issue_rates": {
+            "missing_person": 0.0,
+            "missing_character": 0.0,
+            "missing_subject_character_binding": 0.0
+          }
+        },
+        "unknown": {
+          "denominator": 0,
+          "complete_observations": 0,
+          "works_with_initial_relations": 0,
+          "initial_scope_rows": 0,
+          "raw_rows": 0,
+          "complete_percent": null,
+          "endpoint_issue_rates": {
+            "missing_person": null,
+            "missing_character": null,
+            "missing_subject_character_binding": null
+          }
+        }
+      },
+      "voice_actor": {
+        "safe": {
+          "denominator": 28636,
+          "complete_observations": 28517,
+          "works_with_initial_relations": 9431,
+          "initial_scope_rows": 149258,
+          "raw_rows": 160010,
+          "observed": 9431,
+          "missing_person": 0,
+          "missing_character": 88,
+          "missing_subject_character_binding": 1,
+          "empty_observed": 19086,
+          "partial": 116,
+          "failed": 3,
+          "complete_percent": 99.584,
+          "endpoint_issue_rates": {
+            "missing_person": 0.0,
+            "missing_character": 0.00059,
+            "missing_subject_character_binding": 7e-06
+          }
+        },
+        "adult": {
+          "denominator": 2468,
+          "complete_observations": 2468,
+          "works_with_initial_relations": 914,
+          "initial_scope_rows": 3566,
+          "raw_rows": 3566,
+          "observed": 914,
+          "missing_person": 0,
+          "missing_character": 0,
+          "missing_subject_character_binding": 0,
+          "empty_observed": 1554,
+          "complete_percent": 100.0,
+          "endpoint_issue_rates": {
+            "missing_person": 0.0,
+            "missing_character": 0.0,
+            "missing_subject_character_binding": 0.0
+          }
+        },
+        "unknown": {
+          "denominator": 0,
+          "complete_observations": 0,
+          "works_with_initial_relations": 0,
+          "initial_scope_rows": 0,
+          "raw_rows": 0,
+          "complete_percent": null,
+          "endpoint_issue_rates": {
+            "missing_person": null,
+            "missing_character": null,
+            "missing_subject_character_binding": null
+          }
+        }
+      }
+    },
+    "issue_counts": {
+      "not_company": 2263,
+      "not_individual": 129,
+      "missing_subject_character_binding": 1,
+      "missing_or_non_anime_root": 6,
+      "missing_character": 88
+    },
+    "alias_reference_occurrences": {
+      "partial": 906609,
+      "observed": 2453
+    },
+    "maximum_root_raw_rows": 1076,
+    "plan_fingerprint": "614987424cd51babdff7a51cd85eeccb00fe34f1f7d30f277d8070b9510efd5f",
+    "database_writes": false,
+    "local_catalog_file_sha256": "bb43518de24e6fbc60c7d7a7cc0c4f073ddf61858c79605f639e326308c08c85",
+    "measurement_scope": "local_public_catalog_snapshot_not_current_production_coverage",
+    "seconds": 253.464,
+    "spool_bytes": 208171008,
+    "production_database_accessed": false
+  },
+  "isolated_public_eight_work_smoke": {
+    "scope": "local-isolated-postgresql-public-eight-work-smoke-not-production",
+    "publication": {
+      "changed": true,
+      "revision": 1,
+      "published": 15,
+      "quarantined": 1,
+      "replayed": 0
+    },
+    "replay": {
+      "changed": false,
+      "revision": 1,
+      "published": 0,
+      "quarantined": 0,
+      "replayed": 16
+    },
+    "seconds": 0.594,
+    "sql_queries": 37,
+    "observations": 16,
+    "assertions": 2033,
+    "aliases": 4438,
+    "quarantined": [
+      [
+        328609,
+        "voice_actor",
+        "partial"
+      ]
+    ],
+    "production_database_accessed": false
+  },
+  "checks": {
+    "offline_source_tests": 70,
+    "backend_regression_tests": 60,
+    "final_backend_targeted_tests": 11,
+    "test_groups_overlap": true,
+    "django_check": true,
+    "migration_drift": false
+  },
+  "code_sha256": {
+    "recommendations/credits_aliases.py": "5129c2c992e64054b1db1ba85fb375ec8bf3b70edcefa50bab08dacd37ef3d46",
+    "recommendations/credits_source.py": "b714a7c88df9158ce46a5e280b3eca6be8abfa466b5cad949a659f202cb822ef",
+    "recommendations/credits_store.py": "76eb3005e2129e275945d52dbaa2b61b0dba45cfb8280ea7bb35d902eb529328",
+    "recommendations/credits_coverage.py": "e2af9cdcba0d88f3fdd5d6650722729f7c7c537542f53c9bf5c4c9033b7a6c0b",
+    "recommendations/credits_models.py": "1649f47b9b354a15a60b71d415ed016da78d664c191a8c90462dbd42281d8f19"
+  },
+  "limitations": [
+    "Local catalog snapshot is not a fresh production catalog audit.",
+    "Timing and disk size are local import preflight measurements, not Render memory, latency or serving acceptance.",
+    "Source completeness is not filmography coverage or a candidate/content access grant."
+  ]
+}
