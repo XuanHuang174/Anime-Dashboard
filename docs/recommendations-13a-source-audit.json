@@ -1,0 +1,147 @@
+{
+  "contract_version": "recommendations.credits.assertion.v1",
+  "mapping_version": "bangumi.anime-credits.v1",
+  "scope": "curated_public_archive_sample_not_catalog_coverage",
+  "provenance": {
+    "snapshot_version": "dump-2026-10-20.210332Z",
+    "source_reference": "https://github.com/bangumi/Archive/releases/download/archive/dump-2026-10-20.210332Z.zip",
+    "archive_sha256": "9fe8de272398ff4bd12994b73e25aac37cca631372383f6aadc503528623aa93",
+    "observed_at": "2026-10-27T09:14:20.032173+00:00",
+    "members": {
+      "subject-persons.jsonlines": {
+        "sha256": "e65213f42f353a1536ff16242ade0de7dabf532738b4b6a3264a7c21b1d8bb05",
+        "rows": 2232175
+      },
+      "subject-characters.jsonlines": {
+        "sha256": "ac6e3387fd22552ed3fce09090533c5f521d5e1728cd54a73d4ca97b4916feda",
+        "rows": 452377
+      },
+      "person-characters.jsonlines": {
+        "sha256": "3535b6179f49b5da163ac3c7d94df901b05fa39bd71c38a663a85e690c99cec7",
+        "rows": 292429
+      },
+      "subject.jsonlines": {
+        "sha256": "2f0692ac644608b0f040d5fee96593d001ae7be2b8005cf3870591f1597145eb",
+        "rows": 697963
+      },
+      "person.jsonlines": {
+        "sha256": "c9905a28a65fc787a4376b5ee9f0f77a96b8df25b94759f0e5c4d3d9e8d92b0b",
+        "rows": 104055
+      },
+      "character.jsonlines": {
+        "sha256": "8822408d1619e3a318e075590a3e2a48eb86b3c4ed6d88adc658aa0a243bfe28",
+        "rows": 224679
+      }
+    }
+  },
+  "input_rows": 2033,
+  "normalized_rows": 2033,
+  "eligible_source_rows": 254,
+  "eligible_kind_counts": {
+    "cast": 245,
+    "studio": 9
+  },
+  "cast_type_counts": {
+    "0": 246,
+    "1": 1,
+    "3": 80,
+    "5": 9
+  },
+  "review_reason_counts": {
+    "cast_type_outside_initial_scope": 90,
+    "not_company": 1615,
+    "not_individual": 1,
+    "position_outside_initial_scope": 1688
+  },
+  "annotation_warning_counts": {
+    "unmapped_character_role": 69
+  },
+  "duplicate_rows": 0,
+  "conflicting_credit_keys": [],
+  "row_errors": [],
+  "alias_collision_keys": [],
+  "per_seed": {
+    "265": {
+      "cast": 31,
+      "studio": 2
+    },
+    "1424": {
+      "cast": 32,
+      "studio": 1
+    },
+    "3774": {
+      "cast": 52,
+      "studio": 1
+    },
+    "9717": {
+      "cast": 20,
+      "studio": 1
+    },
+    "10639": {
+      "cast": 46,
+      "studio": 1
+    },
+    "328609": {
+      "cast": 58,
+      "studio": 1
+    },
+    "436738": {
+      "cast": 4,
+      "studio": 1
+    },
+    "8019": {
+      "cast": 2,
+      "studio": 1
+    }
+  },
+  "coverage_note": "Source eligibility is not catalog coverage, source completeness, NSFW approval or a serving grant.",
+  "production_writes": false,
+  "serving_enabled": false,
+  "preferences_inferred": false,
+  "sample_sha256": "1e746d51e4c5cc1e0f6bf92e7081fab051deb490390616e0adbdc7c8ff61aae0",
+  "source_documents": {
+    "staffs": {
+      "url": "https://api.github.com/repos/bangumi/common/contents/subject_staffs.yml?ref=2ee87b9995353f77cf02e390e8635bf97dbc1fa2",
+      "status": 200,
+      "blob_sha": "a25bbc9665c440eec57e84ca5de9a0c9afe15ee9",
+      "sha256": "d12e575c0f28f2b9793027bced2ecc6d3857ecd080839d5917023f7eca9d8547"
+    },
+    "person_relations": {
+      "url": "https://api.github.com/repos/bangumi/common/contents/person_relations.yml?ref=2ee87b9995353f77cf02e390e8635bf97dbc1fa2",
+      "status": 200,
+      "blob_sha": "6c02fe61a6f91b243208b621bf4bd9f519a05e68",
+      "sha256": "d9c56dc55836440010fec5eb384aaa2eeb2bae78063e6a41cf047890d800108e"
+    },
+    "export_source": {
+      "url": "https://api.github.com/repos/bangumi/server/contents/cmd/archive/main.go",
+      "status": 200,
+      "blob_sha": "16f22a840faeddea7e3a0e769ca9e289c94033cc",
+      "sha256": "c0f714dfea9730d575da3b223e73465cd8184e8e02c098e0f8afd4e0b4182fca"
+    },
+    "archive_readme": {
+      "url": "https://api.github.com/repos/bangumi/Archive/contents/README.md",
+      "status": 200,
+      "blob_sha": "203cc1b795c69bb04fd54363cf50a219b65c8c6a",
+      "sha256": "f2a0867917012cda97ec1f80cb5cae6ef7752e2e716d9dbce1ce57c2f9b33884"
+    }
+  },
+  "api_schema": {
+    "url": "https://raw.githubusercontent.com/bangumi/api/65d29cff2331e08c0110d30d515f7f1b6488f845/open-api/v0.yaml",
+    "observed_at": "2026-10-27T09:11:14.590414+00:00",
+    "http_status": 200,
+    "sha256": "5a7ddb7ddec132293b1aa08102e6ac63e31b2925574658e927d6f931df2519da"
+  },
+  "api_response_verification": {
+    "api_persons": {
+      "url": "https://api.bgm.tv/v0/subjects/328609/persons",
+      "observed_at": "2026-10-27T09:11:20.139981+00:00",
+      "failure_type": "ConnectTimeout"
+    },
+    "api_characters": {
+      "url": "https://api.bgm.tv/v0/subjects/328609/characters",
+      "observed_at": "2026-10-27T09:11:24.894972+00:00",
+      "failure_type": "ConnectTimeout"
+    }
+  },
+  "alias_sample_note": "Four explicit simple Chinese-name fields only; not a general wiki parser or complete alias coverage."
+}

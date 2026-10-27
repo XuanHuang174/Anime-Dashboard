@@ -1,0 +1,50 @@
+{
+  "contract_version": "recommendations.credits.assertion.v1",
+  "mapping_version": "bangumi.anime-credits.v1",
+  "serving_enabled": false,
+  "database_writes": false,
+  "changes_recommendations": false,
+  "infers_preferences": false,
+  "merges_alias_identities": false,
+  "initial_studio_position": 67,
+  "initial_cast_type": 0,
+  "person_types": {
+    "1": "individual",
+    "2": "company",
+    "3": "group"
+  },
+  "staff_positions": {
+    "67": "动画制作",
+    "42": "製作",
+    "63": "制作"
+  },
+  "cast_types": {
+    "0": "CV",
+    "1": "译配",
+    "2": "演员",
+    "3": "中配",
+    "4": "日配",
+    "5": "英配",
+    "6": "韩配"
+  },
+  "coverage_states": [
+    "not_loaded",
+    "observed",
+    "empty_observed",
+    "partial",
+    "failed",
+    "stale"
+  ],
+  "cast_identity": [
+    "subject_id",
+    "character_id",
+    "person_id",
+    "source_cast_type"
+  ],
+  "staff_identity": [
+    "subject_id",
+    "person_id",
+    "source_position"
+  ],
+  "scope_note": "Source facts only; serving requires catalog, content scope and own-record checks."
+}

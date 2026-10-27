@@ -1,0 +1,33 @@
+{
+  "contract_version": "recommendations.credits.http-plan.v1",
+  "status": "planned_not_implemented",
+  "serving_enabled": false,
+  "primary_navigation": ["personal", "similar", "tags"],
+  "secondary_entry": {"label": "人物与制作", "path": "/recommendations/credits"},
+  "entity_path": "/recommendations/credits/{kind}/{person_id}",
+  "kinds": ["voice_actor", "studio"],
+  "endpoints": [
+    {"method": "GET", "path": "/api/recommendations/credits/search/", "version": "recommendations.credits.search.v1", "required_query": ["kind", "q"], "search_limit": 15},
+    {"method": "GET", "path": "/api/recommendations/credits/subjects/{bangumi_id}/", "version": "recommendations.credits.summary.v1", "purpose": "bounded source credits for an eligible catalog work"},
+    {"method": "GET", "path": "/api/recommendations/credits/record/{record_id}/", "version": "recommendations.credits.record.v1", "purpose": "own confirmed journal identity only"},
+    {"method": "GET", "path": "/api/recommendations/credits/entities/{kind}/{person_id}/", "version": "recommendations.credits.entity.v1", "purpose": "scope-filtered entity header and coverage"},
+    {"method": "GET", "path": "/api/recommendations/credits/entities/{kind}/{person_id}/works/", "version": "recommendations.credits.works.v1", "page_size": 12}
+  ],
+  "works_query": ["view", "sort", "type", "year_from", "year_to", "min_score", "max_score", "max_score_exclusive", "hide_recorded", "cursor"],
+  "views": ["all", "completed"],
+  "sorts": ["score_desc", "release_desc", "release_asc"],
+  "default_view": "all",
+  "default_sort": "score_desc",
+  "default_hide_recorded": true,
+  "completed_view_requires_hide_recorded_false": true,
+  "common_response_fields": ["contract_version", "credits_revision", "content_scope_context", "coverage"],
+  "works_response_fields": ["entity", "conditions", "count", "results", "next_cursor", "context", "expires_at"],
+  "result_evidence_fields": ["subject_id", "person_id", "kind", "position_or_cast_type", "characters", "source_episode_note"],
+  "context_bindings": ["account_session", "content_scope_revision", "credits_revision", "catalog_revision", "own_records_revision", "feedback_revision", "conditions", "entity_kind", "person_id", "sort_version"],
+  "context_ttl_seconds": 900,
+  "error_codes": ["credits_disabled", "credits_snapshot_changed", "credits_data_unavailable"],
+  "privacy": "own authenticated no-store; public source graph may be shared, scope-filtered results and counts may not",
+  "external_requests_on_browse": false,
+  "new_writes": false,
+  "want_and_detail": "reuse existing own-record identity, eligible detail and idempotent want contracts"
+}
