@@ -16,7 +16,7 @@ import ShowcasePublicationPanel from '../components/ShowcasePublicationPanel.jsx
 import BackToTop from '../components/BackToTop.jsx'
 import { SeriesAnnotationsProvider } from '../components/recommendations/SeriesExploration.jsx'
 
-export default function TagRecommendations({ client, sessionScope, cache, adult, setAdult, navigation, capabilities }) {
+export default function TagRecommendations({ client, sessionScope, cache, adult, setAdult, navigation, capabilities, creditsEntry }) {
   const location = useLocation(), navigate = useNavigate(), scope = adult ? 'include_adult' : 'safe'
   const [options, setOptions] = useState(cache.options?.client === client ? cache.options : { status: 'loading', client })
   const [attempt, setAttempt] = useState(0), [linkError, setLinkError] = useState('')
@@ -79,7 +79,7 @@ export default function TagRecommendations({ client, sessionScope, cache, adult,
   return <SeriesAnnotationsProvider client={client} items={state.items} enabled={capabilities?.series_exploration?.enabled}
     blocked={!!state.snapshotDirty} catalogRevision={state.data?.evidence_context.catalog_feature_version}><main ref={pageRef} className="memphis-rec-container">
     <a className="rec-skip-link" href="#tag-results">跳到题材探索结果</a><div className="rec-page"><div className="rec-masthead">
-      <nav className="rec-nav" aria-label="探索页面导航"><Link className="rec-back" to="/dashboard">← 返回我的手账</Link><div className="rec-nav-tools"><button type="button" className="rec-text-button" onClick={openHidden}>已隐藏作品</button></div></nav>
+      <nav className="rec-nav" aria-label="探索页面导航"><Link className="rec-back" to="/dashboard">← 返回我的手账</Link><div className="rec-nav-tools">{creditsEntry}<button type="button" className="rec-text-button" onClick={openHidden}>已隐藏作品</button></div></nav>
       <header className="rec-page-heading rec-explore-heading"><span className="rec-chapter-label">我的手账</span><h1>番剧探索</h1>{navigation}</header>
       <section className="rec-controls rec-seed-controls rec-tag-controls" aria-label="按标签找条件"><div className="rec-seed-selection"><strong>按标签找</strong><span>{applied ? `${applied.match === 'all' ? '同时满足全部' : '满足任一'} · ${applied.sort === 'score' ? 'Bangumi 评分优先' : '题材关联优先'}` : '选定题材组合，寻找这次想看的故事。'}</span></div>
         <button type="button" className="rec-button rec-button--primary" onClick={openEditor}>选择题材 / 调整条件</button></section>

@@ -40,6 +40,7 @@ import '../styles/recommendations-preferences.css'
 import ShowcasePublicationPanel from '../components/ShowcasePublicationPanel.jsx'
 import BackToTop from '../components/BackToTop.jsx'
 import SeriesSummary from '../components/recommendations/SeriesSummary.jsx'
+import CreditsSummary from '../components/recommendations/CreditsSummary.jsx'
 import { SeriesAnnotationsProvider } from '../components/recommendations/SeriesExploration.jsx'
 import SeriesReminders from '../components/recommendations/SeriesReminders.jsx'
 
@@ -56,7 +57,7 @@ export default function Recommendations({ client = recommendationApi }) {
   return <RecommendationHost key={sessionScope} client={client} sessionScope={sessionScope} Personal={RecommendationWorkspace} />
 }
 
-function RecommendationWorkspace({ client, sessionScope, cache, adult, setAdult, navigation, capabilities, reminders }) {
+function RecommendationWorkspace({ client, sessionScope, cache, adult, setAdult, navigation, capabilities, reminders, creditsEntry }) {
   const navigate = useNavigate()
   const [category, setCategory] = useState(cache.controls?.category || 'all')
   const [style, setStyle] = useState(cache.controls?.style || 'balanced')
@@ -274,7 +275,7 @@ function RecommendationWorkspace({ client, sessionScope, cache, adult, setAdult,
     <div className="rec-page">
       <div className="rec-masthead">
       <nav className="rec-nav" aria-label="推荐页面导航"><Link className="rec-back" to="/dashboard">← 返回我的手账</Link>
-        <div className="rec-nav-tools"><button type="button" className="rec-text-button" onClick={openHidden}>已隐藏作品</button>
+        <div className="rec-nav-tools">{creditsEntry}<button type="button" className="rec-text-button" onClick={openHidden}>已隐藏作品</button>
           <button type="button" className="rec-button rec-preferences" ref={preferenceTrigger} disabled={!preferences} onClick={openPreferences}>☷ 偏好设置</button></div></nav>
       <header className="rec-page-heading rec-explore-heading">
         <span className="rec-chapter-label">我的手账</span>
@@ -367,6 +368,7 @@ function RecommendationWorkspace({ client, sessionScope, cache, adult, setAdult,
               <h3>推荐依据</h3><RecommendationEvidence item={detail.item} expanded onReload={() => { closePanel(); reload() }} />
               <ExplorationTagChips tags={detail.item.tags} beforeNavigate={closePanel} /><h3>故事简介</h3><p>{detail.item.synopsis || '暂未收录简介。'}</p>
               <SeriesSummary client={client} bangumiId={detail.item.bangumiId} />
+              <CreditsSummary client={client} bangumiId={detail.item.bangumiId} />
               <RecommendationDetailActions item={detail.item} resourceOpen={detail.resourceOpen}
                 onSimilar={capabilities?.navigation?.[1]?.available ? item => { closePanel(); navigate(`/recommendations/similar?seed=${item.bangumiId}`) } : undefined}
                 resourceTriggerRef={resourceTrigger}

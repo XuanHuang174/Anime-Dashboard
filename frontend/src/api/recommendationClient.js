@@ -3,7 +3,7 @@ import { validDetailContext } from '../utils/recommendationExecution.js'
 import { checkScopeResponse } from '../utils/recommendationContentScope.js'
 export function createRecommendationClient(transport, scope = 'safe', onLost = () => {}, seriesExploration = false) {
   if (!['safe', 'include_adult'].includes(scope)) throw new Error('未知内容范围')
-  const scoped = path => /^recommendations\/(?:$|context\/|series\/|explore\/|feedback\/|identities\/|[1-9]\d*\/)/.test(path)
+  const scoped = path => /^recommendations\/(?:$|context\/|series\/|credits\/|explore\/|feedback\/|identities\/|[1-9]\d*\/)/.test(path)
   let lastScopeRevision = null, sequence = 0, lastScopeSequence = 0
   const call = (method, path, args, config = {}) => {
     const order = ++sequence
@@ -29,8 +29,10 @@ export function createRecommendationClient(transport, scope = 'safe', onLost = (
         && error.response?.data?.code === 'exploration_snapshot_changed'
       const seriesChanged = path.startsWith('recommendations/series/') && error.response?.status === 409
         && error.response?.data?.code === 'series_snapshot_changed'
+      const creditsChanged = path.startsWith('recommendations/credits/') && error.response?.status === 409
+        && error.response?.data?.code === 'credits_snapshot_changed'
       if (controlled && scope === 'include_adult' && !config.signal?.aborted
-        && (error.scopeLost || error.response?.status === 403 || error.response?.status === 409 && !explorationChanged && !seriesChanged)) onLost()
+        && (error.scopeLost || error.response?.status === 403 || error.response?.status === 409 && !explorationChanged && !seriesChanged && !creditsChanged)) onLost()
       throw error
     })
   }
@@ -40,6 +42,11 @@ export function createRecommendationClient(transport, scope = 'safe', onLost = (
     seriesExploration,
     forSeries: value => createRecommendationClient(transport, scope, onLost, value === true),
     forScope: (value, callback) => createRecommendationClient(transport, value, callback, seriesExploration),
+    creditsSearch: (kind, q, signal) => client.get('recommendations/credits/search/', { params: { kind: creditsKind(kind), q }, signal }).then(r => r.data),
+    creditsSummary: (id, expanded, signal) => client.get(`recommendations/credits/subjects/${seriesId(id)}/`, { params: expanded ? { expanded: 'true' } : {}, signal }).then(r => r.data),
+    creditsRecord: (id, signal) => client.get(`recommendations/credits/record/${seriesId(id)}/`, { signal }).then(r => r.data),
+    creditsWorks: (kind, id, params, signal) => client.get(`recommendations/credits/entities/${creditsKind(kind)}/${seriesId(id)}/works/`, {
+      params: params.cursor ? { cursor: seriesContext(params.cursor) } : Object.fromEntries(Object.entries(params).filter(([, v]) => v !== null)), signal }).then(r => r.data),
     seriesReminders: signal => client.get('recommendations/series/reminders/', { signal }).then(r => r.data),
     reminderPresentation: signal => client.get('recommendations/series/reminders/presentation/', { signal }).then(r => r.data),
     saveReminderPresentation: (changes, signal) => client.patch('recommendations/series/reminders/presentation/', changes, { signal }).then(r => r.data),
@@ -112,6 +119,10 @@ export function createRecommendationClient(transport, scope = 'safe', onLost = (
 
 function seriesId(value) {
   if (!Number.isSafeInteger(value) || value < 1 || value > 2147483647) throw new Error('系列作品身份无效')
+  return value
+}
+function creditsKind(value) {
+  if (!['voice_actor', 'studio'].includes(value)) throw new Error('人物类型无效')
   return value
 }
 function seriesContext(value) {

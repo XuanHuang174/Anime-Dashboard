@@ -1,0 +1,82 @@
+.credits-entry { flex-shrink: 0; }
+.credits-entry svg, .credits-summary svg, .credits-kind-tabs svg { flex-shrink: 0; }
+.memphis-rec-container.credits-shell { padding: 24px 28px; }
+.memphis-rec-container.credits-shell--overlay { min-height: 0; height: 0; padding: 0; }
+.credits-page { color: #111; overflow-wrap: anywhere; }
+.credits-heading { border: 4px solid #111; padding: 12px 24px 24px; background: #ff6b6b; box-shadow: 6px 6px 0 #111; margin-bottom: 24px; }
+.credits-heading p { margin: 8px 0 0; line-height: 1.7; }
+.credits-heading h1, .credits-entity-title h2, .credits-entities h3 { background: #111; color: #fff; padding: 5px 10px; width: fit-content; max-width: 100%; font-weight: 900; }
+.credits-panel { padding: 24px; border: 3px solid #111; background: #fff; margin: 20px 0; box-shadow: 5px 5px 0 #4ecdc4; }
+.credits-panel p { line-height: 1.8; margin: 10px 0; }
+.credits-panel h2, .credits-results h2 { font-size: 23px; font-weight: 900; margin: 8px 0 14px; }
+.credits-kind-tabs { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 22px; }
+.credits-search-form label { font-size: 15px; font-weight: 800; }
+.credits-search-form > div { display: flex; gap: 14px; margin-top: 10px; }
+.credits-search-form input, .credits-filters input:not([type=checkbox]), .credits-filters select { width: 100%; min-width: 0; border: 2px solid #111; padding: 10px 12px; min-height: 46px; background: #fff; color: #111; }
+.credits-search-form input { flex: 1; }
+.credits-search-form button { flex-shrink: 0; }
+.credits-search-form p, .credits-caption, .credits-entities p { font-size: 12px; color: #515b61; line-height: 1.8; }
+.credits-results { margin: 32px 0; }
+.credits-entities { display: grid; gap: 14px; list-style: none; padding: 0; }
+.credits-entities li { display: flex; align-items: center; justify-content: space-between; gap: 18px; border: 3px solid #111; padding: 18px; background: #fff; }
+.credits-entities h3 { font-size: 19px; margin: 0 0 10px; }
+.credits-entities p { margin: 4px 0; }
+.credits-entities .rec-button { flex-shrink: 0; }
+.credits-entity-title { display: flex; align-items: center; gap: 14px; }
+.credits-entity-title h2 { font-size: 28px; margin: 4px 0 10px; }
+.credits-entity-title svg { width: 32px; height: 32px; flex-shrink: 0; }
+.credits-filters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; padding-top: 16px; border-top: 2px solid #111; margin-top: 20px; }
+.credits-filters > label { font-weight: 800; font-size: 13px; display: grid; gap: 8px; }
+.credits-score-filter { grid-column: span 2; }
+.credits-filters .credits-record-filter { grid-column: span 2; display: flex; align-items: center; }
+.credits-filter-actions { display: flex; gap: 12px; flex-wrap: wrap; grid-column: 1 / -1; }
+.credits-work-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; }
+.credits-work { min-width: 0; }
+.credits-work h3 { font-size: 18px; font-weight: 900; line-height: 1.5; margin: 0; }
+.credits-work p { font-size: 12px; line-height: 1.8; margin: 6px 0; }
+.credits-work .credits-proof { padding: 10px; border-left: 3px solid #4ecdc4; background: #effaf5; }
+.credits-work details { font-size: 12px; }
+.credits-pagination { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; border-top: 2px solid #111; padding-top: 18px; margin-top: 24px; }
+.credits-notice { padding: 14px; border: 2px solid #111; background: #ffe66d; line-height: 1.8; }
+.credits-scope { margin: 20px 0; padding: 12px 16px; border: 2px solid #111; background: #fff; font-size: 13px; }
+.credits-scope summary { cursor: pointer; font-weight: 800; min-height: 28px; }
+.credits-scope .rec-access-application { margin: 16px 0; }
+.credits-summary { border: 3px solid #111; background: #fff5dd; color: #111; padding: 14px; margin: 12px 0; font-size: 13px; overflow-wrap: anywhere; flex-shrink: 0; }
+.credits-summary h3, .credits-studios > strong { display: flex; align-items: center; gap: 8px; font-weight: 900; }
+.credits-summary h3 { font-size: 16px; margin: 0 0 12px; }
+.credits-summary p { line-height: 1.8; margin: 8px 0; }
+.credits-studios { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.credits-person-link { display: inline-flex; align-items: center; background: #fff; border: 2px solid #111; color: #111; padding: 6px 10px; min-height: 36px; font: inherit; font-weight: 800; cursor: pointer; }
+.credits-person-link:hover { background: #ffe66d; }
+.credits-cast-toggle { display: flex; justify-content: space-between; width: 100%; gap: 12px; align-items: center; border: 0; border-top: 2px solid #111; background: transparent; color: #111; font: inherit; font-weight: 800; padding: 12px 0; margin-top: 14px; min-height: 44px; cursor: pointer; }
+.credits-cast-list { max-height: min(50dvh, 420px); overflow-y: auto; overscroll-behavior: contain; }
+.credits-cast-list ul { list-style: none; padding: 0; }
+.credits-cast-list li { display: flex; align-items: start; gap: 10px; margin: 12px 0; line-height: 1.8; }
+.credits-summary small { display: block; margin-top: 12px; color: #515b61; font-size: 11px; }
+.credits-summary :is(button, a):focus-visible { outline: 3px solid #111; outline-offset: 3px; }
+.memphis-rec-container .rec-dialog.rec-dialog--credits { width: 100vw; max-width: none; height: 100dvh; max-height: none; margin: 0; border: 0; box-shadow: none; flex-direction: column; overflow: hidden; }
+.memphis-rec-container .rec-dialog.rec-dialog--credits[open] { display: flex; }
+.memphis-rec-container .rec-dialog--credits > .rec-dialog-body { padding: 24px 28px; overflow-y: auto; min-height: 0; flex: 1; }
+.memphis-rec-container .rec-dialog--credits > .rec-dialog-header { padding: 10px 20px; }
+@media (max-width: 1023px) { .credits-work-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 700px) {
+  .memphis-rec-container.credits-shell { padding: 16px 12px; }
+  .memphis-rec-container.credits-shell--overlay { padding: 0; }
+  .memphis-rec-container .rec-dialog--credits > .rec-dialog-body { padding: 16px 12px; }
+  .credits-heading { padding: 12px 14px 18px; }
+  .credits-heading .rec-nav { flex-wrap: wrap; padding-bottom: 12px; }
+  .credits-panel { padding: 16px; }
+  .credits-entities li { display: block; }
+  .credits-entities .rec-button { margin-top: 12px; }
+  .credits-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .credits-work-grid { gap: 14px; }
+  .credits-work .rec-card-body { padding: 12px; }
+  .credits-work h3 { font-size: 16px; }
+  .credits-cast-list li { flex-direction: column; gap: 5px; }
+  .memphis-rec-container .rec-nav-tools { flex-wrap: wrap; justify-content: end; }
+}
+@media (max-width: 399px) {
+  .credits-search-form > div { flex-wrap: wrap; }
+  .credits-search-form input { flex-basis: 100%; }
+  .credits-work-grid { grid-template-columns: minmax(0, 1fr); }
+}

@@ -8,6 +8,7 @@ import { formatAiringPeriod } from '../utils/featuredDisplay.js'
 import CompletionReportExporter from './CompletionReportExporter.jsx'
 import AnimeResourceDrawer from './AnimeResourceDrawer.jsx'
 import SeriesSummary from './recommendations/SeriesSummary.jsx'
+import CreditsSummary from './recommendations/CreditsSummary.jsx'
 import { lockDialogBody } from '../utils/dialogBodyLock.js'
 
 gsap.registerPlugin(useGSAP)
@@ -604,6 +605,7 @@ function DetailModal({
               </div>
 
               {isPrivateJournal && !editable && <div className="memphis-modal-piece shrink-0"><SeriesSummary compact recordId={selectedItem.id} /></div>}
+              {isPrivateJournal && !editable && <div className="memphis-modal-piece shrink-0"><CreditsSummary recordId={selectedItem.id} /></div>}
 
               {editable && (
                 <div className="memphis-modal-piece border-[3px] border-black bg-[#4ecdc4] p-3 shadow-[5px_5px_0_#111]">

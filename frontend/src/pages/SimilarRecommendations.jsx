@@ -15,7 +15,7 @@ import ShowcasePublicationPanel from '../components/ShowcasePublicationPanel.jsx
 import BackToTop from '../components/BackToTop.jsx'
 import { SeriesAnnotationsProvider, RelatedWorks } from '../components/recommendations/SeriesExploration.jsx'
 
-export default function SimilarRecommendations({ client, sessionScope, cache, adult, setAdult, navigation, capabilities }) {
+export default function SimilarRecommendations({ client, sessionScope, cache, adult, setAdult, navigation, capabilities, creditsEntry }) {
   const location = useLocation(), navigate = useNavigate(), parsed = parseSimilarSeed(location.search)
   const seedId = parsed.id, scope = adult ? 'include_adult' : 'safe'
   const [localFilters, setLocalFilters] = useState(cache.filters || { ...DEFAULT_BROWSE_FILTERS })
@@ -100,7 +100,7 @@ export default function SimilarRecommendations({ client, sessionScope, cache, ad
     <a className="rec-skip-link" href="#similar-results">跳到相似作品</a>
     <div className="rec-page"><div className="rec-masthead">
       <nav className="rec-nav" aria-label="探索页面导航"><Link className="rec-back" to="/dashboard">← 返回我的手账</Link>
-        <div className="rec-nav-tools"><button type="button" className="rec-text-button" onClick={openHidden}>已隐藏作品</button></div></nav>
+        <div className="rec-nav-tools">{creditsEntry}<button type="button" className="rec-text-button" onClick={openHidden}>已隐藏作品</button></div></nav>
       <header className="rec-page-heading rec-explore-heading"><span className="rec-chapter-label">我的手账</span><h1>番剧探索</h1>{navigation}</header>
       <section className="rec-controls rec-seed-controls" aria-label="选择参照作品">
         <div className="rec-seed-selection"><strong>单番相似</strong>{seed ? <><span>参照：《{seed.title}》</span>

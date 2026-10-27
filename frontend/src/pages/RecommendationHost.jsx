@@ -10,6 +10,8 @@ import '../styles/recommendations-exploration.css'
 import { createSeriesReminderController } from '../utils/seriesReminders.js'
 import { connectSeriesReminderUpdates } from '../utils/seriesReminderUpdates.js'
 import { seriesSession } from '../hooks/useSeriesSession.js'
+import CreditsEntry from '../components/recommendations/CreditsEntry.jsx'
+import { validateCreditsCapabilities } from '../utils/recommendationCredits.js'
 
 export default function RecommendationHost({ client: baseClient, sessionScope, Personal }) {
   const location = useLocation()
@@ -20,6 +22,7 @@ export default function RecommendationHost({ client: baseClient, sessionScope, P
   const [notice, setNotice] = useState('')
   const [capability, setCapability] = useState({ status: 'loading' })
   const [attempt, setAttempt] = useState(0)
+  const [credits, setCredits] = useState(null)
   const topics = useExplorationTopics(baseClient, capability.data?.navigation?.[2]?.available === true)
   const client = useMemo(() => {
     const configured = baseClient.forSeries ? baseClient.forSeries(capability.data?.series_exploration?.enabled === true) : baseClient
@@ -41,7 +44,10 @@ export default function RecommendationHost({ client: baseClient, sessionScope, P
     setCapability({ status: 'loading' })
     if (!baseClient.capabilities) { setCapability({ status: 'unavailable' }); return () => request.abort() }
     baseClient.capabilities(request.signal).then(data => {
-      if (!request.signal.aborted) setCapability({ status: 'ready', data: validateExplorationCapabilities(data.exploration) })
+      if (!request.signal.aborted) {
+        setCapability({ status: 'ready', data: validateExplorationCapabilities(data.exploration) })
+        try { setCredits(validateCreditsCapabilities(data.credits)) } catch { setCredits(null) }
+      }
     }).catch(() => { if (!request.signal.aborted) setCapability({ status: 'error' }) })
     return () => request.abort()
   }, [baseClient, attempt])
@@ -58,7 +64,8 @@ export default function RecommendationHost({ client: baseClient, sessionScope, P
   const navigation = <RecommendationModeNavigation current={mode} capabilities={capability.data}
     tagsPath={mode === 'tags' ? `/recommendations/tags${location.search}` : caches.current.tags.path}
     similarSeed={mode === 'similar' ? parseSimilarSeed(location.search).id : caches.current.similar.seedId} />
-  const shared = { client, sessionScope, adult, setAdult, navigation, capabilities: capability.data, reminders }
+  const creditsEntry = <CreditsEntry capabilities={credits} scope={adult ? 'include_adult' : 'safe'} />
+  const shared = { client, sessionScope, adult, setAdult, navigation, capabilities: capability.data, reminders, creditsEntry }
   return <ExplorationTopicsContext.Provider value={topics}>
     {mode === 'personal' ? <Personal {...shared} cache={caches.current.personal} />
       : mode === 'similar' && capability.data?.navigation?.[1]?.available

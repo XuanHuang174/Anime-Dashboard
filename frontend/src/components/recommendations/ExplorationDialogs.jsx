@@ -9,6 +9,7 @@ import { RecommendationCover, RecommendationMeta } from './RecommendationCard.js
 import ExplorationEvidence from './ExplorationEvidence.jsx'
 import ExplorationTagChips from './ExplorationTagChips.jsx'
 import SeriesSummary from './SeriesSummary.jsx'
+import CreditsSummary from './CreditsSummary.jsx'
 
 export default function ExplorationDialogs({ interactions, client, capabilities, onSimilar, onIdentityChanged, editor, editorTitle = '给心动留一点范围' }) {
   const { panel, detail, detailController, resourceTrigger, close, reload, changed, feedback, reloadFeedback, want, openIdentity, toast } = interactions
@@ -33,7 +34,7 @@ export default function ExplorationDialogs({ interactions, client, capabilities,
               : <div className="rec-detail-content"><RecommendationCover item={detail.item} priority /><div><p className="rec-original-title">{detail.item.originalTitle}</p>
                 <RecommendationMeta item={detail.item} /><h3>{detail.item.explorationQuery.intent === 'tags' ? '题材匹配依据' : '相似依据'}</h3><ExplorationEvidence item={detail.item} expanded onReload={reload} />
                 <ExplorationTagChips tags={detail.item.tags} beforeNavigate={close} /><h3>故事简介</h3><p>{detail.item.synopsis || '暂未收录简介。'}</p>
-                <SeriesSummary client={client} bangumiId={detail.item.bangumiId} /><RecommendationDetailActions item={detail.item} resourceOpen={detail.resourceOpen}
+                <SeriesSummary client={client} bangumiId={detail.item.bangumiId} /><CreditsSummary client={client} bangumiId={detail.item.bangumiId} /><RecommendationDetailActions item={detail.item} resourceOpen={detail.resourceOpen}
                   resourceTriggerRef={resourceTrigger} onResourceOpen={detailController.openResources} onResourceClose={detailController.closeResources}
                   onClose={close} onWant={want.add} operation={want.operations[detail.item.bangumiId]} onIdentity={openIdentity}
                   onSimilar={capabilities?.navigation?.[1]?.available ? onSimilar : undefined}

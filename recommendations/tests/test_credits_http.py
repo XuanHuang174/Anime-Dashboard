@@ -3,6 +3,9 @@ import uuid
 import json
 from pathlib import Path
 from time import perf_counter
+import shutil
+import subprocess
+from django.conf import settings
 from datetime import timedelta
 from unittest.mock import patch
 from django.contrib.auth import get_user_model
@@ -354,6 +357,18 @@ class CreditsHTTPTests(TransactionTestCase):
             self.assertEqual(failure.data['code'], 'credits_data_unavailable')
         with patch('recommendations.credits_read.MAX_WORKS', 10):
             self.assertEqual(self.works().status_code, 503)
+
+    def test_actual_http_responses_pass_frontend_13d_validators(self):
+        record = self.record()
+        payload = {'search': self.get('search/', kind='studio', q='合成').data,
+            'summary': self.get('subjects/1/').data, 'full': self.get('subjects/1/', expanded='true').data,
+            'record': self.get(f'record/{record.pk}/').data, 'works': self.works().data}
+        node = shutil.which('node')
+        self.assertIsNotNone(node, 'Node required for 13D actual-wire contract verification')
+        result = subprocess.run([node, str(settings.BASE_DIR / 'frontend/tests/fixtures/verifyCreditsWire.mjs')],
+            input=json.dumps(payload), encoding='utf-8', capture_output=True, cwd=settings.BASE_DIR, timeout=20)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, '5')
 
     def test_gate_and_own_state_rechecked_at_response_boundary(self):
         from recommendations import credits_views

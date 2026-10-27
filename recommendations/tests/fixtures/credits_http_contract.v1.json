@@ -25,6 +25,7 @@
   "release_ordering": "credits.catalog-period.v1; known catalog period, unknown last; never fabricate an exact day",
   "cursor_only_inherits_conditions": true,
   "capability_flags": ["voice_actor", "studio"],
+  "work_content_rating": ["non_adult", "adult"],
   "completed_view_requires_hide_recorded_false": true,
   "common_response_fields": ["contract_version", "credits_revision", "content_scope_context", "coverage"],
   "works_response_fields": ["entity", "conditions", "count", "results", "next_cursor", "context", "expires_at"],

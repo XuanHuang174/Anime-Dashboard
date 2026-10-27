@@ -309,6 +309,7 @@ def works(user, scope, kind, person_id, query, session):
         payload = dict(RecommendationListAnimeSerializer(item, context={'content_scope': scope,
             'validated_adult_ids': {i.bangumi_id for i in page if i.nsfw is True}}).data)
         result.append({**payload, 'watch_status': states.get(item.bangumi_id),
+            'content_rating': 'adult' if item.nsfw is True else 'non_adult',
             'release_period': item.season if period(item) else '',
             'release_precision': 'catalog_period' if period(item) else 'unknown',
             'evidence': evidence(grouped[item.bangumi_id], kind)})
