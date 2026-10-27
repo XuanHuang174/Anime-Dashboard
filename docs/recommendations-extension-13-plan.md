@@ -1,6 +1,6 @@
 # 扩展 13：声优与制作公司探索
 
-日期：2026-10-27。方向由用户确认；13A 合同与 13B 存储／导入／覆盖审计已实现，当前仅完成离线和本机隔离验证，尚无线上页面或接口放行。问卷取消，不新增第四种推荐模式，不改变现有推荐排序或隐式写入长期偏好。阶段记录见 [13A](recommendations-13a.md)、[13B](recommendations-13b.md)。
+日期：2026-10-27。方向由用户确认；13A 合同、13B 存储／导入／覆盖审计、13C 登录态只读后端已实现，当前仅完成离线和本机隔离验证，尚无前端页面或线上接口放行。问卷取消，不新增第四种推荐模式，不改变现有推荐排序或隐式写入长期偏好。阶段记录见 [13A](recommendations-13a.md)、[13B](recommendations-13b.md)、[13C](recommendations-13c.md)。
 
 ## 产品入口与展示
 
@@ -25,7 +25,7 @@
 
 ## 在线合同基线（13C 实现）
 
-冻结的计划见 `recommendations/tests/fixtures/credits_http_contract.v1.json`，**当前没有对应 HTTP 路由**。
+冻结合同见 `recommendations/tests/fixtures/credits_http_contract.v1.json`；**13C 已实现以下 HTTP 路由，两个资料开关默认关闭**。摘要另支持 expanded=true 按需展开完整有界清单，具体字段、限额和错误处理见 [13C](recommendations-13c.md)。
 
 | GET 路径（均在 /api/recommendations/credits/ 下） | 作用 |
 | --- | --- |

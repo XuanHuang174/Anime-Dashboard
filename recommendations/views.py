@@ -150,7 +150,9 @@ class RecommendationCapabilitiesView(OwnRecommendationAPIView):
         self.check_query_contract(request)
         from .deployment import capabilities
         from .exploration_contract import capabilities as exploration_capabilities
-        return Response({**capabilities(), 'exploration': exploration_capabilities(request.user)})
+        from .credits_api_contract import capabilities as credits_capabilities
+        return Response({**capabilities(), 'exploration': exploration_capabilities(request.user),
+                         'credits': credits_capabilities(request.user)})
 
 
 class RecommendationContextView(OwnRecommendationAPIView):
