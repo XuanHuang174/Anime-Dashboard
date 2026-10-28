@@ -68,6 +68,10 @@ class SummaryQuery(StrictQuery):
     expanded = serializers.ChoiceField(choices=('true', 'false'), default='false')
 
 
+class ActionQuery(StrictQuery):
+    context = serializers.CharField(max_length=4096, trim_whitespace=False)
+
+
 class WorksQuery(StrictQuery):
     view = serializers.ChoiceField(choices=('all', 'completed'), default='all')
     sort = serializers.ChoiceField(choices=('score_desc', 'release_desc', 'release_asc'), default='score_desc')

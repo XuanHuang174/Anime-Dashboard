@@ -31,6 +31,9 @@ export function creditsPage({ kind = 'voice_actor', person = kind === 'studio' ?
       const identity = offset + i + 100, adult = contentScope !== 'safe' && identity === 125
       return { bangumi_id: identity, title_zh: `风与星的旅程 ${offset + i + 1}`, title_jp: 'Synthetic Story', score: 8,
         season: '2026-01', status_type: 'TV', tags: ['日常', '音乐'], cover_url: '', content_rating: adult ? 'adult' : 'non_adult',
-        watch_status: null, release_period: '2026-01', release_precision: 'catalog_period', evidence: creditsEvidence(identity, kind, person) }
+        watch_status: null, action_context: `fixture-action:${kind}:${person}:${identity}`, release_period: '2026-01', release_precision: 'catalog_period', evidence: creditsEvidence(identity, kind, person) }
     }) }
+}
+export function creditsDetail(row, kind = 'voice_actor', person = kind === 'studio' ? 201 : 101, contentScope = 'safe') {
+  return { ...creditsCommon('detail', contentScope), kind, person_id: person, item: { ...row, synopsis: '循着熟悉的声音，踏上新的旅程。合成剧情简介。' } }
 }

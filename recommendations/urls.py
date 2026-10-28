@@ -16,7 +16,8 @@ from .access_admin_views import AccessControlView, AccessApplicationsView, Acces
 from .series_views import SeriesRelationsView, SeriesWorkspaceView, SeriesDetailView, SeriesWantView, SeriesRecordView, SeriesAnnotationsView
 from .exploration_views import SeriesExplorationListView, SeriesExplorationContextView, SeriesExplorationDetailView
 from .series_reminder_views import SeriesRemindersView, SeriesReminderPresentationView
-from .credits_views import CreditsSearchView, CreditsSummaryView, CreditsRecordView, CreditsEntityView, CreditsWorksView
+from .credits_views import (CreditsSearchView, CreditsSummaryView, CreditsRecordView, CreditsEntityView,
+                           CreditsWorksView, CreditsDetailView, CreditsWantView)
 
 urlpatterns = [
     path('credits/search/', CreditsSearchView.as_view(), name='credits-search'),
@@ -24,6 +25,8 @@ urlpatterns = [
     path('credits/record/<int:record_id>/', CreditsRecordView.as_view(), name='credits-record'),
     path('credits/entities/<str:kind>/<int:person_id>/', CreditsEntityView.as_view(), name='credits-entity'),
     path('credits/entities/<str:kind>/<int:person_id>/works/', CreditsWorksView.as_view(), name='credits-works'),
+    path('credits/entities/<str:kind>/<int:person_id>/items/<int:target_id>/', CreditsDetailView.as_view(), name='credits-detail'),
+    path('credits/entities/<str:kind>/<int:person_id>/items/<int:target_id>/want/', CreditsWantView.as_view(), name='credits-want'),
     path('series/reminders/presentation/', SeriesReminderPresentationView.as_view(), name='series-reminder-presentation'),
     path('series/reminders/', SeriesRemindersView.as_view(), name='series-reminders'),
     path('series/annotations/', SeriesAnnotationsView.as_view(), name='series-annotations'),

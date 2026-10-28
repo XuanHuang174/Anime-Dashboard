@@ -10,12 +10,13 @@ import DetailModal from '../../src/components/DetailModal.jsx'
 import RecommendationDialog from '../../src/components/recommendations/RecommendationDialog.jsx'
 import { createRecommendationClient } from '../../src/api/recommendationClient.js'
 import api from '../../src/api/api.js'
-import { creditsCapability, creditsCommon, creditsSummary, creditsSearch, creditsPage } from './creditsContract.js'
+import { creditsCapability, creditsCommon, creditsSummary, creditsSearch, creditsPage, creditsDetail } from './creditsContract.js'
 import { CREDIT_DEFAULTS } from '../../src/utils/recommendationCredits.js'
 import '../../src/index.css'
 localStorage.setItem('anime_journal_access_token', 'synthetic-13d-only')
 let revision = 1, closed = false, failNext = false
 const calls = [], queries = new Map()
+const owned = new Map([[101, 'completed'], [102, 'watching'], [103, 'on_hold'], [104, 'plan']]), actions = new Map()
 const wait = signal => new Promise((resolve, reject) => { const timer = setTimeout(resolve, 130)
   signal?.addEventListener('abort', () => { clearTimeout(timer); reject(new DOMException('Aborted', 'AbortError')) }, { once: true }) })
 const transport = { get: async (path, config = {}) => {
@@ -34,7 +35,12 @@ const transport = { get: async (path, config = {}) => {
     data = creditsSearch(params.kind, scope); if (params.q === '不存在') data.results = []
   } else if (/credits\/record\//.test(path)) data = { ...creditsCommon('record', scope), record_id: 9, identity_state: 'linked', bangumi_id: 1 }
   else if (/credits\/subjects\//.test(path)) data = creditsSummary(Number(path.split('/').at(-2)), params.expanded === 'true', scope)
-  else if (/credits\/entities\//.test(path)) {
+  else if (/credits\/entities\/.*\/items\//.test(path)) {
+    const row = actions.get(params.context)
+    if (!row) throw { response: { status: 409, data: { code: 'credits_snapshot_changed' } } }
+    const [, kind, person] = path.match(/entities\/(voice_actor|studio)\/(\d+)/)
+    data = creditsDetail({ ...row, watch_status: owned.get(row.bangumi_id) || null }, kind, Number(person), scope)
+  } else if (/credits\/entities\//.test(path)) {
     const [kind, identity] = path.match(/entities\/(voice_actor|studio)\/(\d+)/).slice(1)
     const previous = params.cursor ? queries.get(params.cursor) : null
     const options = previous ? previous.options : { ...CREDIT_DEFAULTS, ...params }
@@ -42,11 +48,27 @@ const transport = { get: async (path, config = {}) => {
     if (!options) throw Error('Invalid fixture cursor')
     const offset = params.cursor ? Number(params.cursor.split(':')[1]) : 0
     const expires = previous?.expires || Math.floor(Date.now() / 1000) + 900
-    data = creditsPage({ kind, person: Number(identity), offset, options, contentScope: scope, count: options.min_score >= 9 ? 0 : scope === 'safe' ? 25 : 26, expires })
+    const total = scope === 'safe' ? 25 : 26
+    const all = [0, 12, 24].flatMap(start => creditsPage({ kind, person: Number(identity), offset: start, options, contentScope: scope, count: total, expires }).results)
+      .map(row => ({ ...row, watch_status: owned.get(row.bangumi_id) || null }))
+      .filter(row => !(options.hide_recorded && row.watch_status) && (options.view !== 'completed' || row.watch_status === 'completed') && options.min_score < 9)
+    data = creditsPage({ kind, person: Number(identity), offset, options, contentScope: scope, count: all.length, expires })
+    data.results = all.slice(offset, offset + 12)
+    data.results.forEach(row => actions.set(row.action_context, row))
     if (data.next_cursor) queries.set(data.next_cursor, { options, expires })
   } else data = { results: [], count: 0 }
   data.credits_revision = revision
   return { data }
+}, post: async (path, body, config = {}) => {
+  calls.push(path); await wait(config.signal)
+  if (closed) throw { response: { status: 503, data: { code: 'credits_disabled' } } }
+  const row = actions.get(config.params?.context)
+  if (!row) throw { response: { status: 409, data: { code: 'credits_snapshot_changed' } } }
+  const existing = owned.has(row.bangumi_id)
+  if (!existing) owned.set(row.bangumi_id, 'plan')
+  return { data: { ...creditsCommon('want', config.params?.content_scope), contract_version: 'recommendations.want.v1',
+    bangumi_id: row.bangumi_id, anime_id: row.bangumi_id + 1000, record_id: row.bangumi_id + 2000,
+    content_rating: row.content_rating, created: !existing, outcome: existing ? 'existing' : 'created', watch_status: owned.get(row.bangumi_id) } }
 } }
 const client = createRecommendationClient(transport)
 api.defaults.adapter = async config => ({ ...(await transport.get(config.url, config)), config, status: 200, statusText: 'OK', headers: {} })
@@ -70,7 +92,7 @@ function Origin() {
 const app = <StrictMode><BrowserRouter><SeriesNavigation renderCredits={overlay => <CreditsExplorer client={client} overlay={overlay} />}>
   <Route path="/dashboard" element={<Origin />} /><Route path="/recommendations" element={<Origin />} />
   <Route path="/recommendations/similar" element={<Origin />} /><Route path="/recommendations/tags" element={<Origin />} />
-  <Route path="*" element={<main style={{ padding: 24 }}><h1>13D 本机隔离验收</h1><Link to="/recommendations">从推荐页开始</Link><br /><Link to="/recommendations/credits">直接打开人物与制作</Link></main>} />
+  <Route path="*" element={<main style={{ padding: 24 }}><h1>13E 本机隔离验收</h1><Link to="/recommendations">从推荐页开始</Link><br /><Link to="/recommendations/credits">直接打开人物与制作</Link></main>} />
 </SeriesNavigation></BrowserRouter></StrictMode>
 const viewport = new URLSearchParams(location.search).get('viewport')
 createRoot(document.getElementById('root')).render(viewport ? <iframe title={`${viewport}px 隔离视口`} src="/tests/fixtures/creditsHarness.html"

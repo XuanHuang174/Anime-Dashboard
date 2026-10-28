@@ -103,6 +103,7 @@ export function validateCreditsWorks(data, kind, person, options, scope, now = D
       || !text(row.cover_url, 4096) || !Array.isArray(row.tags) || row.tags.length > 100 || row.tags.some(t => !text(t, 80))
       || !['non_adult', 'adult'].includes(row.content_rating) || row.content_rating === 'adult' && (scope !== 'include_adult' || row.cover_url !== '')
       || ![null, 'plan', 'watching', 'completed', 'on_hold'].includes(row.watch_status)
+      || !text(row.action_context, 4096) || !row.action_context
       || !['catalog_period', 'unknown'].includes(row.release_precision) || !text(row.release_period, 40)
       || row.release_precision === 'unknown' && row.release_period !== '') fail()
     evidence(row.evidence, row.bangumi_id, kind, person); ids.add(row.bangumi_id)
@@ -112,7 +113,22 @@ export function validateCreditsWorks(data, kind, person, options, scope, now = D
 export function creditItem(row) {
   return { bangumiId: row.bangumi_id, title: row.title_zh || row.title_jp || `作品 ${row.bangumi_id}`,
     coverUrl: row.content_rating === 'adult' ? '' : row.cover_url, contentRating: row.content_rating,
-    year: row.season.match(/^[1-9]\d{3}/)?.[0] || '', type: row.status_type, score: row.score }
+    year: row.season.match(/^[1-9]\d{3}/)?.[0] || '', type: row.status_type, score: row.score, watchStatus: row.watch_status }
+}
+export function validateCreditsDetail(data, kind, person, row, scope) {
+  common(data, 'detail', scope)
+  const item = data.item
+  if (data.kind !== kind || data.person_id !== person || item?.bangumi_id !== row.bangumi_id
+    || !text(item.title_zh, 500) || !text(item.title_jp, 500) || !text(item.synopsis, 100000)
+    || !text(item.season, 40) || !text(item.status_type, 40) || !text(item.cover_url, 4096)
+    || !Number.isFinite(item.score) || item.score < 0 || item.score > 10
+    || !Array.isArray(item.tags) || item.tags.length > 100 || item.tags.some(t => !text(t, 80))
+    || ![null, 'plan', 'watching', 'completed', 'on_hold'].includes(item.watch_status)
+    || item.content_rating !== row.content_rating || item.content_rating === 'adult' && (scope !== 'include_adult' || item.cover_url !== '')) fail()
+  return { ...creditItem(item), originalTitle: item.title_jp, synopsis: item.synopsis, season: item.season, tags: item.tags }
+}
+export function creditsWatchLabel(status) {
+  return ({ plan: '已在想看', watching: '在看中', completed: '已看过', on_hold: '已搁置' })[status] || '无已确认记录'
 }
 export function creditsFailure(error) {
   const code = error?.response?.data?.code

@@ -31,8 +31,11 @@ export function createRecommendationClient(transport, scope = 'safe', onLost = (
         && error.response?.data?.code === 'series_snapshot_changed'
       const creditsChanged = path.startsWith('recommendations/credits/') && error.response?.status === 409
         && error.response?.data?.code === 'credits_snapshot_changed'
+      const creditsWriteConflict = path.startsWith('recommendations/credits/') && (
+        error.response?.status === 409 && ['identity_confirmation_required', 'public_identity_conflict', 'journal_field_conflict', 'identity_changed'].includes(error.response?.data?.code)
+        || error.response?.status === 403 && error.response?.data?.code === 'capacity_exceeded')
       if (controlled && scope === 'include_adult' && !config.signal?.aborted
-        && (error.scopeLost || error.response?.status === 403 || error.response?.status === 409 && !explorationChanged && !seriesChanged && !creditsChanged)) onLost()
+        && (error.scopeLost || !creditsWriteConflict && (error.response?.status === 403 || error.response?.status === 409 && !explorationChanged && !seriesChanged && !creditsChanged))) onLost()
       throw error
     })
   }
@@ -45,6 +48,10 @@ export function createRecommendationClient(transport, scope = 'safe', onLost = (
     creditsSearch: (kind, q, signal) => client.get('recommendations/credits/search/', { params: { kind: creditsKind(kind), q }, signal }).then(r => r.data),
     creditsSummary: (id, expanded, signal) => client.get(`recommendations/credits/subjects/${seriesId(id)}/`, { params: expanded ? { expanded: 'true' } : {}, signal }).then(r => r.data),
     creditsRecord: (id, signal) => client.get(`recommendations/credits/record/${seriesId(id)}/`, { signal }).then(r => r.data),
+    creditsDetail: (kind, person, id, context, signal) => client.get(`recommendations/credits/entities/${creditsKind(kind)}/${seriesId(person)}/items/${seriesId(id)}/`,
+      { params: { context: seriesContext(context) }, signal }).then(r => r.data),
+    creditsWant: (kind, person, id, context, signal) => client.post(`recommendations/credits/entities/${creditsKind(kind)}/${seriesId(person)}/items/${seriesId(id)}/want/`, {},
+      { params: { context: seriesContext(context) }, signal }).then(r => r.data),
     creditsWorks: (kind, id, params, signal) => client.get(`recommendations/credits/entities/${creditsKind(kind)}/${seriesId(id)}/works/`, {
       params: params.cursor ? { cursor: seriesContext(params.cursor) } : Object.fromEntries(Object.entries(params).filter(([, v]) => v !== null)), signal }).then(r => r.data),
     seriesReminders: signal => client.get('recommendations/series/reminders/', { signal }).then(r => r.data),

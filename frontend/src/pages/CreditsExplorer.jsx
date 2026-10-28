@@ -4,10 +4,13 @@ import defaultClient from '../api/recommendations.js'
 import useSeriesSession, { seriesSession } from '../hooks/useSeriesSession.js'
 import useCreditsMotion from '../hooks/useCreditsMotion.js'
 import { CREDIT_KINDS, CREDIT_DEFAULTS, creditsAvailable, creditsFailure, creditsRoute, creditItem,
-  creditsNavigationState, validateCreditsCapabilities } from '../utils/recommendationCredits.js'
+  creditsNavigationState, validateCreditsCapabilities, creditsWatchLabel } from '../utils/recommendationCredits.js'
 import { createCreditsWorkspace } from '../utils/creditsWorkspace.js'
+import { notifyRecommendationChange } from '../utils/recommendationReload.js'
+import { wantButtonState } from '../utils/recommendationWant.js'
 import { watchRecommendationScope } from '../utils/recommendationScopeMonitor.js'
 import RecommendationDialog from '../components/recommendations/RecommendationDialog.jsx'
+import RecommendationResourcePanel from '../components/recommendations/RecommendationResourcePanel.jsx'
 import RecommendationContentScopeToggle from '../components/recommendations/RecommendationContentScopeToggle.jsx'
 import { RecommendationCover, RecommendationMeta } from '../components/recommendations/RecommendationCard.jsx'
 import { CreditsIcon } from '../components/recommendations/CreditsEntry.jsx'
@@ -60,8 +63,10 @@ function Explorer({ client: base = defaultClient, overlay = false, session }) {
       for (const kind of Object.keys(CREDIT_KINDS)) if (value[kind]) mark(value[kind])
     }
     const changed = () => Object.values(caches.current).forEach(mark)
+    const storage = event => { if (event.key === 'anime-dashboard:recommendation-invalidate:v1') changed() }
     window.addEventListener('recommendation-data-changed', changed)
-    return () => window.removeEventListener('recommendation-data-changed', changed)
+    window.addEventListener('storage', storage)
+    return () => { window.removeEventListener('recommendation-data-changed', changed); window.removeEventListener('storage', storage) }
   }, [])
   useEffect(() => {
     const previous = document.title; document.title = '人物与制作 · 番剧探索'
@@ -109,18 +114,22 @@ function ScopeControl({ client, adult, onApply }) {
 }
 function useWorkspace({ client, kind, person, scope, session, cache }, onReady) {
   const controller = useMemo(() => createCreditsWorkspace({ client, kind, person, scope, cache,
-    isCurrent: () => seriesSession() === session }), [client, kind, person, scope, session, cache])
+    isCurrent: () => seriesSession() === session, onConfirmed: () => notifyRecommendationChange() }), [client, kind, person, scope, session, cache])
   const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot)
   const notify = useRef(onReady); notify.current = onReady
   useEffect(() => { controller.activate(); return () => controller.dispose() }, [controller])
   useLayoutEffect(() => { if (state.data) notify.current() }, [state.data])
   useEffect(() => {
-    const changed = () => controller.invalidate(false, '手账或隐藏记录已变化，重新读取后继续浏览。')
+    const changed = () => { if (!controller.isNotifying()) controller.invalidate(false, '手账或隐藏记录已变化，重新读取后继续浏览。') }
+    const storage = event => { if (event.key === 'anime-dashboard:recommendation-invalidate:v1') changed() }
     window.addEventListener('recommendation-data-changed', changed)
-    return () => window.removeEventListener('recommendation-data-changed', changed)
+    window.addEventListener('storage', storage)
+    return () => { window.removeEventListener('recommendation-data-changed', changed); window.removeEventListener('storage', storage) }
   }, [controller])
   useEffect(() => {
-    if (!state.data || state.stale) return
+    // A confirmed write keeps its detail open while the list awaits rereading;
+    // expiry and adult-scope monitoring must continue during that interval.
+    if (!state.data) return
     const end = person ? state.data.expires_at * 1000 : state.loadedAt + 900000
     const timer = setTimeout(() => controller.invalidate(), Math.max(0, end - Date.now()))
     const check = () => { if (Date.now() >= end) controller.invalidate() }
@@ -173,6 +182,8 @@ function CreditsSearch({ client, flags, scope, session, cache, onChoose, onReady
 function EntityWorks({ client, kind, person, scope, session, cache, onReady }) {
   const [options, setOptions] = useState(cache.options || { ...CREDIT_DEFAULTS }), [draft, setDraft] = useState(cache.draft || options), [error, setError] = useState('')
   const [controller, state] = useWorkspace({ client, kind, person, scope, session, cache }, onReady)
+  const [resources, setResources] = useState(false), resourceTrigger = useRef(null)
+  useEffect(() => setResources(false), [state.detail?.target, state.detail?.status])
   useEffect(() => { controller.ensure(options) }, [controller])
   useLayoutEffect(() => { cache.options = options; cache.draft = draft }, [cache, options, draft])
   const field = (key, value) => setDraft(old => ({ ...old, [key]: value }))
@@ -185,10 +196,14 @@ function EntityWorks({ client, kind, person, scope, session, cache, onReady }) {
     setError(''); setOptions(next); controller.load(next)
   }
   const data = state.data
+  const writing = Object.values(state.operations).some(op => op.status === 'adding')
+  const blocked = state.pending || state.morePending || state.stale || writing
   return <><section className="credits-panel rec-featured-main"><div className="credits-entity-title"><CreditsIcon kind={kind} /><div>
     <p>{CREDIT_KINDS[kind]} · Bangumi person {person}</p><h2>{data?.entity.name || `人物 ${person}`}</h2></div></div>
     {data && <p>当前内容范围确认关联 <strong>{data.entity.work_count}</strong> 部 · 本次筛选 <strong>{data.count}</strong> 部</p>}
     <form className="credits-filters" onSubmit={apply} aria-label="参与作品筛选">
+      <label>浏览范围<select value={draft.view} onChange={event => setDraft(old => ({ ...old, view: event.target.value,
+        hide_recorded: event.target.value === 'completed' ? false : true }))}><option value="all">关联作品</option><option value="completed">我看过的（已看完）</option></select></label>
       <label>排序<select value={draft.sort} onChange={event => field('sort', event.target.value)}><option value="score_desc">Bangumi 评分优先</option><option value="release_desc">放送时期：由新到旧</option><option value="release_asc">放送时期：由旧到新</option></select></label>
       <label>作品类型<select value={draft.type} onChange={event => field('type', event.target.value)}>{['all', 'TV', 'OVA', '剧场版', 'WEB', '短片', '动态漫画'].map(type => <option key={type} value={type}>{type === 'all' ? '不限类型' : type}</option>)}</select></label>
       <label>起始年份<input inputMode="numeric" maxLength={4} placeholder="不限" value={draft.year_from ?? ''} onChange={event => field('year_from', event.target.value)} /></label>
@@ -196,13 +211,14 @@ function EntityWorks({ client, kind, person, scope, session, cache, onReady }) {
       <label className="credits-score-filter">Bangumi 评分<select value={draft.max_score_exclusive ? 'lt6' : String(draft.min_score)} onChange={event => setDraft(old => ({ ...old,
         min_score: event.target.value === 'lt6' ? 0 : Number(event.target.value), max_score: event.target.value === 'lt6' ? 6 : 10, max_score_exclusive: event.target.value === 'lt6' }))}>
         <option value="0">不限评分</option><option value="lt6">6.0 以下（不含未知评分）</option>{[6, 6.5, 7, 7.5, 8, 8.5, 9].map(score => <option value={score} key={score}>{score.toFixed(1)} 及以上</option>)}</select></label>
-      <label className="rec-checkbox credits-record-filter"><input type="checkbox" checked={draft.hide_recorded} onChange={event => field('hide_recorded', event.target.checked)} />隐藏手账中已记录的作品</label>
+      <label className="rec-checkbox credits-record-filter"><input type="checkbox" checked={draft.hide_recorded} disabled={draft.view === 'completed'} onChange={event => field('hide_recorded', event.target.checked)} />隐藏手账中已记录的作品</label>
       <div className="credits-filter-actions"><button type="button" className="rec-button" onClick={() => { setDraft({ ...CREDIT_DEFAULTS }); setError('') }}>恢复默认条件</button>
-        <button type="submit" className="rec-button rec-button--primary" disabled={state.pending}>应用筛选</button></div>
-      {error && <p role="alert">{error}</p>}</form><p className="credits-caption">按已知放送时期排序，未知时期排在最后；不代表观看顺序。仅筛选本次浏览，不修改你的偏好。</p></section>
+        <button type="submit" className="rec-button rec-button--primary" disabled={state.pending || writing}>应用筛选</button></div>
+      {error && <p role="alert">{error}</p>}</form><p className="credits-caption">“我看过的”仅包含本人已确认作品身份且已看完的记录；在看、想看、搁置不计入。无已确认记录不代表没看过。</p>
+      <p className="credits-caption">按已知放送时期排序，未知时期排在最后；不代表观看顺序。仅筛选本次浏览，不修改你的偏好。</p></section>
     <section className={`credits-results${data ? ' rec-more-section' : ''}`} aria-label="参与作品列表" aria-busy={state.pending || state.morePending}>
       <h2>{kind === 'studio' ? '参与制作的作品' : '参与配音的作品'}</h2>
-      {state.message && <p className="credits-notice" role="status">{state.message} <button className="series-link" onClick={() => controller.load(options)}>重新读取</button></p>}
+      {state.message && <p className="credits-notice" role="status">{state.message} <button className="series-link" disabled={writing} onClick={() => controller.load(options)}>重新读取</button></p>}
       {state.pending && <p role="status">{data ? '正在按新条件读取，当前保留上次结果…' : '正在读取关联作品…'}</p>}
       {data && <><p className="credits-caption">{data.coverage.detail}</p><div className="credits-work-grid">{data.results.map(row => <article className="rec-card credits-work" key={row.bangumi_id}>
         <RecommendationCover item={creditItem(row)} /><div className="rec-card-body"><h3>{row.title_zh || row.title_jp}</h3><RecommendationMeta item={creditItem(row)} />
@@ -210,10 +226,33 @@ function EntityWorks({ client, kind, person, scope, session, cache, onReady }) {
           {row.evidence.source_episode_note && <p>来源备注：{row.evidence.source_episode_note}</p>}
           {kind === 'voice_actor' && (row.evidence.characters.length > 3 || row.evidence.characters.some(c => c.source_episode_note)) && <details><summary>完整角色与出演备注</summary>{row.evidence.characters.map(c => <p key={c.character_id}>{c.name}{c.source_episode_note ? `：${c.source_episode_note}` : ''}</p>)}</details>}
           <p className="credits-caption">放送时期：{row.release_period || '未知'} · Bangumi {row.bangumi_id}</p>
+          <p className="credits-own-status">本人状态：{creditsWatchLabel(row.watch_status)}</p>
+          <div className="credits-work-actions"><button className="rec-button rec-button--primary" disabled={blocked} onClick={() => controller.select(row.bangumi_id)}>查看详情 ↗</button>
+            <CreditsWant row={row} operation={state.operations[row.bangumi_id]} blocked={blocked} onWant={() => controller.want(row.bangumi_id)} /></div>
         </div></article>)}</div>
         {!data.results.length && <div className="credits-panel"><h3>当前条件没有可展示的作品</h3><p>可调整年份、类型、评分或隐藏已有记录选项；条件不会自动放宽。</p></div>}
         <div className="credits-pagination"><p role="status">已展示 {data.results.length} / {data.count} 部</p>
-          {data.next_cursor && <button className="rec-button rec-button--primary" disabled={state.pending || state.morePending || state.stale} onClick={controller.more}>{state.morePending ? '正在加载…' : '加载更多关联作品'}</button>}</div>
+          {data.next_cursor && <button className="rec-button rec-button--primary" disabled={blocked} onClick={controller.more}>{state.morePending ? '正在加载…' : '加载更多关联作品'}</button>}</div>
       </>}
-    </section></>
+    </section>
+    {state.detail && <RecommendationDialog title={state.detail.item?.title || '参与作品详情'} onClose={controller.closeDetail}
+      resourceOpen={resources && state.detail.status === 'ready'} onResourceClose={() => setResources(false)} resourceTriggerRef={resourceTrigger}
+      resourcePanel={state.detail.status === 'ready' ? <RecommendationResourcePanel item={state.detail.item} open={resources}
+        sessionKey={`${session}:${kind}:${person}:${state.detail.target}`} onClose={() => setResources(false)} /> : null}>
+      {state.detail.status === 'loading' ? <p role="status">正在读取作品详情与本人状态…</p> : state.detail.status === 'error'
+        ? <div role="alert"><p>{state.detail.message}</p><button className="rec-button" onClick={() => controller.select(state.detail.target)}>重试详情</button></div>
+        : <div className="rec-detail-content"><RecommendationCover item={state.detail.item} priority /><div><p>{state.detail.item.originalTitle}</p>
+          <p>{state.detail.item.season || '季度未知'} · {state.detail.item.type || '发行形式未知'}</p><p>本人状态：{creditsWatchLabel(state.detail.item.watchStatus)}</p>
+          <h3>故事简介</h3><p>{state.detail.item.synopsis || '暂未收录简介。'}</p><p>{state.detail.item.tags.join(' · ')}</p>
+          <div className="credits-work-actions"><CreditsWant row={{ bangumi_id: state.detail.target, watch_status: state.detail.item.watchStatus }}
+            operation={state.operations[state.detail.target]} blocked={blocked} onWant={() => controller.want(state.detail.target)} />
+            <button ref={resourceTrigger} className="rec-button" aria-expanded={resources} onClick={() => setResources(v => !v)}>🧲 寻找资源</button></div>
+          {state.stale && <p role="status">{state.message}</p>}</div></div>}
+    </RecommendationDialog>}</>
+}
+function CreditsWant({ row, operation, blocked, onWant }) {
+  const button = wantButtonState({ watchStatus: row.watch_status }, operation)
+  return <><button className="rec-button" disabled={blocked || button.disabled || button.confirm} onClick={onWant}>
+    {button.confirm ? '请先核对旧记录' : button.label}</button>
+    {operation?.error && <p className="rec-inline-error" role="alert">{operation.error.message}</p>}</>
 }

@@ -1,4 +1,4 @@
-"""13C authenticated GET adapters, independent of series/exploration gates."""
+"""Authenticated credits reads and 13E want adapter, independent of other gates."""
 from django.db import DatabaseError
 from rest_framework.exceptions import APIException, NotFound, ValidationError
 from rest_framework.response import Response
@@ -6,7 +6,7 @@ from rest_framework.throttling import UserRateThrottle, ScopedRateThrottle
 from .views import OwnRecommendationAPIView
 from . import credits_read as reads
 from .credits_api_contract import (KINDS, StrictQuery, SearchQuery, WorksQuery, SummaryQuery,
-    CreditsChanged, CreditsUnavailable, require_access, rollout_revision)
+    CreditsChanged, CreditsUnavailable, require_access, rollout_revision, ActionQuery)
 from .credits_contract import integer
 from .evidence import _token
 
@@ -26,7 +26,7 @@ class CreditsView(OwnRecommendationAPIView):
         kind = kwargs.get('kind')
         if kind is not None and kind not in KINDS:
             raise NotFound()
-        for key in ('person_id', 'bangumi_id', 'record_id'):
+        for key in ('person_id', 'bangumi_id', 'record_id', 'target_id'):
             if key in kwargs:
                 try:
                     integer(kwargs[key])
@@ -38,6 +38,10 @@ class CreditsView(OwnRecommendationAPIView):
         query = serializer(data=self.query_params(request))
         query.is_valid(raise_exception=True)
         return query.validated_data
+
+    def session(self, request):
+        return _token('recommendations.credits.session', [str(request.auth or ''),
+            getattr(getattr(request, 'session', None), 'session_key', None)])
 
     def execute(self, request, operation):
         def snapshot():
@@ -102,11 +106,44 @@ class CreditsWorksView(CreditsView):
                       'cursor': params['cursor']}
         check = WorksQuery(data=params)
         check.is_valid(raise_exception=True)
-        session = _token('recommendations.credits.session', [str(request.auth or ''),
-            getattr(getattr(request, 'session', None), 'session_key', None)])
+        session = self.session(request)
         def operation():
             data = reads.works(request.user, request.content_scope, kind, person_id, check.validated_data, session)
             expected = reads.load_cursor(data['context'])['revision']
             self.private_guard = lambda: reads.live_revision(request.user, request.content_scope, session)[0] == expected
             return data
         return self.execute(request, operation)
+
+
+class CreditsDetailView(CreditsView):
+    def get(self, request, kind, person_id, target_id):
+        from .credits_workspace import detail
+        query, session = self.query(request, ActionQuery), self.session(request)
+        def operation():
+            data = detail(request.user, request.content_scope, session, kind, person_id, target_id, query['context'])
+            expected = reads.live_revision(request.user, request.content_scope, session)[0]
+            self.private_guard = lambda: reads.live_revision(request.user, request.content_scope, session)[0] == expected
+            return data
+        return self.execute(request, operation)
+
+
+class CreditsWantView(CreditsView):
+    throttle_scope = 'recommendation_write'
+
+    def handle_exception(self, exc):
+        from .want import WantConflict
+        if isinstance(exc, WantConflict):
+            response = Response(exc.payload, status=exc.status_code)
+            response.exception = True
+            return response
+        return super().handle_exception(exc)
+
+    def post(self, request, kind, person_id, target_id):
+        from .credits_workspace import want
+        from .serializers import RecommendationWantSerializer
+        query = self.query(request, ActionQuery)
+        if not isinstance(request.data, dict) or request.data:
+            raise ValidationError('本接口只接受空 JSON 对象，不接受手账编辑字段。')
+        result = want(request.user, request.content_scope, self.session(request), kind, person_id, target_id, query['context'])
+        # Do not turn a committed acknowledgement into a failed write during finalization.
+        return Response(RecommendationWantSerializer(result).data, status=201 if result['created'] else 200)

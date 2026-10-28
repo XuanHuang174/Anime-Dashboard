@@ -305,10 +305,13 @@ def works(user, scope, kind, person_id, query, session):
     for fact in page_facts:
         grouped[fact.observation.bangumi_id].append(fact)
     result = []
+    from .credits_workspace import binding, action_context
+    bound = binding(user, scope, session, kind, person_id)
     for item in page:
         payload = dict(RecommendationListAnimeSerializer(item, context={'content_scope': scope,
             'validated_adult_ids': {i.bangumi_id for i in page if i.nsfw is True}}).data)
         result.append({**payload, 'watch_status': states.get(item.bangumi_id),
+            'action_context': action_context(bound, item.bangumi_id, expires),
             'content_rating': 'adult' if item.nsfw is True else 'non_adult',
             'release_period': item.season if period(item) else '',
             'release_precision': 'catalog_period' if period(item) else 'unknown',

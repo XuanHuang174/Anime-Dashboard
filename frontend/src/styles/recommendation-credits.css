@@ -32,6 +32,10 @@
 .credits-filter-actions { display: flex; gap: 12px; flex-wrap: wrap; grid-column: 1 / -1; }
 .credits-work-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; }
 .credits-work { min-width: 0; }
+.credits-work-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.credits-work .credits-work-actions { margin-top: auto; padding-top: 14px; }
+.credits-own-status { font-weight: 800; }
+.credits-work-actions .rec-inline-error { flex-basis: 100%; }
 .credits-work h3 { font-size: 18px; font-weight: 900; line-height: 1.5; margin: 0; }
 .credits-work p { font-size: 12px; line-height: 1.8; margin: 6px 0; }
 .credits-work .credits-proof { padding: 10px; border-left: 3px solid #4ecdc4; background: #effaf5; }

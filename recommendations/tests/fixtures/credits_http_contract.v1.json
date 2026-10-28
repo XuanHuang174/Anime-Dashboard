@@ -11,7 +11,9 @@
     {"method": "GET", "path": "/api/recommendations/credits/subjects/{bangumi_id}/", "version": "recommendations.credits.summary.v1", "purpose": "bounded source credits for an eligible catalog work"},
     {"method": "GET", "path": "/api/recommendations/credits/record/{record_id}/", "version": "recommendations.credits.record.v1", "purpose": "own confirmed journal identity only"},
     {"method": "GET", "path": "/api/recommendations/credits/entities/{kind}/{person_id}/", "version": "recommendations.credits.entity.v1", "purpose": "scope-filtered entity header and coverage"},
-    {"method": "GET", "path": "/api/recommendations/credits/entities/{kind}/{person_id}/works/", "version": "recommendations.credits.works.v1", "page_size": 12}
+    {"method": "GET", "path": "/api/recommendations/credits/entities/{kind}/{person_id}/works/", "version": "recommendations.credits.works.v1", "page_size": 12},
+    {"method": "GET", "path": "/api/recommendations/credits/entities/{kind}/{person_id}/items/{bangumi_id}/", "version": "recommendations.credits.detail.v1", "required_query": ["context"]},
+    {"method": "POST", "path": "/api/recommendations/credits/entities/{kind}/{person_id}/items/{bangumi_id}/want/", "version": "recommendations.want.v1", "required_query": ["context"], "empty_json_only": true}
   ],
   "works_query": ["view", "sort", "type", "year_from", "year_to", "min_score", "max_score", "max_score_exclusive", "hide_recorded", "cursor"],
   "views": ["all", "completed"],
@@ -30,11 +32,14 @@
   "common_response_fields": ["contract_version", "credits_revision", "content_scope_context", "coverage"],
   "works_response_fields": ["entity", "conditions", "count", "results", "next_cursor", "context", "expires_at"],
   "result_evidence_fields": ["subject_id", "person_id", "kind", "position_or_cast_type", "characters", "source_episode_note"],
+  "work_action_field": "action_context",
+  "action_context_bindings": ["account_session", "content_scope", "credits_revision", "catalog_revision", "rollout_revision", "entity_kind", "person_id", "target_id", "expires"],
+  "action_context_own_revision": false,
   "context_bindings": ["account_session", "content_scope_revision", "credits_revision", "catalog_revision", "own_records_revision", "feedback_revision", "conditions", "entity_kind", "person_id", "sort_version"],
   "context_ttl_seconds": 900,
   "error_codes": ["credits_disabled", "credits_snapshot_changed", "credits_data_unavailable"],
   "privacy": "own authenticated no-store; public source graph may be shared, scope-filtered results and counts may not",
   "external_requests_on_browse": false,
-  "new_writes": false,
-  "want_and_detail": "reuse existing own-record identity, eligible detail and idempotent want contracts"
+  "new_writes": true,
+  "want_and_detail": "13E source-bound adapters reuse existing own-record identity, eligible detail serializer and idempotent add_want writer; default closed"
 }
