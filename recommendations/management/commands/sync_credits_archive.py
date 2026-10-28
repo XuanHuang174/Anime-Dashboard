@@ -27,6 +27,14 @@ class CreditsWriteGuard:
         return execute(sql, params, many, context)
 
 
+class CreditsPreviewGuard:
+    """Explicit preview cannot emit business writes, DDL, COPY or writable CTEs."""
+    def __call__(self, execute, sql, params, many, context):
+        if not re.match(r'^(SELECT|SET|SAVEPOINT|RELEASE|ROLLBACK|BEGIN|COMMIT)\b', sql.strip(), re.I):
+            raise SourceError('只读预检禁止执行写入 SQL。')
+        return execute(sql, params, many, context)
+
+
 def catalog_snapshot():
     with readonly_snapshot():
         rows = list(RecommendationAnime.objects.filter(bangumi_id__gt=0).order_by('bangumi_id')
@@ -48,10 +56,20 @@ class Command(BaseCommand):
         parser.add_argument('--report', type=Path, required=True)
         parser.add_argument('--timeout-seconds', type=int, default=600)
         parser.add_argument('--batch-size', type=int, default=10)
-        parser.add_argument('--apply', action='store_true')
+        mode = parser.add_mutually_exclusive_group()
+        mode.add_argument('--apply', action='store_true')
+        mode.add_argument('--preview-only', action='store_true', help='显式只读预检，SQL 守卫禁止所有写库操作')
         parser.add_argument('--expected-plan')
 
     def handle(self, *args, **options):
+        if options.get('preview_only') and options.get('apply'):
+            raise CommandError('--preview-only 与 --apply 互斥。')
+        if options.get('preview_only'):
+            with connection.execute_wrapper(CreditsPreviewGuard()):
+                return self.run(options)
+        return self.run(options)
+
+    def run(self, options):
         report = None
         try:
             if options['report'].exists() or not 1 <= options['batch_size'] <= MAX_BATCH:

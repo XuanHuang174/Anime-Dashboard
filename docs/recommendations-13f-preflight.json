@@ -1,0 +1,253 @@
+{
+  "contract_version": "recommendations.credits.13f.preflight-receipt.v1",
+  "generated_at": "2026-10-28T08:38:44.773269+00:00",
+  "status": "production_import_and_authorized_acceptance_pending",
+  "production_database_access": "enforced_readonly_public_catalog_and_credits_only",
+  "production_writes": false,
+  "render_configuration_changed": false,
+  "live_release_verified": false,
+  "migration_probe": {
+    "backend": "postgresql",
+    "migration_0016": true,
+    "catalog_count": 31104,
+    "segments": {
+      "safe": 28636,
+      "adult": 2468,
+      "unknown": 0
+    },
+    "credits_heads": 0,
+    "credits_revision": null
+  },
+  "archive": {
+    "snapshot_version": "dump-2026-10-20.210332Z",
+    "source_at": "2026-10-20T21:03:32+00:00",
+    "source_reference": "https://github.com/bangumi/Archive/releases/download/archive/dump-2026-10-20.210332Z.zip",
+    "archive_sha256": "9fe8de272398ff4bd12994b73e25aac37cca631372383f6aadc503528623aa93",
+    "member_hashes": {
+      "subject-persons.jsonlines": {
+        "sha256": "e65213f42f353a1536ff16242ade0de7dabf532738b4b6a3264a7c21b1d8bb05",
+        "rows": 2232175
+      },
+      "person-characters.jsonlines": {
+        "sha256": "3535b6179f49b5da163ac3c7d94df901b05fa39bd71c38a663a85e690c99cec7",
+        "rows": 292429
+      },
+      "subject-characters.jsonlines": {
+        "sha256": "ac6e3387fd22552ed3fce09090533c5f521d5e1728cd54a73d4ca97b4916feda",
+        "rows": 452377
+      },
+      "subject.jsonlines": {
+        "sha256": "2f0692ac644608b0f040d5fee96593d001ae7be2b8005cf3870591f1597145eb",
+        "rows": 697963
+      },
+      "person.jsonlines": {
+        "sha256": "c9905a28a65fc787a4376b5ee9f0f77a96b8df25b94759f0e5c4d3d9e8d92b0b",
+        "rows": 104055
+      },
+      "character.jsonlines": {
+        "sha256": "8822408d1619e3a318e075590a3e2a48eb86b3c4ed6d88adc658aa0a243bfe28",
+        "rows": 224679
+      }
+    },
+    "mapping_version": "bangumi.anime-credits.v1",
+    "alias_version": "bangumi.credits-names.v1",
+    "id": "78f5ff99145d439894df2e21b0a256254f0d9ae16f9551164e8464df1b5fd082"
+  },
+  "plan_fingerprint": "614987424cd51babdff7a51cd85eeccb00fe34f1f7d30f277d8070b9510efd5f",
+  "catalog_identity_fingerprint": "533d7a9841c29b7de1329cbf048e54a1afb2ef33121a492a81b500e801a60e1b",
+  "source_count": 31104,
+  "batch_size": 25,
+  "batch_count": 1245,
+  "coverage": {
+    "studio": {
+      "safe": {
+        "denominator": 28636,
+        "complete_observations": 26586,
+        "works_with_initial_relations": 13652,
+        "initial_scope_rows": 17444,
+        "raw_rows": 1053516,
+        "observed": 13652,
+        "missing_person": 0,
+        "missing_character": 0,
+        "missing_subject_character_binding": 0,
+        "partial": 2047,
+        "empty_observed": 12934,
+        "failed": 3
+      },
+      "adult": {
+        "denominator": 2468,
+        "complete_observations": 2329,
+        "works_with_initial_relations": 801,
+        "initial_scope_rows": 955,
+        "raw_rows": 31840,
+        "observed": 801,
+        "missing_person": 0,
+        "missing_character": 0,
+        "missing_subject_character_binding": 0,
+        "empty_observed": 1528,
+        "partial": 139
+      },
+      "unknown": {
+        "denominator": 0,
+        "complete_observations": 0,
+        "works_with_initial_relations": 0,
+        "initial_scope_rows": 0,
+        "raw_rows": 0
+      }
+    },
+    "voice_actor": {
+      "safe": {
+        "denominator": 28636,
+        "complete_observations": 28517,
+        "works_with_initial_relations": 9431,
+        "initial_scope_rows": 149258,
+        "raw_rows": 160010,
+        "observed": 9431,
+        "missing_person": 0,
+        "missing_character": 88,
+        "missing_subject_character_binding": 1,
+        "empty_observed": 19086,
+        "partial": 116,
+        "failed": 3
+      },
+      "adult": {
+        "denominator": 2468,
+        "complete_observations": 2468,
+        "works_with_initial_relations": 914,
+        "initial_scope_rows": 3566,
+        "raw_rows": 3566,
+        "observed": 914,
+        "missing_person": 0,
+        "missing_character": 0,
+        "missing_subject_character_binding": 0,
+        "empty_observed": 1554
+      },
+      "unknown": {
+        "denominator": 0,
+        "complete_observations": 0,
+        "works_with_initial_relations": 0,
+        "initial_scope_rows": 0,
+        "raw_rows": 0
+      }
+    }
+  },
+  "issue_counts": {
+    "not_company": 2263,
+    "not_individual": 129,
+    "missing_subject_character_binding": 1,
+    "missing_or_non_anime_root": 6,
+    "missing_character": 88
+  },
+  "frozen_policy": {
+    "version": "credits.release-policy.13f.v1",
+    "source_max_age_days": 45,
+    "studio": {
+      "min_fresh_complete_percent": 90,
+      "min_safe_associated_percent": 35,
+      "min_adult_associated_percent": 20
+    },
+    "voice_actor": {
+      "min_fresh_complete_percent": 98,
+      "min_safe_associated_percent": 25,
+      "min_adult_associated_percent": 25
+    }
+  },
+  "policy_fingerprint": "f519b3040097956e74db2da381cf9b3fce4804225f8b882ab319d622b97daa2a",
+  "database_coverage_status": "blocked",
+  "database_coverage_issues": [
+    "voice_actor:safe_fresh_complete_below_policy",
+    "voice_actor:safe_associated_below_policy",
+    "voice_actor:adult_fresh_complete_below_policy",
+    "voice_actor:adult_associated_below_policy",
+    "studio:safe_fresh_complete_below_policy",
+    "studio:safe_associated_below_policy",
+    "studio:adult_fresh_complete_below_policy",
+    "studio:adult_associated_below_policy"
+  ],
+  "configuration_limit": "Local Django process has exploration default closed; this does not verify Render configuration.",
+  "public_http_baseline": {
+    "result": "passed_public_baseline_only",
+    "requests": 4,
+    "frontend_bundle_verified": false,
+    "request_seconds": [
+      1.232,
+      0.52,
+      0.787,
+      0.477
+    ]
+  },
+  "frontend_build_check": "connection_failed_not_verified",
+  "local_eight_public_source_profile": {
+    "contract_version": "recommendations.credits.performance.v1",
+    "generated_at": "2026-10-28T08:29:46.606668+00:00",
+    "scope": "safe_public_source_queries_not_personalized_http",
+    "private_records_read": false,
+    "production_writes": false,
+    "server_sql_count": null,
+    "server_cpu_seconds": null,
+    "browser_tested": false,
+    "measurements": [
+      {
+        "kind": "voice_actor",
+        "person_id": 3847,
+        "phase": "first",
+        "work_count": 2,
+        "page_count": 2,
+        "seconds": 0.0499,
+        "sql_count": 9,
+        "operator_process_cpu_seconds": 0.0312,
+        "passed": true
+      },
+      {
+        "kind": "voice_actor",
+        "person_id": 3847,
+        "phase": "repeat",
+        "work_count": 2,
+        "page_count": 2,
+        "seconds": 0.0477,
+        "sql_count": 9,
+        "operator_process_cpu_seconds": 0.0,
+        "passed": true
+      },
+      {
+        "kind": "studio",
+        "person_id": 2481,
+        "phase": "first",
+        "work_count": 2,
+        "page_count": 2,
+        "seconds": 0.0199,
+        "sql_count": 9,
+        "operator_process_cpu_seconds": 0.0156,
+        "passed": true
+      },
+      {
+        "kind": "studio",
+        "person_id": 2481,
+        "phase": "repeat",
+        "work_count": 2,
+        "page_count": 2,
+        "seconds": 0.0193,
+        "sql_count": 9,
+        "operator_process_cpu_seconds": 0.0,
+        "passed": true
+      }
+    ],
+    "issues": [],
+    "memory": {
+      "resident_bytes": 74612736,
+      "process_lifetime_peak_bytes": 74625024
+    },
+    "safe_catalog_count": 7,
+    "revision_fingerprint": "b9ea92a00efd7d4f5236d8a5927f2f7641c3548e7e27bf1fe0453e68e9f956c2",
+    "status": "passed_source_query_profile",
+    "limitations": [
+      "Operator process memory is not Render worker memory; lifetime peak is not a per-request allocation.",
+      "Own-record/feedback resolution, login, HTTP and concurrency are not measured by this public-only profile."
+    ]
+  },
+  "limitations": [
+    "Preflight is not imported database coverage or reviewed-content access.",
+    "Eight-source local query measurements are not full-production or personalized HTTP performance.",
+    "Canary/ordinary authenticated checks, production writes and browser acceptance have not been performed."
+  ]
+}

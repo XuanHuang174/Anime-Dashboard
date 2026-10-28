@@ -171,3 +171,19 @@ class CreditsBackendTests(TransactionTestCase):
             report = coverage_audit()
         self.assertEqual(report['segments']['studio']['safe']['coverage_states'], {'stale': 1})
         self.assertEqual(report['segments']['studio']['safe']['fresh_complete_count'], 0)
+
+    def test_explicit_preview_rejects_all_sql_writes(self):
+        from recommendations.management.commands.sync_credits_archive import CreditsPreviewGuard
+        from recommendations.source_pipeline import SourceError
+        guard = CreditsPreviewGuard()
+        for sql in ('INSERT INTO recommendations_creditsstate VALUES (1)', 'UPDATE auth_user SET is_active=false',
+                    'DELETE FROM recommendations_creditshead', 'WITH x AS (DELETE FROM auth_user) SELECT 1',
+                    'COPY auth_user FROM STDIN', 'DROP TABLE auth_user'):
+            with self.assertRaises(SourceError):
+                guard(lambda *args: self.fail('SQL must not execute'), sql, (), False, {})
+        self.assertEqual(guard(lambda *args: 'read', 'SELECT 1', (), False, {}), 'read')
+        with patch('recommendations.management.commands.sync_credits_archive.ArchivePlan') as plan:
+            with self.assertRaises(CommandError):
+                call_command('sync_credits_archive', input=self.fixture.path, expected_sha256='a' * 64, ids='1',
+                    report=self.fixture.folder / 'forbidden.json', preview_only=True, apply=True)
+            plan.assert_not_called()
