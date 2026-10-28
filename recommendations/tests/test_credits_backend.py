@@ -56,6 +56,12 @@ class CreditsBackendTests(TransactionTestCase):
         old_person = CreditsPerson.objects.get(snapshot=head.current.snapshot, person_id=101)
         self.assertEqual(old_person.name, '合成声优')
         self.assertEqual(result['quarantined'], 1)
+        # The two kinds now point to different snapshots of the same subject.
+        # A newer mismatched rating must not contaminate the older voice source.
+        CreditsSubject.objects.filter(snapshot=head.last_attempt.snapshot, bangumi_id=1).update(nsfw=True)
+        audited = coverage_audit()
+        self.assertEqual(audited['segments']['voice_actor']['safe']['fresh_complete_count'], 1)
+        self.assertEqual(audited['segments']['studio']['safe']['fresh_complete_count'], 0)
 
     def test_empty_failed_and_not_loaded_are_distinct(self):
         publish_batch(self.batch(seeds=(1, 3)))
@@ -251,6 +257,15 @@ class CreditsBackendTests(TransactionTestCase):
             report = coverage_audit()
         self.assertEqual(report['segments']['studio']['safe']['coverage_states'], {'stale': 1})
         self.assertEqual(report['segments']['studio']['safe']['fresh_complete_count'], 0)
+
+    def test_paged_audit_preserves_complete_fingerprint_and_rejects_overflow(self):
+        from recommendations.source_pipeline import SourceError
+        publish_batch(self.batch())
+        baseline = coverage_audit()
+        with patch('recommendations.credits_coverage.AUDIT_PAGE_SIZE', 1):
+            self.assertEqual(coverage_audit(), baseline)
+            with patch('recommendations.credits_coverage.MAX_ASSERTIONS', 1):
+                with self.assertRaises(SourceError): coverage_audit()
 
     def test_explicit_preview_rejects_all_sql_writes(self):
         from recommendations.management.commands.sync_credits_archive import CreditsPreviewGuard

@@ -1,0 +1,688 @@
+{
+  "contract_version": "recommendations.credits.13f.production-import-receipt.v1",
+  "generated_at": "2026-10-28T16:12:19.868106+00:00",
+  "scope": "authorized_nine_credits_table_import_and_public_read_audits",
+  "production_import_completed": true,
+  "render_configuration_changed": false,
+  "private_records_read": false,
+  "live_release_verified": false,
+  "archive": {
+    "snapshot_version": "dump-2026-10-20.210332Z",
+    "source_at": "2026-10-20T21:03:32+00:00",
+    "source_reference": "https://github.com/bangumi/Archive/releases/download/archive/dump-2026-10-20.210332Z.zip",
+    "archive_sha256": "9fe8de272398ff4bd12994b73e25aac37cca631372383f6aadc503528623aa93",
+    "member_hashes": {
+      "subject-persons.jsonlines": {
+        "sha256": "e65213f42f353a1536ff16242ade0de7dabf532738b4b6a3264a7c21b1d8bb05",
+        "rows": 2232175
+      },
+      "person-characters.jsonlines": {
+        "sha256": "3535b6179f49b5da163ac3c7d94df901b05fa39bd71c38a663a85e690c99cec7",
+        "rows": 292429
+      },
+      "subject-characters.jsonlines": {
+        "sha256": "ac6e3387fd22552ed3fce09090533c5f521d5e1728cd54a73d4ca97b4916feda",
+        "rows": 452377
+      },
+      "subject.jsonlines": {
+        "sha256": "2f0692ac644608b0f040d5fee96593d001ae7be2b8005cf3870591f1597145eb",
+        "rows": 697963
+      },
+      "person.jsonlines": {
+        "sha256": "c9905a28a65fc787a4376b5ee9f0f77a96b8df25b94759f0e5c4d3d9e8d92b0b",
+        "rows": 104055
+      },
+      "character.jsonlines": {
+        "sha256": "8822408d1619e3a318e075590a3e2a48eb86b3c4ed6d88adc658aa0a243bfe28",
+        "rows": 224679
+      }
+    },
+    "mapping_version": "bangumi.anime-credits.v1",
+    "alias_version": "bangumi.credits-names.v1",
+    "id": "78f5ff99145d439894df2e21b0a256254f0d9ae16f9551164e8464df1b5fd082"
+  },
+  "plan_fingerprint": "614987424cd51babdff7a51cd85eeccb00fe34f1f7d30f277d8070b9510efd5f",
+  "catalog_identity_fingerprint": "533d7a9841c29b7de1329cbf048e54a1afb2ef33121a492a81b500e801a60e1b",
+  "catalog_identity_unchanged": true,
+  "source_count": 31104,
+  "batch_size": 25,
+  "batch_count": 1245,
+  "resumed_verified_batches": 707,
+  "resume_receipt_fingerprint": "9856b80150d582625e2e60e62b55b37c7c3e1d0792269aa669fae421f1e111fe",
+  "publication_totals": {
+    "published": 59900,
+    "quarantined": 2308,
+    "replayed": 0
+  },
+  "database_counts": {
+    "State": 1,
+    "Snapshot": 1,
+    "Subject": 31101,
+    "Person": 63119,
+    "Character": 92231,
+    "Alias": 151721,
+    "Observation": 62208,
+    "Head": 62208,
+    "Assertion": 1248932
+  },
+  "credits_revision": 1245,
+  "policy": {
+    "version": "credits.release-policy.13f.v1",
+    "source_max_age_days": 45,
+    "studio": {
+      "min_fresh_complete_percent": 90,
+      "min_safe_associated_percent": 35,
+      "min_adult_associated_percent": 20
+    },
+    "voice_actor": {
+      "min_fresh_complete_percent": 98,
+      "min_safe_associated_percent": 25,
+      "min_adult_associated_percent": 25
+    }
+  },
+  "policy_fingerprint": "f519b3040097956e74db2da381cf9b3fce4804225f8b882ab319d622b97daa2a",
+  "components": {
+    "voice_actor": {
+      "ready": true,
+      "issues": [],
+      "policy": {
+        "min_fresh_complete_percent": 98,
+        "min_safe_associated_percent": 25,
+        "min_adult_associated_percent": 25
+      }
+    },
+    "studio": {
+      "ready": true,
+      "issues": [],
+      "policy": {
+        "min_fresh_complete_percent": 90,
+        "min_safe_associated_percent": 35,
+        "min_adult_associated_percent": 20
+      }
+    }
+  },
+  "coverage": {
+    "contract_version": "recommendations.credits.coverage.v1",
+    "schema_ready": true,
+    "status": "foundation_audit_not_release_acceptance",
+    "catalog_count": 31104,
+    "credits_revision": 1245,
+    "segments": {
+      "studio": {
+        "safe": {
+          "catalog_count": 28636,
+          "coverage_states": {
+            "observed": 13652,
+            "not_loaded": 2050,
+            "empty_observed": 12934
+          },
+          "last_attempt_states": {
+            "observed": 13652,
+            "partial": 2047,
+            "empty_observed": 12934,
+            "failed": 3
+          },
+          "latest_attempt_issue_counts": {
+            "not_company": 2124,
+            "missing_or_non_anime_root": 3
+          },
+          "fresh_complete_count": 26586,
+          "fresh_complete_percent": 92.841,
+          "works_with_initial_source_relations": 13652,
+          "latest_attempt_initial_scope_rows": 17444,
+          "endpoint_issue_rates": {
+            "missing_person": 0.0,
+            "missing_character": 0.0,
+            "missing_subject_character_binding": 0.0
+          }
+        },
+        "adult": {
+          "catalog_count": 2468,
+          "coverage_states": {
+            "observed": 801,
+            "empty_observed": 1528,
+            "not_loaded": 139
+          },
+          "last_attempt_states": {
+            "observed": 801,
+            "empty_observed": 1528,
+            "partial": 139
+          },
+          "latest_attempt_issue_counts": {
+            "not_company": 139
+          },
+          "fresh_complete_count": 2329,
+          "fresh_complete_percent": 94.368,
+          "works_with_initial_source_relations": 801,
+          "latest_attempt_initial_scope_rows": 955,
+          "endpoint_issue_rates": {
+            "missing_person": 0.0,
+            "missing_character": 0.0,
+            "missing_subject_character_binding": 0.0
+          }
+        },
+        "unknown": {
+          "catalog_count": 0,
+          "coverage_states": {},
+          "last_attempt_states": {},
+          "latest_attempt_issue_counts": {},
+          "fresh_complete_count": 0,
+          "fresh_complete_percent": null,
+          "works_with_initial_source_relations": 0,
+          "latest_attempt_initial_scope_rows": 0,
+          "endpoint_issue_rates": {
+            "missing_person": null,
+            "missing_character": null,
+            "missing_subject_character_binding": null
+          }
+        }
+      },
+      "voice_actor": {
+        "safe": {
+          "catalog_count": 28636,
+          "coverage_states": {
+            "observed": 9431,
+            "empty_observed": 19086,
+            "not_loaded": 119
+          },
+          "last_attempt_states": {
+            "observed": 9431,
+            "empty_observed": 19086,
+            "partial": 116,
+            "failed": 3
+          },
+          "latest_attempt_issue_counts": {
+            "not_individual": 129,
+            "missing_subject_character_binding": 1,
+            "missing_or_non_anime_root": 3,
+            "missing_character": 88
+          },
+          "fresh_complete_count": 28517,
+          "fresh_complete_percent": 99.584,
+          "works_with_initial_source_relations": 9431,
+          "latest_attempt_initial_scope_rows": 149258,
+          "endpoint_issue_rates": {
+            "missing_person": 0.0,
+            "missing_character": 0.00059,
+            "missing_subject_character_binding": 7e-06
+          }
+        },
+        "adult": {
+          "catalog_count": 2468,
+          "coverage_states": {
+            "observed": 914,
+            "empty_observed": 1554
+          },
+          "last_attempt_states": {
+            "observed": 914,
+            "empty_observed": 1554
+          },
+          "latest_attempt_issue_counts": {},
+          "fresh_complete_count": 2468,
+          "fresh_complete_percent": 100.0,
+          "works_with_initial_source_relations": 914,
+          "latest_attempt_initial_scope_rows": 3566,
+          "endpoint_issue_rates": {
+            "missing_person": 0.0,
+            "missing_character": 0.0,
+            "missing_subject_character_binding": 0.0
+          }
+        },
+        "unknown": {
+          "catalog_count": 0,
+          "coverage_states": {},
+          "last_attempt_states": {},
+          "latest_attempt_issue_counts": {},
+          "fresh_complete_count": 0,
+          "fresh_complete_percent": null,
+          "works_with_initial_source_relations": 0,
+          "latest_attempt_initial_scope_rows": 0,
+          "endpoint_issue_rates": {
+            "missing_person": null,
+            "missing_character": null,
+            "missing_subject_character_binding": null
+          }
+        }
+      }
+    },
+    "integrity_issues": {},
+    "latest_voice_endpoint_issues": {
+      "missing_person": 0,
+      "missing_character": 88,
+      "missing_subject_character_binding": 1
+    },
+    "integrity_by_kind": {
+      "studio": {},
+      "voice_actor": {}
+    },
+    "current_assertions": 1099738,
+    "current_initial_eligible_assertions": 163201,
+    "current_eligible_person_alias_statuses": {
+      "partial": 10755,
+      "observed": 50
+    },
+    "read_capacity": {
+      "studio": {
+        "entity_count": 1082,
+        "maximum_entity_works": 595,
+        "maximum_possible_page_facts": 12,
+        "largest_entities": [
+          {
+            "person_id": 3045,
+            "work_count": 595
+          },
+          {
+            "person_id": 189,
+            "work_count": 450
+          },
+          {
+            "person_id": 603,
+            "work_count": 344
+          },
+          {
+            "person_id": 390,
+            "work_count": 343
+          },
+          {
+            "person_id": 166,
+            "work_count": 268
+          }
+        ]
+      },
+      "voice_actor": {
+        "entity_count": 9723,
+        "maximum_entity_works": 513,
+        "maximum_possible_page_facts": 84,
+        "largest_entities": [
+          {
+            "person_id": 4015,
+            "work_count": 513
+          },
+          {
+            "person_id": 4513,
+            "work_count": 503
+          },
+          {
+            "person_id": 4765,
+            "work_count": 475
+          },
+          {
+            "person_id": 5119,
+            "work_count": 472
+          },
+          {
+            "person_id": 3818,
+            "work_count": 465
+          }
+        ]
+      }
+    },
+    "source_versions": [
+      "dump-2026-10-20.210332Z"
+    ],
+    "next_safe_source_ids": {
+      "studio": [
+        295,
+        440,
+        472,
+        493,
+        764,
+        899,
+        923,
+        928,
+        1011,
+        1309,
+        1375,
+        1456,
+        1461,
+        1593,
+        1737,
+        1764,
+        1822,
+        1877,
+        1878,
+        1879,
+        1939,
+        1969,
+        2079,
+        2091,
+        2094,
+        2096,
+        2097,
+        2172,
+        2281,
+        2333,
+        2643,
+        2680,
+        2688,
+        3011,
+        3100,
+        3141,
+        3151,
+        3171,
+        3174,
+        3341,
+        3359,
+        3369,
+        3420,
+        3426,
+        3612,
+        3783,
+        3828,
+        3926,
+        4008,
+        4210,
+        4242,
+        4284,
+        4400,
+        4442,
+        4450,
+        4541,
+        5468,
+        5487,
+        5910,
+        5919,
+        6235,
+        6254,
+        6499,
+        7104,
+        7157,
+        7218,
+        7298,
+        7356,
+        7366,
+        7370,
+        7667,
+        7844,
+        7852,
+        8105,
+        8290,
+        8294,
+        8357,
+        8412,
+        8413,
+        8503,
+        8622,
+        8725,
+        8883,
+        8884,
+        9268,
+        9305,
+        9350,
+        9568,
+        10181,
+        10374,
+        10398,
+        10435,
+        10459,
+        10508,
+        10559,
+        10604,
+        10649,
+        10997,
+        11114,
+        11911
+      ],
+      "voice_actor": [
+        975,
+        1609,
+        1860,
+        1861,
+        2712,
+        6390,
+        9911,
+        27832,
+        54277,
+        75055,
+        77473,
+        77706,
+        95445,
+        108839,
+        122567,
+        142994,
+        175568,
+        184017,
+        185943,
+        192637,
+        192680,
+        230190,
+        270413,
+        282637,
+        289215,
+        293008,
+        296367,
+        298010,
+        299139,
+        320052,
+        323651,
+        324295,
+        324720,
+        326895,
+        328609,
+        334319,
+        337810,
+        349084,
+        350235,
+        350964,
+        354779,
+        354780,
+        362577,
+        362610,
+        362997,
+        363600,
+        366566,
+        374319,
+        376008,
+        389571,
+        390712,
+        391117,
+        393037,
+        402935,
+        410939,
+        411106,
+        411974,
+        414461,
+        418599,
+        421748,
+        425978,
+        425988,
+        431839,
+        444359,
+        454630,
+        454684,
+        454787,
+        455454,
+        457945,
+        459531,
+        463205,
+        463539,
+        464376,
+        470045,
+        473832,
+        474906,
+        475032,
+        476129,
+        482301,
+        482776,
+        495633,
+        496086,
+        500827,
+        500840,
+        501729,
+        502142,
+        506672,
+        513018,
+        513878,
+        515392,
+        520698,
+        529995,
+        530115,
+        532690,
+        540031,
+        541285,
+        544372,
+        545499,
+        545842,
+        545967
+      ]
+    },
+    "fingerprint": "43baf42d1afd7190f97913c9a19f15534ba42ac7e585eba42b6c5e4726cbba7e",
+    "semantics": "scoped-source-observation-coverage-not-full-filmography-or-approved-candidates",
+    "adult_review_or_access_verified": false,
+    "private_records_read": false,
+    "production_writes": false
+  },
+  "operator_release_audit": {
+    "status": "blocked",
+    "issues": [
+      "existing_exploration_disabled"
+    ],
+    "rollout": {
+      "expected_stage": "closed",
+      "selected_kinds": [
+        "voice_actor",
+        "studio"
+      ],
+      "flags": {
+        "voice_actor": false,
+        "studio": false
+      },
+      "canary_count": 0,
+      "issues": [
+        "existing_exploration_disabled"
+      ],
+      "environment_origin": "calling_django_process_not_render_confirmation",
+      "account_existence_verified": false
+    },
+    "production_acceptance": "not_performed",
+    "performance_acceptance": "not_performed",
+    "switches_changed": false
+  },
+  "performance": {
+    "contract_version": "recommendations.credits.performance.v1",
+    "generated_at": "2026-10-28T16:11:01.530078+00:00",
+    "scope": "safe_public_source_queries_not_personalized_http",
+    "private_records_read": false,
+    "production_writes": false,
+    "server_sql_count": null,
+    "server_cpu_seconds": null,
+    "browser_tested": false,
+    "measurements": [
+      {
+        "kind": "voice_actor",
+        "person_id": 4015,
+        "phase": "first",
+        "work_count": 511,
+        "page_count": 12,
+        "seconds": 2.0638,
+        "sql_count": 9,
+        "operator_process_cpu_seconds": 0.0156,
+        "passed": true
+      },
+      {
+        "kind": "voice_actor",
+        "person_id": 4015,
+        "phase": "repeat",
+        "work_count": 511,
+        "page_count": 12,
+        "seconds": 1.8313,
+        "sql_count": 9,
+        "operator_process_cpu_seconds": 0.0312,
+        "passed": true
+      },
+      {
+        "kind": "voice_actor",
+        "person_id": 4513,
+        "phase": "first",
+        "work_count": 501,
+        "page_count": 12,
+        "seconds": 1.5265,
+        "sql_count": 9,
+        "operator_process_cpu_seconds": 0.0,
+        "passed": true
+      },
+      {
+        "kind": "voice_actor",
+        "person_id": 4513,
+        "phase": "repeat",
+        "work_count": 501,
+        "page_count": 12,
+        "seconds": 1.5382,
+        "sql_count": 9,
+        "operator_process_cpu_seconds": 0.0156,
+        "passed": true
+      },
+      {
+        "kind": "studio",
+        "person_id": 3045,
+        "phase": "first",
+        "work_count": 595,
+        "page_count": 12,
+        "seconds": 4.3674,
+        "sql_count": 9,
+        "operator_process_cpu_seconds": 0.0156,
+        "passed": true
+      },
+      {
+        "kind": "studio",
+        "person_id": 3045,
+        "phase": "repeat",
+        "work_count": 595,
+        "page_count": 12,
+        "seconds": 1.6223,
+        "sql_count": 9,
+        "operator_process_cpu_seconds": 0.0,
+        "passed": true
+      },
+      {
+        "kind": "studio",
+        "person_id": 189,
+        "phase": "first",
+        "work_count": 450,
+        "page_count": 12,
+        "seconds": 1.4516,
+        "sql_count": 9,
+        "operator_process_cpu_seconds": 0.0156,
+        "passed": true
+      },
+      {
+        "kind": "studio",
+        "person_id": 189,
+        "phase": "repeat",
+        "work_count": 450,
+        "page_count": 12,
+        "seconds": 1.4207,
+        "sql_count": 9,
+        "operator_process_cpu_seconds": 0.0,
+        "passed": true
+      }
+    ],
+    "issues": [],
+    "memory": {
+      "resident_bytes": 85549056,
+      "process_lifetime_peak_bytes": 92372992
+    },
+    "safe_catalog_count": 28636,
+    "revision_fingerprint": "38bcda00c08f94116a9f2299b0896849f1683494c99c21e15a65ae1c660a7621",
+    "status": "passed_source_query_profile",
+    "limitations": [
+      "Operator process memory is not Render worker memory; lifetime peak is not a per-request allocation.",
+      "Own-record/feedback resolution, login, HTTP and concurrency are not measured by this public-only profile."
+    ]
+  },
+  "audit_transport_fix": {
+    "initial_audits_completed": false,
+    "initial_failure_type": "OperationalError",
+    "initial_failure_sqlstate": "57014",
+    "heads_server_execution_ms_before_pagination": 1011.485,
+    "method": "exact_current_snapshot_source_semijoin_and_pk_pages_in_one_readonly_repeatable_read_snapshot",
+    "page_size": 1000,
+    "statement_timeout_ms_unchanged": 30000,
+    "partial_success_allowed": false
+  },
+  "limitations": [
+    "Calling-process configuration is not proof of Render deployment configuration.",
+    "Public-source query measurements do not replace authenticated HTTP, browser or load acceptance.",
+    "Source relations do not replace adult-content review or user access checks."
+  ]
+}

@@ -2,7 +2,7 @@
 from collections import Counter, defaultdict
 from datetime import timedelta
 from django.db.migrations.recorder import MigrationRecorder
-from django.db.models import OuterRef, Subquery
+from django.db.models import Exists, OuterRef
 from django.utils import timezone
 from .models import RecommendationAnime
 from .credits_models import CreditsHead, CreditsSubject, CreditsState, CreditsAssertion
@@ -14,6 +14,26 @@ from .source_pipeline import SourceError
 
 MAX_ASSERTIONS = 1000000
 REQUIRED_MIGRATION = '0016_credits_foundation'
+AUDIT_PAGE_SIZE = 1000
+
+
+def _pages(query, maximum):
+    """Bound each transfer even with transaction-pool server cursors disabled.
+
+    Called inside coverage_audit's single read-only repeatable-read snapshot.
+    Never OFFSET, truncate success or alter the statement timeout.
+    """
+    last, count = None, 0
+    while True:
+        selected = query if last is None else query.filter(pk__gt=last)
+        page = list(selected.order_by('pk')[:AUDIT_PAGE_SIZE])
+        if not page:
+            return
+        count += len(page)
+        if count > maximum:
+            raise SourceError('资料超过覆盖审计上限，不出具部分成功报告。')
+        yield from page
+        last = page[-1].pk
 
 
 def coverage_audit():
@@ -25,14 +45,25 @@ def coverage_audit():
         if len(catalog) > MAX_CATALOG:
             raise SourceError('目录超过覆盖审计上限。')
         ids = {row[0] for row in catalog}
-        source = CreditsSubject.objects.filter(snapshot_id=OuterRef('current__snapshot_id'), bangumi_id=OuterRef('bangumi_id'))
-        heads = list(CreditsHead.objects.filter(bangumi_id__in=ids).select_related('current__snapshot', 'last_attempt')
+        heads = list(_pages(CreditsHead.objects.filter(bangumi_id__in=ids).select_related('current__snapshot', 'last_attempt')
             .only('bangumi_id', 'kind', 'current_id', 'last_attempt_id', 'current__coverage', 'current__kind', 'current__bangumi_id',
                   'current__snapshot__source_at', 'current__snapshot__mapping_version', 'current__snapshot__alias_version',
-                  'current__snapshot__snapshot_version', 'last_attempt__coverage', 'last_attempt__diagnostics')
-            .annotate(source_type=Subquery(source.values('subject_type')[:1]), source_nsfw=Subquery(source.values('nsfw')[:1]))[:2 * MAX_CATALOG + 1])
+                  'current__snapshot__snapshot_version', 'last_attempt__coverage', 'last_attempt__diagnostics'), 2 * MAX_CATALOG))
         if len(heads) > 2 * MAX_CATALOG:
             raise SourceError('来源指针超过覆盖审计上限。')
+        # Fetch exact current (snapshot, subject) pairs once. Two scalar subqueries
+        # per head exceeded the production budget at 62,208 heads; a semi-join can
+        # hash the current pairs and does not mix metadata from historical versions.
+        current_sources = CreditsHead.objects.filter(bangumi_id__in=ids,
+            bangumi_id=OuterRef('bangumi_id'), current__snapshot_id=OuterRef('snapshot_id'))
+        sources = {(row.snapshot_id, row.bangumi_id): (row.subject_type, row.nsfw) for row in
+            _pages(CreditsSubject.objects.filter(Exists(current_sources))
+            .only('snapshot_id', 'bangumi_id', 'subject_type', 'nsfw'), 2 * MAX_CATALOG)}
+        if len(sources) > 2 * MAX_CATALOG:
+            raise SourceError('当前作品来源元数据超过覆盖审计上限。')
+        for head in heads:
+            head.source_type, head.source_nsfw = sources.get(
+                (head.current.snapshot_id, head.bangumi_id) if head.current else None, (None, None))
         head_map = {(head.bangumi_id, head.kind): head for head in heads}
         now = timezone.now()
         cutoff = now - timedelta(days=45)
@@ -55,11 +86,11 @@ def coverage_audit():
         all_facts = CreditsAssertion.objects.filter(observation_id__in=current_heads)
         raw_assertions = all_facts.count()
         assertion_count, missing, aliases, seen_people = 0, Counter(), Counter(), set()
-        for fact in all_facts.filter(source_eligible=True).select_related('observation', 'person', 'character').only(
+        for fact in _pages(all_facts.filter(source_eligible=True).select_related('observation', 'person', 'character').only(
             'observation_id', 'person_id', 'character_id', 'source_person_id', 'source_character_id', 'source_eligible',
             'source_code', 'observation__kind', 'observation__snapshot_id', 'observation__bangumi_id',
             'person__snapshot_id', 'person__person_id', 'person__person_type', 'person__name',
-            'person__alias_status', 'character__snapshot_id', 'character__character_id', 'character__name').order_by('pk').iterator(chunk_size=2000):
+            'person__alias_status', 'character__snapshot_id', 'character__character_id', 'character__name'), MAX_ASSERTIONS):
             assertion_count += 1
             if assertion_count > MAX_ASSERTIONS:
                 raise SourceError('断言超过审计上限，不出具部分成功报告。')
