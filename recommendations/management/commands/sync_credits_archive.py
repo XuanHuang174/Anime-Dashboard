@@ -72,7 +72,8 @@ def verified_resume(plan, report, path):
     expected = {}
     for offset in range(0, len(selected), MAX_BATCH):
         for row in plan.batch(selected[offset:offset + MAX_BATCH])['observations']:
-            expected[row['bangumi_id'], row['kind']] = row
+            expected[row['bangumi_id'], row['kind']] = {
+                field: row[field] for field in ('fingerprint', 'coverage', 'diagnostics')}
     with readonly_snapshot():
         snapshot = CreditsSnapshot.objects.filter(pk=plan.snapshot['id']).values().first()
         if publication and (snapshot is None or any(
