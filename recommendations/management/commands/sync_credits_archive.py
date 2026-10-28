@@ -8,6 +8,7 @@ from django.db import connection, DatabaseError
 from recommendations.models import RecommendationAnime
 from recommendations.credits_source import ArchivePlan, MAX_CATALOG, MAX_BATCH, digest
 from recommendations.credits_store import publish_batch
+from recommendations.credits_models import CreditsSnapshot, CreditsObservation, CreditsHead, CreditsState
 from recommendations.quality_readonly import readonly_snapshot
 from recommendations.source_pipeline import SourceError, artifact_writer
 
@@ -44,6 +45,58 @@ def catalog_snapshot():
         return rows
 
 
+def verified_resume(plan, report, path):
+    """A saved receipt is only a hint: verify its committed prefix against the DB."""
+    if path.stat().st_size > 16 * 1024 ** 2:
+        raise SourceError('续跑报告超过读取上限。')
+    previous = json.loads(path.read_text(encoding='utf-8'))
+    keys = ('snapshot', 'plan_fingerprint', 'source_count', 'scope', 'batch_size',
+            'batch_count', 'catalog_identity_fingerprint')
+    if (not isinstance(previous, dict) or previous.get('mode') != 'apply'
+            or any(previous.get(key) != report[key] for key in keys)):
+        raise SourceError('续跑报告与当前归档、目录或批次计划不一致。')
+    publication = previous.get('publication')
+    if not isinstance(publication, list) or len(publication) > report['batch_count']:
+        raise SourceError('续跑报告的已提交批次无效。')
+    revision = 0
+    for index, result in enumerate(publication):
+        count = 2 * len(plan.seeds[index * report['batch_size']:(index + 1) * report['batch_size']])
+        if (not isinstance(result, dict) or type(result.get('changed')) is not bool
+                or any(type(result.get(key)) is not int or result[key] < 0
+                       for key in ('revision', 'published', 'quarantined', 'replayed'))
+                or sum(result[key] for key in ('published', 'quarantined', 'replayed')) != count
+                or result['revision'] < revision or result['changed'] and result['revision'] <= revision):
+            raise SourceError('续跑报告的提交计数或修订号无效。')
+        revision = result['revision']
+    selected = plan.seeds[:len(publication) * report['batch_size']]
+    expected = {}
+    for offset in range(0, len(selected), MAX_BATCH):
+        for row in plan.batch(selected[offset:offset + MAX_BATCH])['observations']:
+            expected[row['bangumi_id'], row['kind']] = row
+    with readonly_snapshot():
+        snapshot = CreditsSnapshot.objects.filter(pk=plan.snapshot['id']).values().first()
+        if publication and (snapshot is None or any(
+                snapshot[key].isoformat() != value if key == 'source_at' else snapshot[key] != value
+                for key, value in plan.snapshot.items())):
+            raise SourceError('续跑来源快照与数据库不一致。')
+        state = CreditsState.objects.filter(pk=1).values_list('revision', flat=True).first() or 0
+        observations = {(row['bangumi_id'], row['kind']): row for row in
+            CreditsObservation.objects.filter(snapshot_id=plan.snapshot['id'], bangumi_id__in=selected)
+            .values('id', 'bangumi_id', 'kind', 'fingerprint', 'coverage', 'diagnostics')}
+        heads = {(row['bangumi_id'], row['kind']): row for row in
+            CreditsHead.objects.filter(bangumi_id__in=selected).values('bangumi_id', 'kind', 'current_id', 'last_attempt_id')}
+        if state < revision or observations.keys() != expected.keys() or heads.keys() != expected.keys():
+            raise SourceError('续跑记录未在数据库中完整提交，不能跳过。')
+        for key, row in expected.items():
+            stored, head = observations[key], heads[key]
+            complete = row['coverage'] in ('observed', 'empty_observed')
+            if (any(stored[field] != row[field] for field in ('fingerprint', 'coverage', 'diagnostics'))
+                    or head['last_attempt_id'] != stored['id']
+                    or complete != (head['current_id'] == stored['id'])):
+                raise SourceError('续跑批次的观察或发布指针已变化，不能跳过。')
+    return publication, digest(previous)
+
+
 class Command(BaseCommand):
     help = '默认只读预检官方参与关系归档；--apply 与匹配的 --expected-plan 才写入独立资料表。'
 
@@ -60,6 +113,7 @@ class Command(BaseCommand):
         mode.add_argument('--apply', action='store_true')
         mode.add_argument('--preview-only', action='store_true', help='显式只读预检，SQL 守卫禁止所有写库操作')
         parser.add_argument('--expected-plan')
+        parser.add_argument('--resume-from', type=Path, help='核验原 apply 报告的已提交前缀，再继续后续批次')
 
     def handle(self, *args, **options):
         if options.get('preview_only') and options.get('apply'):
@@ -76,6 +130,8 @@ class Command(BaseCommand):
                 raise SourceError('报告已存在或批次大小无效。')
             if options['apply'] and not options['expected_plan']:
                 raise SourceError('写入必须提供之前预检的 --expected-plan。')
+            if options.get('resume_from') and not options['apply']:
+                raise SourceError('--resume-from 只能用于显式 --apply。')
             catalog = catalog_snapshot() if options['catalog'] else None
             if catalog is None:
                 if not re.fullmatch(r'[1-9][0-9]*(,[1-9][0-9]*)*', options['ids'] or ''):
@@ -94,8 +150,15 @@ class Command(BaseCommand):
                         raise SourceError('归档、映射、选定作品或目录与预检计划不一致。')
                     if catalog is not None and catalog != catalog_snapshot():
                         raise SourceError('目录在预检期间变化，请重新预检。')
+                    if options.get('resume_from'):
+                        prior, receipt_hash = verified_resume(plan, report, options['resume_from'])
+                        report.update(publication=prior, resumed_verified_batches=len(prior),
+                                      resume_receipt_fingerprint=receipt_hash)
+                        self.stdout.write(json.dumps({'resumed_verified_batches': len(prior)}))
+                        self.stdout.flush()
                     expected_catalog = dict(catalog or [])
-                    for offset in range(0, len(plan.seeds), options['batch_size']):
+                    start = len(report['publication']) * options['batch_size']
+                    for offset in range(start, len(plan.seeds), options['batch_size']):
                         selected = plan.seeds[offset:offset + options['batch_size']]
                         if catalog is not None:
                             with readonly_snapshot():

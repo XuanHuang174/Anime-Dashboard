@@ -153,8 +153,88 @@ class CreditsBackendTests(TransactionTestCase):
             report = json.loads(failed.read_text())
             self.assertTrue(report['database_writes']); self.assertEqual(len(report['publication']), 1)
             self.assertEqual(CreditsObservation.objects.count(), 2)
-            call_command('sync_credits_archive', report=resumed, apply=True, expected_plan=plan, **arguments)
+            with patch('recommendations.management.commands.sync_credits_archive.publish_batch', wraps=publish_batch) as publisher:
+                call_command('sync_credits_archive', report=resumed, apply=True, expected_plan=plan, resume_from=failed, **arguments)
+            self.assertEqual(publisher.call_count, 1)
+            continuation = json.loads(resumed.read_text())
+            self.assertEqual(continuation['resumed_verified_batches'], 1)
+            self.assertEqual(len(continuation['publication']), 2)
             self.assertEqual(CreditsObservation.objects.count(), 4)
+        finally:
+            preview.unlink(missing_ok=True)
+            failed.unlink(missing_ok=True)
+            resumed.unlink(missing_ok=True)
+
+    def test_checkpoint_is_not_authority_to_skip_missing_changed_or_advanced_database_rows(self):
+        checksum = self.fixture.archive()
+        receipt = self.fixture.folder / 'checkpoint.json'
+        output = self.fixture.folder / 'continuation.json'
+        arguments = dict(input=self.fixture.path, expected_sha256=checksum, ids='1', batch_size=1, stdout=io.StringIO())
+        try:
+            call_command('sync_credits_archive', report=receipt, **arguments)
+            plan = json.loads(receipt.read_text())['plan_fingerprint']
+            receipt.unlink()
+            call_command('sync_credits_archive', report=receipt, apply=True, expected_plan=plan, **arguments)
+            original = receipt.read_text()
+            for defect in ('missing', 'fingerprint', 'head', 'plan', 'batch_size'):
+                with self.subTest(defect=defect):
+                    try:
+                        if defect == 'missing':
+                            CreditsObservation.objects.filter(bangumi_id=1).update(bangumi_id=999)
+                        elif defect == 'fingerprint':
+                            CreditsObservation.objects.filter(bangumi_id=1).update(fingerprint='0' * 64)
+                        elif defect == 'head':
+                            CreditsHead.objects.filter(bangumi_id=1).update(current=None)
+                        else:
+                            altered = json.loads(original)
+                            altered['plan_fingerprint' if defect == 'plan' else 'batch_size'] = 'wrong'
+                            receipt.write_text(json.dumps(altered))
+                        with patch('recommendations.management.commands.sync_credits_archive.publish_batch') as publisher:
+                            with self.assertRaises(CommandError):
+                                call_command('sync_credits_archive', report=output, apply=True, expected_plan=plan, resume_from=receipt, **arguments)
+                            publisher.assert_not_called()
+                    finally:
+                        if defect == 'missing':
+                            CreditsObservation.objects.filter(bangumi_id=999).update(bangumi_id=1)
+                        if defect == 'fingerprint':
+                            value = self.batch(seeds=(1,))
+                            for row in value['observations']:
+                                CreditsObservation.objects.filter(bangumi_id=1, kind=row['kind']).update(fingerprint=row['fingerprint'])
+                        if defect == 'head':
+                            for head in CreditsHead.objects.filter(bangumi_id=1):
+                                head.current_id = head.last_attempt_id
+                                head.save(update_fields=('current',))
+                        receipt.write_text(original)
+                        output.unlink(missing_ok=True)
+        finally:
+            receipt.unlink(missing_ok=True)
+            output.unlink(missing_ok=True)
+
+    def test_resume_handles_commit_without_receipt_and_preserves_idempotency(self):
+        from django.db import OperationalError
+        checksum = self.fixture.archive()
+        preview, failed, resumed = (self.fixture.folder / name for name in ('prefix-preview.json', 'lost-reply.json', 'prefix-resumed.json'))
+        arguments = dict(input=self.fixture.path, expected_sha256=checksum, ids='1,2', batch_size=1, stdout=io.StringIO())
+        calls = []
+        def committed_but_reply_lost(batch):
+            calls.append(1)
+            result = publish_batch(batch)
+            if len(calls) == 2:
+                raise OperationalError('synthetic lost commit acknowledgement')
+            return result
+        try:
+            call_command('sync_credits_archive', report=preview, **arguments)
+            plan = json.loads(preview.read_text())['plan_fingerprint']
+            with patch('recommendations.management.commands.sync_credits_archive.publish_batch', side_effect=committed_but_reply_lost):
+                with self.assertRaises(CommandError):
+                    call_command('sync_credits_archive', report=failed, apply=True, expected_plan=plan, **arguments)
+            self.assertEqual(CreditsState.objects.get(pk=1).revision, 2)
+            call_command('sync_credits_archive', report=resumed, apply=True, expected_plan=plan, resume_from=failed, **arguments)
+            result = json.loads(resumed.read_text())
+            self.assertEqual(result['resumed_verified_batches'], 1)
+            self.assertEqual(result['publication'][-1]['replayed'], 2)
+            self.assertFalse(result['database_writes'])
+            self.assertEqual(CreditsState.objects.get(pk=1).revision, 2)
         finally:
             preview.unlink(missing_ok=True)
             failed.unlink(missing_ok=True)
