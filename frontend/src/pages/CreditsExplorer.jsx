@@ -231,9 +231,9 @@ function EntityWorks({ client, kind, person, scope, session, cache, onReady, adu
     if (id === 'hideRecorded') next.hide_recorded = false
     commit(next, id === 'includeAdult' ? false : adult)
   }
-  return <><section className="credits-panel rec-featured-main"><div className="credits-entity-title"><CreditsIcon kind={kind} /><div>
+  return <><section className="credits-panel credits-entity-panel rec-featured-main"><div className="credits-entity-overview"><div className="credits-entity-title"><CreditsIcon kind={kind} /><div>
     <p>{CREDIT_KINDS[kind]} · Bangumi person {person}</p><h2>{data?.entity.name || `人物 ${person}`}</h2></div></div>
-    {data && <p>当前内容范围确认关联 <strong>{data.entity.work_count}</strong> 部 · 本次筛选 <strong>{data.count}</strong> 部</p>}
+    {data && <p className="credits-entity-count">当前内容范围确认关联 <strong>{data.entity.work_count}</strong> 部 · 本次筛选 <strong>{data.count}</strong> 部</p>}</div>
     <div className="credits-quick-controls" aria-label="作品浏览与排序">
       <label>浏览范围<select value={options.view} disabled={state.pending || writing} onChange={event => commit({ ...options, view: event.target.value,
         hide_recorded: event.target.value !== 'completed' })}><option value="all">关联作品</option><option value="completed">我看过的（已看完）</option></select></label>
@@ -243,8 +243,11 @@ function EntityWorks({ client, kind, person, scope, session, cache, onReady, adu
         setFilterOpen(value => !value)
       }}>☷ 筛选 {chips.length > 0 && <span className="rec-filter-count">{chips.length}</span>}</button>
     </div>
-    <div className="rec-filter-chips credits-active-filters" aria-label="当前生效条件">{chips.length ? chips.map(chip => <button type="button" className="rec-filter-chip" key={chip.id}
+    <div className="credits-filter-summary"><div className="rec-filter-chips credits-active-filters" aria-label="当前生效条件">{chips.length ? chips.map(chip => <button type="button" className="rec-filter-chip" key={chip.id}
       disabled={state.pending || writing} aria-label={`移除条件：${chip.label}`} onClick={() => remove(chip.id)}>{chip.label} ×</button>) : <span className="credits-caption">当前不限筛选条件</span>}</div>
+      <details className="credits-browse-help"><summary>浏览说明</summary><p className="credits-caption">“我看过的”仅包含本人已确认作品身份且已看完的记录；在看、想看、搁置不计入。无已确认记录不代表没看过。</p>
+        <p className="credits-caption">按已知放送时期排序，未知时期排在最后；不代表观看顺序。仅筛选本次浏览，不修改你的偏好。</p>
+        {data && <p className="credits-caption">{data.coverage.detail}</p>}</details></div>
     {filterOpen && <form id="credits-work-filters" className="credits-filters" onSubmit={apply} aria-label="参与作品筛选">
       <label>作品类型<select value={draft.type} onChange={event => field('type', event.target.value)}>{['all', 'TV', 'OVA', '剧场版', 'WEB', '短片', '动态漫画'].map(type => <option key={type} value={type}>{type === 'all' ? '不限类型' : type}</option>)}</select></label>
       <label>起始年份<input inputMode="numeric" maxLength={4} placeholder="不限" value={draft.yearFrom} onChange={event => field('yearFrom', event.target.value)} /></label>
@@ -256,10 +259,7 @@ function EntityWorks({ client, kind, person, scope, session, cache, onReady, adu
       <div className="credits-filter-actions"><button type="button" className="rec-button" onClick={() => { setDraft(creditsFilterDraft({ ...CREDIT_DEFAULTS, view: options.view, sort: options.sort,
         hide_recorded: options.view !== 'completed' }, false)); setError('') }}>恢复默认条件</button>
         <button type="submit" className="rec-button rec-button--primary" disabled={state.pending || writing}>应用筛选</button></div>
-      {error && <p className="credits-filter-error" role="alert">{error}</p>}</form>}
-      <details className="credits-browse-help"><summary>浏览说明</summary><p className="credits-caption">“我看过的”仅包含本人已确认作品身份且已看完的记录；在看、想看、搁置不计入。无已确认记录不代表没看过。</p>
-        <p className="credits-caption">按已知放送时期排序，未知时期排在最后；不代表观看顺序。仅筛选本次浏览，不修改你的偏好。</p>
-        {data && <p className="credits-caption">{data.coverage.detail}</p>}</details></section>
+      {error && <p className="credits-filter-error" role="alert">{error}</p>}</form>}</section>
     <section className={`credits-results${data ? ' rec-more-section' : ''}`} aria-label="参与作品列表" aria-busy={state.pending || state.morePending}>
       <h2>{kind === 'studio' ? '参与制作的作品' : '参与配音的作品'}</h2>
       {state.message && <p className="credits-notice" role="status">{state.message} <button className="series-link" disabled={writing} onClick={() => controller.load(options)}>重新读取</button></p>}

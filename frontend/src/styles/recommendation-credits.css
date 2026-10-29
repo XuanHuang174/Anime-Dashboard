@@ -25,13 +25,19 @@
 .credits-entity-title { display: flex; align-items: center; gap: 14px; }
 .credits-entity-title h2 { font-size: 28px; margin: 4px 0 10px; }
 .credits-entity-title svg { width: 32px; height: 32px; flex-shrink: 0; }
+.credits-entity-panel { padding: 16px 20px; }
+.credits-entity-overview { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px 24px; }
+.credits-entity-overview .credits-entity-title p { font-size: 12px; line-height: 1.5; margin: 0 0 4px; }
+.credits-entity-overview .credits-entity-title h2 { font-size: 24px; line-height: 1.4; margin: 0; }
+.credits-entity-overview .credits-entity-count { font-size: 13px; line-height: 1.6; margin: 0; }
 .credits-quick-controls { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; border-top: 2px solid #111; padding-top: 14px; margin-top: 14px; }
 .credits-quick-controls label { display: grid; gap: 6px; font-size: 13px; font-weight: 800; min-width: 170px; }
 .credits-quick-controls select { border: 2px solid #111; background: white; min-height: 44px; padding: 8px 10px; color: #111; }
 .credits-quick-controls > button { margin-left: auto; }
-.credits-active-filters { margin-top: 14px; }
-.credits-browse-help { margin-top: 14px; font-size: 12px; }
-.credits-browse-help summary { cursor: pointer; font-weight: 800; width: fit-content; min-height: 28px; }
+.credits-filter-summary { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; }
+.credits-browse-help { font-size: 12px; }
+.credits-browse-help[open] { flex-basis: 100%; }
+.credits-browse-help summary { cursor: pointer; font-weight: 800; width: fit-content; min-height: 28px; display: list-item; align-content: center; }
 .credits-content-scope, .credits-filter-error { grid-column: 1 / -1; }
 .credits-filters .rec-field { display: grid; gap: 8px; font-size: 13px; font-weight: 800; }
 .credits-filters .rec-year-range { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; border: 0; margin: 12px 0 0; padding: 0; }
