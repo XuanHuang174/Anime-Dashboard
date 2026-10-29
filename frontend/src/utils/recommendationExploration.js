@@ -34,7 +34,7 @@ export function validateExplorationCapabilities(data) {
   if (data?.series_reminders !== undefined && (data.series_reminders?.enabled !== true
     || data.series_reminders.policy_version !== 'series-reminders.completed-direct.v1')) return invalid()
   if (data?.series_exploration !== undefined && (typeof data.series_exploration?.enabled !== 'boolean'
-    || data.series_exploration.policy_version !== 'series-explore.direct.v1')) return invalid()
+    || data.series_exploration.policy_version !== 'series-explore.direct.v2')) return invalid()
   const supported = ['["similar"]', '["similar","tags"]'].includes(JSON.stringify(data?.supported_intents))
   if (data?.contract_version !== EXPLORATION_VERSIONS.capabilities || typeof data.enabled !== 'boolean'
     || data.catalog_search_enabled !== data.enabled || typeof data.query_execution_enabled !== 'boolean'

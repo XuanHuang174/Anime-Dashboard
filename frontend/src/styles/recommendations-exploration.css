@@ -1,11 +1,15 @@
 /* Exploration reuses the journal palette, outlines, shadows and result layout. */
 .memphis-rec-container .rec-explore-heading { flex-wrap: wrap; }
 .memphis-rec-container .rec-mode-nav { display: flex; gap: 10px; margin-left: auto; align-items: stretch; }
-.memphis-rec-container .rec-mode-link { display: flex; align-items: center; justify-content: center; gap: 5px; min-height: 44px; padding: 8px 12px; border: 2px solid #111; background: white; color: #111; font-size: 12px; font-weight: 800; text-decoration: none; box-shadow: 2px 2px 0 #111; }
+.memphis-rec-container .rec-mode-link { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 8px 12px; border: 2px solid #111; background: white; color: #111; font-size: 12px; font-weight: 800; text-decoration: none; box-shadow: 3px 3px 0 #111; transition: background-color .15s, transform .15s, box-shadow .15s; }
+.memphis-rec-container .rec-mode-link svg { flex-shrink: 0; }
+.memphis-rec-container .rec-mode-link--route { background: #fff1c7; }
 .memphis-rec-container .rec-mode-link.is-current { background: #4ecdc4; }
 .memphis-rec-container .rec-mode-link:disabled { background: #fff5ee; color: #655c58; box-shadow: none; cursor: not-allowed; }
 .memphis-rec-container .rec-mode-link small { font-size: 9px; }
-.memphis-rec-container .rec-mode-link:hover:not(:disabled) { background: #c8f2e8; }
+.memphis-rec-container .rec-mode-link:hover:not(:disabled) { background: #c8f2e8; transform: translate(1px, 1px); box-shadow: 2px 2px 0 #111; }
+.memphis-rec-container .rec-mode-link:active:not(:disabled) { transform: translate(3px, 3px); box-shadow: none; }
+.memphis-rec-container .rec-mode-link:focus-visible { outline: 3px solid #111; outline-offset: 4px; }
 .memphis-rec-container .rec-seed-controls { justify-content: space-between; flex-wrap: wrap; }
 .memphis-rec-container .rec-seed-selection { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; min-width: 0; flex: 1; }
 .memphis-rec-container .rec-seed-selection > span { overflow-wrap: anywhere; }
@@ -40,7 +44,7 @@
 .rec-tag-common > summary { cursor: pointer; font-weight: 800; margin-bottom: 12px; }
 .rec-tag-editor .rec-dialog-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; }
 @media (max-width: 767px) {
-  .memphis-rec-container .rec-mode-nav { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; margin-left: 0; gap: 7px; }
+  .memphis-rec-container .rec-mode-nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; margin-left: 0; gap: 9px; }
   .memphis-rec-container .rec-mode-link { padding: 8px 3px; font-size: 11px; flex-wrap: wrap; }
   .memphis-rec-container .rec-mode-link small { width: 100%; text-align: center; }
   .memphis-rec-container .rec-seed-picker { padding: 12px; }

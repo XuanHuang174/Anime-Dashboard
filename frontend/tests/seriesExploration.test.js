@@ -10,7 +10,7 @@ import { page, query, scope, adultScope } from './fixtures/explorationContract.j
 test('12D uses an explicit independent result contract, never silently mixes legacy ranking', () => {
   const data = seriesExplorePage(), mapped = mapExplorationPage(data, query, 'safe', true)
   assert.equal(mapped.series_context.items.length, 2)
-  assert.equal(mapped.items[0].seriesContext.policy_version, 'series-explore.direct.v1')
+  assert.equal(mapped.items[0].seriesContext.policy_version, 'series-explore.direct.v2')
   assert.throws(() => mapExplorationPage(data, query, 'safe', false))
   assert.throws(() => mapExplorationPage(page(), query, 'safe', true))
   assert.equal(mapExplorationPage(page(), query, 'safe', false).items.length, 12)
@@ -19,12 +19,14 @@ test('12D uses an explicit independent result contract, never silently mixes leg
   }
 })
 
-test('related block rejects overlap, weak graph merges, owned rows under hiding and wrong directions', () => {
+test('related reference accepts owned status under hiding but rejects overlap, weak merges and wrong directions', () => {
   const data = seriesExplorePage()
   data.series_context.items[0].bangumi_id = data.results[0].bangumi_id
   Object.assign(data.series_context.items[0].facts[0], { target_id: data.results[0].bangumi_id })
   assert.throws(() => mapExplorationPage(data, query, 'safe', true))
-  for (const change of [row => { row.watch_status = 'completed' }, row => { row.facts[0].source_id = 44 },
+  const owned = related(); owned.items[0].watch_status = 'completed'
+  assert.equal(validateRelated(owned, { ...query, hide_recorded: true }), owned)
+  for (const change of [row => { row.watch_status = 'invented' }, row => { row.facts[0].source_id = 44 },
     row => Object.assign(row.facts[0], { kind: 'same_setting', relation_label: '相同世界观' })]) {
     const data = related(); change(data.items[0]); assert.throws(() => validateRelated(data, query))
   }

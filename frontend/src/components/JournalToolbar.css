@@ -16,7 +16,7 @@
 .journal-menu-item small { display: block; margin-top: 4px; font-size: 10px; }
 .journal-menu-item:hover:not(:disabled) { background: #4ecdc4; }
 .journal-menu-item:disabled { opacity: .55; cursor: not-allowed; }
-.journal-dropdown-panel button:focus-visible { outline: 3px solid #673ab7; outline-offset: 1px; }
+.journal-dropdown-panel :is(button, a):focus-visible { outline: 3px solid #673ab7; outline-offset: 1px; }
 .journal-dropdown-panel .dashboard-arcade-button { width: 100%; justify-content: center; white-space: nowrap; }
 .journal-actions-area { width: 100%; align-self: stretch; flex-shrink: 0; }
 .journal-personal-preview-layout { display: grid !important; grid-template-columns: minmax(0, 1fr); align-items: start !important; }

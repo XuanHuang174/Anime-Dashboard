@@ -86,16 +86,16 @@ export function RelatedWorks({ data, scope, blocked, seedId, cache }) {
   const toggle = () => { const next = expanded ? null : key; setExpandedKey(next); if (cache) cache.relatedExpandedKey = next }
   if (!data) return null
   return <section className={`series-related${expanded ? '' : ' is-collapsed'}`} aria-label="本作已确认的直接关联">
-    <header><h2>本作已确认的直接关联</h2><span>{blocked ? '关联待更新' : `符合条件 ${data.filtered_count} 部`}</span>
+    <header><h2>本作已确认的直接关联</h2><span>{blocked ? '关联待更新' : `当前范围可查看 ${data.filtered_count} 部`}</span>
       <button type="button" className="rec-button" aria-expanded={expanded} aria-controls="series-related-items" onClick={toggle}>{expanded ? '− 收起关联' : '+ 展开关联'}</button></header>
     {expanded && <div id="series-related-items">{blocked ? <p role="status">关系依据已变化，请重新探索后查看。</p> : <>
-      <p className="series-related-note">{COVERAGE[data.coverage]}。只依据已收录的直接关系，不推断整个系列或建议观看顺序；未列出不代表独立作品。</p>
+      <p className="series-related-note">系列资料不受下方推荐筛选影响，包含手账中已记录的作品。{COVERAGE[data.coverage]}。只依据已收录的直接关系，不推断整个系列或建议观看顺序；未列出不代表独立作品。</p>
       {['partial', 'failed'].includes(data.last_attempt_status) && data.coverage !== data.last_attempt_status && <p>最近获取{data.last_attempt_status === 'failed' ? '失败' : '不完整'}，本区使用上次可用资料。</p>}
-      {!data.items.length ? <p>当前筛选下没有可展示的已确认直接关联。年份、类型、评分、隐藏及已有记录条件均保持生效。</p>
+      {!data.items.length ? <p>当前范围暂无可展示的已确认直接关联。仍遵循内容范围和主动隐藏设置；资料未收录不代表没有续作。</p>
         : <ul>{data.items.map(row => <li key={row.bangumi_id}><div><h3>{row.title_zh || row.title_jp}</h3>
           <p>{relationText(row.facts[0], row.bangumi_id)}</p><small>{row.release_date || '发行日期未知'} · {row.release_format || '发行形式未知'} · {seriesStatus({ watch_status: row.watch_status, record_state: row.watch_status ? 'linked' : 'no_confirmed_record' })}</small></div>
           <button type="button" className="rec-button" onClick={() => open(row.facts[0].source_id)}>查看关系详情 ↗</button></li>)}</ul>}
-      {data.truncated && <p>符合当前条件 {data.filtered_count} 部，本区展示前 12 部；相似区已排除全部已确认直接关联。</p>}
+      {data.truncated && <p>当前范围可查看 {data.filtered_count} 部，本区展示前 12 部；相似区已排除全部已确认直接关联。</p>}
     </>}</div>}
   </section>
 }

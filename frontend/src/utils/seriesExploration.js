@@ -1,7 +1,7 @@
 import { SERIES_KINDS } from './recommendationSeries.js'
 import { checkScopeResponse } from './recommendationContentScope.js'
 export const SERIES_EXPLORE_RESULT = 'recommendations.explore.series.v1'
-export const SERIES_EXPLORE_POLICY = 'series-explore.direct.v1'
+export const SERIES_EXPLORE_POLICY = 'series-explore.direct.v2'
 const id = value => Number.isInteger(value) && value > 0 && value <= 2147483647
 const hash = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value)
 const text = value => typeof value === 'string' && value.length <= 500
@@ -22,7 +22,7 @@ export function validateRelated(data, query) {
   for (const row of data.items) {
     if (!id(row.bangumi_id) || row.bangumi_id === query.seed_bangumi_id || seen.has(row.bangumi_id)
       || !text(row.title_zh) || !text(row.title_jp) || !text(row.release_date) || !text(row.release_format)
-      || ![null, 'plan', 'watching', 'completed', 'on_hold'].includes(row.watch_status) || query.hide_recorded && row.watch_status !== null
+      || ![null, 'plan', 'watching', 'completed', 'on_hold'].includes(row.watch_status)
       || !Array.isArray(row.facts) || !row.facts.length || row.facts.length > 28 || !row.facts.every(fact => factValid(fact)
         && SERIES_KINDS[fact.kind][1] !== 'related' && [fact.source_id, fact.target_id].includes(row.bangumi_id)
         && [fact.source_id, fact.target_id].includes(query.seed_bangumi_id))) invalid()

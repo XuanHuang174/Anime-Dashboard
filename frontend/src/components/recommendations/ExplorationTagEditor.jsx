@@ -1,3 +1,4 @@
+import BangumiScoreFilter from './BangumiScoreFilter.jsx'
 import { useState } from 'react'
 import { emptyTagDraft, tagDraftError } from '../../utils/explorationTagQuery.js'
 import RecommendationContentScopeToggle from './RecommendationContentScopeToggle.jsx'
@@ -42,7 +43,7 @@ export default function ExplorationTagEditor({ draft, onChange, options, status,
     <details className="rec-tag-common"><summary>类型、年份与评分范围</summary>
       <label className="rec-field">作品类型<select value={draft.filters.type} onChange={event => filter('type', event.target.value)}><option value="all">全部类型</option>{['TV', '剧场版', 'OVA', 'WEB', '短片', '动态漫画'].map(type => <option key={type}>{type}</option>)}</select></label>
       <fieldset className="rec-year-range"><legend>放送年份</legend>{[['yearFrom', '起始年份'], ['yearTo', '结束年份']].map(([key, label]) => <label className="rec-field" key={key}>{label}<input aria-label={label} inputMode="numeric" maxLength={4} placeholder="不限" value={draft.filters[key]} onChange={event => filter(key, event.target.value)} /></label>)}</fieldset>
-      <label className="rec-field">Bangumi 评分<select value={draft.filters.minScore} onChange={event => filter('minScore', event.target.value)}><option value="0">不限评分</option><option value="lt6">6.0 以下（不含未知评分）</option>{['6', '7', '8', '9'].map(value => <option key={value} value={value}>{value}.0 及以上</option>)}</select></label>
+      <BangumiScoreFilter filters={draft.filters} onChange={next => field('filters', next)} />
     </details>
     <label className="rec-checkbox"><input type="checkbox" checked={draft.filters.hideRecorded} onChange={event => filter('hideRecorded', event.target.checked)} />隐藏手账中已记录的作品</label>
     {client?.eligibility && <RecommendationContentScopeToggle client={client} includeAdult={includeAdult} onChange={value => filter('includeAdult', value)} onAvailability={setScopeAvailable} />}

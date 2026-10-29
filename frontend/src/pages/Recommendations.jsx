@@ -1,3 +1,4 @@
+import { clearScore } from '../utils/browseScore.js'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import RecommendationHost from './RecommendationHost.jsx'
@@ -173,13 +174,13 @@ function RecommendationWorkspace({ client, sessionScope, cache, adult, setAdult,
   useEffect(() => { want.reconcile(state.items) }, [state.items, want.reconcile])
   useEffect(() => { if (detail.status === 'ready') want.reconcile([detail.item]) }, [detail, want.reconcile])
   useLayoutEffect(() => {
-    const query = JSON.stringify([category, style, filters.type, filters.minScore, filters.hideRecorded, filters.yearFrom, filters.yearTo, !!filters.includeAdult])
+    const query = JSON.stringify([category, style, filters.type, filters.minScore, filters.scoreFrom, filters.scoreTo, filters.hideRecorded, filters.yearFrom, filters.yearTo, !!filters.includeAdult])
     if (detailQuery.current !== query) {
       detailQuery.current = query
       detailController.close()
       setPanel(current => current?.kind === 'detail' ? null : current)
     }
-  }, [category, style, filters.type, filters.minScore, filters.hideRecorded, filters.yearFrom, filters.yearTo, !!filters.includeAdult, detailController])
+  }, [category, style, filters.type, filters.minScore, filters.scoreFrom, filters.scoreTo, filters.hideRecorded, filters.yearFrom, filters.yearTo, !!filters.includeAdult, detailController])
   useEffect(() => { if (state.snapshotExpired) discardDetail() }, [state.snapshotExpired, detailController])
   const executionEpoch = state.data ? `${state.data.algorithm_version}:${state.data.execution_recipe?.recipe_revision || ''}:${state.transport}` : ''
   const lastExecutionEpoch = useRef('')
@@ -218,7 +219,7 @@ function RecommendationWorkspace({ client, sessionScope, cache, adult, setAdult,
     else { setCategory('all'); setStyle('balanced'); setFilters({ ...DEFAULT_BROWSE_FILTERS }) }
   }
   const openFilters = () => { discardDetail(); setPanel({ kind: 'filters' }) }
-  const removeFilter = key => applyFilters(key === 'years' ? { ...filters, yearFrom: '', yearTo: '' }
+  const removeFilter = key => applyFilters(key === 'minScore' ? clearScore(filters) : key === 'years' ? { ...filters, yearFrom: '', yearTo: '' }
     : { ...filters, [key]: key === 'hideRecorded' ? false : DEFAULT_BROWSE_FILTERS[key] })
   const nextBatch = async () => {
     discardDetail()

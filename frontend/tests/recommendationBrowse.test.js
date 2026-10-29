@@ -180,9 +180,9 @@ test('9B request failure is neither cold start nor empty and never falls back to
 })
 
 test('9B year drafts and chip counts are deterministic without changing explicit preference data', () => {
-  assert.equal(filterDraftError({ yearFrom: '2026', yearTo: '2015' }), '年份起点不能大于终点。')
-  assert.ok(filterDraftError({ yearFrom: '2026x', yearTo: '' }))
-  assert.equal(filterDraftError({ yearFrom: '', yearTo: '' }), '')
+  assert.equal(filterDraftError({ ...DEFAULT_BROWSE_FILTERS, yearFrom: '2026', yearTo: '2015' }), '年份起点不能大于终点。')
+  assert.ok(filterDraftError({ ...DEFAULT_BROWSE_FILTERS, yearFrom: '2026x', yearTo: '' }))
+  assert.equal(filterDraftError({ ...DEFAULT_BROWSE_FILTERS, yearFrom: '', yearTo: '' }), '')
   assert.equal(filterChips(DEFAULT_BROWSE_FILTERS).length, 1)
   assert.equal(filterChips({ ...DEFAULT_BROWSE_FILTERS, type: 'TV', minScore: '7', yearFrom: '2015', yearTo: '2026' }).length, 4)
 })

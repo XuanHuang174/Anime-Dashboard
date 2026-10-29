@@ -172,6 +172,26 @@ class CreditsHTTPTests(TransactionTestCase):
         self.assertEqual(self.client.get(ROOT + 'search/?kind=studio&q=a&q=b').status_code, 400)
         self.assertEqual(self.client.get(ROOT + 'entities/studio/201/works/?cursor=x&cursor=y').status_code, 400)
 
+    def test_decimal_score_interval_includes_both_endpoints_and_keeps_cursor_conditions(self):
+        for identity, score in ((1, 0), (2, 6.2), (3, 6.3), (4, 7.5), (5, 7.6)):
+            RecommendationAnime.objects.filter(bangumi_id=identity).update(score=score)
+        response = self.works(min_score='6.3', max_score='7.5')
+        self.assertEqual(response.status_code, 200, response.data)
+        data = response.data
+        self.assertEqual(data['conditions']['min_score'], 6.3)
+        self.assertEqual(data['conditions']['max_score'], 7.5)
+        rows = data['results']
+        while data['next_cursor']:
+            data = self.works(cursor=data['next_cursor']).data
+            rows += data['results']
+        ids = {row['bangumi_id'] for row in rows}
+        self.assertTrue({3, 4} <= ids)
+        self.assertFalse({1, 2, 5} & ids)
+        self.assertTrue(all(6.3 <= row['score'] <= 7.5 for row in rows))
+        self.assertEqual(self.works(cursor=response.data['next_cursor'], max_score='7.6').status_code, 409)
+        exact = self.works(min_score='7.5', max_score='7.5')
+        self.assertEqual([row['bangumi_id'] for row in exact.data['results']], [4])
+
     def test_subject_multirole_dedup_company_roles_dubs_and_unknown_role_annotation(self):
         self.fixture.rows['character.jsonlines'].append({'id': 302, 'name': '第二角色', 'role': 1})
         self.fixture.rows['person-characters.jsonlines'] += [

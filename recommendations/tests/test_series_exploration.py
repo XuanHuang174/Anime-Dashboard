@@ -72,7 +72,7 @@ class SeriesExplorationTests(TransactionTestCase):
         self.assertEqual(result.status_code, 200, result.data)
         data = result.data
         self.assertEqual(data['contract_version'], 'recommendations.explore.series.v1')
-        self.assertEqual(data['series_context']['policy_version'], 'series-explore.direct.v1')
+        self.assertEqual(data['series_context']['policy_version'], 'series-explore.direct.v2')
         self.assertEqual({row['bangumi_id'] for row in data['series_context']['items']}, {10, 11, 13, 200})
         self.assertEqual(data['eligible_count'], 140)
         ids, page = [], data
@@ -105,17 +105,22 @@ class SeriesExplorationTests(TransactionTestCase):
         self.assertTrue(data['series_context']['truncated'])
         self.assertTrue(all(row['bangumi_id'] >= 550 for row in data['results']))
 
-    def test_filters_owned_hidden_and_no_shared_topics_apply_to_related_independently(self):
+    def test_related_reference_ignores_recommendation_filters_but_honors_hidden_and_scope(self):
         self.publish()
         self.record(10, watch_status='completed', personal_score=9)
         self.hide(11)
         data = self.start().data
-        self.assertEqual({row['bangumi_id'] for row in data['series_context']['items']}, {13, 200})
+        self.assertEqual({row['bangumi_id'] for row in data['series_context']['items']}, {10, 13, 200})
+        self.assertEqual(next(row for row in data['series_context']['items'] if row['bangumi_id'] == 10)['watch_status'], 'completed')
         data = self.start(hide_recorded=False).data
         self.assertIn(10, [row['bangumi_id'] for row in data['series_context']['items']])
-        self.assertEqual(self.start(type='OVA').data['series_context']['items'], [])
-        self.assertEqual(self.start(year_from=2027).data['series_context']['items'], [])
-        self.assertEqual(self.start(min_score=9).data['series_context']['items'], [])
+        expected = data['series_context']['items']
+        for filters in ({'type': 'OVA'}, {'year_from': 2027}, {'min_score': 9},
+                        {'min_score': 6.3, 'max_score': 7.5}, {'hide_recorded': True}):
+            response = self.start(**filters)
+            self.assertEqual(response.status_code, 200, response.data)
+            self.assertEqual(response.data['series_context']['items'], expected)
+            self.assertNotIn(10, [row['bangumi_id'] for row in response.data['results']])
         # No profile or review reads even when a valid record has both.
         with CaptureQueriesContext(connection) as queries: response = self.start()
         self.assertEqual(response.status_code, 200, response.data)

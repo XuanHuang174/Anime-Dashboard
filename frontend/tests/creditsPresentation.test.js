@@ -11,7 +11,7 @@ const server = await createServer({ configFile: false, plugins: [react()], serve
 after(() => server.close())
 const { default: Entry } = await server.ssrLoadModule('/src/components/recommendations/CreditsEntry.jsx')
 const { default: Navigation } = await server.ssrLoadModule('/src/components/recommendations/RecommendationModeNavigation.jsx')
-test('credits is a secondary tool with an accessible icon, independently hidden when closed', () => {
+test('credits shares mode navigation with icons and its own route marker, independently hidden when closed', async () => {
   const render = flags => renderToStaticMarkup(React.createElement(MemoryRouter, { initialEntries: ['/recommendations'] }, React.createElement(Entry, { capabilities: flags })))
   assert.equal(render({ ...creditsCapability, voice_actor: false, studio: false }), '')
   assert.match(render({ ...creditsCapability, voice_actor: false }), /人物与制作/)
@@ -19,6 +19,14 @@ test('credits is a secondary tool with an accessible icon, independently hidden 
   const nav = renderToStaticMarkup(React.createElement(MemoryRouter, null, React.createElement(Navigation, { current: 'personal' })))
   assert.doesNotMatch(nav, /人物与制作/)
   assert.match(nav, /个性化推荐/); assert.match(nav, /单番相似/); assert.match(nav, /按标签找/)
+  const capabilities = JSON.parse(await readFile(new URL('./fixtures/recommendationExplorationContract.json', import.meta.url), 'utf8')).capabilities
+  const open = renderToStaticMarkup(React.createElement(MemoryRouter, { initialEntries: ['/recommendations/credits'] },
+    React.createElement(Navigation, { current: 'credits', capabilities, credits: creditsCapability })))
+  assert.equal((open.match(/<a /g) || []).length, 4)
+  assert.equal((open.match(/<svg /g) || []).length, 4)
+  assert.equal((open.match(/aria-current="page"/g) || []).length, 1)
+  assert.match(open, /rec-mode-link--route is-current/)
+  assert.match(open, /人物与制作 · 当前/)
 })
 test('private preview alone owns credits summary; editor and public detail do not acquire exploration actions', async () => {
   const preview = await readFile('src/components/DetailModal.jsx', 'utf8'), editor = await readFile('src/components/EditableDetailModal.jsx', 'utf8')

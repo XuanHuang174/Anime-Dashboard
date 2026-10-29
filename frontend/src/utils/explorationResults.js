@@ -1,3 +1,4 @@
+import { scoreConditions } from './browseScore.js'
 // Exploration owns its query/evidence contract. Never use the profile mapper here.
 import { checkScopeResponse } from './recommendationContentScope.js'
 import { EXPLORATION_VERSIONS as V, validateExplorationCatalog } from './recommendationExploration.js'
@@ -16,8 +17,7 @@ export const sameExplorationQuery = (a, b) => a && b && Object.keys(a).length ==
 
 export function similarQuery(seedId, filters) {
   return { intent: 'similar', seed_bangumi_id: seedId, type: filters.type,
-    min_score: Number(filters.minScore === 'lt6' ? 0 : filters.minScore).toFixed(1),
-    max_score: filters.minScore === 'lt6' ? '6.0' : '10.0', max_score_exclusive: filters.minScore === 'lt6',
+    ...scoreConditions(filters),
     hide_recorded: filters.hideRecorded, page_size: 12,
     ...(filters.yearFrom ? { year_from: Number(filters.yearFrom) } : {}),
     ...(filters.yearTo ? { year_to: Number(filters.yearTo) } : {}) }

@@ -3,6 +3,7 @@ import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 import { useNavigate } from 'react-router-dom'
 import api from '../api/api.js'
+import usePublicReturn from '../hooks/usePublicReturn.js'
 import BackToTop from '../components/BackToTop.jsx'
 import DetailModal from '../components/DetailModal.jsx'
 import FilterBar from '../components/FilterBar.jsx'
@@ -32,6 +33,7 @@ function getScoreTextClass(score) {
 }
 
 function FeaturedColumn() {
+  const returnTarget = usePublicReturn()
   const navigate = useNavigate()
   const pageRef = useRef(null)
   const cardsRef = useRef(null)
@@ -311,11 +313,11 @@ function FeaturedColumn() {
         <div className="relative mx-auto max-w-[1500px] px-4 py-8 sm:px-6 lg:px-8 lg:py-11">
           <button
             type="button"
-            onClick={() => navigate('/')}
+            onClick={() => navigate(returnTarget.path)}
             className="featured-header-reveal mb-7 inline-flex items-center gap-2 rounded-full border-4 border-black bg-white px-5 py-2.5 text-sm font-black shadow-[5px_5px_0_#111] active:translate-x-[5px] active:translate-y-[5px] active:shadow-none"
           >
             <i className="fa-solid fa-arrow-left"></i>
-            返回展示主界面
+            {returnTarget.label}
           </button>
 
           <div className="max-w-4xl lg:max-w-[62%]">

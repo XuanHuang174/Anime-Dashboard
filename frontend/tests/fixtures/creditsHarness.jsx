@@ -12,6 +12,7 @@ import { createRecommendationClient } from '../../src/api/recommendationClient.j
 import api from '../../src/api/api.js'
 import { creditsCapability, creditsCommon, creditsSummary, creditsSearch, creditsPage, creditsDetail } from './creditsContract.js'
 import { CREDIT_DEFAULTS } from '../../src/utils/recommendationCredits.js'
+import explorationContract from './recommendationExplorationContract.json'
 import '../../src/index.css'
 localStorage.setItem('anime_journal_access_token', 'synthetic-13d-only')
 let revision = 1, closed = false, failNext = false
@@ -25,7 +26,7 @@ const transport = { get: async (path, config = {}) => {
   if (failNext && path.includes('/credits/')) { failNext = false; throw { response: { status: 409, data: { code: 'credits_snapshot_changed' } } } }
   const params = config.params || {}, scope = params.content_scope || 'safe'
   let data
-  if (path === 'recommendations/capabilities/') data = { credits: { ...creditsCapability, voice_actor: !closed, studio: !closed } }
+  if (path === 'recommendations/capabilities/') data = { exploration: explorationContract.capabilities, credits: { ...creditsCapability, voice_actor: !closed, studio: !closed } }
   else if (path === 'recommendations/eligibility/') data = { contract_version: 'recommendations.eligibility.session.v1',
     policy_version: 'eligibility.session.v1', effective_status: 'not_requested', authorization_source: 'none',
     manual_authorization_valid: false, eligibility_version: 0, age_assurance_status: 'not_performed', can_apply: false,
@@ -51,7 +52,10 @@ const transport = { get: async (path, config = {}) => {
     const total = scope === 'safe' ? 25 : 26
     const all = [0, 12, 24].flatMap(start => creditsPage({ kind, person: Number(identity), offset: start, options, contentScope: scope, count: total, expires }).results)
       .map(row => ({ ...row, watch_status: owned.get(row.bangumi_id) || null }))
-      .filter(row => !(options.hide_recorded && row.watch_status) && (options.view !== 'completed' || row.watch_status === 'completed') && options.min_score < 9)
+      .filter(row => !(options.hide_recorded && row.watch_status) && (options.view !== 'completed' || row.watch_status === 'completed')
+        && row.score >= options.min_score && (options.max_score_exclusive ? row.score > 0 && row.score < options.max_score : row.score <= options.max_score)
+        && (options.type === 'all' || row.status_type === options.type)
+        && (!options.year_from || Number(row.season.slice(0, 4)) >= options.year_from) && (!options.year_to || Number(row.season.slice(0, 4)) <= options.year_to))
     data = creditsPage({ kind, person: Number(identity), offset, options, contentScope: scope, count: all.length, expires })
     data.results = all.slice(offset, offset + 12)
     data.results.forEach(row => actions.set(row.action_context, row))

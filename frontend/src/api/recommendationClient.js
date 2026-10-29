@@ -1,3 +1,4 @@
+import { scoreRequestConditions } from '../utils/browseScore.js'
 // Dependency injection keeps test fixtures out of the production bundle.
 import { validDetailContext } from '../utils/recommendationExecution.js'
 import { checkScopeResponse } from '../utils/recommendationContentScope.js'
@@ -104,13 +105,11 @@ export function createRecommendationClient(transport, scope = 'safe', onLost = (
       return client.post(`recommendations/${identity}/want/`, {}, { signal }).then((r) => r.data)
     },
     list: ({ category, filters, page = 1, stateToken }, signal) => client.get('recommendations/', { signal,
-      params: { category, type: filters.type, min_score: filters.minScore === 'lt6' ? '0' : filters.minScore,
-        ...(filters.minScore === 'lt6' ? { max_score: '6.0', max_score_exclusive: true } : {}), hide_recorded: filters.hideRecorded,
+      params: { category, type: filters.type, ...scoreRequestConditions(filters), hide_recorded: filters.hideRecorded,
         page, page_size: 12, ...(stateToken ? { state_token: stateToken } : {}) } }).then((r) => r.data),
     browse: ({ category, style, filters, cursor }, signal) => client.get('recommendations/', { signal,
       params: cursor ? { cursor } : { browse: true, category, style, type: filters.type,
-        min_score: filters.minScore === 'lt6' ? '0' : filters.minScore,
-        ...(filters.minScore === 'lt6' ? { max_score: '6.0', max_score_exclusive: true } : {}), hide_recorded: filters.hideRecorded, page_size: 12,
+        ...scoreRequestConditions(filters), hide_recorded: filters.hideRecorded, page_size: 12,
         ...(filters.yearFrom ? { year_from: filters.yearFrom } : {}),
         ...(filters.yearTo ? { year_to: filters.yearTo } : {}) } }).then(r => r.data),
     detail: (identity, signal, evidenceToken, detailContext) => {

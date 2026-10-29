@@ -25,6 +25,17 @@
 .credits-entity-title { display: flex; align-items: center; gap: 14px; }
 .credits-entity-title h2 { font-size: 28px; margin: 4px 0 10px; }
 .credits-entity-title svg { width: 32px; height: 32px; flex-shrink: 0; }
+.credits-quick-controls { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; border-top: 2px solid #111; padding-top: 14px; margin-top: 14px; }
+.credits-quick-controls label { display: grid; gap: 6px; font-size: 13px; font-weight: 800; min-width: 170px; }
+.credits-quick-controls select { border: 2px solid #111; background: white; min-height: 44px; padding: 8px 10px; color: #111; }
+.credits-quick-controls > button { margin-left: auto; }
+.credits-active-filters { margin-top: 14px; }
+.credits-browse-help { margin-top: 14px; font-size: 12px; }
+.credits-browse-help summary { cursor: pointer; font-weight: 800; width: fit-content; min-height: 28px; }
+.credits-content-scope, .credits-filter-error { grid-column: 1 / -1; }
+.credits-filters .rec-field { display: grid; gap: 8px; font-size: 13px; font-weight: 800; }
+.credits-filters .rec-year-range { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; border: 0; margin: 12px 0 0; padding: 0; }
+.credits-filters .rec-year-range legend { margin-bottom: 8px; font-size: 12px; }
 .credits-filters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; padding-top: 16px; border-top: 2px solid #111; margin-top: 20px; }
 .credits-filters > label { font-weight: 800; font-size: 13px; display: grid; gap: 8px; }
 .credits-score-filter { grid-column: span 2; }
@@ -64,6 +75,9 @@
 .memphis-rec-container .rec-dialog--credits > .rec-dialog-header { padding: 10px 20px; }
 @media (max-width: 1023px) { .credits-work-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 700px) {
+  .credits-quick-controls { gap: 10px; }
+  .credits-quick-controls label { min-width: 0; flex: 1 1 140px; }
+  .credits-quick-controls > button { margin-left: 0; }
   .memphis-rec-container.credits-shell { padding: 16px 12px; }
   .memphis-rec-container.credits-shell--overlay { padding: 0; }
   .memphis-rec-container .rec-dialog--credits > .rec-dialog-body { padding: 16px 12px; }

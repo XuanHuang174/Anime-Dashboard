@@ -4,6 +4,7 @@ import gsap from 'gsap'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import api from '../api/api.js'
 import { saveTokens } from '../auth/tokenStorage.js'
+import '../styles/login-layout.css'
 
 gsap.registerPlugin(useGSAP)
 
@@ -45,7 +46,7 @@ function LoginPage() {
     const previousPaddingBottom = document.body.style.paddingBottom
     const previousOverflow = document.body.style.overflow
     document.body.style.paddingBottom = '0px'
-    document.body.style.overflow = 'hidden'
+    document.body.style.overflow = 'auto'
 
     return () => {
       document.body.style.paddingBottom = previousPaddingBottom
@@ -206,9 +207,10 @@ function LoginPage() {
     <main
       ref={pageRef}
       style={MEMPHIS_COLORS}
-      className="relative h-[100dvh] overflow-hidden bg-[var(--memphis-cream)] px-3 py-3 text-[var(--memphis-ink)] sm:px-5 sm:py-4 lg:px-8 lg:py-5"
+      className="memphis-login-page relative min-h-[100dvh] bg-[var(--memphis-cream)] px-3 py-3 text-[var(--memphis-ink)] sm:px-5 sm:py-4 lg:px-8 lg:py-5"
     >
 
+      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
       <div
         className="pointer-events-none absolute inset-0 opacity-35"
         style={{
@@ -240,7 +242,8 @@ function LoginPage() {
         <path d="m5 47 30-34 30 34 30-34 30 34 30-34 30 34 30-34" fill="none" stroke="var(--memphis-coral)" strokeWidth="10" strokeLinejoin="bevel" />
       </svg>
 
-      <div className="relative z-10 mx-auto flex h-full max-w-6xl flex-col">
+      </div>
+      <div className="memphis-login-frame relative z-10 mx-auto flex max-w-6xl flex-col justify-center">
         <div className="mb-3 flex shrink-0 items-center justify-between gap-4">
           <Link
             to="/"
@@ -255,7 +258,7 @@ function LoginPage() {
           </div>
         </div>
 
-        <section className="memphis-login-card mb-3 mr-3 grid min-h-0 flex-1 border-[5px] border-black bg-white shadow-[10px_10px_0_0_var(--memphis-ink)] lg:grid-cols-[0.86fr_1.14fr]">
+        <section className="memphis-login-card mb-3 mr-3 grid shrink-0 border-[5px] border-black bg-white shadow-[10px_10px_0_0_var(--memphis-ink)] lg:grid-cols-[0.86fr_1.14fr]">
           <aside className="relative hidden min-h-0 overflow-hidden border-r-[5px] border-black bg-[var(--memphis-coral)] p-7 lg:flex xl:p-9">
             <div className="pointer-events-none absolute -right-9 top-8 h-28 w-28 rounded-full border-[15px] border-black/90 bg-[var(--memphis-yellow)]" />
             <div className="pointer-events-none absolute -bottom-10 -left-8 h-40 w-40 rotate-12 border-[6px] border-black bg-[var(--memphis-teal)]" />
@@ -308,7 +311,7 @@ function LoginPage() {
             </div>
           </aside>
 
-          <div className="relative flex min-h-0 items-center overflow-hidden bg-white p-4 sm:p-6 lg:p-8 xl:p-10">
+          <div className="relative flex min-w-0 items-center bg-white p-4 sm:p-6 lg:p-8 xl:p-10">
             <div className="pointer-events-none absolute right-4 top-4 grid grid-cols-4 gap-2 opacity-30">
               {Array.from({ length: 12 }, (_, index) => (
                 <span key={index} className="h-2.5 w-2.5 rounded-full bg-black" />

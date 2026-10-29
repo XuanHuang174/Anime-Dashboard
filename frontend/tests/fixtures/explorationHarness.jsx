@@ -15,6 +15,7 @@ import { related, annotations } from './seriesExplorationContract.js'
 import { seriesPage, seriesDetail } from './seriesContract.js'
 import { reminders } from './seriesRemindersContract.js'
 import { notifyRecommendationChange } from '../../src/utils/recommendationReload.js'
+import { creditsCapability } from './creditsContract.js'
 
 const harnessParams = new URLSearchParams(window.location.search)
 const releaseHarness = location.pathname.endsWith('/seriesReleaseHarness.html')
@@ -68,7 +69,7 @@ function scopedClient(selectedScope = 'safe', seriesPolicy = false) {
     forSeries: value => scopedClient(selectedScope, value),
     forScope: value => scopedClient(value, seriesPolicy),
     capabilities: async signal => { await wait('capabilities', signal); return { contract_version: 'recommendations.capabilities.v1',
-      exploration: { ...contract.capabilities, series_exploration: { enabled: seriesEnabled && !seriesWithdrawn, policy_version: 'series-explore.direct.v1' },
+      credits: creditsCapability, exploration: { ...contract.capabilities, series_exploration: { enabled: seriesEnabled && !seriesWithdrawn, policy_version: 'series-explore.direct.v2' },
         ...(remindersEnabled && !seriesWithdrawn ? { series_reminders: { enabled: true, policy_version: 'series-reminders.completed-direct.v1' } } : {}) }, algorithm_version: 'content.v1', browse_enabled: true, rollout_revision: 'b'.repeat(64) } },
     seriesReminders: async signal => { await wait('reminders', signal); guardSeries(); return reminders({ hidden: reminderHidden, owned, collapsed: remindersCollapsed, version: reminderVersion, contentScope: scopeContext }) },
     reminderPresentation: async signal => { await wait('reminder-presentation', signal); guardSeries(); return {

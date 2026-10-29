@@ -1,3 +1,4 @@
+import { clearScore } from '../utils/browseScore.js'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import useExploration from '../hooks/useExploration.js'
@@ -70,7 +71,7 @@ export default function TagRecommendations({ client, sessionScope, cache, adult,
   }
   const editFilter = id => {
     const next = appliedDraft || draft
-    setDraft({ ...next, filters: id === 'years' ? { ...next.filters, yearFrom: '', yearTo: '' }
+    setDraft({ ...next, filters: id === 'minScore' ? clearScore(next.filters) : id === 'years' ? { ...next.filters, yearFrom: '', yearTo: '' }
       : { ...next.filters, [id]: id === 'hideRecorded' || id === 'includeAdult' ? false : DEFAULT_BROWSE_FILTERS[id] } }); openEditor()
   }
   const nextBatch = async () => { close(); if (await state.nextBatch()) { resultsRef.current?.focus({ preventScroll: true }); resultsRef.current?.scrollIntoView({ block: 'start', behavior: 'auto' }) } }

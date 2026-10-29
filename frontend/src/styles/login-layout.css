@@ -1,0 +1,5 @@
+.memphis-login-page { overflow-x: clip; }
+.memphis-login-frame { min-height: calc(100dvh - 24px); }
+@media (min-width: 640px) { .memphis-login-frame { min-height: calc(100dvh - 32px); } }
+@media (min-width: 1024px) { .memphis-login-frame { min-height: calc(100dvh - 40px); } }
+@media (max-height: 750px) { .memphis-login-frame { justify-content: flex-start; } }

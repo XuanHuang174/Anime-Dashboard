@@ -58,14 +58,14 @@ export default function MemphisDropdown({ label, children, open, onOpenChange, c
       document.removeEventListener('keydown', keyboard)
     }
   }, [open, owner])
-  const focusFirst = () => requestAnimationFrame(() => panelRef.current?.querySelector('button:not(:disabled)')?.focus())
+  const focusFirst = () => requestAnimationFrame(() => panelRef.current?.querySelector('button:not(:disabled), a[href]')?.focus())
   const panel = <div ref={panelRef} id={id}
     className={`journal-dropdown-panel${inline ? ' journal-dropdown-panel--inline' : ''}`}
     style={inline ? undefined : position}
     hidden={!open} inert={!open} data-menu-owner={owner} aria-label={typeof label === 'string' ? label : undefined}
     onKeyDown={(event) => {
       if (event.defaultPrevented || !['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
-      const buttons = [...panelRef.current.querySelectorAll('button:not(:disabled)')]
+      const buttons = [...panelRef.current.querySelectorAll('button:not(:disabled), a[href]')]
         .filter((button) => button.getClientRects().length > 0)
       if (!buttons.length) return
       const current = buttons.indexOf(document.activeElement)

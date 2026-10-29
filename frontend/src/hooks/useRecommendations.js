@@ -9,7 +9,7 @@ export default function useRecommendations(category, filters, client = recommend
     return cache.controller
   }, [client, cache])
   const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot)
-  const key = JSON.stringify([category, style, filters.type, filters.minScore, filters.hideRecorded, filters.yearFrom, filters.yearTo, !!filters.includeAdult])
+  const key = JSON.stringify([category, style, filters.type, filters.minScore, filters.scoreFrom, filters.scoreTo, filters.hideRecorded, filters.yearFrom, filters.yearTo, !!filters.includeAdult])
   useLayoutEffect(() => {
     controller.activate()
     if (cache) controller.resume({ key, category, style, filters })

@@ -1,3 +1,4 @@
+import { clearScore } from '../utils/browseScore.js'
 import useExplorationInteractions from '../hooks/useExplorationInteractions.jsx'
 import ExplorationDialogs from '../components/recommendations/ExplorationDialogs.jsx'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
@@ -86,7 +87,7 @@ export default function SimilarRecommendations({ client, sessionScope, cache, ad
   const applyFilters = next => { close(); setLocalFilters(next); setAdult(!!next.includeAdult) }
   const openFilters = () => { close(); setPanel({ kind: 'filters' }) }
   const chips = filterChips(filters)
-  const remove = id => applyFilters(id === 'years' ? { ...filters, yearFrom: '', yearTo: '' }
+  const remove = id => applyFilters(id === 'minScore' ? clearScore(filters) : id === 'years' ? { ...filters, yearFrom: '', yearTo: '' }
     : { ...filters, [id]: id === 'hideRecorded' ? false : DEFAULT_BROWSE_FILTERS[id] })
   const nextBatch = async () => {
     close()

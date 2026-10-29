@@ -653,7 +653,7 @@ function DetailModal({
                 </div>
               )}
 
-              <div className="memphis-modal-piece flex min-h-0 flex-1 flex-col">
+              <div className={`memphis-modal-piece flex flex-col ${isPrivateJournal && !editable ? 'min-h-[224px] shrink-0 sm:min-h-[264px]' : 'min-h-0 flex-1'}`}>
                 <div className="mb-2 grid shrink-0 grid-cols-2 gap-1.5 border border-black bg-[#fff5ee] p-1">
                   <button
                     type="button"
@@ -684,7 +684,7 @@ function DetailModal({
                       : selectedItem.review || ''
                   }
                   onChange={activeTextPanel === 'review' ? handleFieldChange : undefined}
-                  className={`min-h-[96px] w-full flex-1 resize-none overflow-y-auto border-2 border-black bg-white p-3 text-xs font-bold leading-relaxed text-zinc-700 outline-none shadow-[inset_3px_3px_0_#e4e4e7] custom-scrollbar${editable && activeTextPanel === 'review' ? ' cursor-text focus:bg-[#fffbea]' : ' cursor-not-allowed'}`}
+                  className={`${isPrivateJournal && !editable ? 'min-h-[180px] shrink-0 sm:min-h-[220px]' : 'min-h-[96px]'} w-full flex-1 resize-none overflow-y-auto border-2 border-black bg-white p-3 text-xs font-bold leading-relaxed text-zinc-700 outline-none shadow-[inset_3px_3px_0_#e4e4e7] custom-scrollbar${editable && activeTextPanel === 'review' ? ' cursor-text focus:bg-[#fffbea]' : ' cursor-default'}`}
                   placeholder={activeTextPanel === 'description' ? '暂无剧情简介...' : editable ? '写下你的观看感受...' : '暂无个人评价...'}
                   aria-label={activeTextPanel === 'description' ? '剧情简介' : '个人评价'}
                 />

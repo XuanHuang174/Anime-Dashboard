@@ -1,3 +1,4 @@
+import { scoreConditions, scoreError, scoreLabel } from './browseScore.js'
 import { mapRecommendationItem, validateColdStartState } from './recommendations.js'
 import { sameEvidenceContext } from './recommendationEpoch.js'
 import { validExecutionRecipe, sameExecutionRecipe, matchesExecutionContext, validDetailContext } from './recommendationExecution.js'
@@ -15,8 +16,10 @@ const cursor = value => value === null || typeof value === 'string' && value.len
 const invalid = () => { throw new Error('推荐浏览合同不兼容，请重新加载。') }
 
 export function browseConditions({ category, style, filters }) {
-  return { category, style, type: filters.type, min_score: filters.minScore === 'lt6' ? '0.0' : Number(filters.minScore).toFixed(1),
-    ...(filters.minScore === 'lt6' ? { max_score: '6.0', max_score_exclusive: true } : {}),
+  const score = scoreConditions(filters)
+  return { category, style, type: filters.type, min_score: score.min_score,
+    ...(Number(score.max_score) < 10 ? { max_score: score.max_score } : {}),
+    ...(score.max_score_exclusive ? { max_score_exclusive: true } : {}),
     year_from: filters.yearFrom ? Number(filters.yearFrom) : null,
     year_to: filters.yearTo ? Number(filters.yearTo) : null, hide_recorded: filters.hideRecorded, page_size: 12 }
 }
@@ -66,7 +69,8 @@ export function mapBrowsePage(data) {
     || data.results.some(row => !sameEvidenceContext(row.evidence_context, data.evidence_context))
     || data.cold_start_state && data.mode !== ({ personalized: 'personalized', explicit_preferences: 'preference_based', none: 'cold_start' }[data.cold_start_state.recommendation_basis])) invalid()
   const items = data.results.map(mapRecommendationItem)
-  if (c.max_score !== undefined && data.results.some(row => !(row.score > 0 && (c.max_score_exclusive ? row.score < Number(c.max_score) : row.score <= Number(c.max_score))))) invalid()
+  if (data.results.some(row => row.score < Number(c.min_score) || c.max_score !== undefined
+    && !(row.score > 0 && (c.max_score_exclusive ? row.score < Number(c.max_score) : row.score <= Number(c.max_score))))) invalid()
   if (new Set(items.map(item => item.bangumiId)).size !== items.length) invalid()
   return { ...data, items }
 }
@@ -85,6 +89,7 @@ export function requireBrowseTransition(current, next, action, seen) {
 }
 
 export function filterDraftError(filters) {
+  if (scoreError(filters)) return scoreError(filters)
   for (const value of [filters.yearFrom, filters.yearTo]) {
     if (value !== '' && !/^[1-9][0-9]{3}$/.test(value)) return '请输入四位年份，或留空表示不限。'
   }
@@ -94,7 +99,6 @@ export function filterDraftError(filters) {
 export function filterChips(filters) {
   return [filters.includeAdult && { id: 'includeAdult', label: '包含 NSFW' }, filters.type !== 'all' && { id: 'type', label: filters.type },
     (filters.yearFrom || filters.yearTo) && { id: 'years', label: `${filters.yearFrom || '不限'}—${filters.yearTo || '不限'}` },
-    filters.minScore === 'lt6' ? { id: 'minScore', label: 'Bangumi 评分 < 6.0' }
-      : Number(filters.minScore) > 0 && { id: 'minScore', label: `Bangumi 评分 ≥ ${Number(filters.minScore).toFixed(1)}` },
+    scoreLabel(filters) && { id: 'minScore', label: scoreLabel(filters) },
     filters.hideRecorded && { id: 'hideRecorded', label: '隐藏手账已有记录' }].filter(Boolean)
 }

@@ -14,7 +14,7 @@ from .series_read import SPECS, _visible, node_revision, revision
 from .series_source import digest
 from .series_store import _basis, SeriesConflict
 
-POLICY = 'series-explore.direct.v1'
+POLICY = 'series-explore.direct.v2'
 RESULT_VERSION = 'recommendations.explore.series.v1'
 ANNOTATIONS_VERSION = 'recommendations.series.annotations.v1'
 LIMIT = 5000
@@ -113,16 +113,11 @@ def fact_payload(row, catalog):
 
 
 def related_block(live, query):
-    from .browse_controls import filter_index
-    from .features import feature_tags
     data, seed = live['series'], query['seed_bangumi_id']
-    excluded = set(live['feedback']['hidden_ids']) | (set(live['owned']) if query['hide_recorded'] else set())
-    rows = [data['catalog'][i] for i in data['strong_ids'] - excluded]
-    index = {'features': [(row.bangumi_id, feature_tags(row.tags, (row.title_zh, row.title_jp)), row.score, row.status_type) for row in rows]}
-    eligible = {row[0] for row in filter_index(index, [{'bangumi_id': row.bangumi_id, 'season': row.season,
-        'score': row.score, 'status_type': row.status_type} for row in rows],
-        {**query, 'year_from': query.get('year_from'), 'year_to': query.get('year_to')})['features']}
-    ordered = sorted(eligible, key=lambda i: (data['nodes'][i].release_date or '9999', i))
+    # The graph already enforces content scope, identity and eligibility. Journal
+    # ownership and recommendation filters must not erase series reference facts.
+    visible = data['strong_ids'] - set(live['feedback']['hidden_ids'])
+    ordered = sorted(visible, key=lambda i: (data['nodes'][i].release_date or '9999', i))
     items = []
     for identity in ordered[:RELATED_LIMIT]:
         row, node = data['catalog'][identity], data['nodes'][identity]

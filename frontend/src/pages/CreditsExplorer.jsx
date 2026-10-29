@@ -14,9 +14,16 @@ import RecommendationResourcePanel from '../components/recommendations/Recommend
 import RecommendationContentScopeToggle from '../components/recommendations/RecommendationContentScopeToggle.jsx'
 import { RecommendationCover, RecommendationMeta } from '../components/recommendations/RecommendationCard.jsx'
 import { CreditsIcon } from '../components/recommendations/CreditsEntry.jsx'
+import RecommendationModeNavigation from '../components/recommendations/RecommendationModeNavigation.jsx'
+import { validateExplorationCapabilities } from '../utils/recommendationExploration.js'
+import BackToTop from '../components/BackToTop.jsx'
+import BangumiScoreFilter from '../components/recommendations/BangumiScoreFilter.jsx'
+import { filterChips } from '../utils/recommendationBrowse.js'
+import { creditsFilterDraft, creditsFilterOptions, creditsChipFilters } from '../utils/creditsBrowseFilters.js'
 import '../styles/recommendations.css'
 import '../styles/recommendations-layout.css'
 import '../styles/recommendations-theme.css'
+import '../styles/recommendations-exploration.css'
 import '../styles/recommendation-credits.css'
 
 export default function CreditsExplorer(props) {
@@ -28,6 +35,7 @@ function Explorer({ client: base = defaultClient, overlay = false, session }) {
   const [adult, setAdult] = useState(location.state?.creditsScope === 'include_adult')
   const [capability, setCapability] = useState({ status: 'loading' }), [attempt, retry] = useState(0)
   const [notice, setNotice] = useState(''), [phase, nextPhase] = useState(0), [generation, purge] = useState(0)
+  const [detailOpen, setDetailOpen] = useState(false)
   const caches = useRef({}), root = useRef(null), previousCapability = useRef(null)
   const scope = adult ? 'include_adult' : 'safe'
   const lost = () => { caches.current = {}; purge(n => n + 1); setAdult(false); setNotice('访问范围已变化，已停止展示旧资料。请重新读取。') }
@@ -38,12 +46,15 @@ function Explorer({ client: base = defaultClient, overlay = false, session }) {
       if (!force && Date.now() - last < 60000) return
       last = Date.now()
       try {
-        const data = validateCreditsCapabilities((await base.capabilities(request.signal)).credits)
+        const response = await base.capabilities(request.signal)
+        const data = validateCreditsCapabilities(response.credits)
+        let exploration
+        try { exploration = validateExplorationCapabilities(response.exploration) } catch { /* Old servers can still serve credits. */ }
         if (!request.signal.aborted && seriesSession() === session) {
           if (previousCapability.current && Object.keys(CREDIT_KINDS).some(k => previousCapability.current[k] !== data[k])) {
             caches.current = {}; purge(n => n + 1)
           }
-          previousCapability.current = data; setCapability({ status: 'ready', data })
+          previousCapability.current = data; setCapability({ status: 'ready', data, exploration })
         }
       } catch (error) {
         if (request.signal.aborted || seriesSession() !== session) return
@@ -84,21 +95,29 @@ function Explorer({ client: base = defaultClient, overlay = false, session }) {
   const hasPrevious = overlay || typeof location.state?.creditsFrom === 'string' && creditsRoute(location.state.creditsFrom)
   const back = () => hasPrevious ? navigate(-1) : navigate('/recommendations')
   const choose = (kind, person) => navigate(`/recommendations/credits/${kind}/${person}`, { state: creditsNavigationState(location, scope) })
+  const changeScope = (value, options) => {
+    if (options && route?.person) {
+      const next = caches.current[`${value ? 'include_adult' : 'safe'}:${route.kind}:${route.person}`] ||= {}
+      next.options = options; next.draft = creditsFilterDraft(options, value)
+    }
+    setNotice(''); setAdult(value)
+  }
   const body = <main ref={root} className="credits-page rec-page">
     <header className="rec-masthead credits-heading"><nav className="rec-nav"><button className="rec-button" onClick={back}>← {hasPrevious ? '返回上一页' : '返回番剧探索'}</button>
       {route?.person && <Link className="rec-button" to="/recommendations/credits" state={creditsNavigationState(location, scope)}>更换人物 / 公司</Link>}</nav>
-      <div className="rec-page-heading"><span className="rec-chapter-label">我的手账 / 番剧探索</span><h1>人物与制作</h1></div>
+      <div className="rec-page-heading rec-explore-heading"><span className="rec-chapter-label">我的手账</span><h1>番剧探索</h1>
+        <RecommendationModeNavigation current="credits" capabilities={capability.exploration} credits={capability.data} scope={scope} /></div>
       <p>循着熟悉的声音与制作，找到下一部想了解的作品。</p></header>
     {notice && <p className="credits-notice" role="status">{notice}</p>}
     {!route ? <section className="credits-panel"><h2>人物路径无效</h2><Link className="rec-button" to="/recommendations/credits">返回人物与制作</Link></section>
       : !available ? <section className="credits-panel" role="status"><h2>{capability.status === 'loading' ? '正在读取服务状态…' : capability.status === 'error' ? '服务状态读取失败' : '人物与制作尚未开放'}</h2>
         <p>{capability.message || '原有推荐和手账仍可正常使用。'}</p><button className="rec-button" onClick={() => retry(n => n + 1)}>重新读取服务状态</button></section>
-        : <><ScopeControl client={client} adult={adult} onApply={value => { setNotice(''); setAdult(value) }} />
-          {route.person ? <EntityWorks key={`${key}:${generation}`} client={client} kind={route.kind} person={route.person}
-            scope={scope} session={session} cache={cache} onReady={() => nextPhase(n => n + 1)} />
-            : <CreditsSearch key={`${key}:${generation}`} client={client} flags={capability.data} scope={scope} session={session}
-              cache={cache} onChoose={choose} onReady={() => nextPhase(n => n + 1)} />}</>}
+        : <>{route.person ? <EntityWorks key={`${key}:${generation}`} client={client} kind={route.kind} person={route.person}
+            scope={scope} session={session} cache={cache} onReady={() => nextPhase(n => n + 1)} adult={adult} onScopeApply={changeScope} onDetailChange={setDetailOpen} />
+            : <><ScopeControl client={client} adult={adult} onApply={changeScope} /><CreditsSearch key={`${key}:${generation}`} client={client} flags={capability.data} scope={scope} session={session}
+              cache={cache} onChoose={choose} onReady={() => nextPhase(n => n + 1)} /></>}</>}
     <footer className="rec-footer">我的手账 / 番剧探索 / 人物与制作</footer>
+    <BackToTop theme="memphis" isModalOpen={detailOpen} scrollRootRef={root} />
   </main>
   return <div className={`memphis-rec-container credits-shell${overlay ? ' credits-shell--overlay' : ''}`}>
     {overlay ? <RecommendationDialog kind="credits" title="人物与制作" onClose={back}>{body}</RecommendationDialog> : body}
@@ -179,48 +198,73 @@ function CreditsSearch({ client, flags, scope, session, cache, onChoose, onReady
         <p className="credits-caption">{state.data.coverage.detail}</p></> : state.status === 'idle' && <p>找到一个声音或一家制作公司，继续了解其参与的故事。</p>}
     </section></>
 }
-function EntityWorks({ client, kind, person, scope, session, cache, onReady }) {
-  const [options, setOptions] = useState(cache.options || { ...CREDIT_DEFAULTS }), [draft, setDraft] = useState(cache.draft || options), [error, setError] = useState('')
+function EntityWorks({ client, kind, person, scope, session, cache, onReady, adult, onScopeApply, onDetailChange }) {
+  const [options, setOptions] = useState(cache.options || { ...CREDIT_DEFAULTS })
+  const [draft, setDraft] = useState(cache.draft || creditsFilterDraft(options, adult)), [error, setError] = useState('')
+  const [filterOpen, setFilterOpen] = useState(false), [scopeAvailable, setScopeAvailable] = useState(false)
   const [controller, state] = useWorkspace({ client, kind, person, scope, session, cache }, onReady)
   const [resources, setResources] = useState(false), resourceTrigger = useRef(null)
+  useEffect(() => { onDetailChange(!!state.detail); return () => onDetailChange(false) }, [!!state.detail, onDetailChange])
   useEffect(() => setResources(false), [state.detail?.target, state.detail?.status])
   useEffect(() => { controller.ensure(options) }, [controller])
   useLayoutEffect(() => { cache.options = options; cache.draft = draft }, [cache, options, draft])
   const field = (key, value) => setDraft(old => ({ ...old, [key]: value }))
+  const commit = (next, nextAdult = adult) => {
+    setError(''); setOptions(next); setDraft(creditsFilterDraft(next, nextAdult)); setFilterOpen(false)
+    if (nextAdult !== adult) onScopeApply(nextAdult, next)
+    else controller.load(next)
+  }
   const apply = event => {
     event.preventDefault()
-    const next = { ...draft, year_from: draft.year_from === null || draft.year_from === '' ? null : Number(draft.year_from),
-      year_to: draft.year_to === null || draft.year_to === '' ? null : Number(draft.year_to) }
-    if ([next.year_from, next.year_to].some(v => v !== null && (!Number.isInteger(v) || v < 1000 || v > 9999))
-      || next.year_from && next.year_to && next.year_from > next.year_to) { setError('请检查四位年份及起止范围。'); return }
-    setError(''); setOptions(next); controller.load(next)
+    try { commit(creditsFilterOptions(draft), client.eligibility ? !!draft.includeAdult && scopeAvailable : adult) }
+    catch (error) { setError(error.message) }
   }
   const data = state.data
   const writing = Object.values(state.operations).some(op => op.status === 'adding')
   const blocked = state.pending || state.morePending || state.stale || writing
+  const chips = filterChips(creditsChipFilters(options, adult))
+  const remove = id => {
+    const next = { ...options }
+    if (id === 'type') next.type = 'all'
+    if (id === 'years') { next.year_from = null; next.year_to = null }
+    if (id === 'minScore') { next.min_score = 0; next.max_score = 10; next.max_score_exclusive = false }
+    if (id === 'hideRecorded') next.hide_recorded = false
+    commit(next, id === 'includeAdult' ? false : adult)
+  }
   return <><section className="credits-panel rec-featured-main"><div className="credits-entity-title"><CreditsIcon kind={kind} /><div>
     <p>{CREDIT_KINDS[kind]} · Bangumi person {person}</p><h2>{data?.entity.name || `人物 ${person}`}</h2></div></div>
     {data && <p>当前内容范围确认关联 <strong>{data.entity.work_count}</strong> 部 · 本次筛选 <strong>{data.count}</strong> 部</p>}
-    <form className="credits-filters" onSubmit={apply} aria-label="参与作品筛选">
-      <label>浏览范围<select value={draft.view} onChange={event => setDraft(old => ({ ...old, view: event.target.value,
-        hide_recorded: event.target.value === 'completed' ? false : true }))}><option value="all">关联作品</option><option value="completed">我看过的（已看完）</option></select></label>
-      <label>排序<select value={draft.sort} onChange={event => field('sort', event.target.value)}><option value="score_desc">Bangumi 评分优先</option><option value="release_desc">放送时期：由新到旧</option><option value="release_asc">放送时期：由旧到新</option></select></label>
+    <div className="credits-quick-controls" aria-label="作品浏览与排序">
+      <label>浏览范围<select value={options.view} disabled={state.pending || writing} onChange={event => commit({ ...options, view: event.target.value,
+        hide_recorded: event.target.value !== 'completed' })}><option value="all">关联作品</option><option value="completed">我看过的（已看完）</option></select></label>
+      <label>排序<select value={options.sort} disabled={state.pending || writing} onChange={event => commit({ ...options, sort: event.target.value })}><option value="score_desc">Bangumi 评分优先</option><option value="release_desc">放送时期：由新到旧</option><option value="release_asc">放送时期：由旧到新</option></select></label>
+      <button type="button" className="rec-button" aria-expanded={filterOpen} aria-controls="credits-work-filters" onClick={() => {
+        if (!filterOpen) { setDraft(creditsFilterDraft(options, adult)); setError('') }
+        setFilterOpen(value => !value)
+      }}>☷ 筛选 {chips.length > 0 && <span className="rec-filter-count">{chips.length}</span>}</button>
+    </div>
+    <div className="rec-filter-chips credits-active-filters" aria-label="当前生效条件">{chips.length ? chips.map(chip => <button type="button" className="rec-filter-chip" key={chip.id}
+      disabled={state.pending || writing} aria-label={`移除条件：${chip.label}`} onClick={() => remove(chip.id)}>{chip.label} ×</button>) : <span className="credits-caption">当前不限筛选条件</span>}</div>
+    {filterOpen && <form id="credits-work-filters" className="credits-filters" onSubmit={apply} aria-label="参与作品筛选">
       <label>作品类型<select value={draft.type} onChange={event => field('type', event.target.value)}>{['all', 'TV', 'OVA', '剧场版', 'WEB', '短片', '动态漫画'].map(type => <option key={type} value={type}>{type === 'all' ? '不限类型' : type}</option>)}</select></label>
-      <label>起始年份<input inputMode="numeric" maxLength={4} placeholder="不限" value={draft.year_from ?? ''} onChange={event => field('year_from', event.target.value)} /></label>
-      <label>结束年份<input inputMode="numeric" maxLength={4} placeholder="不限" value={draft.year_to ?? ''} onChange={event => field('year_to', event.target.value)} /></label>
-      <label className="credits-score-filter">Bangumi 评分<select value={draft.max_score_exclusive ? 'lt6' : String(draft.min_score)} onChange={event => setDraft(old => ({ ...old,
-        min_score: event.target.value === 'lt6' ? 0 : Number(event.target.value), max_score: event.target.value === 'lt6' ? 6 : 10, max_score_exclusive: event.target.value === 'lt6' }))}>
-        <option value="0">不限评分</option><option value="lt6">6.0 以下（不含未知评分）</option>{[6, 6.5, 7, 7.5, 8, 8.5, 9].map(score => <option value={score} key={score}>{score.toFixed(1)} 及以上</option>)}</select></label>
+      <label>起始年份<input inputMode="numeric" maxLength={4} placeholder="不限" value={draft.yearFrom} onChange={event => field('yearFrom', event.target.value)} /></label>
+      <label>结束年份<input inputMode="numeric" maxLength={4} placeholder="不限" value={draft.yearTo} onChange={event => field('yearTo', event.target.value)} /></label>
+      <div className="credits-score-filter"><BangumiScoreFilter filters={draft} onChange={setDraft} /></div>
       <label className="rec-checkbox credits-record-filter"><input type="checkbox" checked={draft.hide_recorded} disabled={draft.view === 'completed'} onChange={event => field('hide_recorded', event.target.checked)} />隐藏手账中已记录的作品</label>
-      <div className="credits-filter-actions"><button type="button" className="rec-button" onClick={() => { setDraft({ ...CREDIT_DEFAULTS }); setError('') }}>恢复默认条件</button>
+      {client.eligibility && <div className="credits-content-scope"><RecommendationContentScopeToggle client={client} includeAdult={!!draft.includeAdult}
+        onChange={value => field('includeAdult', value)} onAvailability={setScopeAvailable} /></div>}
+      <div className="credits-filter-actions"><button type="button" className="rec-button" onClick={() => { setDraft(creditsFilterDraft({ ...CREDIT_DEFAULTS, view: options.view, sort: options.sort,
+        hide_recorded: options.view !== 'completed' }, false)); setError('') }}>恢复默认条件</button>
         <button type="submit" className="rec-button rec-button--primary" disabled={state.pending || writing}>应用筛选</button></div>
-      {error && <p role="alert">{error}</p>}</form><p className="credits-caption">“我看过的”仅包含本人已确认作品身份且已看完的记录；在看、想看、搁置不计入。无已确认记录不代表没看过。</p>
-      <p className="credits-caption">按已知放送时期排序，未知时期排在最后；不代表观看顺序。仅筛选本次浏览，不修改你的偏好。</p></section>
+      {error && <p className="credits-filter-error" role="alert">{error}</p>}</form>}
+      <details className="credits-browse-help"><summary>浏览说明</summary><p className="credits-caption">“我看过的”仅包含本人已确认作品身份且已看完的记录；在看、想看、搁置不计入。无已确认记录不代表没看过。</p>
+        <p className="credits-caption">按已知放送时期排序，未知时期排在最后；不代表观看顺序。仅筛选本次浏览，不修改你的偏好。</p>
+        {data && <p className="credits-caption">{data.coverage.detail}</p>}</details></section>
     <section className={`credits-results${data ? ' rec-more-section' : ''}`} aria-label="参与作品列表" aria-busy={state.pending || state.morePending}>
       <h2>{kind === 'studio' ? '参与制作的作品' : '参与配音的作品'}</h2>
       {state.message && <p className="credits-notice" role="status">{state.message} <button className="series-link" disabled={writing} onClick={() => controller.load(options)}>重新读取</button></p>}
       {state.pending && <p role="status">{data ? '正在按新条件读取，当前保留上次结果…' : '正在读取关联作品…'}</p>}
-      {data && <><p className="credits-caption">{data.coverage.detail}</p><div className="credits-work-grid">{data.results.map(row => <article className="rec-card credits-work" key={row.bangumi_id}>
+      {data && <><div className="credits-work-grid">{data.results.map(row => <article className="rec-card credits-work" key={row.bangumi_id}>
         <RecommendationCover item={creditItem(row)} /><div className="rec-card-body"><h3>{row.title_zh || row.title_jp}</h3><RecommendationMeta item={creditItem(row)} />
           <p className="credits-proof">{kind === 'studio' ? '参与职务：动画制作' : `饰演：${row.evidence.characters.slice(0, 3).map(c => c.name).join('、')}${row.evidence.characters.length > 3 ? ` 等 ${row.evidence.characters.length} 个角色` : ''}`}</p>
           {row.evidence.source_episode_note && <p>来源备注：{row.evidence.source_episode_note}</p>}

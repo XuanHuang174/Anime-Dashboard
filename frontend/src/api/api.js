@@ -107,7 +107,7 @@ api.interceptors.response.use(
       return api(originalRequest)
     } catch (refreshError) {
       clearTokens()
-      redirectToLogin()
+      if (!originalRequest.optionalAuth) redirectToLogin()
       return Promise.reject(refreshError)
     }
   },

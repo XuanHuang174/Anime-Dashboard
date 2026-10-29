@@ -1,3 +1,4 @@
+import BangumiScoreFilter from './BangumiScoreFilter.jsx'
 import { useState } from 'react'
 import { REC_CATEGORIES } from '../../utils/recommendations.js'
 import { DEFAULT_BROWSE_FILTERS, REC_STYLES, filterChips, filterDraftError } from '../../utils/recommendationBrowse.js'
@@ -50,8 +51,7 @@ export function RecommendationFilterPanel({ initialFilters, onApply, legacy = fa
       <label className="rec-field">结束年份<input aria-label="结束年份" inputMode="numeric" maxLength={4} placeholder="不限" value={draft.yearTo}
         onChange={event => field('yearTo', event.target.value)} /></label>
     </fieldset>}
-    <label className="rec-field">Bangumi 评分<select aria-label="Bangumi 评分筛选" value={draft.minScore} onChange={event => field('minScore', event.target.value)}>
-      <option value="0">不限评分</option><option value="lt6">6.0 以下（不含未知评分）</option>{['6', '7', '8', '9'].map(score => <option key={score} value={score}>{score}.0 及以上</option>)}</select></label>
+    <BangumiScoreFilter filters={draft} onChange={next => { setDraft(next); setError('') }} />
     {draft.minScore === 'lt6' && <p className="rec-muted">仅包含有效正数公共评分 &lt;6.0 的作品（不含 6.0）；来源不明的 0 值不归入低分作品。</p>}
     <label className="rec-checkbox"><input type="checkbox" checked={draft.hideRecorded} onChange={event => field('hideRecorded', event.target.checked)} />隐藏手账中已记录的作品</label>
     {client?.eligibility && <RecommendationContentScopeToggle client={client} includeAdult={!!draft.includeAdult} onChange={value => field('includeAdult', value)} onAvailability={setScopeAvailable} />}

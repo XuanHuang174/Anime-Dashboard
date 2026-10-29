@@ -10,7 +10,6 @@ import '../styles/recommendations-exploration.css'
 import { createSeriesReminderController } from '../utils/seriesReminders.js'
 import { connectSeriesReminderUpdates } from '../utils/seriesReminderUpdates.js'
 import { seriesSession } from '../hooks/useSeriesSession.js'
-import CreditsEntry from '../components/recommendations/CreditsEntry.jsx'
 import { validateCreditsCapabilities } from '../utils/recommendationCredits.js'
 
 export default function RecommendationHost({ client: baseClient, sessionScope, Personal }) {
@@ -61,11 +60,10 @@ export default function RecommendationHost({ client: baseClient, sessionScope, P
     const frame = requestAnimationFrame(() => window.scrollTo({ top: caches.current[mode].scroll ?? 0, behavior: 'instant' }))
     return () => { cancelAnimationFrame(frame); caches.current[mode].scroll = window.scrollY }
   }, [mode])
-  const navigation = <RecommendationModeNavigation current={mode} capabilities={capability.data}
+  const navigation = <RecommendationModeNavigation current={mode} capabilities={capability.data} credits={credits} scope={adult ? 'include_adult' : 'safe'}
     tagsPath={mode === 'tags' ? `/recommendations/tags${location.search}` : caches.current.tags.path}
     similarSeed={mode === 'similar' ? parseSimilarSeed(location.search).id : caches.current.similar.seedId} />
-  const creditsEntry = <CreditsEntry capabilities={credits} scope={adult ? 'include_adult' : 'safe'} />
-  const shared = { client, sessionScope, adult, setAdult, navigation, capabilities: capability.data, reminders, creditsEntry }
+  const shared = { client, sessionScope, adult, setAdult, navigation, capabilities: capability.data, reminders }
   return <ExplorationTopicsContext.Provider value={topics}>
     {mode === 'personal' ? <Personal {...shared} cache={caches.current.personal} />
       : mode === 'similar' && capability.data?.navigation?.[1]?.available

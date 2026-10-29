@@ -1,4 +1,5 @@
 import { useEffect, useId, useState } from 'react'
+import { Link } from 'react-router-dom'
 import MemphisDropdown from './MemphisDropdown.jsx'
 import JournalDataTransfer from './JournalDataTransfer.jsx'
 import PublicJournalShareButton from './PublicJournalShareButton.jsx'
@@ -38,8 +39,10 @@ export default function JournalHeaderActions({ isPreviewMode, onReturnHome, onTo
             </MemphisDropdown>}
             <button type="button" className="dashboard-arcade-button bg-[#4ecdc4]"
               onClick={run(onFindResources)}>🧲 寻找资源</button>
-            {isPreviewMode && <MemphisDropdown label="🛠 更多工具" className="bg-[#ff8fab]"
+            {isPreviewMode && <MemphisDropdown label="🛠 更多功能" className="bg-[#ff8fab]"
               open={activeMenu === 'tools'} onOpenChange={(value) => setActiveMenu(value ? 'tools' : '')} owner={owner} inline={mobile}>
+              <Link className="journal-menu-item" to="/featured" onClick={close}><i className="fa-solid fa-medal" aria-hidden="true" /> 浏览精选专栏</Link>
+              <Link className="journal-menu-item journal-menu-item--pink" to="/universe" onClick={close}><i className="fa-solid fa-earth-asia" aria-hidden="true" /> 番剧共创宇宙</Link>
               {csvButton}<div onClick={close}>{shareButton}</div>
             </MemphisDropdown>}
             <button type="button" className={`dashboard-arcade-button ${isPreviewMode ? 'journal-preview-edit-button' : 'bg-white'}`}
