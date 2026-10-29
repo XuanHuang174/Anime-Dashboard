@@ -12,7 +12,7 @@
 .credits-kind-tabs { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 22px; }
 .credits-search-form label { font-size: 15px; font-weight: 800; }
 .credits-search-form > div { display: flex; gap: 14px; margin-top: 10px; }
-.credits-search-form input, .credits-filters input:not([type=checkbox]), .credits-filters select { width: 100%; min-width: 0; border: 2px solid #111; padding: 10px 12px; min-height: 46px; background: #fff; color: #111; }
+.credits-search-form input { width: 100%; min-width: 0; border: 2px solid #111; padding: 10px 12px; min-height: 46px; background: #fff; color: #111; }
 .credits-search-form input { flex: 1; }
 .credits-search-form button { flex-shrink: 0; }
 .credits-search-form p, .credits-caption, .credits-entities p { font-size: 12px; color: #515b61; line-height: 1.8; }
@@ -34,19 +34,7 @@
 .credits-quick-controls label { display: grid; gap: 6px; font-size: 13px; font-weight: 800; min-width: 170px; }
 .credits-quick-controls select { border: 2px solid #111; background: white; min-height: 44px; padding: 8px 10px; color: #111; }
 .credits-quick-controls > button { margin-left: auto; }
-.credits-filter-summary { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; }
-.credits-browse-help { font-size: 12px; }
-.credits-browse-help[open] { flex-basis: 100%; }
-.credits-browse-help summary { cursor: pointer; font-weight: 800; width: fit-content; min-height: 28px; display: list-item; align-content: center; }
-.credits-content-scope, .credits-filter-error { grid-column: 1 / -1; }
-.credits-filters .rec-field { display: grid; gap: 8px; font-size: 13px; font-weight: 800; }
-.credits-filters .rec-year-range { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; border: 0; margin: 12px 0 0; padding: 0; }
-.credits-filters .rec-year-range legend { margin-bottom: 8px; font-size: 12px; }
-.credits-filters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; padding-top: 16px; border-top: 2px solid #111; margin-top: 20px; }
-.credits-filters > label { font-weight: 800; font-size: 13px; display: grid; gap: 8px; }
-.credits-score-filter { grid-column: span 2; }
-.credits-filters .credits-record-filter { grid-column: span 2; display: flex; align-items: center; }
-.credits-filter-actions { display: flex; gap: 12px; flex-wrap: wrap; grid-column: 1 / -1; }
+.credits-work-batches { display: grid; gap: 20px; }
 .credits-work-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; }
 .credits-work { min-width: 0; }
 .credits-work-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
@@ -92,7 +80,7 @@
   .credits-panel { padding: 16px; }
   .credits-entities li { display: block; }
   .credits-entities .rec-button { margin-top: 12px; }
-  .credits-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .credits-work-batches { gap: 14px; }
   .credits-work-grid { gap: 14px; }
   .credits-work .rec-card-body { padding: 12px; }
   .credits-work h3 { font-size: 16px; }

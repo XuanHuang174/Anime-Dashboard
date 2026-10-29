@@ -6,11 +6,12 @@ export function createCreditsWorkspace({ client, kind, person = null, scope = 's
   let active = true, request = null, serial = 0
   let state = { ...(cache.state || { status: 'idle', data: null, pending: false, morePending: false, stale: false, message: '' }), detail: null, operations: {} }
   const interactions = new Set(), writes = new Map()
-  let notifying = false
+  let notifying = false, returnTarget = null
   const listeners = new Set()
   const emit = value => { state = { ...state, ...value }; cache.state = state; listeners.forEach(fn => fn()) }
   const cancel = () => { request?.abort(); request = null; serial++; interactions.forEach(c => c.abort()); interactions.clear(); writes.clear() }
   const invalidate = (lost = false, message = '资料已到期，请重新读取后继续。') => {
+    returnTarget = null
     cancel(); emit({ ...(lost ? { data: null, status: 'error' } : {}), detail: null, operations: {}, stale: true, pending: false, morePending: false, message })
   }
   async function load(options = CREDIT_DEFAULTS, more = false) {
@@ -65,35 +66,48 @@ export function createCreditsWorkspace({ client, kind, person = null, scope = 's
     }
     return false
   }
+  async function select(target, refresh = false) {
+    const row = refresh && active && isCurrent() && !state.pending && !state.morePending && state.data?.expires_at * 1000 > now()
+      ? state.data.results.find(row => row.bangumi_id === target) : !refresh ? actionable(target) : null
+    if (!row || writes.size) {
+      if (refresh && state.detail?.target === target) emit({ detail: null })
+      return
+    }
+    const req = interaction(), selected = { status: 'loading', target }
+    emit({ detail: selected })
+    try {
+      const raw = await client.creditsDetail(kind, person, target, row.action_context, req.signal)
+      if (!req.current() || state.detail !== selected) return
+      const item = validateCreditsDetail(raw, kind, person, row, scope)
+      if (raw.credits_revision !== state.data.credits_revision || raw.content_scope_context.scope_revision !== state.data.content_scope_context.scope_revision) throw new Error('人物与制作资料合同不兼容，请重新读取。')
+      const changed = item.watchStatus !== row.watch_status
+      emit({ detail: { status: 'ready', target, item }, data: { ...state.data,
+        results: state.data.results.map(r => r.bangumi_id === target ? { ...r, watch_status: item.watchStatus } : r) },
+        ...(changed ? { stale: true, message: '本人记录状态已变化，重新读取可更新筛选结果与数量。' } : {}) })
+    } catch (error) {
+      if (req.current() && !interactionFailure(error) && state.detail === selected) emit({ detail: { status: 'error', target, message: creditsFailure(error) } })
+    } finally { req.done() }
+  }
   return { subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn) }, getSnapshot: () => state,
     isNotifying: () => notifying,
     activate() { active = true }, dispose() {
       const uncertain = writes.size > 0
-      active = false; cancel()
+      active = false; returnTarget = null; cancel()
       state = { ...state, detail: null, operations: {}, pending: false, morePending: false,
         ...(uncertain ? { stale: true, message: '离开时加入请求尚未确认，请重新读取本人状态。' } : {}),
         status: state.data ? 'ready' : state.status === 'loading' ? 'idle' : state.status }
       cache.state = state
     }, load,
-    async select(target) {
-      const row = actionable(target)
-      if (!row || writes.size) return
-      const req = interaction(), selected = { status: 'loading', target }
-      emit({ detail: selected })
-      try {
-        const raw = await client.creditsDetail(kind, person, target, row.action_context, req.signal)
-        if (!req.current() || state.detail !== selected) return
-        const item = validateCreditsDetail(raw, kind, person, row, scope)
-        if (raw.credits_revision !== state.data.credits_revision || raw.content_scope_context.scope_revision !== state.data.content_scope_context.scope_revision) throw new Error('人物与制作资料合同不兼容，请重新读取。')
-        const changed = item.watchStatus !== row.watch_status
-        emit({ detail: { status: 'ready', target, item }, data: { ...state.data,
-          results: state.data.results.map(r => r.bangumi_id === target ? { ...r, watch_status: item.watchStatus } : r) },
-          ...(changed ? { stale: true, message: '本人记录状态已变化，重新读取可更新筛选结果与数量。' } : {}) })
-      } catch (error) {
-        if (req.current() && !interactionFailure(error) && state.detail === selected) emit({ detail: { status: 'error', target, message: creditsFailure(error) } })
-      } finally { req.done() }
+    select: target => select(target),
+    deferSeriesChange() {
+      if (!active || !isCurrent()) return
+      const target = state.detail?.target || null
+      invalidate(false, '系列页中的本人记录已变化，当前保留浏览位置，重新读取可更新列表与数量。')
+      returnTarget = target
+      if (returnTarget) emit({ detail: { status: 'loading', target: returnTarget } })
     },
-    closeDetail() { emit({ detail: null }) },
+    resumeSeriesChange() { const target = returnTarget; returnTarget = null; if (target) return select(target, true) },
+    closeDetail() { returnTarget = null; emit({ detail: null }) },
     want(target) {
       if (writes.has(target)) return writes.get(target)
       const row = actionable(target)

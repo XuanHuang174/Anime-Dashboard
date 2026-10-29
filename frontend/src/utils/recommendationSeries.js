@@ -65,5 +65,7 @@ export function seriesFailure(error) {
 }
 export function seriesBackground(location) {
   const path = typeof location?.pathname === 'string' ? location.pathname.replace(/\/$/, '') : null
-  return ['/dashboard', '/recommendations', '/recommendations/similar', '/recommendations/tags'].includes(path) ? location : null
+  const entity = /^\/recommendations\/credits\/(?:voice_actor|studio)\/([1-9]\d*)$/.exec(path)
+  const credits = path === '/recommendations/credits' || entity && id(Number(entity[1]))
+  return ['/dashboard', '/recommendations', '/recommendations/similar', '/recommendations/tags'].includes(path) || credits ? location : null
 }

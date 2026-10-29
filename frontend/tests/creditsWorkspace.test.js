@@ -13,6 +13,50 @@ const api = overrides => ({ creditsWorks: async () => page(), creditsDetail: asy
   creditsWant: async () => result(), ...overrides })
 const create = (client = api(), options = {}) => createCreditsWorkspace({ client, kind: 'voice_actor', person: 101, ...options })
 
+test('series return refreshes the open detail without replacing loaded list, options or position', async () => {
+  let lists = 0, details = 0, status = null
+  const cache = { scroll: 830 }, controller = create(api({
+    creditsWorks: async () => { lists++; return page() },
+    creditsDetail: async () => { details++; return creditsDetail({ ...row(), watch_status: status }) },
+  }), { cache })
+  await controller.load(); await controller.select(100)
+  const before = controller.getSnapshot().data
+  controller.deferSeriesChange()
+  assert.equal(controller.getSnapshot().detail.status, 'loading')
+  assert.equal(details, 1)
+  assert.equal(await controller.want(100), null)
+  status = 'plan'; await controller.resumeSeriesChange()
+  assert.equal(controller.getSnapshot().detail.item.watchStatus, 'plan')
+  assert.equal(controller.getSnapshot().data.results[0].watch_status, 'plan')
+  assert.deepEqual(controller.getSnapshot().data.results.map(r => r.bangumi_id), before.results.map(r => r.bangumi_id))
+  assert.deepEqual(controller.getSnapshot().data.conditions, before.conditions)
+  assert.equal(controller.getSnapshot().stale, true)
+  assert.equal(await controller.more(), false)
+  assert.equal(lists, 1); assert.equal(details, 2); assert.equal(cache.scroll, 830)
+})
+
+test('series return never reopens closed detail or publishes late replies after revocation', async () => {
+  const pending = deferred(); let reads = 0
+  const controller = create(api({ creditsDetail: async () => ++reads === 1 ? creditsDetail(row()) : pending.promise }))
+  await controller.load(); await controller.select(100)
+  controller.deferSeriesChange(); const refresh = controller.resumeSeriesChange()
+  controller.closeDetail(); pending.resolve(creditsDetail({ ...row(), watch_status: 'plan' })); await refresh
+  assert.equal(controller.getSnapshot().detail, null)
+  const other = create(); await other.load(); await other.select(100)
+  other.deferSeriesChange(); other.invalidate(true)
+  await other.resumeSeriesChange()
+  assert.equal(other.getSnapshot().data, null); assert.equal(other.getSnapshot().detail, null)
+})
+
+test('expired series-return membership cannot read or re-enable old cursors', async () => {
+  let clock = Date.now(), reads = 0
+  const controller = create(api({ creditsDetail: async () => { reads++; return creditsDetail(row()) } }), { now: () => clock })
+  await controller.load(); await controller.select(100); controller.deferSeriesChange()
+  clock += 901000; await controller.resumeSeriesChange()
+  assert.equal(reads, 1); assert.equal(controller.getSnapshot().detail, null)
+  assert.equal(await controller.more(), false)
+})
+
 test('detail membership, contract and scope reject unrelated or malformed items', () => {
   const data = creditsDetail(row())
   assert.equal(validateCreditsDetail(data, 'voice_actor', 101, row(), 'safe').title, row().title_zh)

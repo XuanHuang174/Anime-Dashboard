@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useRef } from 'react'
 export const SeriesOverlayContext = createContext(false)
+// A credits workspace stays mounted beneath this layer, including its detail.
+export const SeriesForegroundContext = createContext(false)
 
 // Refresh only after returning from a series write; filters, preview and selection survive.
 export default function useSeriesJournalReturn(onRefresh) {

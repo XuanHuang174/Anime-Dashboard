@@ -9,6 +9,7 @@ import { wantButtonState } from '../utils/recommendationWant.js'
 import { watchRecommendationScope } from '../utils/recommendationScopeMonitor.js'
 import RecommendationDialog from '../components/recommendations/RecommendationDialog.jsx'
 import RecommendationResourcePanel from '../components/recommendations/RecommendationResourcePanel.jsx'
+import BrowseExplanation from '../components/recommendations/BrowseExplanation.jsx'
 import { RecommendationCover } from '../components/recommendations/RecommendationCard.jsx'
 import '../styles/recommendations.css'
 import '../styles/recommendations-layout.css'
@@ -22,6 +23,7 @@ export default function SeriesRelations({ client = defaultClient, overlay = fals
 }
 function SeriesWorkspace({ baseClient, source, scope, session, overlay, target }) {
   const navigate = useNavigate(), resourceTrigger = useRef(null), [resources, setResources] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
   const initialTarget = useRef(null)
   const client = useMemo(() => baseClient.forScope(scope), [baseClient, scope])
   const controller = useMemo(() => createSeriesWorkspace({ client, source, scope,
@@ -53,15 +55,19 @@ function SeriesWorkspace({ baseClient, source, scope, session, overlay, target }
       <p>从这部作品出发，了解故事前后与不同版本。</p></header>
     {state.status === 'loading' ? <p className="series-notice" role="status">正在读取系列资料与本人记录…</p>
       : state.status === 'error' ? <section className="series-notice" role="alert"><p>{state.message}</p><button type="button" className="rec-button" onClick={() => controller.load()}>重新读取</button></section>
-        : <><section className="series-notice"><strong>{COVERAGE[data.coverage]}</strong>
+        : <><section className="series-notice series-overview"><div className="series-overview-status"><strong>{COVERAGE[data.coverage]}</strong>
+          <span>本人本作状态：<strong>{seriesStatus(data.selected_seed)}</strong></span></div>
           {['failed', 'partial'].includes(data.last_attempt_status) && data.coverage !== data.last_attempt_status && <p>最近更新{data.last_attempt_status === 'failed' ? '失败' : '不完整'}，保留上次可用资料。</p>}
-          <p>下列关系均相对于「{data.selected_seed.title_zh || data.selected_seed.title_jp}」。按发行日期整理，不代表建议观看顺序或必看前置。</p>
-          <p>{data.scope_note}</p><p>{data.record_note}</p>
-          <p>本人本作状态：<strong>{seriesStatus(data.selected_seed)}</strong></p>
-          <button type="button" className="rec-button" onClick={() => controller.select(source)}>查看本作详情 ↗</button>
+          <BrowseExplanation open={helpOpen} onToggle={setHelpOpen} summary={<div className="series-overview-actions">
+            <button type="button" className="rec-button" onClick={() => controller.select(source)}>查看本作详情 ↗</button>
+            <button type="button" className="series-link" onClick={() => controller.load()}>重新读取资料与状态</button>
+          </div>}>
+            <p>下列关系均相对于「{data.selected_seed.title_zh || data.selected_seed.title_jp}」。按发行日期整理，不代表建议观看顺序或必看前置。</p>
+            <p>{data.scope_note}</p><p>{data.record_note}</p>
+            {data.snapshot_version && <small className="series-source">来源快照：{data.snapshot_version} · 系列版本 {data.series_revision}</small>}
+          </BrowseExplanation>
           {scope === 'include_adult' && <p>包含已审核 NSFW 关联，仅对本次浏览生效。</p>}
-          <button type="button" className="series-link" onClick={() => controller.load()}>重新读取资料与状态</button>
-          {data.snapshot_version && <small className="series-source">来源快照：{data.snapshot_version} · 系列版本 {data.series_revision}</small>}</section>
+          </section>
           {!data.results.length && <section className="series-notice"><h2>当前没有可展示的关联</h2><p>可能尚未获取关系、来源没有列出关联，或关联不在当前可展示范围内。这不代表本作是独立作品。</p></section>}
           {Object.entries(SERIES_SECTIONS).map(([section, title]) => {
             const rows = data.results.filter(row => row.section === section)

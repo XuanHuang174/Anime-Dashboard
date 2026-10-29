@@ -1,9 +1,10 @@
 // Synthetic fixture only: no real accounts, API, media, or writes.
-import React, { StrictMode, useState } from 'react'
+import React, { StrictMode, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Link, Route } from 'react-router-dom'
 import SeriesNavigation from '../../src/router/SeriesNavigation.jsx'
 import CreditsExplorer from '../../src/pages/CreditsExplorer.jsx'
+import SeriesRelations from '../../src/pages/SeriesRelations.jsx'
 import CreditsSummary from '../../src/components/recommendations/CreditsSummary.jsx'
 import CreditsEntry from '../../src/components/recommendations/CreditsEntry.jsx'
 import DetailModal from '../../src/components/DetailModal.jsx'
@@ -13,6 +14,9 @@ import api from '../../src/api/api.js'
 import { creditsCapability, creditsCommon, creditsSummary, creditsSearch, creditsPage, creditsDetail } from './creditsContract.js'
 import { CREDIT_DEFAULTS } from '../../src/utils/recommendationCredits.js'
 import explorationContract from './recommendationExplorationContract.json'
+import { annotations } from './seriesExplorationContract.js'
+import { seriesPage, seriesDetail } from './seriesContract.js'
+import { adultScope, scope as safeScope } from './explorationContract.js'
 import '../../src/index.css'
 localStorage.setItem('anime_journal_access_token', 'synthetic-13d-only')
 let revision = 1, closed = false, failNext = false
@@ -26,7 +30,16 @@ const transport = { get: async (path, config = {}) => {
   if (failNext && path.includes('/credits/')) { failNext = false; throw { response: { status: 409, data: { code: 'credits_snapshot_changed' } } } }
   const params = config.params || {}, scope = params.content_scope || 'safe'
   let data
-  if (path === 'recommendations/capabilities/') data = { exploration: explorationContract.capabilities, credits: { ...creditsCapability, voice_actor: !closed, studio: !closed } }
+  if (path === 'recommendations/capabilities/') data = { exploration: { ...explorationContract.capabilities,
+    series_exploration: { enabled: true, policy_version: 'series-explore.direct.v2' } }, credits: { ...creditsCapability, voice_actor: !closed, studio: !closed } }
+  else if (path === 'recommendations/series/annotations/') {
+    data = { ...annotations(params.ids.split(',').map(Number)), content_scope_context: scope === 'safe' ? safeScope : adultScope }
+    data.results.forEach(row => row.facts.forEach(fact => { fact.source_id = 1 }))
+  }
+  else if (/recommendations\/series\/\d+\/items\//.test(path)) {
+    const [source, target] = path.match(/series\/(\d+)\/items\/(\d+)/).slice(1).map(Number)
+    data = seriesDetail(mockSeries(source, scope), target)
+  } else if (/recommendations\/series\/\d+\//.test(path)) data = mockSeries(Number(path.split('/')[2]), scope)
   else if (path === 'recommendations/eligibility/') data = { contract_version: 'recommendations.eligibility.session.v1',
     policy_version: 'eligibility.session.v1', effective_status: 'not_requested', authorization_source: 'none',
     manual_authorization_valid: false, eligibility_version: 0, age_assurance_status: 'not_performed', can_apply: false,
@@ -66,6 +79,12 @@ const transport = { get: async (path, config = {}) => {
 }, post: async (path, body, config = {}) => {
   calls.push(path); await wait(config.signal)
   if (closed) throw { response: { status: 503, data: { code: 'credits_disabled' } } }
+  if (path.startsWith('recommendations/series/')) {
+    const identity = Number(path.match(/items\/(\d+)/)[1]), existing = owned.has(identity)
+    owned.set(identity, owned.get(identity) || 'plan')
+    return { data: { contract_version: 'recommendations.want.v1', bangumi_id: identity, anime_id: identity + 1000, record_id: identity + 2000,
+      created: !existing, outcome: existing ? 'existing' : 'created', watch_status: owned.get(identity), content_rating: 'non_adult' } }
+  }
   const row = actions.get(config.params?.context)
   if (!row) throw { response: { status: 409, data: { code: 'credits_snapshot_changed' } } }
   const existing = owned.has(row.bangumi_id)
@@ -74,6 +93,14 @@ const transport = { get: async (path, config = {}) => {
     bangumi_id: row.bangumi_id, anime_id: row.bangumi_id + 1000, record_id: row.bangumi_id + 2000,
     content_rating: row.content_rating, created: !existing, outcome: existing ? 'existing' : 'created', watch_status: owned.get(row.bangumi_id) } }
 } }
+function mockSeries(source, scope) {
+  const data = seriesPage({ source })
+  data.selected_seed = { ...data.selected_seed, watch_status: owned.get(source) || null, record_state: owned.has(source) ? 'linked' : 'no_confirmed_record' }
+  data.results = data.results.map(row => ({ ...row, watch_status: owned.get(row.bangumi_id) || null,
+    record_state: owned.has(row.bangumi_id) ? 'linked' : 'no_confirmed_record', can_add_from_series: !owned.has(row.bangumi_id) }))
+  data.content_scope_context = scope === 'safe' ? safeScope : adultScope
+  return data
+}
 const client = createRecommendationClient(transport)
 api.defaults.adapter = async config => ({ ...(await transport.get(config.url, config)), config, status: 200, statusText: 'OK', headers: {} })
 window.addEventListener('keydown', event => {
@@ -93,7 +120,13 @@ function Origin() {
     <p style={{ marginTop: 900 }}><button className="rec-button" onClick={() => setOpen(true)}>从页面下方打开详情</button></p>
   </div></main>
 }
-const app = <StrictMode><BrowserRouter><SeriesNavigation renderCredits={overlay => <CreditsExplorer client={client} overlay={overlay} />}>
+function CallCounts() {
+  const [, tick] = useState(0)
+  useEffect(() => { const timer = setInterval(() => tick(n => n + 1), 300); return () => clearInterval(timer) }, [])
+  return <output aria-label="合成接口读取计数" style={{ display: 'block', fontSize: 12 }}>作品列表 {calls.filter(p => /credits\/entities\/.*\/works/.test(p)).length} · 系列摘要 {calls.filter(p => /series\/\d+\/workspace\/$/.test(p)).length} · 关系批次 {calls.filter(p => p.endsWith('series/annotations/')).length}</output>
+}
+const app = <StrictMode><CallCounts /><BrowserRouter><SeriesNavigation renderCredits={overlay => <CreditsExplorer client={client} overlay={overlay} />}
+  renderSeries={overlay => <SeriesRelations client={client} overlay={overlay} />}>
   <Route path="/dashboard" element={<Origin />} /><Route path="/recommendations" element={<Origin />} />
   <Route path="/recommendations/similar" element={<Origin />} /><Route path="/recommendations/tags" element={<Origin />} />
   <Route path="*" element={<main style={{ padding: 24 }}><h1>13E 本机隔离验收</h1><Link to="/recommendations">从推荐页开始</Link><br /><Link to="/recommendations/credits">直接打开人物与制作</Link></main>} />

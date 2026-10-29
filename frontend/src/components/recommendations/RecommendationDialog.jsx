@@ -60,7 +60,7 @@ export default function RecommendationDialog({ title, children, onClose, kind = 
   }
   return <dialog ref={ref} className={`rec-dialog rec-dialog--${kind}${resourceOpen ? ' rec-dialog--resource-open' : ''}`} aria-labelledby={titleId}
     onKeyDown={keepResourceFocus}
-    onCancel={(event) => { event.preventDefault(); if (!busy) { if (resourceOpen) onResourceClose?.(); else onClose() } }}
+    onCancel={(event) => { event.preventDefault(); event.stopPropagation(); if (!busy) { if (resourceOpen) onResourceClose?.(); else onClose() } }}
     onClick={(event) => {
       const rect = ref.current.getBoundingClientRect()
       if (event.target === ref.current && (event.clientX < rect.left || event.clientX > rect.right
