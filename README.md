@@ -17,10 +17,9 @@
 
 </div>
 
-<!-- 截图 01：上传 docs/images/readme/01-overview.webp 后，将下方图片路径替换为该路径。 -->
-![项目总览截图待补充](docs/images/readme/placeholder.svg)
+(docs/images/readme/1主界面.png)
 
-> 用一张主界面全景或“手账＋推荐”的拼图，展示这本手账的第一眼。截图替换方法见[配图指南](docs/images/readme/README.md)。
+> 注意：如果你访问后没有显示数据或者加载失败，只需等待 30s 左右，再次刷新网页即可正常（Render冷启动机制）。
 
 ## 不只记住看过什么，也找到下一部想看的作品
 
@@ -48,38 +47,32 @@ Anime Dashboard 将这些事情放在同一本手账中：记录个人评分、�
 <table>
   <tr>
     <td width="50%" align="center">
-      <img src="docs/images/readme/placeholder.svg" width="460" alt="私人手账截图待补充" /><br />
+      <img src="docs/images/readme/2私人手账.png" width="460" alt="2私人手账" /><br />
       <strong>私人手账</strong><br />评分、长评、进度，按自己的方式整理。
-      <!-- 替换为 docs/images/readme/02-journal.webp -->
     </td>
     <td width="50%" align="center">
-      <img src="docs/images/readme/placeholder.svg" width="460" alt="番剧探索截图待补充" /><br />
-      <strong>番剧探索</strong><br />从自己的喜欢出发，发现下一部作品。
-      <!-- 替换为 docs/images/readme/03-discovery.webp -->
+      <img src="docs/images/readme/3个性化推荐.png" width="460" alt="3个性化推荐" /><br />
+      <strong>番剧探索 - 个性化推荐</strong><br />从自己的喜欢出发，发现下一部作品。
     </td>
   </tr>
   <tr>
     <td align="center">
-      <img src="docs/images/readme/placeholder.svg" width="460" alt="系列与关联截图待补充" /><br />
+      <img src="docs/images/readme/4精准筛选.png" width="460" alt="4精准筛选" /><br />
+      <strong>番剧探索 - 精准筛选</strong><br />选定题材组合，寻找这次想看的故事。
+    </td>
+    <td align="center">
+      <img src="docs/images/readme/5系列关联.png" width="460" alt="5系列关联" /><br />
       <strong>系列与关联</strong><br />认识故事前后，也分清番外和不同版本。
-      <!-- 替换为 docs/images/readme/04-series.webp -->
-    </td>
-    <td align="center">
-      <img src="docs/images/readme/placeholder.svg" width="460" alt="人物与制作截图待补充" /><br />
-      <strong>人物与制作</strong><br />循着熟悉的声音与制作继续探索。
-      <!-- 替换为 docs/images/readme/05-credits.webp -->
     </td>
   </tr>
   <tr>
     <td align="center">
-      <img src="docs/images/readme/placeholder.svg" width="460" alt="精选专栏与公开手账截图待补充" /><br />
-      <strong>精选与共创</strong><br />看看别人的珍藏，也分享自己的手账。
-      <!-- 替换为 docs/images/readme/06-community.webp -->
+      <img src="docs/images/readme/6声优与制作.png" width="460" alt="6声优与制作" /><br />
+      <strong>人物与制作</strong><br />循着熟悉的声音与制作继续探索。
     </td>
     <td align="center">
-      <img src="docs/images/readme/placeholder.svg" width="460" alt="结案报告截图待补充" /><br />
+      <img src="docs/images/readme/7结案报告.png" width="460" alt="7结案报告" /><br />
       <strong>追番结案报告</strong><br />把一部作品的评分与感想留成图片。
-      <!-- 替换为 docs/images/readme/07-completion-report.webp -->
     </td>
   </tr>
 </table>
@@ -293,7 +286,7 @@ SQLite 下的后端回归可以使用隔离配置运行；涉及 PostgreSQL 并�
 
 - 作品资料与关联信息感谢 [Bangumi](https://bgm.tv/)、[Bangumi Archive](https://github.com/bangumi/Archive) 及 [AniList](https://anilist.co/) 等公开来源。
 - 推荐探索的早期产品思路参考了 [Neptune-ux-sys/nep2.0](https://github.com/Neptune-ux-sys/nep2.0)，并围绕私人手账、来源依据与观看闭环继续实现。
-- 寻找作品磁链资源Fork了[naranyinyun/AnimeSearch](https://github.com/naranyinyun/AnimeSearch)，自行部署并且进行了优化。
+- 寻找作品磁链资源Fork了 [naranyinyun/AnimeSearch](https://github.com/naranyinyun/AnimeSearch)，自行部署并且进行了优化。
 - 感谢 React、Django、GSAP 及其他依赖项目的维护者。
 
 当前仓库尚未附带 `LICENSE` 文件；如需复用或分发代码，请先与[维护者](https://github.com/XuanHuang174)确认授权方式。
