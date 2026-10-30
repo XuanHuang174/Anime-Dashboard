@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675" role="img" aria-labelledby="title description">
+  <title id="title">界面截图待补充</title>
+  <desc id="description">README 截图位置占位图，不是实际应用界面。请由维护者替换为真实截图。</desc>
+  <defs>
+    <pattern id="dots" width="28" height="28" patternUnits="userSpaceOnUse"><circle cx="5" cy="5" r="2" fill="#111" opacity=".12"/></pattern>
+  </defs>
+  <rect width="1200" height="675" fill="#fff5ee"/>
+  <rect width="1200" height="675" fill="url(#dots)"/>
+  <circle cx="1110" cy="58" r="138" fill="#4ecdc4" stroke="#111" stroke-width="8"/>
+  <path d="m1070 14 15 30 33 5-24 24 6 33-30-16-30 16 6-33-24-24 33-5Z" fill="#ffe66d" stroke="#111" stroke-width="5" stroke-linejoin="round"/>
+  <path d="m50 560 75-110 75 110Z" fill="#ff8fab" stroke="#111" stroke-width="8"/>
+  <rect x="150" y="175" width="924" height="370" fill="#111"/>
+  <rect x="134" y="159" width="924" height="370" fill="#fff" stroke="#111" stroke-width="8"/>
+  <rect x="134" y="159" width="924" height="90" fill="#ff6b6b" stroke="#111" stroke-width="8"/>
+  <g fill="#111" font-family="system-ui, -apple-system, 'Segoe UI', 'Microsoft YaHei', sans-serif">
+    <text x="182" y="215" font-size="27" font-weight="800" letter-spacing="4">ANIME DASHBOARD</text>
+    <text x="596" y="352" text-anchor="middle" font-size="48" font-weight="900">界面截图待补充</text>
+    <text x="596" y="414" text-anchor="middle" font-size="25" fill="#515b61">此处为配图位置，非实际应用界面</text>
+    <text x="596" y="478" text-anchor="middle" font-size="20" fill="#515b61">添加真实截图后，替换 README 中对应的图片路径</text>
+  </g>
+</svg>
