@@ -37,7 +37,7 @@ test('loaded page and lazy-route shell share the new exploration naming', () => 
 
 test('journal banner preserves its own sparkle icon with shared animation and boxed arrow', () => {
   const banner = render(Banner), header = render(Header)
-  assert.match(banner, /发现下一部宝藏番剧，翻开/); assert.match(banner, /番剧探索手账/)
+  assert.match(banner, /发现下一部宝藏作品，翻开/); assert.match(banner, /番剧探索手账/)
   assert.match(banner, /to=|href="\/recommendations"/)
   assert.match(banner, /class="cta-spark-icon">✨<\/span>/)
   assert.doesNotMatch(banner, /fa-wand-magic-sparkles/)

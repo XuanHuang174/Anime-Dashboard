@@ -33,6 +33,7 @@ import ShowcasePublicationPanel from '../components/ShowcasePublicationPanel.jsx
 import recommendationClient from '../api/recommendations.js'
 import useExplorationTopics from '../hooks/useExplorationTopics.js'
 import useSeriesJournalReturn from '../hooks/useSeriesJournalReturn.js'
+import useJournalDisplayMode from '../hooks/useJournalDisplayMode.js'
 
 gsap.registerPlugin(useGSAP)
 
@@ -113,7 +114,7 @@ function Dashboard() {
   const [isQuickFilterEditorOpen, setIsQuickFilterEditorOpen] = useState(false)
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false)
   const [logoutDestination, setLogoutDestination] = useState('login')
-  const [isPreviewMode, setIsPreviewMode] = useState(isSharedJournal)
+  const [isPreviewMode, setIsPreviewMode] = useJournalDisplayMode(isSharedJournal)
   const isEditMode = !isSharedJournal && !isPreviewMode
   const [sharedProfile, setSharedProfile] = useState(null)
   const [currentPage, setCurrentPage] = useState(1)
@@ -169,7 +170,6 @@ function Dashboard() {
 
   useEffect(() => {
     if (!isSharedJournal) return
-    setIsPreviewMode(true)
     setIsAddModalOpen(false)
     setIsQuickFilterEditorOpen(false)
   }, [isSharedJournal])
@@ -842,7 +842,7 @@ function Dashboard() {
       // example, a Bangumi poster that has just been persisted to R2).
       setRecordsRefreshKey((key) => key + 1)
     }
-    setIsPreviewMode((current) => !current)
+    setIsPreviewMode(!isPreviewMode)
   }
 
   useGSAP(() => {

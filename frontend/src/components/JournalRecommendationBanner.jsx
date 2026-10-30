@@ -12,7 +12,7 @@ export default function JournalRecommendationBanner() {
             <span>YOUR NEXT FAVORITE</span><span className="journal-recommendation-banner__badge">推荐 V1</span>
           </div>
           <h2 id="journalRecommendationTitle">个性化番剧推荐</h2>
-          <p>发现下一部宝藏番剧，翻开<span className="journal-recommendation-banner__ending">番剧探索手账</span></p>
+          <p>发现下一部宝藏作品，翻开<span className="journal-recommendation-banner__ending">番剧探索手账</span></p>
         </div>
         <span className="journal-recommendation-banner__arrow cta-arrow-box" aria-hidden="true"><i className="fa-solid fa-arrow-right" /></span>
       </div>

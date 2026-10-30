@@ -20,6 +20,7 @@ import BackToTop from '../components/BackToTop.jsx'
 import CreditsFilterPanel from '../components/recommendations/CreditsFilterPanel.jsx'
 import BrowseExplanation from '../components/recommendations/BrowseExplanation.jsx'
 import SeriesSummary from '../components/recommendations/SeriesSummary.jsx'
+import CreditsSummary from '../components/recommendations/CreditsSummary.jsx'
 import { SeriesAnnotationsProvider, SeriesBadges } from '../components/recommendations/SeriesExploration.jsx'
 import { SeriesForegroundContext } from '../hooks/useSeriesJournalReturn.js'
 import { filterChips } from '../utils/recommendationBrowse.js'
@@ -287,6 +288,7 @@ function EntityWorks({ client, kind, person, scope, session, cache, onReady, adu
           <p>{state.detail.item.season || '季度未知'} · {state.detail.item.type || '发行形式未知'}</p><p>本人状态：{creditsWatchLabel(state.detail.item.watchStatus)}</p>
           <h3>故事简介</h3><p>{state.detail.item.synopsis || '暂未收录简介。'}</p><p>{state.detail.item.tags.join(' · ')}</p>
           <SeriesSummary client={client} bangumiId={state.detail.item.bangumiId} />
+          <CreditsSummary client={client} bangumiId={state.detail.item.bangumiId} />
           <div className="credits-work-actions"><CreditsWant row={{ bangumi_id: state.detail.target, watch_status: state.detail.item.watchStatus }}
             operation={state.operations[state.detail.target]} blocked={blocked} onWant={() => controller.want(state.detail.target)} />
             <button ref={resourceTrigger} className="rec-button" aria-expanded={resources} onClick={() => setResources(v => !v)}>🧲 寻找资源</button></div>
