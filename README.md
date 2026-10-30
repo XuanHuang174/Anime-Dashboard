@@ -293,6 +293,7 @@ SQLite 下的后端回归可以使用隔离配置运行；涉及 PostgreSQL 并�
 
 - 作品资料与关联信息感谢 [Bangumi](https://bgm.tv/)、[Bangumi Archive](https://github.com/bangumi/Archive) 及 [AniList](https://anilist.co/) 等公开来源。
 - 推荐探索的早期产品思路参考了 [Neptune-ux-sys/nep2.0](https://github.com/Neptune-ux-sys/nep2.0)，并围绕私人手账、来源依据与观看闭环继续实现。
+- 寻找作品磁链资源Fork了[naranyinyun/AnimeSearch](https://github.com/naranyinyun/AnimeSearch)，自行部署并且进行了优化。
 - 感谢 React、Django、GSAP 及其他依赖项目的维护者。
 
 当前仓库尚未附带 `LICENSE` 文件；如需复用或分发代码，请先与[维护者](https://github.com/XuanHuang174)确认授权方式。
