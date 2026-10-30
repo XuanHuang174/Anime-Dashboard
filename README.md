@@ -17,7 +17,9 @@
 
 </div>
 
-<img src="docs/images/readme/2私人手账.png" width="460" alt="1主界面" />
+<p align="center">
+  <img src="docs/images/readme/1主界面.png" width="460" alt="1主界面" />
+</p>
 
 > 注意：如果你访问后没有显示数据或者加载失败，只需等待 30s 左右，再次刷新网页即可正常。<br />
 （Render冷启动机制）
