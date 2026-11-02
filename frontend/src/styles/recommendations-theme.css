@@ -25,6 +25,9 @@
 .memphis-rec-container .rec-back { border: 2px solid var(--rec-ink); padding: 8px 12px; background: white; box-shadow: 2px 2px 0 var(--rec-ink); font-size: 12px; }
 .memphis-rec-container .rec-nav-tools > .rec-text-button { padding: 8px 10px; background: var(--rec-cream); border: 2px solid var(--rec-ink); text-decoration: none; }
 .memphis-rec-container .rec-preferences { background: var(--rec-yellow); }
+.memphis-rec-container .rec-browse-tools { flex-wrap: wrap; }
+.memphis-rec-container .rec-browse-actions { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.memphis-rec-container .rec-browse-tools .rec-preferences { min-height: 44px; white-space: nowrap; }
 .memphis-rec-container .rec-page-heading { padding: 10px 0 12px; gap: 12px; }
 .memphis-rec-container .rec-chapter-label { transform: rotate(-1deg); box-shadow: 2px 2px 0 var(--rec-ink); }
 .memphis-rec-container .rec-page-heading h1 { padding: 4px 12px 6px; background: var(--rec-ink); color: white; font-size: 30px; letter-spacing: -.035em; }

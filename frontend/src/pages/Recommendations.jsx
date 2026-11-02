@@ -58,7 +58,7 @@ export default function Recommendations({ client = recommendationApi }) {
   return <RecommendationHost key={sessionScope} client={client} sessionScope={sessionScope} Personal={RecommendationWorkspace} />
 }
 
-function RecommendationWorkspace({ client, sessionScope, cache, adult, setAdult, navigation, capabilities, reminders, creditsEntry }) {
+function RecommendationWorkspace({ client, sessionScope, cache, adult, setAdult, navigation, capabilities, reminders }) {
   const navigate = useNavigate()
   const [category, setCategory] = useState(cache.controls?.category || 'all')
   const [style, setStyle] = useState(cache.controls?.style || 'balanced')
@@ -276,8 +276,7 @@ function RecommendationWorkspace({ client, sessionScope, cache, adult, setAdult,
     <div className="rec-page">
       <div className="rec-masthead">
       <nav className="rec-nav" aria-label="推荐页面导航"><Link className="rec-back" to="/dashboard">← 返回我的手账</Link>
-        <div className="rec-nav-tools">{creditsEntry}<button type="button" className="rec-text-button" onClick={openHidden}>已隐藏作品</button>
-          <button type="button" className="rec-button rec-preferences" ref={preferenceTrigger} disabled={!preferences} onClick={openPreferences}>☷ 偏好设置</button></div></nav>
+        <div className="rec-nav-tools"><button type="button" className="rec-text-button" onClick={openHidden}>已隐藏作品</button></div></nav>
       <header className="rec-page-heading rec-explore-heading">
         <span className="rec-chapter-label">我的手账</span>
         <h1>番剧探索</h1>
@@ -292,7 +291,8 @@ function RecommendationWorkspace({ client, sessionScope, cache, adult, setAdult,
       <RecommendationBrowseControls category={category} style={style} filters={visibleFilters} legacy={legacy} algorithmVersion={state.data?.algorithm_version} mode={state.data?.mode}
         onCategory={next => { if (next !== category) { discardDetail(); state.cancelBrowse(); setCategory(next) } }}
         onStyle={next => { if (next !== style) { discardDetail(); state.cancelBrowse(); setStyle(next) } }}
-        onFilter={openFilters} onRemove={removeFilter} onReset={reset} />
+        onFilter={openFilters} onRemove={removeFilter} onReset={reset}
+        preferencesAction={<button type="button" className="rec-button rec-preferences" ref={preferenceTrigger} disabled={!preferences} onClick={openPreferences}>☷ 偏好设置</button>} />
       </div>
       <ShowcasePublicationPanel refreshKey={publicationRevision} />
       <SeriesReminders client={client} enabled={capabilities?.series_reminders?.enabled} controller={reminders} />

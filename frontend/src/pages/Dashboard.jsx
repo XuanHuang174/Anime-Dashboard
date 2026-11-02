@@ -34,6 +34,7 @@ import recommendationClient from '../api/recommendations.js'
 import useExplorationTopics from '../hooks/useExplorationTopics.js'
 import useSeriesJournalReturn from '../hooks/useSeriesJournalReturn.js'
 import useJournalDisplayMode from '../hooks/useJournalDisplayMode.js'
+import useJournalListPreferences from '../hooks/useJournalListPreferences.js'
 
 gsap.registerPlugin(useGSAP)
 
@@ -108,7 +109,7 @@ function Dashboard() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [sortOrder, setSortOrder] = useState('date-desc')
   const [typeFilter, setTypeFilter] = useState('all')
-  const [view, setView] = useState('list')
+  const [view, setView, pageSize, setPageSize] = useJournalListPreferences(sharedUsername)
   const [customQuickFilters, setCustomQuickFilters] = useState([])
   const [activeCustomFilterId, setActiveCustomFilterId] = useState(null)
   const [isQuickFilterEditorOpen, setIsQuickFilterEditorOpen] = useState(false)
@@ -118,7 +119,6 @@ function Dashboard() {
   const isEditMode = !isSharedJournal && !isPreviewMode
   const [sharedProfile, setSharedProfile] = useState(null)
   const [currentPage, setCurrentPage] = useState(1)
-  const [pageSize, setPageSize] = useState('all')
   const [recordsTotal, setRecordsTotal] = useState(null)
   const [recordsRefreshKey, setRecordsRefreshKey] = useState(0)
   useSeriesJournalReturn(() => { if (!isSharedJournal && !isAdminJournalReview) setRecordsRefreshKey(key => key + 1) })
@@ -162,10 +162,6 @@ function Dashboard() {
 
   const dismissToast = useCallback((toastId) => {
     setToasts((current) => current.filter((toast) => toast.id !== toastId))
-  }, [])
-
-  useEffect(() => {
-    if (window.innerWidth < 768) setView('grid')
   }, [])
 
   useEffect(() => {
