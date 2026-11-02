@@ -23,9 +23,9 @@ export function creditsSummary(subject = 1, expanded = false, contentScope = 'sa
         name: i ? `合成声优 ${i + 1}` : '合成声优 · 白羽', kind: 'voice_actor', evidence: creditsEvidence(subject, 'voice_actor', i ? 1000 + i : 101) })) } } }
 }
 export function creditsPage({ kind = 'voice_actor', person = kind === 'studio' ? 201 : 101, offset = 0, count = 25,
-  options = CREDIT_DEFAULTS, contentScope = 'safe', expires = Math.floor(Date.now() / 1000) + 900 } = {}) {
+  options = CREDIT_DEFAULTS, contentScope = 'safe', serverTime = Math.floor(Date.now() / 1000), expires = serverTime + 900 } = {}) {
   return { ...creditsCommon('works', contentScope), entity: creditsEntity(kind, person, 26), conditions: { ...options }, count,
-    ordering: 'credits.catalog-period.v1', context: `fixture:${offset}`, expires_at: expires,
+    ordering: 'credits.catalog-period.v1', context: `fixture:${offset}`, expires_at: expires, server_time: serverTime,
     next_cursor: offset + 12 < count ? `fixture:${offset + 12}` : null,
     results: Array.from({ length: Math.min(12, count - offset) }, (_, i) => {
       const identity = offset + i + 100, adult = contentScope !== 'safe' && identity === 125

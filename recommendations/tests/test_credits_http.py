@@ -100,6 +100,9 @@ class CreditsHTTPTests(TransactionTestCase):
         first = self.works(year_from=2026)
         self.assertEqual(first.status_code, 200, first.data)
         self.assertEqual(first.data['count'], 25)
+        self.assertIsInstance(first.data['server_time'], int)
+        self.assertTrue(0 < first.data['expires_at'] - first.data['server_time'] <= 900)
+        self.assertTrue(all(row['content_rating'] == 'non_adult' for row in first.data['results']))
         self.assertEqual([r['bangumi_id'] for r in first.data['results']], list(range(1, 13)))
         second = self.works(cursor=first.data['next_cursor'])
         third = self.works(cursor=second.data['next_cursor'])
@@ -107,6 +110,7 @@ class CreditsHTTPTests(TransactionTestCase):
         self.assertEqual([r['bangumi_id'] for r in third.data['results']], [25])
         self.assertIsNone(third.data['next_cursor'])
         self.assertEqual(first.data['expires_at'], third.data['expires_at'])
+        self.assertTrue(0 < third.data['expires_at'] - third.data['server_time'] <= 900)
         self.assertEqual(self.works(cursor=first.data['next_cursor'], year_from=2025).status_code, 409)
         self.assertEqual(self.works(cursor=first.data['next_cursor'] + 'x').status_code, 400)
 

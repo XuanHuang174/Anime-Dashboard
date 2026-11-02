@@ -316,7 +316,14 @@ def works(user, scope, kind, person_id, query, session):
             'release_period': item.season if period(item) else '',
             'release_precision': 'catalog_period' if period(item) else 'unknown',
             'evidence': evidence(grouped[item.bangumi_id], kind)})
+    # The browser must not compare signed expiry with its own system clock.
+    # This additive field supports independently deployed older frontends.
+    # Round up so sub-second precision cannot extend the browser's deadline.
+    server_time = int(time.time()) + 1
+    if expires <= server_time:
+        raise CreditsChanged()
     return {**base('works'), 'entity': row, 'conditions': options, 'count': len(selected), 'results': result,
+        'server_time': server_time,
         'ordering': SORT_VERSION, 'context': signing.dumps(token_body, salt=SALT, compress=True), 'expires_at': expires,
         'next_cursor': signing.dumps({**token_body, 'offset': offset + PAGE_SIZE}, salt=SALT, compress=True)
             if offset + PAGE_SIZE < len(selected) else None}

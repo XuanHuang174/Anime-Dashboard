@@ -1,13 +1,18 @@
-import { CREDIT_DEFAULTS, validateCreditConditions, validateCreditsSearch, validateCreditsWorks, validateCreditsDetail, sameCreditConditions, creditsFailure } from './recommendationCredits.js'
+import { CREDIT_DEFAULTS, validateCreditConditions, validateCreditsSearch, validateCreditsWorks, validateCreditsDetail, sameCreditConditions, creditsFailure, creditsRemainingMs, isCreditsContractError } from './recommendationCredits.js'
 import { validateWantResult, wantFailure } from './recommendationWant.js'
 
 // React-owned, session/scope-bound cache; no storage and no visibility-triggered list reads.
-export function createCreditsWorkspace({ client, kind, person = null, scope = 'safe', cache = {}, isCurrent = () => true, now = Date.now, onConfirmed = () => {} }) {
+export function createCreditsWorkspace({ client, kind, person = null, scope = 'safe', cache = {}, isCurrent = () => true, now = () => performance.now(), onConfirmed = () => {} }) {
   let active = true, request = null, serial = 0
   let state = { ...(cache.state || { status: 'idle', data: null, pending: false, morePending: false, stale: false, message: '' }), detail: null, operations: {} }
   const interactions = new Set(), writes = new Map()
   let notifying = false, returnTarget = null
   const listeners = new Set()
+  // Duration-based cache validity survives changes to the OS wall clock.
+  const remainingMs = () => {
+    const end = person ? state.validUntil : state.loadedAt + 900000
+    return state.data && Number.isFinite(end) ? Math.max(0, end - now()) : 0
+  }
   const emit = value => { state = { ...state, ...value }; cache.state = state; listeners.forEach(fn => fn()) }
   const cancel = () => { request?.abort(); request = null; serial++; interactions.forEach(c => c.abort()); interactions.clear(); writes.clear() }
   const invalidate = (lost = false, message = '资料已到期，请重新读取后继续。') => {
@@ -16,18 +21,27 @@ export function createCreditsWorkspace({ client, kind, person = null, scope = 's
   }
   async function load(options = CREDIT_DEFAULTS, more = false) {
     if (!active || !isCurrent() || writes.size || more && (state.pending || state.morePending || state.stale || !state.data?.next_cursor)) return false
-    if (more && state.data.expires_at * 1000 <= now()) { invalidate(); return false }
+    if (more && !(remainingMs() > 0)) { invalidate(); return false }
     if (person) validateCreditConditions(options)
     cancel(); const order = serial, controller = new AbortController(); request = controller
     const current = () => active && isCurrent() && serial === order && !controller.signal.aborted
     const previous = state.data
+    const startedAt = now()
     emit({ status: previous ? 'ready' : 'loading', detail: null, operations: {}, pending: !more, morePending: more, message: '', query: person ? options : String(options) })
     try {
       const raw = person ? await client.creditsWorks(kind, person, more ? { cursor: previous.next_cursor } : options, controller.signal)
         : await client.creditsSearch(kind, options, controller.signal)
       if (!current()) return false
-      const data = person ? validateCreditsWorks(raw, kind, person, more ? previous.conditions : options, scope, now())
+      const data = person ? validateCreditsWorks(raw, kind, person, more ? previous.conditions : options, scope)
         : validateCreditsSearch(raw, kind, scope)
+      // Count the whole request as elapsed, conservatively including transfer
+      // time; subsequent pages may shorten but never renew the signed snapshot.
+      const validUntil = person ? Math.min(startedAt + creditsRemainingMs(data), more ? state.validUntil : Infinity) : null
+      if (person && validUntil <= now()) {
+        const error = new Error('参与资料已到期，请重新读取。')
+        error.code = 'credits_contract_invalid'
+        throw error
+      }
       if (more) {
         const ids = new Set(previous.results.map(row => row.bangumi_id))
         if (data.credits_revision !== previous.credits_revision || data.count !== previous.count || data.expires_at !== previous.expires_at
@@ -35,23 +49,23 @@ export function createCreditsWorkspace({ client, kind, person = null, scope = 's
           || data.results.some(row => ids.has(row.bangumi_id)) || data.results.length === 0
           || data.results.length + previous.results.length > data.count
           || data.next_cursor === null && data.results.length + previous.results.length !== data.count) throw new Error('人物与制作资料合同不兼容，请重新读取。')
-        emit({ status: 'ready', data: { ...data, results: [...previous.results, ...data.results] }, stale: false })
+        emit({ status: 'ready', data: { ...data, results: [...previous.results, ...data.results] }, validUntil, stale: false })
       } else {
         if (person && data.next_cursor === null && data.results.length !== data.count) throw new Error('人物与制作资料合同不兼容，请重新读取。')
-        emit({ status: 'ready', data, stale: false, loadedAt: now() })
+        emit({ status: 'ready', data, validUntil, stale: false, loadedAt: now() })
       }
       return true
     } catch (error) {
       if (!current()) return false
       const lost = error?.scopeLost || [401, 403, 404].includes(error?.response?.status) || error?.response?.data?.code === 'credits_disabled'
-      const changed = error?.response?.data?.code === 'credits_snapshot_changed' || error?.message?.startsWith('人物与制作资料合同')
+      const changed = error?.response?.data?.code === 'credits_snapshot_changed' || isCreditsContractError(error)
       emit({ status: previous && !lost ? 'ready' : 'error', data: lost ? null : previous,
         stale: lost || changed || state.stale, message: `${previous && !lost ? '当前保留上次已确认结果。' : ''}${creditsFailure(error)}` })
       return false
     } finally { if (current()) { request = null; emit({ pending: false, morePending: false }) } }
   }
   const actionable = target => active && isCurrent() && !state.pending && !state.morePending && !state.stale
-    && state.data?.expires_at * 1000 > now() && state.data.results.find(row => row.bangumi_id === target)
+    && remainingMs() > 0 && state.data.results.find(row => row.bangumi_id === target)
   const interaction = () => {
     const controller = new AbortController(), order = serial
     interactions.add(controller)
@@ -61,13 +75,13 @@ export function createCreditsWorkspace({ client, kind, person = null, scope = 's
   const interactionFailure = error => {
     if (error?.scopeLost || [401, 403, 404].includes(error?.response?.status) && error?.response?.data?.code !== 'capacity_exceeded'
       || error?.response?.data?.code === 'credits_disabled') { invalidate(true, creditsFailure(error)); return true }
-    if (error?.response?.data?.code === 'credits_snapshot_changed' || error?.message?.startsWith('人物与制作资料合同')) {
+    if (error?.response?.data?.code === 'credits_snapshot_changed' || isCreditsContractError(error)) {
       invalidate(false, creditsFailure(error)); return true
     }
     return false
   }
   async function select(target, refresh = false) {
-    const row = refresh && active && isCurrent() && !state.pending && !state.morePending && state.data?.expires_at * 1000 > now()
+    const row = refresh && active && isCurrent() && !state.pending && !state.morePending && remainingMs() > 0
       ? state.data.results.find(row => row.bangumi_id === target) : !refresh ? actionable(target) : null
     if (!row || writes.size) {
       if (refresh && state.detail?.target === target) emit({ detail: null })
@@ -97,7 +111,7 @@ export function createCreditsWorkspace({ client, kind, person = null, scope = 's
         ...(uncertain ? { stale: true, message: '离开时加入请求尚未确认，请重新读取本人状态。' } : {}),
         status: state.data ? 'ready' : state.status === 'loading' ? 'idle' : state.status }
       cache.state = state
-    }, load,
+    }, load, remainingMs,
     select: target => select(target),
     deferSeriesChange() {
       if (!active || !isCurrent()) return
@@ -136,7 +150,7 @@ export function createCreditsWorkspace({ client, kind, person = null, scope = 's
     },
     more: () => load(state.data?.conditions || CREDIT_DEFAULTS, true), invalidate,
     ensure(options) {
-      if (state.data && !state.stale && (person ? sameCreditConditions(options, state.data.conditions) && state.data.expires_at * 1000 > now()
+      if (state.data && !state.stale && (person ? sameCreditConditions(options, state.data.conditions) && remainingMs() > 0
         : state.query === options && now() - state.loadedAt < 900000)) return
       return load(options)
     }, clear() { cancel(); emit({ status: 'idle', data: null, detail: null, operations: {}, stale: false, message: '', pending: false, morePending: false }) } }

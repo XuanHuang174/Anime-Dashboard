@@ -8,7 +8,28 @@ export const CREDIT_DEFAULTS = Object.freeze({ view: 'all', sort: 'score_desc', 
 export const creditId = value => Number.isSafeInteger(value) && value > 0 && value <= 2147483647
 const text = (v, max = 2000) => typeof v === 'string' && v.length <= max
 const count = v => Number.isSafeInteger(v) && v >= 0
-const fail = () => { throw new Error('人物与制作资料合同不兼容，请重新读取。') }
+const fail = (reason = 'contract', subject) => {
+  const messages = {
+    clock: '资料有效期与本机时间不一致，请重新读取；若持续出现，请同步系统时间或等待服务更新。',
+    expiry: '参与资料的有效期信息异常或已到期，请重新读取。',
+    rating: `作品 ${subject} 的内容分级缺失或无效，请重新读取；若持续出现，请联系管理员。`,
+  }
+  const error = new Error(messages[reason] || '人物与制作资料合同不兼容，请重新读取。')
+  error.code = 'credits_contract_invalid'; error.reason = reason
+  throw error
+}
+export const isCreditsContractError = error => error?.code === 'credits_contract_invalid'
+  || error?.message?.startsWith('人物与制作资料合同')
+// New responses carry their own clock. Legacy responses keep the old bounded
+// check during rolling deployments, with an actionable clock error.
+export function creditsRemainingMs(data, now = Date.now()) {
+  if (!Number.isSafeInteger(data.expires_at) || data.expires_at <= 0) fail('expiry')
+  const hasServerTime = Object.hasOwn(data, 'server_time')
+  if (hasServerTime && (!Number.isSafeInteger(data.server_time) || data.server_time <= 0)) fail('expiry')
+  const remaining = data.expires_at * 1000 - (hasServerTime ? data.server_time * 1000 : now)
+  if (remaining <= 0 || remaining > (hasServerTime ? 900000 : 901000)) fail(hasServerTime ? 'expiry' : 'clock')
+  return Math.min(900000, remaining)
+}
 export function validateCreditsCapabilities(data) {
   if (data?.contract_version !== 'recommendations.credits.capabilities.v1'
     || typeof data.voice_actor !== 'boolean' || typeof data.studio !== 'boolean') fail()
@@ -90,14 +111,15 @@ export function validateCreditConditions(options) {
 export function sameCreditConditions(a, b) { return Object.keys(CREDIT_DEFAULTS).every(k => a?.[k] === b?.[k]) }
 export function validateCreditsWorks(data, kind, person, options, scope, now = Date.now()) {
   common(data, 'works', scope); entity(data.entity, kind, person); validateCreditConditions(data.conditions)
+  creditsRemainingMs(data, now)
   if (!sameCreditConditions(data.conditions, options) || !count(data.count) || data.count > data.entity.work_count
     || data.ordering !== 'credits.catalog-period.v1' || !text(data.context, 4096) || !data.context
     || data.next_cursor !== null && (!text(data.next_cursor, 4096) || !data.next_cursor)
-    || !Number.isInteger(data.expires_at) || data.expires_at * 1000 <= now || data.expires_at * 1000 > now + 901000
     || !Array.isArray(data.results) || data.results.length > 12 || data.results.length > data.count
     || data.next_cursor !== null && (data.results.length !== 12 || data.count <= 12)) fail()
   const ids = new Set()
   for (const row of data.results) {
+    if (!['non_adult', 'adult'].includes(row?.content_rating)) fail('rating', creditId(row?.bangumi_id) ? row.bangumi_id : '未知')
     if (!creditId(row.bangumi_id) || ids.has(row.bangumi_id) || !text(row.title_zh, 500) || !text(row.title_jp, 500)
       || !Number.isFinite(row.score) || row.score < 0 || row.score > 10 || !text(row.season, 40) || !text(row.status_type, 40)
       || !text(row.cover_url, 4096) || !Array.isArray(row.tags) || row.tags.length > 100 || row.tags.some(t => !text(t, 80))
@@ -137,7 +159,7 @@ export function creditsFailure(error) {
   if (error?.scopeLost || [401, 403].includes(error?.response?.status)) return '访问范围已变化，请重新确认内容范围。'
   if (error?.response?.status === 404) return '当前范围没有可展示的关联资料。'
   if (error?.response?.status === 400) return '查询条件无效，请检查姓名、人物链接或筛选范围。'
-  return error?.message?.startsWith('人物与制作资料合同') ? error.message : '参与资料读取失败，请稍后重试。'
+  return isCreditsContractError(error) ? error.message : '参与资料读取失败，请稍后重试。'
 }
 export function creditsRoute(path) {
   if (/^\/recommendations\/credits\/?$/.test(path)) return { kind: null, person: null }

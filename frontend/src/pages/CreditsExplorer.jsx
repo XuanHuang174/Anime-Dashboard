@@ -162,9 +162,8 @@ function useWorkspace({ client, kind, person, scope, session, cache }, onReady) 
     // A confirmed write keeps its detail open while the list awaits rereading;
     // expiry and adult-scope monitoring must continue during that interval.
     if (!state.data) return
-    const end = person ? state.data.expires_at * 1000 : state.loadedAt + 900000
-    const timer = setTimeout(() => controller.invalidate(), Math.max(0, end - Date.now()))
-    const check = () => { if (Date.now() >= end) controller.invalidate() }
+    const timer = setTimeout(() => controller.invalidate(), controller.remainingMs())
+    const check = () => { if (!(controller.remainingMs() > 0)) controller.invalidate() }
     window.addEventListener('focus', check)
     let monitor
     if (scope === 'include_adult' && client.context) monitor = watchRecommendationScope({

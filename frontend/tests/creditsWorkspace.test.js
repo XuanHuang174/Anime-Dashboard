@@ -13,6 +13,65 @@ const api = overrides => ({ creditsWorks: async () => page(), creditsDetail: asy
   creditsWant: async () => result(), ...overrides })
 const create = (client = api(), options = {}) => createCreditsWorkspace({ client, kind: 'voice_actor', person: 101, ...options })
 
+test('clock skew and OS time adjustments do not break reads, details, paging, return cache or confirmed actions', async t => {
+  const serverTime = Math.floor(Date.now() / 1000)
+  let elapsed = 1000, lists = 0
+  const client = api({ creditsWorks: async (_, __, query) => {
+    lists++
+    return creditsPage({ serverTime: serverTime + Math.floor((elapsed - 1000) / 1000),
+      expires: serverTime + 900, offset: query.cursor ? 12 : 0 })
+  } })
+  const cache = {}, options = { cache, now: () => elapsed }
+  t.mock.method(Date, 'now', () => (serverTime - 86400) * 1000)
+  const controller = create(client, options)
+  assert.equal(await controller.load(), true)
+  assert.equal(controller.remainingMs(), 900000)
+  t.mock.method(Date, 'now', () => (serverTime + 86400) * 1000)
+  await controller.select(100)
+  assert.equal(controller.getSnapshot().detail.status, 'ready')
+  elapsed += 120000; await controller.more()
+  assert.equal(controller.getSnapshot().data.results.length, 24)
+  assert.equal(controller.remainingMs(), 780000)
+  controller.dispose()
+  const returned = create(client, options); await returned.ensure(CREDIT_DEFAULTS)
+  assert.equal(lists, 2)
+  assert.equal((await returned.want(100)).watch_status, 'plan')
+  elapsed += 780001
+  assert.equal(returned.remainingMs(), 0)
+  assert.equal(await returned.want(101), null)
+  assert.equal(await returned.more(), false)
+})
+
+test('paging cannot extend a snapshot and request time counts toward expiry', async () => {
+  let elapsed = 1000, reads = 0
+  const serverTime = Math.floor(Date.now() / 1000)
+  const controller = create(api({ creditsWorks: async () => creditsPage({ serverTime, offset: reads++ ? 12 : 0 }) }), { now: () => elapsed })
+  await controller.load(); elapsed += 600000; await controller.more()
+  assert.equal(controller.remainingMs(), 300000)
+  elapsed += 300001; await controller.more()
+  assert.equal(reads, 2)
+  assert.equal(controller.getSnapshot().stale, true)
+  const slow = create(api({ creditsWorks: async () => { elapsed += 901000; return creditsPage({ serverTime }) } }), { now: () => elapsed })
+  assert.equal(await slow.load(), false)
+  assert.equal(slow.getSnapshot().data, null)
+  assert.equal(slow.getSnapshot().status, 'error')
+  assert.match(slow.getSnapshot().message, /已到期/)
+})
+
+test('rating validation failures mark old results stale and prevent actions with a specific message', async () => {
+  let malformed = false, writes = 0
+  const controller = create(api({ creditsWorks: async () => {
+    const data = page(); if (malformed) delete data.results[0].content_rating
+    return data
+  }, creditsWant: async () => { writes++; return result() } }))
+  await controller.load(); malformed = true
+  assert.equal(await controller.load(), false)
+  assert.match(controller.getSnapshot().message, /作品 100 的内容分级缺失或无效/)
+  assert.equal(controller.getSnapshot().stale, true)
+  assert.equal(await controller.want(100), null)
+  assert.equal(writes, 0)
+})
+
 test('series return refreshes the open detail without replacing loaded list, options or position', async () => {
   let lists = 0, details = 0, status = null
   const cache = { scroll: 830 }, controller = create(api({

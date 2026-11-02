@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { CREDIT_DEFAULTS, validateCreditsCapabilities, validateCreditsSearch, validateCreditsSummary, validateCreditsWorks,
-  validateCreditsRecord, validateCreditConditions, creditsRoute, creditsBackground, creditsNavigationState, creditItem } from '../src/utils/recommendationCredits.js'
+  validateCreditsRecord, validateCreditConditions, creditsRoute, creditsBackground, creditsNavigationState, creditItem, creditsRemainingMs, creditsFailure } from '../src/utils/recommendationCredits.js'
 import { createCreditsWorkspace } from '../src/utils/creditsWorkspace.js'
 import { createRecommendationClient } from '../src/api/recommendationClient.js'
 import { creditsPage, creditsSearch, creditsSummary, creditsCapability, creditsCommon } from './fixtures/creditsContract.js'
@@ -45,6 +45,34 @@ test('record references only accept own confirmed identities and explicit unreso
   assert.equal(validateCreditsRecord(data, 9, 'safe'), data)
   assert.throws(() => validateCreditsRecord(data, 10, 'safe'))
   assert.throws(() => validateCreditsRecord({ ...data, identity_state: 'stale_link' }, 9, 'safe'))
+})
+
+test('server-relative expiry accepts fast or slow computers but rejects invalid or expired lifetimes', () => {
+  const serverTime = 1793606000, data = creditsPage({ serverTime })
+  for (const skew of [-86400000, -2500, 0, 86400000]) {
+    assert.equal(validateCreditsWorks(data, 'voice_actor', 101, CREDIT_DEFAULTS, 'safe', serverTime * 1000 + skew), data)
+    assert.equal(creditsRemainingMs(data, serverTime * 1000 + skew), 900000)
+  }
+  for (const fields of [{ server_time: null }, { server_time: '1793606000' }, { server_time: -1 },
+    { server_time: serverTime + 900 }, { expires_at: serverTime - 1 }, { expires_at: serverTime + 901 }]) {
+    assert.throws(() => validateCreditsWorks({ ...data, ...fields }, 'voice_actor', 101, CREDIT_DEFAULTS, 'safe'),
+      error => error.reason === 'expiry' && /有效期/.test(creditsFailure(error)))
+  }
+  const legacy = { ...data }; delete legacy.server_time
+  assert.equal(validateCreditsWorks(legacy, 'voice_actor', 101, CREDIT_DEFAULTS, 'safe', serverTime * 1000), legacy)
+  assert.throws(() => validateCreditsWorks(legacy, 'voice_actor', 101, CREDIT_DEFAULTS, 'safe', serverTime * 1000 - 2500),
+    error => error.reason === 'clock' && /系统时间/.test(creditsFailure(error)))
+})
+
+test('missing or unknown work ratings remain blocked and identify the affected work without exposing contexts', () => {
+  for (const rating of [undefined, null, '', 'unknown']) {
+    const data = creditsPage(); data.results[8].content_rating = rating
+    assert.throws(() => validateCreditsWorks(data, 'voice_actor', 101, CREDIT_DEFAULTS, 'safe'), error => {
+      assert.match(creditsFailure(error), /作品 108 的内容分级缺失或无效/)
+      assert.doesNotMatch(error.message, /fixture-action|fixture:/)
+      return error.code === 'credits_contract_invalid' && error.reason === 'rating'
+    })
+  }
 })
 test('routes preserve approved background and scope without following external locations', () => {
   assert.deepEqual(creditsRoute('/recommendations/credits/studio/201'), { kind: 'studio', person: 201 })
