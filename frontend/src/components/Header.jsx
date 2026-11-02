@@ -31,7 +31,7 @@ function Header({ onGetStarted, onViewFeatured, onViewUniverse }) {
         <i className="fa-solid fa-star absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rotate-12 text-7xl text-[#ffe66d]"></i>
       </div>
 
-      <div className="relative z-10 mx-auto max-w-[1360px] px-4 py-10 sm:px-6 lg:px-8 lg:py-12">
+      <div className="relative z-10 mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8 lg:py-12">
         <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0 flex-1">
             <span className="memphis-header-piece inline-flex -rotate-1 items-center border-[3px] border-black bg-[#ffe66d] px-3 py-1.5 text-xs font-black uppercase tracking-[0.16em] shadow-[4px_4px_0_0_#111]">
@@ -59,7 +59,7 @@ function Header({ onGetStarted, onViewFeatured, onViewUniverse }) {
             </p>
           </div>
 
-          <div className="memphis-header-piece grid w-full shrink-0 grid-cols-[1fr_1fr_auto] gap-3 lg:ml-auto lg:mr-5 lg:w-[470px] xl:w-[500px]">
+          <div className="memphis-header-piece grid w-full shrink-0 grid-cols-[1fr_1fr_auto] gap-3 lg:ml-auto lg:w-[470px]">
             {onViewUniverse && (
               <button
                 type="button"

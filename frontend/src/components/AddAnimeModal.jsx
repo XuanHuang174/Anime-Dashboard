@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 import api from '../api/api.js'
@@ -121,6 +121,7 @@ function AddAnimeModal({
   showToast,
 }) {
   const overlayRef = useRef(null)
+  const createFormId = useId()
   const modalRef = useRef(null)
   const contentScrollRef = useRef(null)
   const closeHandlerRef = useRef(null)
@@ -739,7 +740,7 @@ function AddAnimeModal({
           ))}
         </div>
 
-        <div ref={contentScrollRef} className="mx-5 mb-5 flex-1 overflow-y-auto border-4 border-black bg-white custom-scrollbar shadow-[6px_6px_0_#4ecdc4] sm:mx-6">
+        <div ref={contentScrollRef} className="mx-5 mb-5 min-h-0 flex-1 overflow-y-auto border-4 border-black bg-white custom-scrollbar shadow-[6px_6px_0_#4ecdc4] sm:mx-6">
           {activeTab === 'search' && (
             <div className="p-4 sm:p-5">
               <div className="add-modal-piece sticky top-0 z-10 border-[3px] border-black bg-[#4ecdc4] p-3 shadow-[5px_5px_0_#111]">
@@ -826,7 +827,7 @@ function AddAnimeModal({
           )}
 
           {activeTab === 'manual' && (
-            <form onSubmit={handleCreateNew} className="p-4 sm:p-5">
+            <form id={createFormId} onSubmit={handleCreateNew} className="p-4 sm:p-5">
               <div className="grid gap-5 lg:grid-cols-[220px_1fr]">
                 <aside className="add-modal-piece mx-auto w-full max-w-[220px] lg:mx-0">
                   <label htmlFor="newPosterFile" className="group flex aspect-[3/4] cursor-pointer flex-col items-center justify-center overflow-hidden border-4 border-black bg-[#4ecdc4] text-center shadow-[7px_7px_0_#ff8fab]">
@@ -1003,16 +1004,18 @@ function AddAnimeModal({
                 </div>
               </div>
 
-              {manualError && <p role="alert" className="mt-5 border-[3px] border-black bg-[#ff6b6b] px-4 py-3 text-sm font-black shadow-[4px_4px_0_#111]"><i className="fa-solid fa-circle-exclamation mr-2"></i>{manualError}</p>}
-              <div className="mt-6 flex justify-end gap-3 border-t-4 border-black pt-4">
-                <button type="button" onClick={handleClose} disabled={isCreating} className={`${arcadeButton} bg-white`}>取消</button>
-                <button type="submit" disabled={isCreating} className={`${arcadeButton} bg-[#ff4f9a]`}>
-                  <i className={`fa-solid ${isCreating ? 'fa-spinner animate-spin' : 'fa-wand-magic-sparkles'} mr-2`}></i>{isCreating ? '创建中...' : '创建并加入手账'}
-                </button>
-              </div>
             </form>
           )}
         </div>
+        {activeTab === 'manual' && <footer className="add-modal-piece shrink-0 border-t-4 border-black bg-[#fff5ee] px-5 py-4 sm:px-6">
+              {manualError && <p role="alert" className="mb-4 border-[3px] border-black bg-[#ff6b6b] px-4 py-3 text-sm font-black shadow-[4px_4px_0_#111]"><i className="fa-solid fa-circle-exclamation mr-2"></i>{manualError}</p>}
+              <div className="flex flex-wrap justify-end gap-3">
+                <button type="button" onClick={handleClose} disabled={isCreating} className={`${arcadeButton} bg-white`}>取消</button>
+                <button type="submit" form={createFormId} disabled={isCreating} className={`${arcadeButton} bg-[#ff4f9a]`}>
+                  <i className={`fa-solid ${isCreating ? 'fa-spinner animate-spin' : 'fa-wand-magic-sparkles'} mr-2`}></i>{isCreating ? '创建中...' : '创建并加入手账'}
+                </button>
+              </div>
+        </footer>}
       </section>
     </div>
   )
