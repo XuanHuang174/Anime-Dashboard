@@ -31,7 +31,7 @@ function Header({ onGetStarted, onViewFeatured, onViewUniverse }) {
         <i className="fa-solid fa-star absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rotate-12 text-7xl text-[#ffe66d]"></i>
       </div>
 
-      <div className="relative z-10 mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8 lg:py-12">
+      <div className="relative z-10 mx-auto max-w-[1360px] px-4 py-10 sm:px-6 lg:px-8 lg:py-12">
         <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
           <div className="min-w-0 flex-1">
             <span className="memphis-header-piece inline-flex -rotate-1 items-center border-[3px] border-black bg-[#ffe66d] px-3 py-1.5 text-xs font-black uppercase tracking-[0.16em] shadow-[4px_4px_0_0_#111]">
@@ -40,7 +40,7 @@ function Header({ onGetStarted, onViewFeatured, onViewUniverse }) {
             </span>
 
             <h1
-              className="memphis-header-piece mt-5 flex items-center gap-4 text-3xl font-black tracking-[-0.04em] sm:text-5xl"
+              className="memphis-header-piece mt-5 flex items-center gap-4 text-3xl font-black tracking-[-0.04em] sm:text-5xl lg:text-4xl xl:text-5xl"
               style={{ fontFamily: '"Arial Black", Impact, sans-serif' }}
             >
               <span className="flex h-14 w-14 shrink-0 -rotate-3 items-center justify-center overflow-hidden border-4 border-black bg-white text-xl shadow-[6px_6px_0_0_#4ecdc4] sm:h-16 sm:w-16">
@@ -59,12 +59,12 @@ function Header({ onGetStarted, onViewFeatured, onViewUniverse }) {
             </p>
           </div>
 
-          <div className="memphis-header-piece grid w-full shrink-0 grid-cols-2 gap-3 lg:ml-auto lg:mr-5 lg:w-[430px]">
+          <div className="memphis-header-piece grid w-full shrink-0 grid-cols-[1fr_1fr_auto] gap-3 lg:ml-auto lg:mr-5 lg:w-[470px] xl:w-[500px]">
             {onViewUniverse && (
               <button
                 type="button"
                 onClick={onViewUniverse}
-                className="memphis-pressable flex items-center justify-center gap-2 border-[3px] border-black bg-[#4ecdc4] px-4 py-3 text-sm font-black text-black shadow-[5px_5px_0_#111]"
+                className="memphis-pressable flex min-w-0 items-center justify-center gap-1 border-[3px] border-black bg-[#4ecdc4] px-2 py-3 text-xs font-black text-black shadow-[5px_5px_0_#111] sm:gap-2 sm:text-sm"
               >
                 <i className="fa-solid fa-earth-asia"></i>
                 番剧共创宇宙
@@ -74,17 +74,29 @@ function Header({ onGetStarted, onViewFeatured, onViewUniverse }) {
               <button
                 type="button"
                 onClick={onViewFeatured}
-                className="memphis-pressable flex items-center justify-center gap-2 border-[3px] border-black bg-[#ff8fab] px-4 py-3 text-sm font-black text-black shadow-[5px_5px_0_#111]"
+                className="memphis-pressable flex min-w-0 items-center justify-center gap-1 border-[3px] border-black bg-[#ff8fab] px-2 py-3 text-xs font-black text-black shadow-[5px_5px_0_#111] sm:gap-2 sm:text-sm"
               >
                 <i className="fa-solid fa-award"></i>
                 浏览精选专栏
               </button>
             )}
+            <nav aria-label="作者社交主页" className="flex items-center justify-center gap-1 border-[3px] border-black bg-white px-1 shadow-[5px_5px_0_#111]">
+              <a href="https://space.bilibili.com/402219417?spm_id_from=333.788.0.0" target="_blank" rel="noopener noreferrer"
+                aria-label="访问作者的哔哩哔哩主页（新窗口）" title="哔哩哔哩主页"
+                className="flex h-11 w-10 items-center justify-center text-xl text-black transition-colors hover:bg-[#ff8fab] focus-visible:bg-[#ff8fab] focus-visible:outline-2 focus-visible:outline-black">
+                <i className="fa-brands fa-bilibili" aria-hidden="true"></i>
+              </a>
+              <a href="https://github.com/XuanHuang174/Anime-Dashboard" target="_blank" rel="noopener noreferrer"
+                aria-label="访问项目 GitHub 仓库（新窗口）" title="GitHub 项目仓库"
+                className="flex h-11 w-10 items-center justify-center text-xl text-black transition-colors hover:bg-[#ffe66d] focus-visible:bg-[#ffe66d] focus-visible:outline-2 focus-visible:outline-black">
+                <i className="fa-brands fa-github" aria-hidden="true"></i>
+              </a>
+            </nav>
             <button
               id="exportCsvBtn"
               type="button"
               onClick={onGetStarted}
-              className="memphis-primary-cta memphis-pressable col-span-2 flex items-center gap-3 border-4 border-black bg-[#ffe66d] px-6 py-4 text-left font-black text-black shadow-[6px_6px_0_0_#111]"
+              className="memphis-primary-cta memphis-pressable col-span-3 flex items-center gap-3 border-4 border-black bg-[#ffe66d] px-6 py-4 text-left font-black text-black shadow-[6px_6px_0_0_#111]"
             >
               <span className="flex h-12 w-12 shrink-0 items-center justify-center border-[3px] border-black bg-[#ff6b6b] text-xl shadow-[3px_3px_0_#111]">
                 <i className="cta-spark-icon fa-solid fa-wand-magic-sparkles"></i>

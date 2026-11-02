@@ -10,6 +10,7 @@ import { watchRecommendationScope } from '../utils/recommendationScopeMonitor.js
 import RecommendationDialog from '../components/recommendations/RecommendationDialog.jsx'
 import RecommendationResourcePanel from '../components/recommendations/RecommendationResourcePanel.jsx'
 import BrowseExplanation from '../components/recommendations/BrowseExplanation.jsx'
+import BackToTop from '../components/BackToTop.jsx'
 import { RecommendationCover } from '../components/recommendations/RecommendationCard.jsx'
 import '../styles/recommendations.css'
 import '../styles/recommendations-layout.css'
@@ -25,6 +26,7 @@ function SeriesWorkspace({ baseClient, source, scope, session, overlay, target }
   const navigate = useNavigate(), resourceTrigger = useRef(null), [resources, setResources] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const initialTarget = useRef(null)
+  const scrollRoot = useRef(null)
   const client = useMemo(() => baseClient.forScope(scope), [baseClient, scope])
   const controller = useMemo(() => createSeriesWorkspace({ client, source, scope,
     isCurrent: () => seriesSession() === session, onConfirmed: () => notifyRecommendationChange() }), [client, source, scope, session])
@@ -49,7 +51,7 @@ function SeriesWorkspace({ baseClient, source, scope, session, overlay, target }
       onLost: () => controller.invalidate({ scopeLost: true }) })
     return () => monitor.dispose()
   }, [controller, data?.context])
-  const body = <main className="series-page" aria-label="系列与关联详情">
+  const body = <main ref={scrollRoot} className="series-page" aria-label="系列与关联详情">
     <header className="series-heading"><button type="button" className="rec-button" onClick={back}>← {overlay ? '返回原页' : '返回番剧探索'}</button><span className="series-kicker">SERIES / 作品关联</span>
       <h1>{data ? data.selected_seed.title_zh || data.selected_seed.title_jp : '系列与关联'}</h1>
       <p>从这部作品出发，了解故事前后与不同版本。</p></header>
@@ -81,6 +83,7 @@ function SeriesWorkspace({ baseClient, source, scope, session, overlay, target }
           })}
           {data.truncated && <p className="series-notice">可见关联较多，本页展示前 200 条；这不是完整系列或观看清单。</p>}
           <footer className="series-footer">我的手账 / 番剧探索 / 系列与关联</footer></>}
+    <BackToTop theme="memphis" isModalOpen={Boolean(state.detail)} scrollRootRef={scrollRoot} />
   </main>
   return <div className={`memphis-rec-container series-shell${overlay ? ' series-shell--overlay' : ''}`}>{overlay ? <RecommendationDialog kind="series" title="系列与关联" onClose={back}>{body}</RecommendationDialog> : body}
     {state.detail && <RecommendationDialog title={state.detail.item?.title || '关联作品详情'} onClose={controller.closeDetail}

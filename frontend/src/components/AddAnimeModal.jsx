@@ -66,15 +66,11 @@ function normalizeShowcaseResults(data) {
 }
 
 function formatBangumiChineseTitle(value) {
-  const title = String(value ?? '').trim()
-  if (!title) return ''
-
-  const unwrappedTitle = title
-    .replace(/^《+/, '')
-    .replace(/》+$/, '')
-    .trim()
-
-  return unwrappedTitle ? `《${unwrappedTitle}》` : ''
+  let title = String(value ?? '').trim()
+  while (title.startsWith('《') && title.endsWith('》')) {
+    title = title.slice(1, -1).trim()
+  }
+  return title
 }
 
 function OverflowPingPongText({ children, className = '' }) {
