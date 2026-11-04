@@ -13,6 +13,7 @@ import {
 import { getImageFileError, IMAGE_FILE_ACCEPT } from '../utils/imageUpload.js'
 import { mapRecordToAnimeItem } from '../utils/recordMapping.js'
 import './EditableDetailModal.css'
+import useTagPresets from '../hooks/useTagPresets.js'
 
 gsap.registerPlugin(useGSAP)
 
@@ -83,6 +84,16 @@ function EditableDetailModal({
   const [isDeleting, setIsDeleting] = useState(false)
   const [error, setError] = useState('')
   const [activeEditorPanel, setActiveEditorPanel] = useState('tags')
+  const personalPresets = useTagPresets(Boolean(selectedItem))
+  const [saveAsPreset, setSaveAsPreset] = useState(false), [managePresets, setManagePresets] = useState(false)
+  const [presetDraft, setPresetDraft] = useState(''), [suggestedTags, setSuggestedTags] = useState([])
+  const [presetMessage, setPresetMessage] = useState('')
+  useEffect(() => {
+    if (!managePresets) return
+    const controller = new AbortController()
+    api.get('records/filter-options/', { signal: controller.signal }).then(({ data }) => setSuggestedTags(data.tags ?? [])).catch(() => {})
+    return () => controller.abort()
+  }, [managePresets])
 
   const localPosterPreview = useMemo(
     () => (posterFile ? URL.createObjectURL(posterFile) : ''),
@@ -257,7 +268,10 @@ function EditableDetailModal({
     }))
   }
 
-  const addTag = () => {
+  const addTag = async () => {
+    if (saveAsPreset && newTag.trim() && !presetTags.includes(newTag.trim())) {
+      if (!await personalPresets.change(newTag.trim())) return
+    }
     addTagValue(newTag)
     setNewTag('')
   }
@@ -564,6 +578,7 @@ function EditableDetailModal({
                       <div className="edit-record-new-tag mt-2 flex shrink-0 border-[3px] border-black bg-[#ff8fab] p-1.5 shadow-[4px_4px_0_#111]">
                         <input
                           value={newTag}
+                          disabled={personalPresets.busy}
                           onChange={(event) => setNewTag(event.target.value)}
                           onKeyDown={(event) => {
                             if (event.key === 'Enter') {
@@ -574,18 +589,38 @@ function EditableDetailModal({
                           className="min-w-0 flex-1 border-2 border-black bg-white px-3 py-1.5 text-xs font-black outline-none focus:bg-[#fff2a8]"
                           placeholder="自定义新标签"
                         />
-                        <button type="button" onClick={addTag} className="border-y-2 border-r-2 border-black bg-[#ffe66d] px-3 text-xs font-black hover:bg-[#4ecdc4]">
+                        <button type="button" disabled={personalPresets.busy} onClick={addTag} className="border-y-2 border-r-2 border-black bg-[#ffe66d] px-3 text-xs font-black hover:bg-[#4ecdc4]">
                           <i className="fa-solid fa-plus mr-1.5"></i>增加
                         </button>
                       </div>
+                      <label className="mt-2 flex shrink-0 items-center gap-2 text-[11px] font-bold"><input type="checkbox" checked={saveAsPreset} onChange={event => setSaveAsPreset(event.target.checked)} />同时保存为常用标签</label>
                     </div>
 
                     <div className="edit-record-presets-panel flex min-h-0 flex-col border-[3px] border-black bg-[#ffe66d] p-3 shadow-[6px_6px_0_#ff8fab]">
                       <div className="mb-2 shrink-0">
-                        <span className="text-xs font-black"><i className="fa-solid fa-wand-magic-sparkles mr-2"></i>快捷预设</span>
+                        <div className="flex justify-between gap-2"><span className="text-xs font-black"><i className="fa-solid fa-wand-magic-sparkles mr-2"></i>快捷预设</span>
+                          <button type="button" className="text-[11px] font-bold underline" aria-expanded={managePresets} onClick={() => setManagePresets(value => !value)}>{managePresets ? '完成管理' : '管理常用'}</button></div>
                         <p className="mt-1 text-[10px] font-bold">点击即可加入，再在左侧选择专属颜色。</p>
                       </div>
                       <div className="edit-record-presets-scroll flex min-h-0 flex-1 content-start flex-wrap gap-1.5 overflow-y-auto pr-1 custom-scrollbar">
+                        {personalPresets.error && <p role="alert" className="w-full text-xs font-bold text-red-700">{personalPresets.error}</p>}
+                        {managePresets && <div className="w-full border-2 border-black bg-white p-2">
+                          <div className="flex gap-1"><input list="personal-tag-suggestions" disabled={personalPresets.busy} aria-label="新增常用标签" maxLength={50} value={presetDraft} onChange={event => { setPresetDraft(event.target.value); setPresetMessage('') }} className="min-w-0 flex-1 border-2 border-black px-2 text-xs" placeholder="输入或选择手账已有标签" />
+                            <button type="button" disabled={personalPresets.busy || !presetDraft.trim()} className="border-2 border-black bg-[#4ecdc4] px-2 py-1 text-xs font-bold" onClick={async () => {
+                              if (presetTags.includes(presetDraft.trim())) { setPresetMessage('该标签已在默认预设中，可直接点击添加。'); return }
+                              if (await personalPresets.change(presetDraft.trim())) { setPresetDraft(''); setPresetMessage('已保存到我的常用。') }
+                            }}>保存常用</button></div>
+                          <datalist id="personal-tag-suggestions">{[...new Set([...suggestedTags, ...formData.tags])].filter(tag => !presetTags.includes(tag) && !personalPresets.tags.includes(tag)).map(tag => <option value={tag} key={tag} />)}</datalist>
+                          <p className="mt-1 text-[10px]">按账号保存；移除常用不会删除作品上的标签。默认预设已可直接使用。</p>
+                          {presetMessage && <p role="status" className="mt-1 text-[10px] font-bold">{presetMessage}</p>}
+                        </div>}
+                        <p className="w-full text-[11px] font-black">我的常用</p>
+                        {!personalPresets.tags.length && <p className="w-full text-[10px]">暂无常用标签，可在“管理常用”中保存。</p>}
+                        {personalPresets.tags.filter(tag => !presetTags.includes(tag)).map(tag => <span key={tag} className="inline-flex items-center gap-1">
+                          <button type="button" disabled={formData.tags.includes(tag)} onClick={() => addTagValue(tag)} className={`rounded-full border-2 border-black px-2 py-1 text-[11px] font-black shadow-[2px_2px_0_#111] disabled:opacity-40 ${getTagClass(tag, getDefaultTagColor(tag))}`}>{formData.tags.includes(tag) ? '✓ ' : '+ '}{tag}</button>
+                          {managePresets && <button type="button" disabled={personalPresets.busy} aria-label={`移除常用标签 ${tag}`} className="border-2 border-black bg-[#ff8fab] px-1 text-xs" onClick={() => personalPresets.change(tag, true)}>×</button>}
+                        </span>)}
+                        <p className="mt-2 w-full text-[11px] font-black">默认预设</p>
                         {presetTags.map((tag) => {
                           const isSelected = formData.tags.includes(tag)
                           return (

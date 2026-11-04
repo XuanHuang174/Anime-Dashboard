@@ -15,6 +15,7 @@ from .views import (
     BangumiCollectionSummaryView,
     CurrentUserAccountView,
     CurrentUserProfileView,
+    CurrentUserTagPresetsView,
     DailyPushCronView,
     ExternalAnimeAutofillView,
     ExternalAnimeSearchView,
@@ -78,6 +79,7 @@ router.register(
 
 app_name = "anime_api"
 urlpatterns = [
+    path('tag-presets/', CurrentUserTagPresetsView.as_view(), name='tag-presets'),
     path("utils/anime-search/", AnimeResourceSearchView.as_view(), name="anime-resource-search"),
     path("utils/image-proxy/", ImageProxyView.as_view(), name="image-proxy"),
     path(

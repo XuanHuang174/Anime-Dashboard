@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import SearchableSelect from './SearchableSelect.jsx'
+import { quickFilterSummary } from '../utils/quickFilter.js'
 
 const quickFilters = [
   { value: 'all', label: '全部' },
@@ -258,7 +259,7 @@ function FilterBar({
                   type="button"
                   className={activeCustomFilterId === filter.id ? activeCategoryClass : inactiveCategoryClass}
                   onClick={() => selectCustomQuickFilter(filter.id)}
-                  title={`${filter.match_mode === 'all' ? '同时包含' : '包含任意'}：${[...filter.tags, ...(filter.title_keywords ?? [])].join('、')}`}
+                  title={quickFilterSummary(filter)}
                 >
                   <i className="fa-solid fa-filter mr-1.5 text-[10px]"></i>{filter.name}
                 </button>
@@ -320,6 +321,7 @@ function FilterBar({
             </div>
           </div>
         </div>
+        {activeCustomFilterId !== null && <p className="mt-3 text-xs font-bold text-slate-600" role="status">{quickFilterSummary(customQuickFilters.find(filter => filter.id === activeCustomFilterId))}</p>}
       </div>
     </div>
   )

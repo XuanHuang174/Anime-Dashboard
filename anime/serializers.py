@@ -749,9 +749,12 @@ class UserAnimeRecordSerializer(serializers.ModelSerializer):
 
 
 class UserQuickFilterSerializer(serializers.ModelSerializer):
+    exclude_tags = serializers.ListField(child=serializers.CharField(max_length=50), required=False, max_length=8)
+    exclude_title_keywords = serializers.ListField(child=serializers.CharField(max_length=30), required=False, max_length=4)
     tags = serializers.ListField(
         child=serializers.CharField(max_length=50, allow_blank=False),
-        allow_empty=False,
+        allow_empty=True,
+        required=False,
         max_length=8,
     )
     title_keywords = serializers.ListField(
@@ -763,16 +766,29 @@ class UserQuickFilterSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserQuickFilter
         fields = (
-            "id", "name", "tags", "title_keywords", "match_mode",
+            "id", "name", "tags", "title_keywords", "match_mode", "exclude_tags", "exclude_title_keywords",
             "created_at", "updated_at",
         )
         read_only_fields = ("id", "created_at", "updated_at")
 
     def validate_tags(self, tags):
         normalized = list(dict.fromkeys(tag.strip() for tag in tags if tag.strip()))
-        if not normalized:
-            raise serializers.ValidationError("请至少选择一个标签。")
         return normalized
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        for key in ('tags', 'title_keywords', 'exclude_tags', 'exclude_title_keywords'):
+            if key in attrs:
+                attrs[key] = list(dict.fromkeys(attrs[key]))
+        values = {key: attrs.get(key, getattr(self.instance, key, [])) for key in
+                  ('tags', 'title_keywords', 'exclude_tags', 'exclude_title_keywords')}
+        if not any(values.values()):
+            raise serializers.ValidationError("请至少设置一项包含或排除条件。")
+        if set(values['tags']) & set(values['exclude_tags']):
+            raise serializers.ValidationError("标签不能同时包含与排除。")
+        if {v.casefold() for v in values['title_keywords']} & {v.casefold() for v in values['exclude_title_keywords']}:
+            raise serializers.ValidationError("标题词不能同时包含与排除。")
+        return attrs
 
     def validate_name(self, value):
         """Reject duplicate names before the database unique constraint fires."""

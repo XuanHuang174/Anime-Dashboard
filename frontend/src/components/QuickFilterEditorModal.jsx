@@ -3,10 +3,12 @@ import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 import api from '../api/api.js'
 import { getTagClass } from '../utils/animeDisplay.js'
+import { quickFilterSummary } from '../utils/quickFilter.js'
 
 gsap.registerPlugin(useGSAP)
 
-const emptyForm = { name: '', tags: [], match_mode: 'any' }
+const emptyForm = { name: '', tags: [], title_keywords: '', exclude_tags: [], exclude_title_keywords: '', match_mode: 'any' }
+const keywords = value => [...new Set(value.split(/[，,、\n]/).map(word => word.trim()).filter(Boolean))]
 const fieldClass = 'mt-1 w-full border-[3px] border-black bg-white px-3 py-2.5 text-sm font-black text-black shadow-[4px_4px_0_#111] outline-none transition-none placeholder:text-zinc-400 focus:translate-x-1 focus:translate-y-1 focus:bg-[#fff2a8] focus:shadow-none'
 
 function getRequestErrorMessage(requestError, fallback) {
@@ -154,12 +156,12 @@ function QuickFilterEditorModal({
 
   if (!isOpen) return null
 
-  const toggleTag = (tag) => {
+  const toggleTag = (tag, field = 'tags') => {
     setForm((current) => ({
       ...current,
-      tags: current.tags.includes(tag)
-        ? current.tags.filter((item) => item !== tag)
-        : current.tags.length < 8 ? [...current.tags, tag] : current.tags,
+      [field]: current[field].includes(tag)
+        ? current[field].filter((item) => item !== tag)
+        : current[field].length < 8 ? [...current[field], tag] : current[field],
     }))
   }
 
@@ -171,22 +173,25 @@ function QuickFilterEditorModal({
 
   const beginEdit = (filter) => {
     setEditingId(filter.id)
-    setForm({ name: filter.name, tags: [...filter.tags], match_mode: filter.match_mode })
+    setForm({ name: filter.name, tags: [...filter.tags], match_mode: filter.match_mode,
+      title_keywords: (filter.title_keywords ?? []).join('，'), exclude_tags: [...(filter.exclude_tags ?? [])],
+      exclude_title_keywords: (filter.exclude_title_keywords ?? []).join('，') })
     setError('')
   }
 
   const handleSubmit = async (event) => {
     event.preventDefault()
     const name = form.name.trim()
-    if (!name || form.tags.length === 0) {
-      setError('请填写筛选名称，并至少选择一个标签。')
+    if (!name || !(form.tags.length || form.exclude_tags.length || keywords(form.title_keywords).length || keywords(form.exclude_title_keywords).length)) {
+      setError('请填写筛选名称，并至少设置一项包含或排除条件。')
       return
     }
+    if (form.tags.some(tag => form.exclude_tags.includes(tag))) { setError('标签不能同时包含与排除。'); return }
 
     setBusy(true)
     setError('')
     try {
-      const payload = { ...form, name }
+      const payload = { ...form, name, title_keywords: keywords(form.title_keywords), exclude_title_keywords: keywords(form.exclude_title_keywords) }
       const response = editingId
         ? await api.patch(`${endpoint}/${editingId}/`, payload)
         : await api.post(`${endpoint}/`, payload)
@@ -266,7 +271,7 @@ function QuickFilterEditorModal({
                       <button type="button" disabled={deletingId === filter.id} onClick={() => handleDelete(filter)} className="flex h-8 w-8 items-center justify-center border-2 border-black bg-[#ff6b6b] text-black shadow-[2px_2px_0_#111] transition-none active:translate-x-0.5 active:translate-y-0.5 active:shadow-none disabled:opacity-50" aria-label={`删除 ${filter.name}`}><i className={`fa-solid ${deletingId === filter.id ? 'fa-spinner animate-spin' : 'fa-trash-can'}`}></i></button>
                     </div>
                   </div>
-                  <p className="mt-2 text-[10px] font-bold leading-5 text-zinc-600">{filter.match_mode === 'all' ? '同时包含' : '包含任意'} · {[...filter.tags, ...(filter.title_keywords ?? []).map((keyword) => `标题:${keyword}`)].join(' / ')}</p>
+                  <p className="mt-2 text-[10px] font-bold leading-5 text-zinc-600">{quickFilterSummary(filter)}</p>
                 </article>
               ))}
             </div>
@@ -282,12 +287,12 @@ function QuickFilterEditorModal({
             </label>
             <label className="mt-4 block text-xs font-black text-black">匹配方式
               <select value={form.match_mode} onChange={(event) => setForm((current) => ({ ...current, match_mode: event.target.value }))} className={fieldClass}>
-                <option value="any">命中任意一个标签</option>
-                <option value="all">必须包含全部标签</option>
+                <option value="any">包含条件命中任意一项</option>
+                <option value="all">包含条件必须全部满足</option>
               </select>
             </label>
             <fieldset className="mt-4">
-              <legend className="mb-2 text-xs font-black text-black">选择标签（最多 8 个）</legend>
+              <legend className="mb-2 text-xs font-black text-black">包含标签（最多 8 个）</legend>
               <div className="flex max-h-48 flex-wrap gap-2 overflow-y-auto border-[3px] border-black bg-[#fff5ee] p-3 shadow-[4px_4px_0_#111] custom-scrollbar">
                 {sortedTags.map((tag) => {
                   const selected = form.tags.includes(tag)
@@ -295,6 +300,20 @@ function QuickFilterEditorModal({
                 })}
               </div>
             </fieldset>
+            <label className="mt-4 block text-xs font-black">包含标题词（最多 4 个）
+              <input value={form.title_keywords} onChange={event => setForm(current => ({ ...current, title_keywords: event.target.value }))} className={fieldClass} placeholder="逗号分隔；匹配中日文标题" />
+            </label>
+            <fieldset className="mt-4"><legend className="mb-2 text-xs font-black">排除标签（最多 8 个）</legend>
+              <div className="flex max-h-40 flex-wrap gap-2 overflow-y-auto border-[3px] border-black bg-[#fff5ee] p-3 custom-scrollbar">
+                {[...new Set([...sortedTags, ...form.exclude_tags])].map(tag => <button key={tag} type="button" onClick={() => toggleTag(tag, 'exclude_tags')}
+                  className={`rounded-full border-2 border-black px-2.5 py-1.5 text-xs font-black ${form.exclude_tags.includes(tag) ? 'bg-[#ff8fab]' : 'bg-white'}`}>
+                  {form.exclude_tags.includes(tag) ? '− ' : '+ '}{tag}</button>)}
+              </div>
+            </fieldset>
+            <label className="mt-4 block text-xs font-black">排除标题词（最多 4 个）
+              <input value={form.exclude_title_keywords} onChange={event => setForm(current => ({ ...current, exclude_title_keywords: event.target.value }))} className={fieldClass} placeholder="例如：总集篇，回顾" />
+            </label>
+            <p className="mt-3 text-xs font-bold leading-5">排除项命中任意一项即移除。可以只设置排除条件；OVA／剧场版标签和标题词不代表完整的作品类型识别。</p>
             {error && <p className="mt-4 border-[3px] border-black bg-[#ff6b6b] px-4 py-3 text-xs font-black text-black shadow-[4px_4px_0_#111]" role="alert"><i className="fa-solid fa-circle-exclamation mr-2"></i>{error}</p>}
             <button type="submit" disabled={busy} className="mt-5 w-full border-[3px] border-black bg-[#ff4f9a] px-5 py-3 text-sm font-black text-black shadow-[6px_6px_0_#111] transition-none hover:bg-[#4ecdc4] active:translate-x-[6px] active:translate-y-[6px] active:shadow-none disabled:cursor-wait disabled:opacity-60">
               <i className={`fa-solid ${busy ? 'fa-spinner animate-spin' : editingId ? 'fa-floppy-disk' : 'fa-plus'} mr-2`}></i>{busy ? '保存中...' : editingId ? '保存修改' : '创建组合筛选'}

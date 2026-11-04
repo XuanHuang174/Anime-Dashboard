@@ -612,7 +612,10 @@ class BangumiCollectionBatchImportView(ExternalMetadataAPIView):
             or subject.get("name_cn")
             or subject.get("name")
             or ""
-        ).strip()[:200]
+        ).strip()
+        while chinese_title.startswith('《') and chinese_title.endswith('》'):
+            chinese_title = chinese_title[1:-1].strip()
+        chinese_title = chinese_title[:200]
         if not chinese_title:
             raise ValueError("收藏条目缺少番剧名称")
         japanese_title = str(
@@ -1068,9 +1071,11 @@ def _apply_record_filters(queryset, request, filter_owner):
         "metadata_initialized",
         "private_base_tags",
         "private_chinese_title",
+        "private_japanese_title",
         "custom_tags",
         "anime__base_tags",
         "anime__chinese_title",
+        "anime__japanese_title",
     )
     for record in records.iterator(chunk_size=2000):
         tags = _combined_record_tags(record)
@@ -1093,15 +1098,20 @@ def _apply_record_filters(queryset, request, filter_owner):
                 continue
 
         if custom_filter is not None:
+            japanese_title = _record_metadata_value(record, 'private_japanese_title', 'anime__japanese_title') or ''
+            titles = [title_upper, japanese_title.upper()]
+            if (any(value in tags for value in custom_filter.exclude_tags)
+                    or any(value.upper() in title for value in custom_filter.exclude_title_keywords for title in titles)):
+                continue
             filter_tags = custom_filter.tags or []
             keywords = custom_filter.title_keywords or []
             tag_matches = [value in tags for value in filter_tags]
-            keyword_matches = [value.upper() in title_upper for value in keywords]
+            keyword_matches = [any(value.upper() in title for title in titles) for value in keywords]
             matches = tag_matches + keyword_matches
             if custom_filter.match_mode == UserQuickFilter.MatchMode.ALL:
                 if not all(matches):
                     continue
-            elif not any(matches):
+            elif matches and not any(matches):
                 continue
 
         matched_ids.append(record["pk"])
@@ -1477,6 +1487,48 @@ class PasswordResetConfirmView(APIView):
         user.set_password(serializer.validated_data["new_password"])
         user.save(update_fields=("password",))
         return Response({"detail": "密码重置成功，请使用新密码登录。"})
+
+
+class CurrentUserTagPresetsView(APIView):
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def finalize_response(self, request, response, *args, **kwargs):
+        response = super().finalize_response(request, response, *args, **kwargs)
+        response['Cache-Control'] = 'private, no-store'
+        return response
+
+    def get(self, request):
+        profile, _ = UserProfile.objects.get_or_create(user=request.user)
+        return Response({'tags': profile.tag_presets})
+
+    @transaction.atomic
+    def post(self, request):
+        return self.change(request, remove=False)
+
+    @transaction.atomic
+    def delete(self, request):
+        return self.change(request, remove=True)
+
+    def change(self, request, remove):
+        from rest_framework import serializers
+        if not isinstance(request.data, dict):
+            raise serializers.ValidationError('请提交包含 tag 的 JSON 对象。')
+        field = serializers.CharField(max_length=50, allow_blank=False)
+        tag = field.run_validation(request.data.get('tag'))
+        # Serialize updates for this account without replacing another tab's list.
+        get_user_model().objects.select_for_update().get(pk=request.user.pk)
+        profile, _ = UserProfile.objects.select_for_update().get_or_create(user=request.user)
+        tags = list(profile.tag_presets)
+        existing = next((value for value in tags if value.casefold() == tag.casefold()), None)
+        if remove:
+            tags = [value for value in tags if value != existing]
+        elif existing is None:
+            if len(tags) >= 64:
+                raise serializers.ValidationError({'tag': '常用标签最多保存 64 个。'})
+            tags.append(tag)
+        profile.tag_presets = tags
+        profile.save(update_fields=['tag_presets'])
+        return Response({'tags': tags})
 
 
 class CurrentUserProfileView(generics.RetrieveUpdateAPIView):

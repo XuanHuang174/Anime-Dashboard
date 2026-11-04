@@ -37,6 +37,7 @@ class UserProfile(models.Model):
         related_name="profile",
     )
     nickname = models.CharField("昵称", max_length=50, blank=True, default="")
+    tag_presets = models.JSONField("个人常用标签", default=list, blank=True, validators=[validate_tag_list])
     showcase_subtitle = models.CharField(
         "展示页副标题",
         max_length=200,
@@ -635,6 +636,8 @@ class UserQuickFilter(models.Model):
         related_name="anime_quick_filters",
     )
     name = models.CharField("筛选名称", max_length=30)
+    exclude_tags = models.JSONField("排除标签", default=list, blank=True, validators=[validate_tag_list])
+    exclude_title_keywords = models.JSONField("排除标题词", default=list, blank=True, validators=[validate_tag_list])
     tags = models.JSONField(
         "标签组合",
         default=list,
@@ -679,6 +682,8 @@ class FeaturedQuickFilter(models.Model):
         ALL = "all", "匹配全部标签"
 
     name = models.CharField("筛选名称", max_length=30, unique=True)
+    exclude_tags = models.JSONField("排除标签", default=list, blank=True, validators=[validate_tag_list])
+    exclude_title_keywords = models.JSONField("排除标题词", default=list, blank=True, validators=[validate_tag_list])
     tags = models.JSONField(
         "标签组合",
         default=list,
