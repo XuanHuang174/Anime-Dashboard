@@ -602,7 +602,9 @@ function EditableDetailModal({
                           <button type="button" className="text-[11px] font-bold underline" aria-expanded={managePresets} onClick={() => setManagePresets(value => !value)}>{managePresets ? '完成管理' : '管理常用'}</button></div>
                         <p className="mt-1 text-[10px] font-bold">点击即可加入，再在左侧选择专属颜色。</p>
                       </div>
-                      <div className="edit-record-presets-scroll flex min-h-0 flex-1 content-start flex-wrap gap-1.5 overflow-y-auto pr-1 custom-scrollbar">
+                      <div className="edit-record-presets-scroll min-h-0 flex-1 overflow-y-auto pr-1 custom-scrollbar">
+                        {/* Natural-height rows scroll inside the bounded viewport; the switcher stays outside. */}
+                        <div className="flex flex-wrap items-start content-start gap-1.5 pb-2">
                         {personalPresets.error && <p role="alert" className="w-full text-xs font-bold text-red-700">{personalPresets.error}</p>}
                         {managePresets && <div className="w-full border-2 border-black bg-white p-2">
                           <div className="flex gap-1"><input list="personal-tag-suggestions" disabled={personalPresets.busy} aria-label="新增常用标签" maxLength={50} value={presetDraft} onChange={event => { setPresetDraft(event.target.value); setPresetMessage('') }} className="min-w-0 flex-1 border-2 border-black px-2 text-xs" placeholder="输入或选择手账已有标签" />
@@ -629,8 +631,9 @@ function EditableDetailModal({
                             </button>
                           )
                         })}
+                        </div>
                       </div>
-                      <div className="edit-record-panel-switcher mt-3 shrink-0 border-t-[3px] border-black pt-3">
+                      <div className="edit-record-panel-switcher relative mt-3 shrink-0 border-t-[3px] border-black bg-[#ffe66d] pt-3">
                         <p className="mb-2 text-[10px] font-black uppercase tracking-[0.12em]">切换编辑模块</p>
                         {editorPanelSwitcher}
                       </div>

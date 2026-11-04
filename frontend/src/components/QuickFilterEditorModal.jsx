@@ -33,6 +33,7 @@ function QuickFilterEditorModal({
   const modalRef = useRef(null)
   const closeHandlerRef = useRef(null)
   const [form, setForm] = useState(emptyForm)
+  const [savedOpen, setSavedOpen] = useState(() => typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches)
   const [editingId, setEditingId] = useState(null)
   const [busy, setBusy] = useState(false)
   const [deletingId, setDeletingId] = useState(null)
@@ -234,8 +235,8 @@ function QuickFilterEditorModal({
         if (event.target === event.currentTarget) handleClose()
       }}
     >
-      <section ref={modalRef} className="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden border-4 border-black bg-[#fff5ee] text-black shadow-[12px_12px_0_#111]" onMouseDown={(event) => event.stopPropagation()}>
-        <header className="quick-filter-piece relative flex items-start justify-between gap-4 border-b-4 border-black bg-[#4ecdc4] px-5 py-4 sm:px-6">
+      <section ref={modalRef} className="flex max-h-[94dvh] w-full max-w-6xl flex-col overflow-hidden border-4 border-black bg-[#fff5ee] text-black shadow-[12px_12px_0_#111]" onMouseDown={(event) => event.stopPropagation()}>
+        <header className="quick-filter-piece relative flex shrink-0 items-start justify-between gap-4 border-b-4 border-black bg-[#4ecdc4] px-5 py-4 sm:px-6">
           <div className="pointer-events-none absolute right-20 top-3 grid grid-cols-4 gap-2 opacity-40" aria-hidden="true">
             {Array.from({ length: 8 }, (_, index) => <span key={index} className="h-2 w-2 rounded-full bg-black" />)}
           </div>
@@ -253,14 +254,15 @@ function QuickFilterEditorModal({
           </button>
         </header>
 
-        <div className="grid flex-1 gap-5 overflow-y-auto p-4 custom-scrollbar sm:p-5 md:grid-cols-[1fr_1.25fr]">
-          <aside className="quick-filter-piece border-[3px] border-black bg-white p-4 shadow-[6px_6px_0_#ffe66d]">
-            <h3 className="mb-3 inline-block border-2 border-black bg-[#ff8fab] px-3 py-1.5 text-xs font-black shadow-[3px_3px_0_#111]">
+        <div className="flex min-h-0 flex-1 flex-col lg:grid lg:grid-cols-[minmax(200px,0.8fr)_minmax(0,2fr)] lg:grid-rows-[minmax(0,1fr)] lg:gap-4 lg:p-4">
+          <aside className="quick-filter-piece mx-4 mt-3 shrink-0 border-[3px] border-black bg-white p-3 shadow-[4px_4px_0_#ffe66d] sm:mx-5 lg:m-0 lg:min-h-0 lg:max-h-full lg:self-start lg:overflow-y-auto">
+            <h3 className="mb-2 inline-block border-2 border-black bg-[#ff8fab] px-3 py-1.5 text-xs font-black shadow-[3px_3px_0_#111]">
               <i className="fa-solid fa-bookmark mr-2"></i>已保存的组合
             </h3>
-            <div className="max-h-[52vh] space-y-3 overflow-y-auto pr-1 custom-scrollbar">
+            <button type="button" aria-expanded={savedOpen} className="ml-2 text-xs font-bold underline" onClick={() => setSavedOpen(value => !value)}>{savedOpen ? '收起' : '展开'}（{filters.length}）</button>
+            {savedOpen && <div className="grid max-h-28 gap-2 overflow-y-auto pb-1 pr-1 custom-scrollbar sm:grid-cols-2 lg:max-h-[52dvh] lg:grid-cols-1">
               {filters.length === 0 && (
-                <div className="border-[3px] border-dashed border-black bg-[#f4f1ea] py-8 text-center text-xs font-black text-zinc-500">暂时没有自定义筛选</div>
+                <div className="border-[3px] border-dashed border-black bg-[#f4f1ea] py-3 text-center text-xs font-black text-zinc-500">暂时没有自定义筛选</div>
               )}
               {filters.map((filter) => (
                 <article key={filter.id} className={`border-2 border-black p-3 shadow-[4px_4px_0_#111] transition-none hover:bg-[#fff2a8] ${editingId === filter.id ? 'translate-x-1 translate-y-1 bg-[#bdf4ef] shadow-none' : 'bg-white'}`}>
@@ -274,26 +276,30 @@ function QuickFilterEditorModal({
                   <p className="mt-2 text-[10px] font-bold leading-5 text-zinc-600">{quickFilterSummary(filter)}</p>
                 </article>
               ))}
-            </div>
+            </div>}
           </aside>
 
-          <form onSubmit={handleSubmit} className="quick-filter-piece border-[3px] border-black bg-[#ffe66d] p-4 shadow-[6px_6px_0_#ff8fab]">
-            <div className="mb-4 flex items-center justify-between">
+          <form onSubmit={handleSubmit} className="quick-filter-piece flex min-h-0 flex-1 flex-col">
+            <div className="shrink-0 px-4 pt-3 sm:px-5"><div className="mb-3 flex items-center justify-between">
               <h3 className="border-2 border-black bg-white px-3 py-1.5 text-xs font-black shadow-[3px_3px_0_#111]">{editingId ? '修改组合' : '创建新组合'}</h3>
               {editingId && <button type="button" onClick={resetForm} className="border-2 border-black bg-[#f4f1ea] px-2.5 py-1 text-xs font-black shadow-[2px_2px_0_#111] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none">取消编辑</button>}
             </div>
-            <label className="block text-xs font-black text-black">筛选名称
+            <div className="grid gap-3 sm:grid-cols-2"><label className="block text-xs font-black text-black">筛选名称
               <input value={form.name} maxLength={30} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} className={fieldClass} placeholder="例如：治愈日常" />
             </label>
-            <label className="mt-4 block text-xs font-black text-black">匹配方式
+            <label className="block text-xs font-black text-black">匹配方式
               <select value={form.match_mode} onChange={(event) => setForm((current) => ({ ...current, match_mode: event.target.value }))} className={fieldClass}>
                 <option value="any">包含条件命中任意一项</option>
                 <option value="all">包含条件必须全部满足</option>
               </select>
             </label>
-            <fieldset className="mt-4">
+            </div></div>
+            <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto p-4 custom-scrollbar sm:px-5 md:grid-cols-2">
+            <section className="min-w-0 self-start border-[3px] border-black bg-[#ffe66d] p-3 shadow-[4px_4px_0_#ff8fab]" aria-label="包含条件">
+            <h4 className="mb-3 text-sm font-black">包含条件</h4>
+            <fieldset>
               <legend className="mb-2 text-xs font-black text-black">包含标签（最多 8 个）</legend>
-              <div className="flex max-h-48 flex-wrap gap-2 overflow-y-auto border-[3px] border-black bg-[#fff5ee] p-3 shadow-[4px_4px_0_#111] custom-scrollbar">
+              <div className="flex max-h-40 flex-wrap gap-2 overflow-y-auto border-[3px] border-black bg-[#fff5ee] p-3 shadow-[4px_4px_0_#111] custom-scrollbar">
                 {sortedTags.map((tag) => {
                   const selected = form.tags.includes(tag)
                   return <button key={tag} type="button" disabled={!selected && form.tags.length >= 8} onClick={() => toggleTag(tag)} className={`rounded-full border-2 border-black px-2.5 py-1.5 text-xs font-black shadow-[2px_2px_0_#111] transition-none ${selected ? `${getTagClass(tag)} translate-x-1 translate-y-1 shadow-none` : 'bg-white text-black hover:bg-[#bdf4ef]'} disabled:cursor-not-allowed disabled:opacity-30`}><i className={`fa-solid ${selected ? 'fa-check' : 'fa-plus'} mr-1.5 text-[9px]`}></i>{tag}</button>
@@ -303,7 +309,9 @@ function QuickFilterEditorModal({
             <label className="mt-4 block text-xs font-black">包含标题词（最多 4 个）
               <input value={form.title_keywords} onChange={event => setForm(current => ({ ...current, title_keywords: event.target.value }))} className={fieldClass} placeholder="逗号分隔；匹配中日文标题" />
             </label>
-            <fieldset className="mt-4"><legend className="mb-2 text-xs font-black">排除标签（最多 8 个）</legend>
+            </section><section className="min-w-0 self-start border-[3px] border-black bg-[#bdf4ef] p-3 shadow-[4px_4px_0_#ffe66d]" aria-label="排除条件">
+            <h4 className="mb-3 text-sm font-black">排除条件</h4>
+            <fieldset><legend className="mb-2 text-xs font-black">排除标签（最多 8 个）</legend>
               <div className="flex max-h-40 flex-wrap gap-2 overflow-y-auto border-[3px] border-black bg-[#fff5ee] p-3 custom-scrollbar">
                 {[...new Set([...sortedTags, ...form.exclude_tags])].map(tag => <button key={tag} type="button" onClick={() => toggleTag(tag, 'exclude_tags')}
                   className={`rounded-full border-2 border-black px-2.5 py-1.5 text-xs font-black ${form.exclude_tags.includes(tag) ? 'bg-[#ff8fab]' : 'bg-white'}`}>
@@ -314,10 +322,12 @@ function QuickFilterEditorModal({
               <input value={form.exclude_title_keywords} onChange={event => setForm(current => ({ ...current, exclude_title_keywords: event.target.value }))} className={fieldClass} placeholder="例如：总集篇，回顾" />
             </label>
             <p className="mt-3 text-xs font-bold leading-5">排除项命中任意一项即移除。可以只设置排除条件；OVA／剧场版标签和标题词不代表完整的作品类型识别。</p>
-            {error && <p className="mt-4 border-[3px] border-black bg-[#ff6b6b] px-4 py-3 text-xs font-black text-black shadow-[4px_4px_0_#111]" role="alert"><i className="fa-solid fa-circle-exclamation mr-2"></i>{error}</p>}
-            <button type="submit" disabled={busy} className="mt-5 w-full border-[3px] border-black bg-[#ff4f9a] px-5 py-3 text-sm font-black text-black shadow-[6px_6px_0_#111] transition-none hover:bg-[#4ecdc4] active:translate-x-[6px] active:translate-y-[6px] active:shadow-none disabled:cursor-wait disabled:opacity-60">
+            </section></div><footer className="shrink-0 border-t-4 border-black bg-[#fff5ee] px-4 pb-4 pt-3 sm:px-5">
+            {error && <p className="mb-3 border-[3px] border-black bg-[#ff6b6b] px-4 py-3 text-xs font-black text-black shadow-[4px_4px_0_#111]" role="alert"><i className="fa-solid fa-circle-exclamation mr-2"></i>{error}</p>}
+            <button type="submit" disabled={busy} className="ml-auto block w-full border-[3px] border-black bg-[#ff4f9a] px-5 py-3 text-sm font-black text-black shadow-[6px_6px_0_#111] transition-none hover:bg-[#4ecdc4] active:translate-x-[6px] active:translate-y-[6px] active:shadow-none disabled:cursor-wait disabled:opacity-60">
               <i className={`fa-solid ${busy ? 'fa-spinner animate-spin' : editingId ? 'fa-floppy-disk' : 'fa-plus'} mr-2`}></i>{busy ? '保存中...' : editingId ? '保存修改' : '创建组合筛选'}
             </button>
+            </footer>
           </form>
         </div>
       </section>
