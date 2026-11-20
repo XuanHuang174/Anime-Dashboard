@@ -602,7 +602,7 @@ function DetailModal({
                       key={tag}
                       className={`memphis-modal-tag ${index % 2 ? 'rotate-1' : '-rotate-1'} rounded-full px-3 py-1 text-xs font-black ${getTagClass(tag, selectedItem.tagColors?.[tag])}`}
                     >
-                      {isPrivateJournal && explorationTags.includes(tag) ? <ExplorationTagChips inline tags={[tag]} standardTags={explorationTags} beforeNavigate={closeModal} className="inline-flex" /> : tag}
+                      {isPrivateJournal && explorationTags.includes(tag) ? <ExplorationTagChips inline tags={[tag]} standardTags={explorationTags} className="inline-flex" /> : tag}
                     </span>
                   ))}
                 </div>

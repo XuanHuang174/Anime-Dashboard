@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
@@ -35,6 +35,7 @@ import useExplorationTopics from '../hooks/useExplorationTopics.js'
 import useSeriesJournalReturn from '../hooks/useSeriesJournalReturn.js'
 import useJournalDisplayMode from '../hooks/useJournalDisplayMode.js'
 import useJournalListPreferences from '../hooks/useJournalListPreferences.js'
+import { JournalExplorationAwayContext } from '../hooks/useJournalExplorationReturn.js'
 import JournalIdentityReview from '../components/JournalIdentityReview.jsx'
 import { createVisiblePoller } from '../utils/visiblePoller.js'
 import useReadRecovery from '../hooks/useReadRecovery.js'
@@ -86,6 +87,7 @@ function compareCompletedTieBreaker(a, b) {
 }
 
 function Dashboard() {
+  const exploringAway = useContext(JournalExplorationAwayContext)
   const dashboardRef = useRef(null)
   const navigate = useNavigate()
   const location = useLocation()
@@ -368,7 +370,7 @@ function Dashboard() {
     currentPage,
     isAdminJournalReview,
     isSharedJournal,
-    location,
+    location.pathname,
     navigate,
     pageSize,
     paginatedFilterKey,
@@ -403,7 +405,7 @@ function Dashboard() {
   }, [featuredRefreshKey, isSharedJournal, showToast, featuredRecovery.readVersion])
 
   useEffect(() => {
-    if (isSharedJournal) return undefined
+    if (isSharedJournal || exploringAway) return undefined
     const controller = new AbortController()
     const poller = createVisiblePoller({
       isVisible: () => document.visibilityState === 'visible',
@@ -443,7 +445,7 @@ function Dashboard() {
       document.removeEventListener('visibilitychange', poller.wake)
       controller.abort()
     }
-  }, [isSharedJournal, showToast])
+  }, [isSharedJournal, showToast, exploringAway])
 
   useEffect(() => {
     if (lastLoadedPage !== currentPage || !shouldScrollAfterPageChange.current) return undefined
@@ -1162,7 +1164,7 @@ function Dashboard() {
         )}
       </section>
 
-      {isPreviewMode || isSharedJournal ? (
+      {!exploringAway && (isPreviewMode || isSharedJournal) ? (
         <DetailModal
           selectedItem={selectedItem}
           closeModal={() => setSelectedItem(null)}
@@ -1178,7 +1180,7 @@ function Dashboard() {
           } : null}
           onFeaturedAction={openFeaturedConfirmation}
         />
-      ) : (
+      ) : !exploringAway ? (
         <EditableDetailModal
           key={selectedItem?.id ?? 'closed-edit-modal'}
           selectedItem={selectedItem}
@@ -1187,7 +1189,7 @@ function Dashboard() {
           onRecordDeleted={handleRecordDeleted}
           showToast={showToast}
         />
-      )}
+      ) : null}
       {!isSharedJournal && (
         <>
           {identityPanel && <JournalIdentityReview recordId={identityPanel.recordId} onClose={() => setIdentityPanel(null)}

@@ -88,6 +88,9 @@ function SeriesWorkspace({ baseClient, source, scope, session, overlay, target }
   return <div className={`memphis-rec-container series-shell${overlay ? ' series-shell--overlay' : ''}`}>{overlay ? <RecommendationDialog kind="series" title="系列与关联" onClose={back}>{body}</RecommendationDialog> : body}
     {state.detail && <RecommendationDialog title={state.detail.item?.title || '关联作品详情'} onClose={controller.closeDetail}
       resourceOpen={resources && state.detail.status === 'ready'} onResourceClose={() => setResources(false)} resourceTriggerRef={resourceTrigger}
+      footer={state.detail.status === 'ready' ? <div className="series-detail-actions"><SeriesWant row={{ bangumi_id: state.detail.target, watch_status: state.detail.item.watchStatus, record_state: state.detail.item.recordState }}
+            operation={state.operations[state.detail.target]} onWant={() => controller.want(state.detail.target)} />
+            <button type="button" ref={resourceTrigger} className="rec-button" aria-expanded={resources} onClick={() => setResources(value => !value)}>🧲 寻找资源</button></div> : null}
       resourcePanel={state.detail.status === 'ready' ? <RecommendationResourcePanel item={state.detail.item} open={resources}
         sessionKey={`${session}:${source}:${state.detail.target}`} onClose={() => setResources(false)} /> : null}>
       {state.detail.status === 'loading' ? <p role="status">正在读取作品详情…</p> : state.detail.status === 'error'
@@ -95,9 +98,7 @@ function SeriesWorkspace({ baseClient, source, scope, session, overlay, target }
         : <div className="rec-detail-content"><RecommendationCover item={state.detail.item} priority /><div><p>{state.detail.item.originalTitle}</p>
           <p>{state.detail.item.season || '季度未知'} · {state.detail.item.type || '发行形式未知'}</p><p>本人状态：{seriesStatus({ watch_status: state.detail.item.watchStatus, record_state: state.detail.item.recordState })}</p>
           <h3>故事简介</h3><p>{state.detail.item.synopsis || '暂未收录简介。'}</p><p>{state.detail.item.tags.join(' · ')}</p>
-          <div className="series-detail-actions"><SeriesWant row={{ bangumi_id: state.detail.target, watch_status: state.detail.item.watchStatus, record_state: state.detail.item.recordState }}
-            operation={state.operations[state.detail.target]} onWant={() => controller.want(state.detail.target)} />
-            <button type="button" ref={resourceTrigger} className="rec-button" aria-expanded={resources} onClick={() => setResources(value => !value)}>🧲 寻找资源</button></div></div></div>}
+          </div></div>}
     </RecommendationDialog>}
   </div>
 }

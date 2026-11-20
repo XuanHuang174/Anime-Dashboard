@@ -191,6 +191,7 @@
 .memphis-rec-container .rec-dialog-main > .rec-dialog-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .memphis-rec-container .rec-detail-footer { flex-shrink: 0; max-height: 45%; overflow-y: auto; padding: 12px 20px max(12px, env(safe-area-inset-bottom)); border-top: 2px solid var(--rec-ink); background: var(--rec-cream); }
 .memphis-rec-container .rec-detail-footer .rec-detail-actions { margin-top: 0; }
+.memphis-rec-container .rec-detail-footer :is(.rec-detail-actions, .credits-work-actions, .series-detail-actions) { justify-content: flex-end; margin-top: 0; }
 @media (max-width: 767px) {
   .memphis-rec-container .rec-detail-footer { padding: 10px; }
   .memphis-rec-container .rec-detail-footer .rec-detail-actions { gap: 8px; }

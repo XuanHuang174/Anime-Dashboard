@@ -3,6 +3,7 @@ import React, { StrictMode, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Route, Link } from 'react-router-dom'
 import Recommendations from '../../src/pages/Recommendations.jsx'
+import Dashboard from '../../src/pages/Dashboard.jsx'
 import api from '../../src/api/api.js'
 import { page, detail, tagPage, tagDetail, query, seed, versions, scope, adultScope } from './explorationContract.js'
 import contract from './recommendationExplorationContract.json'
@@ -18,6 +19,7 @@ import { notifyRecommendationChange } from '../../src/utils/recommendationReload
 import { creditsCapability } from './creditsContract.js'
 
 const harnessParams = new URLSearchParams(window.location.search)
+const journalReturnHarness = location.pathname.endsWith('/journalReturnHarness.html')
 const releaseHarness = location.pathname.endsWith('/seriesReleaseHarness.html')
 const remindersEnabled = releaseHarness || harnessParams.get('reminders') === '1' || location.pathname.endsWith('/seriesRemindersHarness.html')
 const seriesEnabled = remindersEnabled || harnessParams.get('series') === '1' || location.pathname.endsWith('/seriesExplorationHarness.html')
@@ -33,8 +35,31 @@ if (reducedMotion) {
   document.head.append(style)
 }
 
-api.defaults.adapter = async config => ({ config, status: 200, statusText: 'OK', headers: {},
-  data: { contract_version: 'showcase.publication.v1', can_publish: false, count: 0, results: [], next_page: null } })
+const journalCalls = []
+const journalRecords = Array.from({ length: 48 }, (_, n) => ({ id: n + 1, watch_status: 'completed', personal_score: '8.5', review: '合成评价',
+  anime: { id: n + 101, bgm_id: 1, chinese_title: `合成手账 ${n + 1}`, japanese_title: `Synthetic ${n + 1}`, airing_period: '2020-1',
+    studio: 'Synthetic', episodes: '12', base_tags: ['日常', '治愈'], description: '本机合成手账。' } }))
+api.defaults.adapter = async config => {
+  let data = { contract_version: 'showcase.publication.v1', can_publish: false, count: 0, results: [], next_page: null }
+  if (journalReturnHarness) {
+    journalCalls.push({ url: config.url, method: config.method, params: config.params })
+    if (config.url === 'user/profile/') data = { username: 'Synthetic', nickname: '合成返回验收', public_status: 'approved' }
+    if (config.url === 'records/') {
+      const rows = journalRecords.filter(row => !config.params?.search || row.anime.chinese_title.includes(config.params.search))
+      const size = config.params?.page_size, page = Number(config.params?.page || 1)
+      data = size === 'all' ? rows : { count: rows.length, results: rows.slice((page - 1) * Number(size), page * Number(size)), next: page * Number(size) < rows.length, previous: page > 1 }
+    }
+    if (config.url === 'records/stats/') data = { total_count: 48, completed_count: 48, average_score: 8.5 }
+    if (config.url === 'records/filter-options/') data = { tags: ['日常', '治愈'], years: ['2020'] }
+    if (config.url === 'quick-filters/') data = [{ id: 201, name: '合成年份', tags: ['日常'], title_keywords: [], exclude_tags: [], exclude_title_keywords: [], match_mode: 'any', year_from: 2020, year_to: 2021 }]
+    if (config.url === 'notifications/poll/') data = []
+    if (config.url === 'featured-submissions/state/') data = { submissions: [], max_featured_limit: 3 }
+    if (config.url === 'recommendations/capabilities/') data = await client.capabilities()
+    if (config.url === 'recommendations/explore/contract/') data = { ...contract, content_scope_context: scope }
+    if (/^recommendations\/series\/record\//.test(config.url)) data = { contract_version: 'recommendations.series.record.v1', record_id: Number(config.url.split('/').at(-2)), identity_state: 'linked', bangumi_id: 1, content_scope_context: scope }
+  }
+  return { config, status: 200, statusText: 'OK', headers: {}, data }
+}
 localStorage.setItem('anime_journal_access_token', 'synthetic-11c-only')
 const owned = new Set(), hidden = new Map(), calls = []
 let expires = Math.floor(Date.now() / 1000) + 900
@@ -44,6 +69,7 @@ const reminderHidden = new Set()
 const snapshots = new Map(); let serial = 0
 const personalSelections = new Map()
 if (harnessParams.get('batchC') === '1') window.batchCHarness = { calls, expire: () => { for (const snap of snapshots.values()) snap.expires = 1 } }
+if (journalReturnHarness) window.journalReturnQA = { calls, journalCalls }
 const fail = (status, code) => { throw { response: { status, data: { code } } } }
 let seriesWithdrawn = false
 const guardSeries = () => { if (seriesWithdrawn) fail(503, 'series_disabled') }
@@ -204,7 +230,7 @@ function ReminderCounters() {
 }
 const app = <StrictMode>{remindersEnabled && <ReminderCounters />}<BrowserRouter><SeriesNavigation renderSeries={overlay => <SeriesRelations client={client} overlay={overlay} />}>
   <Route path="/recommendations/*" element={<Recommendations client={client} />} />
-  <Route path="/dashboard" element={<main><h1>11C 隔离手账</h1><Link to="/recommendations/similar" state={{ journalRecord: 2 }}>找相似</Link></main>} />
+  <Route path="/dashboard" element={journalReturnHarness ? <Dashboard /> : <main><h1>11C 隔离手账</h1><Link to="/recommendations/similar" state={{ journalRecord: 2 }}>找相似</Link></main>} />
   <Route path="*" element={<main><Link to="/recommendations">开始验收个性化推荐</Link><br /><Link to="/recommendations/similar">开始验收单番相似</Link><br /><Link to="/recommendations/tags">开始验收按标签找</Link><br /><Link to="/recommendations/tags?include=日常,音乐&exclude=战斗">验收标签组合</Link><p>隔离验收快捷键：Alt+Shift+U 模拟后续数据失效。</p>{reducedMotion && <p>正在模拟 prefers-reduced-motion；没有更改浏览器设置。</p>}</main>} />
 </SeriesNavigation></BrowserRouter></StrictMode>
 // Fixed iframe gives a real CSS viewport for desktop/mobile checks in a narrow side panel.
