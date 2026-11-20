@@ -1,6 +1,6 @@
 """Own-account application, status and stop. No public approval/renew endpoint."""
 from rest_framework.response import Response
-from rest_framework.throttling import ScopedRateThrottle, UserRateThrottle
+from anime.throttles import AccountRateThrottle as UserRateThrottle, LoggedScopedRateThrottle as ScopedRateThrottle
 
 from .eligibility import mutate_eligibility, own_eligibility
 from .views import OwnRecommendationAPIView

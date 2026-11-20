@@ -3,7 +3,7 @@ from django.db import DatabaseError
 from rest_framework.exceptions import APIException
 from rest_framework.exceptions import NotFound
 from rest_framework.response import Response
-from rest_framework.throttling import ScopedRateThrottle, UserRateThrottle
+from anime.throttles import AccountRateThrottle as UserRateThrottle, LoggedScopedRateThrottle as ScopedRateThrottle
 
 from .views import OwnRecommendationAPIView
 from .exploration_catalog import search_catalog

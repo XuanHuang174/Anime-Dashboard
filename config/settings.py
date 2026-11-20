@@ -245,8 +245,38 @@ if R2_STORAGE_ENABLED:
     }
 
 
+# Direct deployments ignore forwarding headers. Render opts into its known
+# internal/Cloudflare chain; other proxies must configure their exact networks.
+from anime.client_identity import RENDER_PROXY_CIDRS
+
+CLIENT_IP_MODE = env('CLIENT_IP_MODE', default='trusted_proxy' if env.bool('RENDER', default=False) else 'direct')
+CLIENT_IP_TRUSTED_PROXY_CIDRS = env.list(
+    'CLIENT_IP_TRUSTED_PROXY_CIDRS', default=list(RENDER_PROXY_CIDRS) if env.bool('RENDER', default=False) else [],
+)
+if CLIENT_IP_MODE not in ('direct', 'trusted_proxy'):
+    raise ImproperlyConfigured('CLIENT_IP_MODE must be direct or trusted_proxy.')
+if CLIENT_IP_MODE == 'trusted_proxy' and not CLIENT_IP_TRUSTED_PROXY_CIDRS:
+    raise ImproperlyConfigured('Trusted proxy mode requires explicit proxy networks.')
+from ipaddress import ip_network
+try:
+    for proxy_cidr in CLIENT_IP_TRUSTED_PROXY_CIDRS:
+        if ip_network(proxy_cidr).prefixlen == 0:
+            raise ValueError('Trusting the entire internet is forbidden')
+except ValueError as exc:
+    raise ImproperlyConfigured('Invalid trusted proxy network.') from exc
+
+# Keep security counters separate from recommendation feature-cache eviction.
+# Process-local budgets are soft limits per worker, not a distributed WAF.
+CACHES = {
+    'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache'},
+    'throttle': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+                 'LOCATION': 'rate-limits-v2', 'OPTIONS': {'MAX_ENTRIES': 5000}},
+}
+RATELIMIT_USE_CACHE = 'throttle'
+
 # Django REST Framework
 REST_FRAMEWORK = {
+    'EXCEPTION_HANDLER': 'anime.rate_limit_errors.rate_limit_exception_handler',
     'DEFAULT_PAGINATION_CLASS': 'anime.pagination.StandardPageNumberPagination',
     'PAGE_SIZE': 20,
     'DEFAULT_AUTHENTICATION_CLASSES': [
@@ -257,21 +287,42 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ],
     'DEFAULT_THROTTLE_CLASSES': [
-        'rest_framework.throttling.AnonRateThrottle',
-        'rest_framework.throttling.UserRateThrottle',
+        'anime.throttles.ApiBurstThrottle',
+        'anime.throttles.ApiSustainedThrottle',
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'anon': '1000/day',
-        'user': '10000/day',
-        'sensitive_auth': '3/minute',
+        'user': '6000/hour',
+        'public_read': '120/minute', 'public_read_hour': '2400/hour',
+        'public_write': '20/minute', 'public_write_hour': '100/hour',
+        'account_read': '240/minute', 'account_read_hour': '6000/hour',
+        'account_write': '120/minute', 'account_write_hour': '3000/hour',
+        'auth_login': '20/minute', 'auth_login_hour': '100/hour',
+        'auth_login_account': '3/minute',
+        'auth_register': '3/minute', 'auth_register_hour': '20/hour',
+        'auth_email': '3/minute', 'auth_email_hour': '20/hour',
+        'auth_confirm': '10/minute', 'auth_confirm_hour': '60/hour',
+        'auth_refresh': '60/minute', 'auth_refresh_hour': '1000/hour',
         'recommendation_read': '60/minute',
         'recommendation_identity': '30/minute',
         'recommendation_write': '30/minute',
     },
-    # Count the direct TCP source address and ignore spoofable proxy headers.
-    # Set this to the exact trusted proxy count only when deploying behind a
-    # reverse proxy that overwrites X-Forwarded-For.
+    # Custom throttles resolve trusted networks rather than guessing hop counts.
     'NUM_PROXIES': 0,
+}
+for budget, default_rate in REST_FRAMEWORK['DEFAULT_THROTTLE_RATES'].items():
+    configured_rate = env('RATE_LIMIT_' + budget.upper(), default=default_rate)
+    try:
+        amount, period = configured_rate.split('/')
+        if int(amount) <= 0 or period not in ('minute', 'hour'):
+            raise ValueError()
+    except ValueError as exc:
+        raise ImproperlyConfigured('Invalid rate for budget ' + budget) from exc
+    REST_FRAMEWORK['DEFAULT_THROTTLE_RATES'][budget] = configured_rate
+
+LOGGING = {
+    'version': 1, 'disable_existing_loggers': False,
+    'handlers': {'rate_limit_console': {'class': 'logging.StreamHandler'}},
+    'loggers': {'anime.rate_limits': {'handlers': ['rate_limit_console'], 'level': 'WARNING', 'propagate': False}},
 }
 
 SIMPLE_JWT = {
@@ -302,6 +353,7 @@ CORS_ALLOWED_ORIGINS = env.list(
 )
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = (*default_headers, 'x-recommendation-scope')
+CORS_EXPOSE_HEADERS = ['Retry-After', 'X-Request-ID', 'Rndr-Id']
 
 # Required for unsafe requests when React uses Django session authentication.
 CSRF_TRUSTED_ORIGINS = env.list(

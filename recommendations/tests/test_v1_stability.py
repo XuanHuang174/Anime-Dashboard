@@ -110,7 +110,7 @@ class V1StabilityTests(TransactionTestCase):
     def test_shared_limiter_cache_outage_is_json_503_and_never_allows_writes(self):
         before = list(UserAnimeRecord.objects.order_by('pk').values())
         backend = Mock(); backend.get.side_effect = ConnectionError('synthetic shared-cache outage')
-        with (patch('rest_framework.throttling.SimpleRateThrottle.cache', backend),
+        with (patch('anime.throttles.IdentityThrottleMixin.cache', backend),
               patch('recommendations.views.add_want') as add):
             for path, method in (('/api/recommendations/', 'get'), ('/api/recommendations/10/want/', 'post')):
                 response = getattr(self.client, method)(path, {}, format='json')

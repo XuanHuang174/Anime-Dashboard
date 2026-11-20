@@ -20,15 +20,15 @@ from django.contrib import admin
 from django.http import JsonResponse
 from django.urls import include, path
 from django.views.generic import TemplateView
-from rest_framework_simplejwt.views import TokenRefreshView
 
-from anime.views import CustomTokenObtainPairView
+from anime.views import CustomTokenObtainPairView, CustomTokenRefreshView
 
 
 def health_check(request):
     return JsonResponse({
         'status': 'ok',
         'message': 'Anime API is running',
+        'rate_limit_policy': 'rate-limits.v2',
     })
 
 
@@ -41,7 +41,7 @@ urlpatterns = [
     ),
     path(
         'api/token/refresh/',
-        TokenRefreshView.as_view(),
+        CustomTokenRefreshView.as_view(),
         name='token_refresh',
     ),
     path('api/', include('anime.urls')),

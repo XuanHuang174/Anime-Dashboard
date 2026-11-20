@@ -11,7 +11,7 @@ from rest_framework.parsers import JSONParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.exceptions import NotFound
-from rest_framework.throttling import ScopedRateThrottle, UserRateThrottle
+from anime.throttles import AccountRateThrottle as UserRateThrottle, LoggedScopedRateThrottle as ScopedRateThrottle
 
 from .serializers import RecommendationPreferencePatchSerializer, RecommendationPreferenceSerializer, RecommendationProfileSerializer
 from .services import patch_preferences, preference_contract, profile_contract

@@ -50,9 +50,8 @@ from rest_framework.exceptions import (
     ValidationError as DRFValidationError,
 )
 from rest_framework.response import Response
-from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
-from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from .email_service import EmailDeliveryError, send_transactional_email
 from .daily_push import fetch_today_bangumi_items, send_daily_pushes
@@ -99,7 +98,7 @@ from .tag_services import (
     initialize_record_tag_colors,
     replace_record_tag_colors,
 )
-from .throttles import SensitiveAuthRateThrottle
+from .throttles import SensitiveAuthRateThrottle, AuthSustainedThrottle, LoginAccountThrottle
 from .showcase_services import (PUBLICATION_CONTRACT, confirm_showcase_publication,
     imported_visibility_defaults, publication_candidates, publish_new_showcase_record)
 from .showcase_policy import filter_publication_content, PublicContentResponseMixin
@@ -1320,7 +1319,13 @@ class CustomTokenObtainPairView(TokenObtainPairView):
     """JWT login endpoint with Chinese errors and strict per-IP throttling."""
 
     serializer_class = CustomTokenObtainPairSerializer
-    throttle_classes = (AnonRateThrottle, SensitiveAuthRateThrottle)
+    auth_throttle_scope = 'auth_login'
+    throttle_classes = (SensitiveAuthRateThrottle, AuthSustainedThrottle, LoginAccountThrottle)
+
+
+class CustomTokenRefreshView(TokenRefreshView):
+    auth_throttle_scope = 'auth_refresh'
+    throttle_classes = (SensitiveAuthRateThrottle, AuthSustainedThrottle)
 
 
 class UserRegistrationView(APIView):
@@ -1328,7 +1333,8 @@ class UserRegistrationView(APIView):
 
     permission_classes = (permissions.AllowAny,)
     authentication_classes = ()
-    throttle_classes = (AnonRateThrottle, SensitiveAuthRateThrottle)
+    auth_throttle_scope = 'auth_register'
+    throttle_classes = (SensitiveAuthRateThrottle, AuthSustainedThrottle)
 
     def post(self, request):
         serializer = UserRegistrationSerializer(data=request.data)
@@ -1374,6 +1380,8 @@ class VerifyEmailView(APIView):
 
     permission_classes = (permissions.AllowAny,)
     authentication_classes = ()
+    auth_throttle_scope = 'auth_confirm'
+    throttle_classes = (SensitiveAuthRateThrottle, AuthSustainedThrottle)
 
     def post(self, request):
         uid = request.data.get("uid", "")
@@ -1411,7 +1419,8 @@ class PasswordResetRequestView(APIView):
 
     permission_classes = (permissions.AllowAny,)
     authentication_classes = ()
-    throttle_classes = (AnonRateThrottle, SensitiveAuthRateThrottle)
+    auth_throttle_scope = 'auth_email'
+    throttle_classes = (SensitiveAuthRateThrottle, AuthSustainedThrottle)
 
     def post(self, request):
         serializer = PasswordResetRequestSerializer(data=request.data)
@@ -1458,6 +1467,8 @@ class PasswordResetConfirmView(APIView):
 
     permission_classes = (permissions.AllowAny,)
     authentication_classes = ()
+    auth_throttle_scope = 'auth_confirm'
+    throttle_classes = (SensitiveAuthRateThrottle, AuthSustainedThrottle)
 
     def post(self, request):
         uid = request.data.get("uid", "")

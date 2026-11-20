@@ -29,6 +29,9 @@ RECOMMENDATION_CREDITS_EPOCH = '1'
 RECOMMENDATION_V2_TEST_BYPASS = True  # Only this isolated test settings module.
 CACHES = {'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
                       'LOCATION': 'recommendation-isolated-tests'}}
+CACHES['throttle'] = dict(CACHES['default'])  # Existing test cache.clear also resets synthetic limits.
+CLIENT_IP_MODE = 'direct'
+CLIENT_IP_TRUSTED_PROXY_CIDRS = []
 DATABASES = {'default': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': ':memory:'}}
 STORAGES = {
     'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},

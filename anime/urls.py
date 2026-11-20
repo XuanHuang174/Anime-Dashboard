@@ -1,6 +1,7 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 from .resource_search import AnimeResourceSearchView
+from .rate_limit_views import RateLimitStatusView
 
 from .views import (
     AdminFeaturedSubmissionViewSet,
@@ -79,6 +80,7 @@ router.register(
 
 app_name = "anime_api"
 urlpatterns = [
+    path('admin/rate-limit-status/', RateLimitStatusView.as_view(), name='rate-limit-status'),
     path('tag-presets/', CurrentUserTagPresetsView.as_view(), name='tag-presets'),
     path("utils/anime-search/", AnimeResourceSearchView.as_view(), name="anime-resource-search"),
     path("utils/image-proxy/", ImageProxyView.as_view(), name="image-proxy"),

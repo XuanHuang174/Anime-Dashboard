@@ -4,7 +4,7 @@ from django.core import signing
 from django.contrib.auth import get_user_model
 from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.response import Response
-from rest_framework.throttling import UserRateThrottle, ScopedRateThrottle
+from anime.throttles import AccountRateThrottle as UserRateThrottle, LoggedScopedRateThrottle as ScopedRateThrottle
 from .views import OwnRecommendationAPIView
 from .models import RecommendationContentEligibility
 from .eligibility import own_eligibility, mutate_eligibility, EligibilityConflict

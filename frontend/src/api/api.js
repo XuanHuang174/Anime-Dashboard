@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { installSessionRefresh } from './sessionRefresh.js'
 import {
   clearTokens,
   getAccessToken,
@@ -31,15 +32,6 @@ const refreshClient = axios.create({
   timeout: API_TIMEOUT_MS,
 })
 
-let refreshPromise = null
-
-function isPublicAuthRequest(url = '') {
-  const normalizedUrl = url.replace(/^\/api\//, '').replace(/^\//, '')
-  return normalizedUrl === 'token/'
-    || normalizedUrl === 'token/refresh/'
-    || normalizedUrl.startsWith('auth/')
-}
-
 function redirectToLogin() {
   const isAdminArea = window.location.pathname.startsWith('/admin-')
   const loginPath = isAdminArea ? '/admin-login' : '/login'
@@ -48,69 +40,8 @@ function redirectToLogin() {
   }
 }
 
-async function refreshAccessToken() {
-  if (refreshPromise) return refreshPromise
-
-  const refreshToken = getRefreshToken()
-  if (!refreshToken) throw new Error('No refresh token available')
-
-  refreshPromise = refreshClient
-    .post('token/refresh/', { refresh: refreshToken })
-    .then((response) => {
-      const nextAccessToken = response.data.access
-      const nextRefreshToken = response.data.refresh || refreshToken
-      saveTokens({ access: nextAccessToken, refresh: nextRefreshToken })
-      return nextAccessToken
-    })
-    .finally(() => {
-      refreshPromise = null
-    })
-
-  return refreshPromise
-}
-
-api.interceptors.request.use(
-  (config) => {
-    const accessToken = getAccessToken()
-
-    if (config.data instanceof FormData) {
-      // Let Axios/the browser generate `multipart/form-data; boundary=...`.
-      // A manually fixed Content-Type can omit the boundary and corrupt uploads.
-      config.headers.delete?.('Content-Type')
-    }
-
-    if (accessToken) {
-      config.headers.Authorization = `Bearer ${accessToken}`
-    }
-
-    return config
-  },
-  (error) => Promise.reject(error),
-)
-
-api.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    const originalRequest = error.config
-    const shouldRefresh = error.response?.status === 401
-      && originalRequest
-      && !originalRequest._retry
-      && !isPublicAuthRequest(originalRequest.url)
-
-    if (!shouldRefresh) return Promise.reject(error)
-
-    originalRequest._retry = true
-    try {
-      const accessToken = await refreshAccessToken()
-      originalRequest.headers = originalRequest.headers || {}
-      originalRequest.headers.Authorization = `Bearer ${accessToken}`
-      return api(originalRequest)
-    } catch (refreshError) {
-      clearTokens()
-      if (!originalRequest.optionalAuth) redirectToLogin()
-      return Promise.reject(refreshError)
-    }
-  },
-)
+installSessionRefresh(api, refreshClient, {
+  getAccessToken, getRefreshToken, saveTokens, clearTokens, onExpired: redirectToLogin,
+})
 
 export default api

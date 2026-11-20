@@ -2,7 +2,7 @@
 from django.db import DatabaseError
 from rest_framework.exceptions import APIException, NotFound, ValidationError
 from rest_framework.response import Response
-from rest_framework.throttling import UserRateThrottle, ScopedRateThrottle
+from anime.throttles import AccountRateThrottle as UserRateThrottle, LoggedScopedRateThrottle as ScopedRateThrottle
 from .views import OwnRecommendationAPIView
 from . import credits_read as reads
 from .credits_api_contract import (KINDS, StrictQuery, SearchQuery, WorksQuery, SummaryQuery,

@@ -409,7 +409,7 @@ class SensitiveAuthThrottleTests(APITestCase):
     def tearDown(self):
         cache.clear()
 
-    def test_login_rejects_the_fourth_request_from_one_ip_in_a_minute(self):
+    def test_login_rejects_the_fourth_request_for_one_account_and_ip_in_a_minute(self):
         for request_number in range(3):
             response = self.client.post(
                 reverse("token_obtain_pair"),
@@ -430,7 +430,7 @@ class SensitiveAuthThrottleTests(APITestCase):
             status.HTTP_429_TOO_MANY_REQUESTS,
         )
 
-    def test_sensitive_endpoints_share_the_same_per_ip_budget(self):
+    def test_registration_and_email_requests_do_not_consume_login_budget(self):
         first_response = self.client.post(
             reverse("anime_api:password-reset-request"),
             {"email": "missing-one@example.com"},
@@ -446,7 +446,7 @@ class SensitiveAuthThrottleTests(APITestCase):
             {"email": "invalid@example.com", "password": "short"},
             format="json",
         )
-        throttled_response = self.client.post(
+        login_response = self.client.post(
             reverse("token_obtain_pair"),
             {"username": "missing-user", "password": "wrong-password"},
             format="json",
@@ -456,8 +456,8 @@ class SensitiveAuthThrottleTests(APITestCase):
         self.assertEqual(second_response.status_code, status.HTTP_200_OK)
         self.assertEqual(third_response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(
-            throttled_response.status_code,
-            status.HTTP_429_TOO_MANY_REQUESTS,
+            login_response.status_code,
+            status.HTTP_401_UNAUTHORIZED,
         )
 
 

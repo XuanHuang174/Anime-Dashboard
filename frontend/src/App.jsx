@@ -91,6 +91,8 @@ function App() {
   useEffect(() => {
     let isMounted = true
 
+    const controller = new AbortController()
+
     const loadPublicShowcase = async () => {
       setIsShowcaseLoading(true)
       const requestParams = {
@@ -108,13 +110,8 @@ function App() {
           quick_filter: activeCustomFilterId ?? undefined,
         })
       }
-      const [showcaseResult, filtersResult, statsResult, optionsResult] = await Promise.allSettled([
-        api.get('showcase/', {
-          params: requestParams,
-        }),
-        api.get('showcase-filters/'),
-        api.get('showcase/stats/'),
-        api.get('showcase/filter-options/'),
+      const [showcaseResult] = await Promise.allSettled([
+        api.get('showcase/', { params: requestParams, signal: controller.signal }),
       ])
 
       if (!isMounted) return
@@ -127,6 +124,27 @@ function App() {
         setHasPreviousPage(!Array.isArray(payload) && Boolean(payload.previous))
         setLastLoadedPage(currentPage)
       }
+      setIsShowcaseLoading(false)
+    }
+
+    loadPublicShowcase()
+    return () => {
+      isMounted = false
+      controller.abort()
+    }
+  }, [currentPage, pageSize, paginatedFilterKey])
+
+  // Shared metadata is stable across pagination/filter changes. Refresh it
+  // when entering the page, rather than repeating all three reads per page.
+  useEffect(() => {
+    let active = true
+    const controller = new AbortController()
+    Promise.allSettled([
+      api.get('showcase-filters/', { signal: controller.signal }),
+      api.get('showcase/stats/', { signal: controller.signal }),
+      api.get('showcase/filter-options/', { signal: controller.signal }),
+    ]).then(([filtersResult, statsResult, optionsResult]) => {
+      if (!active) return
       if (filtersResult.status === 'fulfilled') {
         const filters = Array.isArray(filtersResult.value.data)
           ? filtersResult.value.data
@@ -144,14 +162,9 @@ function App() {
       if (optionsResult.status === 'fulfilled') {
         setFilterOptions(optionsResult.value.data)
       }
-      setIsShowcaseLoading(false)
-    }
-
-    loadPublicShowcase()
-    return () => {
-      isMounted = false
-    }
-  }, [currentPage, pageSize, paginatedFilterKey])
+    })
+    return () => { active = false; controller.abort() }
+  }, [])
 
   useEffect(() => {
     if (lastLoadedPage !== currentPage || !shouldScrollAfterPageChange.current) return undefined

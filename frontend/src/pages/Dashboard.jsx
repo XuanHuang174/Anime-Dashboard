@@ -35,6 +35,7 @@ import useExplorationTopics from '../hooks/useExplorationTopics.js'
 import useSeriesJournalReturn from '../hooks/useSeriesJournalReturn.js'
 import useJournalDisplayMode from '../hooks/useJournalDisplayMode.js'
 import useJournalListPreferences from '../hooks/useJournalListPreferences.js'
+import { createVisiblePoller } from '../utils/visiblePoller.js'
 
 gsap.registerPlugin(useGSAP)
 
@@ -384,13 +385,9 @@ function Dashboard() {
   useEffect(() => {
     if (isSharedJournal) return undefined
     const controller = new AbortController()
-    let isActive = true
-    let isPolling = false
-
-    async function pollNotifications() {
-      if (!isActive || isPolling) return
-      isPolling = true
-      try {
+    const poller = createVisiblePoller({
+      isVisible: () => document.visibilityState === 'visible',
+      poll: async () => {
         const response = await api.get('notifications/poll/', {
           signal: controller.signal,
         })
@@ -399,34 +396,24 @@ function Dashboard() {
           const isNegative = /抱歉|未能|失败|拒绝/.test(notification.message)
           showToast(notification.message, isNegative ? 'error' : 'success')
         })
-      } catch (requestError) {
+      },
+      onError: (requestError) => {
         if (
           requestError.code !== 'ERR_CANCELED'
           && requestError.response?.status !== 401
         ) {
           showToast('站内通知读取失败，请稍后重试。', 'error')
         }
-      } finally {
-        isPolling = false
-      }
-    }
-
-    function handleVisibilityChange() {
-      if (document.visibilityState === 'visible') {
-        pollNotifications()
-      }
-    }
-
-    pollNotifications()
-    const pollingTimer = window.setInterval(pollNotifications, 30000)
-    window.addEventListener('focus', pollNotifications)
-    document.addEventListener('visibilitychange', handleVisibilityChange)
+      },
+    })
+    poller.wake()
+    window.addEventListener('focus', poller.wake)
+    document.addEventListener('visibilitychange', poller.wake)
 
     return () => {
-      isActive = false
-      window.clearInterval(pollingTimer)
-      window.removeEventListener('focus', pollNotifications)
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      poller.stop()
+      window.removeEventListener('focus', poller.wake)
+      document.removeEventListener('visibilitychange', poller.wake)
       controller.abort()
     }
   }, [isSharedJournal, showToast])
