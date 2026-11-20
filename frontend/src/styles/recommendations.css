@@ -87,6 +87,10 @@
 .memphis-rec-container .rec-section-heading h2 { margin: 8px 0 0; font-size: 21px; font-weight: 900; }
 .memphis-rec-container .rec-result-count { font-size: 11px; color: var(--rec-muted); white-space: nowrap; }
 .memphis-rec-container .rec-card { min-width: 0; background: white; border: 2px solid var(--rec-ink); box-shadow: 3px 3px 0 var(--rec-ink); display: flex; flex-direction: column; }
+.memphis-rec-container .rec-cover-button { display: block; width: 100%; padding: 0; color: inherit; text-align: inherit; border: 0; border-radius: 0; cursor: pointer; }
+.memphis-rec-container .rec-title-button { padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: inherit; cursor: pointer; }
+.memphis-rec-container :is(.rec-cover-button, .rec-title-button):disabled { cursor: default; }
+.memphis-rec-container .rec-title-button:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 4px; }
 .memphis-rec-container .rec-card--hero { border-width: 3px; display: grid; grid-template-columns: 205px minmax(0, 1fr); min-height: 300px; box-shadow: 4px 4px 0 var(--rec-ink); }
 .memphis-rec-container .rec-cover { aspect-ratio: 3 / 4; border-bottom: 2px solid var(--rec-ink); overflow: hidden; background: var(--rec-cream); }
 .memphis-rec-container .rec-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -183,7 +187,15 @@
 .memphis-rec-container .rec-dialog--detail .rec-dialog-header h2 { max-height: 100px; overflow-y: auto; }
 .memphis-rec-container .rec-dialog--detail > .rec-dialog-body { overflow-y: auto; min-height: 0; }
 .memphis-rec-container .rec-dialog-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 0; flex: 1; min-height: 0; overflow: hidden; transition: grid-template-columns 280ms ease; }
-.memphis-rec-container .rec-dialog-main { min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.memphis-rec-container .rec-dialog-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; overscroll-behavior: contain; }
+.memphis-rec-container .rec-dialog-main > .rec-dialog-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.memphis-rec-container .rec-detail-footer { flex-shrink: 0; max-height: 45%; overflow-y: auto; padding: 12px 20px max(12px, env(safe-area-inset-bottom)); border-top: 2px solid var(--rec-ink); background: var(--rec-cream); }
+.memphis-rec-container .rec-detail-footer .rec-detail-actions { margin-top: 0; }
+@media (max-width: 767px) {
+  .memphis-rec-container .rec-detail-footer { padding: 10px; }
+  .memphis-rec-container .rec-detail-footer .rec-detail-actions { gap: 8px; }
+  .memphis-rec-container .rec-detail-footer .rec-button { padding: 8px 10px; min-height: 40px; }
+}
 .memphis-rec-container .rec-dialog-resource { min-width: 0; min-height: 0; overflow: hidden; visibility: hidden; opacity: 0; transform: translateX(18px); transition: opacity 200ms ease, transform 280ms ease, visibility 280ms; background: var(--rec-cream); }
 .memphis-rec-container .rec-dialog--resource-open .rec-dialog-resource { visibility: visible; opacity: 1; transform: translateX(0); border-left: 2px solid var(--rec-ink); }
 .memphis-rec-container .rec-field { display: flex; flex-direction: column; gap: 10px; font-size: 13px; font-weight: 800; margin: 22px 0; }

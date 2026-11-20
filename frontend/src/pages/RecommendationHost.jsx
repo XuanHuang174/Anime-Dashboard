@@ -11,12 +11,15 @@ import { createSeriesReminderController } from '../utils/seriesReminders.js'
 import { connectSeriesReminderUpdates } from '../utils/seriesReminderUpdates.js'
 import { seriesSession } from '../hooks/useSeriesSession.js'
 import { validateCreditsCapabilities } from '../utils/recommendationCredits.js'
+import { createViewSnapshots } from '../utils/recommendationViewSnapshots.js'
+import useRecommendationScrollSnapshot from '../hooks/useRecommendationScrollSnapshot.js'
 
 export default function RecommendationHost({ client: baseClient, sessionScope, Personal }) {
   const location = useLocation()
   const mode = location.pathname === '/recommendations' || location.pathname === '/recommendations/' ? 'personal'
     : location.pathname === '/recommendations/similar' ? 'similar' : 'tags'
-  const caches = useRef({ personal: {}, similar: {}, tags: {} })
+  const snapshots = useRef(null)
+  if (!snapshots.current) snapshots.current = createViewSnapshots()
   const [adult, setAdult] = useState(false)
   const [notice, setNotice] = useState('')
   const [capability, setCapability] = useState({ status: 'loading' })
@@ -55,21 +58,20 @@ export default function RecommendationHost({ client: baseClient, sessionScope, P
     const timer = window.setTimeout(() => setNotice(''), 6000)
     return () => window.clearTimeout(timer)
   }, [notice])
-  // React-owned cache survives mode navigation, never a refresh/account change.
-  useLayoutEffect(() => {
-    const frame = requestAnimationFrame(() => window.scrollTo({ top: caches.current[mode].scroll ?? 0, behavior: 'instant' }))
-    return () => { cancelAnimationFrame(frame); caches.current[mode].scroll = window.scrollY }
-  }, [mode])
+  // Keep separate bounded views for previous references/tag queries and scopes.
+  const path = `${location.pathname}${location.search}`
+  const cache = snapshots.current.entry(mode, path, adult ? 'include_adult' : 'safe')
+  useRecommendationScrollSnapshot(cache)
   const navigation = <RecommendationModeNavigation current={mode} capabilities={capability.data} credits={credits} scope={adult ? 'include_adult' : 'safe'}
-    tagsPath={mode === 'tags' ? `/recommendations/tags${location.search}` : caches.current.tags.path}
-    similarSeed={mode === 'similar' ? parseSimilarSeed(location.search).id : caches.current.similar.seedId} />
+    tagsPath={mode === 'tags' ? path : snapshots.current.last('tags')}
+    similarSeed={parseSimilarSeed(mode === 'similar' ? location.search : snapshots.current.last('similar')?.split('?')[1] || '').id} />
   const shared = { client, sessionScope, adult, setAdult, navigation, capabilities: capability.data, reminders }
   return <ExplorationTopicsContext.Provider value={topics}>
-    {mode === 'personal' ? <Personal {...shared} cache={caches.current.personal} />
+    {mode === 'personal' ? <Personal key={path} {...shared} cache={cache} />
       : mode === 'similar' && capability.data?.navigation?.[1]?.available
-        ? <SimilarRecommendations {...shared} cache={caches.current.similar} />
+        ? <SimilarRecommendations key={path} {...shared} cache={cache} />
         : mode === 'tags' && capability.data?.navigation?.[2]?.available
-          ? <TagRecommendations {...shared} cache={caches.current.tags} />
+          ? <TagRecommendations key={path} {...shared} cache={cache} />
         : <main className="memphis-rec-container"><div className="rec-page"><div className="rec-masthead">
           <nav className="rec-nav"><Link className="rec-back" to="/dashboard">← 返回我的手账</Link></nav>
           <header className="rec-page-heading rec-explore-heading"><span className="rec-chapter-label">我的手账</span><h1>番剧探索</h1>{navigation}</header>

@@ -24,12 +24,13 @@ const ack = (id = 123) => ({ contract_version: 'recommendations.want.v1', bangum
 const deferred = () => { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b }); return { promise, resolve, reject } }
 const render = (Component, props) => renderToStaticMarkup(React.createElement(Component, props))
 
-test('7A cards keep exactly two action buttons; resource entry exists only in detail', () => {
+test('cards keep two action buttons plus accessible cover/title entries; resources stay in detail', () => {
   for (const hero of [false, true]) {
     const html = render(Card, { item: { ...item, watchStatus: 'completed' }, hero, onDetail() {}, onWant() {} })
     assert.match(html, /查看详情/); assert.match(html, /已看过/)
     assert.doesNotMatch(html, /寻找资源/)
-    assert.equal((html.match(/<button/g) || []).length, 2)
+    assert.equal((html.match(/<button[^>]*class="rec-button[ "]/g) || []).length, 2)
+    assert.match(html, /rec-cover-button/); assert.match(html, /rec-title-button/)
   }
   const html = render(Actions, { item: { ...item, watchStatus: 'completed' }, resourceOpen: true,
     onClose() {}, onWant() {}, onResourceOpen() {}, onResourceClose() {} })

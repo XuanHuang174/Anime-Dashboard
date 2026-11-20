@@ -6,13 +6,15 @@ import { RecommendationPublicScore } from './RecommendationScore.jsx'
 import RecommendationFeedbackMenu from './RecommendationFeedbackMenu.jsx'
 import ExplorationTagChips from './ExplorationTagChips.jsx'
 import { SeriesBadges } from './SeriesExploration.jsx'
+import { openCardDetail } from '../../utils/recommendationCardInteraction.js'
 
-export function RecommendationCover({ item, priority = false }) {
+export function RecommendationCover({ item, priority = false, onDetail, disabled = false }) {
   const safeSrc = item.contentRating === 'adult' ? '' : getRecommendationCover(item.coverUrl)
   const [failedSrc, setFailedSrc] = useState(null)
   useEffect(() => setFailedSrc(null), [safeSrc])
+  const Tag = onDetail ? 'button' : 'div'
   return (
-    <div className="rec-cover">
+    <Tag className={`rec-cover${onDetail ? ' rec-cover-button' : ''}`} {...(onDetail ? { type: 'button', disabled, onClick: () => onDetail(item), 'aria-label': `打开${item.title}详情` } : {})}>
       {safeSrc && failedSrc !== safeSrc
         ? <img src={safeSrc} alt={`${item.title}封面`} loading={priority ? 'eager' : 'lazy'} decoding="async"
           onError={() => setFailedSrc(safeSrc)} />
@@ -20,7 +22,7 @@ export function RecommendationCover({ item, priority = false }) {
           <span className="rec-cover-symbol" aria-hidden="true">✦</span>
           <span>STORY TO BE FOUND</span><strong>故事还在，<br />心动不缺席。</strong><small>暂无托管封面</small>
         </div>}
-    </div>
+    </Tag>
   )
 }
 
@@ -45,11 +47,12 @@ export function RecommendationActions({ item, onDetail, detailLabel = '查看详
 
 export default function RecommendationCard({ item, hero = false, onDetail, onWant, operation, onIdentity, onReload,
   onHide, feedbackOperation, feedbackDisabled, onFeedbackReload, browseUnavailable = false, EvidenceComponent = RecommendationEvidence }) {
-  return <article className={`rec-card ${hero ? 'rec-card--hero' : ''}`} data-rec-motion-id={item.bangumiId}>
-    <RecommendationCover item={item} priority={hero} />
+  return <article className={`rec-card ${hero ? 'rec-card--hero' : ''}`} data-rec-motion-id={item.bangumiId}
+    onClick={event => openCardDetail(event, item, onDetail, browseUnavailable)}>
+    <RecommendationCover item={item} priority={hero} onDetail={onDetail} disabled={browseUnavailable} />
     <div className="rec-card-body">
       {hero && <span className="rec-eyebrow"><span className="rec-sticker">本批首推</span></span>}
-      <div className="rec-card-title-row"><h3 className="rec-card-title" title={item.title}>{item.title}</h3>
+      <div className="rec-card-title-row"><h3 className="rec-card-title" title={item.title}><button type="button" className="rec-title-button" disabled={browseUnavailable} onClick={() => onDetail(item)}>{item.title}</button></h3>
         {onHide && <RecommendationFeedbackMenu item={item} onHide={onHide} operation={feedbackOperation}
           disabled={browseUnavailable || feedbackDisabled || operation?.status === 'adding'} onReload={onFeedbackReload} />}</div>
       <RecommendationMeta item={item} />

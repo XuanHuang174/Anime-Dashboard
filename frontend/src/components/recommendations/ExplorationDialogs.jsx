@@ -22,6 +22,11 @@ export default function ExplorationDialogs({ interactions, client, capabilities,
       resourceTriggerRef={resourceTrigger} onResourceClose={detailController.closeResources}
       headerActions={panel.kind === 'detail' && detail.status === 'ready' ? <RecommendationFeedbackMenu item={detail.item} onHide={feedback.controller.hide}
         operation={feedback.state.operations[detail.item.bangumiId]} disabled={feedback.state.pending || feedback.state.uncertain || feedback.state.version === null || want.operations[detail.item.bangumiId]?.status === 'adding'} onReload={() => reloadFeedback()} /> : null}
+      footer={panel.kind === 'detail' && detail.status === 'ready' ? <RecommendationDetailActions item={detail.item} resourceOpen={detail.resourceOpen}
+                  resourceTriggerRef={resourceTrigger} onResourceOpen={detailController.openResources} onResourceClose={detailController.closeResources}
+                  onClose={close} onWant={want.add} operation={want.operations[detail.item.bangumiId]} onIdentity={openIdentity}
+                  onSimilar={capabilities?.navigation?.[1]?.available ? onSimilar : undefined}
+                  writeBlocked={feedback.state.operations[detail.item.bangumiId]?.status === 'saving' || feedback.state.operations[detail.item.bangumiId]?.uncertain} /> : null}
       resourcePanel={panel.kind === 'detail' && detail.status === 'ready' ? <RecommendationResourcePanel item={detail.item} open={detail.resourceOpen}
         sessionKey={`${detail.selection.session}:${detail.resourceSession || 0}:${detail.item.bangumiId}:${detail.item.evidenceToken}`} onClose={detailController.closeResources} /> : null}>
       {panel.kind === 'filters' ? editor
@@ -32,13 +37,9 @@ export default function ExplorationDialogs({ interactions, client, capabilities,
           : ['closed', 'loading', 'refreshing'].includes(detail.status) ? <p role="status">{detail.status === 'refreshing' ? '加入操作已确认，正在重新读取完整详情…' : '正在读取作品详情…'}</p>
             : detail.status === 'error' ? <div role="alert"><p>{detail.message}</p><button type="button" className="rec-button" onClick={detail.snapshotChanged ? reload : detailController.retry}>{detail.snapshotChanged ? '重新探索' : '重试详情'}</button></div>
               : <div className="rec-detail-content"><RecommendationCover item={detail.item} priority /><div><p className="rec-original-title">{detail.item.originalTitle}</p>
-                <RecommendationMeta item={detail.item} /><h3>{detail.item.explorationQuery.intent === 'tags' ? '题材匹配依据' : '相似依据'}</h3><ExplorationEvidence item={detail.item} expanded onReload={reload} />
+                <RecommendationMeta item={detail.item} /><h3>{detail.item.explorationQuery.intent === 'tags' ? '题材匹配依据' : '相似依据'}</h3><ExplorationEvidence item={detail.item} onReload={reload} />
                 <ExplorationTagChips tags={detail.item.tags} beforeNavigate={close} /><h3>故事简介</h3><p>{detail.item.synopsis || '暂未收录简介。'}</p>
-                <SeriesSummary client={client} bangumiId={detail.item.bangumiId} /><CreditsSummary client={client} bangumiId={detail.item.bangumiId} /><RecommendationDetailActions item={detail.item} resourceOpen={detail.resourceOpen}
-                  resourceTriggerRef={resourceTrigger} onResourceOpen={detailController.openResources} onResourceClose={detailController.closeResources}
-                  onClose={close} onWant={want.add} operation={want.operations[detail.item.bangumiId]} onIdentity={openIdentity}
-                  onSimilar={capabilities?.navigation?.[1]?.available ? onSimilar : undefined}
-                  writeBlocked={feedback.state.operations[detail.item.bangumiId]?.status === 'saving' || feedback.state.operations[detail.item.bangumiId]?.uncertain} /></div></div>}
+                <SeriesSummary client={client} bangumiId={detail.item.bangumiId} /><CreditsSummary client={client} bangumiId={detail.item.bangumiId} /></div></div>}
     </RecommendationDialog>}
   </>
 }

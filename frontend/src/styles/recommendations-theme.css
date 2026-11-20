@@ -28,21 +28,21 @@
 .memphis-rec-container .rec-browse-tools { flex-wrap: wrap; }
 .memphis-rec-container .rec-browse-actions { display: flex; align-items: center; gap: 10px; margin-left: auto; }
 .memphis-rec-container .rec-browse-tools .rec-preferences { min-height: 44px; white-space: nowrap; }
-.memphis-rec-container .rec-page-heading { padding: 10px 0 12px; gap: 12px; }
+.memphis-rec-container .rec-masthead .rec-page-heading { padding: 10px 0 12px; gap: 12px; }
 .memphis-rec-container .rec-chapter-label { transform: rotate(-1deg); box-shadow: 2px 2px 0 var(--rec-ink); }
 .memphis-rec-container .rec-page-heading h1 { padding: 4px 12px 6px; background: var(--rec-ink); color: white; font-size: 30px; letter-spacing: -.035em; }
 .memphis-rec-container .rec-chapter-mark { display: grid; place-items: center; margin-left: auto; width: 42px; height: 42px; border: 2px solid var(--rec-ink); background: var(--rec-teal); font-size: 30px; line-height: 1; box-shadow: 3px 3px 0 var(--rec-yellow); transform: rotate(6deg); pointer-events: none; }
-.memphis-rec-container .rec-controls { background: white; border: 2px solid var(--rec-ink); border-bottom-width: 1px; padding: 8px 10px; gap: 10px; }
+.memphis-rec-container .rec-masthead .rec-controls { background: white; border: 2px solid var(--rec-ink); border-bottom-width: 1px; padding: 8px 10px; gap: 10px; }
 .memphis-rec-container .rec-category { border: 2px solid transparent; min-height: 40px; padding: 7px 12px; }
 .memphis-rec-container .rec-category.is-selected { background: var(--rec-yellow); box-shadow: 2px 2px 0 var(--rec-ink); }
 .memphis-rec-container .rec-category:not(.is-selected):hover { background: #fff5c4; }
 .memphis-rec-container .rec-style-label select { box-shadow: 2px 2px 0 var(--rec-ink); min-height: 40px; }
-.memphis-rec-container .rec-control-summary { margin: 0; padding: 0 10px; border: 2px solid var(--rec-ink); border-top: 0; background: white; }
+.memphis-rec-container .rec-masthead .rec-control-summary { margin: 0; padding: 0 10px; border: 2px solid var(--rec-ink); border-top: 0; background: white; }
 .memphis-rec-container .rec-active-filters { padding: 5px 0; }
 .memphis-rec-container .rec-filter-chip { background: #e3f6f2; padding: 4px 8px; min-height: 32px; }
 .memphis-rec-container .rec-filter-count { background: var(--rec-teal); color: var(--rec-ink); font-weight: 900; }
 .memphis-rec-container .rec-browse-help { padding: 4px 0; }
-.memphis-rec-container .rec-browse-help-body { border: 2px solid var(--rec-ink); background: var(--rec-cream); margin-bottom: 8px; }
+.memphis-rec-container .rec-masthead .rec-browse-help-body { border: 2px solid var(--rec-ink); background: var(--rec-cream); margin-bottom: 8px; }
 .memphis-rec-container .rec-button { line-height: 1.45; }
 .memphis-rec-container .rec-button--primary { background: var(--rec-yellow); }
 .memphis-rec-container :is(button, a, input, select, summary):focus-visible { outline: 3px solid var(--rec-ink); outline-offset: 3px; }
@@ -126,17 +126,17 @@
   .memphis-rec-container .rec-nav :is(a, button) { white-space: nowrap; }
   .memphis-rec-container .rec-nav-tools > .rec-text-button { padding: 6px; min-height: 40px; font-size: 11px; }
   .memphis-rec-container .rec-preferences { min-height: 40px; padding: 6px 8px; font-size: 11px; }
-  .memphis-rec-container .rec-page-heading { gap: 8px; padding: 10px 0 12px; }
+  .memphis-rec-container .rec-masthead .rec-page-heading { gap: 8px; padding: 10px 0 12px; }
   .memphis-rec-container .rec-page-heading h1 { font-size: 24px; padding: 4px 8px; }
   .memphis-rec-container .rec-chapter-label { font-size: 9px; padding: 5px 7px; }
   .memphis-rec-container .rec-chapter-mark { display: none; }
-  .memphis-rec-container .rec-controls { padding: 8px; gap: 8px; }
+  .memphis-rec-container .rec-masthead .rec-controls { padding: 8px; gap: 8px; }
   .memphis-rec-container .rec-categories { gap: 3px; }
   .memphis-rec-container .rec-category { padding: 8px 5px; min-height: 44px; font-size: 11px; }
   .memphis-rec-container .rec-style-label { font-size: 12px; }
   .memphis-rec-container .rec-style-label select { min-height: 44px; padding: 7px; }
   .memphis-rec-container .rec-filter-button { min-height: 44px; padding: 7px 10px; font-size: 12px; }
-  .memphis-rec-container .rec-control-summary { padding: 0 8px; gap: 0 8px; }
+  .memphis-rec-container .rec-masthead .rec-control-summary { padding: 0 8px; gap: 0 8px; }
   .memphis-rec-container .rec-filter-chip { min-height: 44px; padding: 4px 6px; font-size: 11px; }
   .memphis-rec-container .rec-active-filters > .rec-text-button { font-size: 11px; }
   .memphis-rec-container .rec-grid { gap: 14px; }

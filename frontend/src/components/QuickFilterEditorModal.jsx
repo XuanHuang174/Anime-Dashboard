@@ -289,18 +289,18 @@ function QuickFilterEditorModal({
             <div className="shrink-0 px-4 pt-3 sm:px-5"><div className="mb-3 flex items-center justify-between">
               <h3 className="border-2 border-black bg-white px-3 py-1.5 text-xs font-black shadow-[3px_3px_0_#111]">{editingId ? '修改组合' : '创建新组合'}</h3>
               {editingId && <button type="button" onClick={resetForm} className="border-2 border-black bg-[#f4f1ea] px-2.5 py-1 text-xs font-black shadow-[2px_2px_0_#111] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none">取消编辑</button>}
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2"><label className="block text-xs font-black text-black">筛选名称
+            </div></div>
+            <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto p-4 custom-scrollbar sm:px-5 md:grid-cols-2">
+            <div className="quick-filter-basics grid gap-4 md:col-span-2 md:grid-cols-2"><label className="block min-w-0 text-xs font-black text-black">筛选名称
               <input value={form.name} maxLength={30} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} className={fieldClass} placeholder="例如：治愈日常" />
             </label>
-            <label className="block text-xs font-black text-black">匹配方式
+            <label className="block min-w-0 text-xs font-black text-black">匹配方式
               <select value={form.match_mode} onChange={(event) => setForm((current) => ({ ...current, match_mode: event.target.value }))} className={fieldClass}>
                 <option value="any">包含条件命中任意一项</option>
                 <option value="all">包含条件必须全部满足</option>
               </select>
             </label>
-            </div></div>
-            <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto p-4 custom-scrollbar sm:px-5 md:grid-cols-2">
+            </div>
             <fieldset className="min-w-0 border-[3px] border-black bg-white p-3 md:col-span-2">
               <legend className="px-1 text-xs font-black">放送年份范围（含起止年份）</legend>
               <div className="grid grid-cols-2 gap-3">

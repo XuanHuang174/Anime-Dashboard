@@ -8,7 +8,7 @@ import { page, detail, tagPage, tagDetail, query, seed, versions, scope, adultSc
 import contract from './recommendationExplorationContract.json'
 import { normalizeExplorationSearch } from '../../src/utils/recommendationExploration.js'
 import { preferences, profileData, coldState, versions as profileVersions } from './profileSampling.js'
-import { browsePage } from './browseContract.js'
+import { browsePage, browseRow } from './browseContract.js'
 import SeriesNavigation from '../../src/router/SeriesNavigation.jsx'
 import SeriesRelations from '../../src/pages/SeriesRelations.jsx'
 import { related, annotations } from './seriesExplorationContract.js'
@@ -42,6 +42,8 @@ let feedbackVersion = 0
 let reminderVersion = 0, remindersCollapsed = true
 const reminderHidden = new Set()
 const snapshots = new Map(); let serial = 0
+const personalSelections = new Map()
+if (harnessParams.get('batchC') === '1') window.batchCHarness = { calls, expire: () => { for (const snap of snapshots.values()) snap.expires = 1 } }
 const fail = (status, code) => { throw { response: { status, data: { code } } } }
 let seriesWithdrawn = false
 const guardSeries = () => { if (seriesWithdrawn) fail(503, 'series_disabled') }
@@ -160,7 +162,14 @@ function scopedClient(selectedScope = 'safe', seriesPolicy = false) {
     profile: async () => profileData(), preferences: async () => preferences(),
     context: async () => ({ contract_version: 'recommendations.context.v1', rollout_revision: 'b'.repeat(64), browse_enabled: true,
       context: { ...profileVersions('8.5'), feedback_version: 0 } }),
-    browse: async options => ({ ...browsePage({ ...options, context: { ...profileVersions('8.5'), feedback_version: 0 } }), cold_start_state: coldState() }),
+    browse: async options => {
+      calls.push(`personal:${JSON.stringify(options)}`)
+      const parts = options.cursor?.split(':'), id = parts ? Number(parts[1]) : ++serial
+      if (!parts) personalSelections.set(id, options)
+      return { ...browsePage({ ...personalSelections.get(id), offset: parts ? Number(parts[2]) : 0,
+        makeCursor: offset => `personal:${id}:${offset}`, context: { ...profileVersions('8.5'), feedback_version: 0 } }), cold_start_state: coldState() }
+    },
+    detail: async id => ({ ...browseRow(id, { ...profileVersions('8.5'), feedback_version: 0 }), synopsis: '合成的长篇简介。'.repeat(200) }),
   }
 }
 function mockSeries(source) {

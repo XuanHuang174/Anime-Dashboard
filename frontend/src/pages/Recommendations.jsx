@@ -344,6 +344,12 @@ function RecommendationWorkspace({ client, sessionScope, cache, adult, setAdult,
         onReload={reloadFeedback} /> : null}
       onClose={closePanel} resourceOpen={panel.kind === 'detail' && detail.status === 'ready' && detail.resourceOpen}
       onResourceClose={detailController.closeResources} resourceTriggerRef={resourceTrigger}
+      footer={panel.kind === 'detail' && detail.status === 'ready' ? <RecommendationDetailActions item={detail.item} resourceOpen={detail.resourceOpen}
+                onSimilar={capabilities?.navigation?.[1]?.available ? item => { closePanel(); navigate(`/recommendations/similar?seed=${item.bangumiId}`) } : undefined}
+                resourceTriggerRef={resourceTrigger}
+                onResourceOpen={detailController.openResources} onResourceClose={detailController.closeResources} onClose={closePanel}
+                onWant={addWant} operation={want.operations[detail.item.bangumiId]} onIdentity={openWantIdentity}
+                writeBlocked={feedback.state.operations[detail.item.bangumiId]?.status === 'saving' || feedback.state.operations[detail.item.bangumiId]?.uncertain} /> : null}
       resourcePanel={panel.kind === 'detail' && detail.status === 'ready' ? <RecommendationResourcePanel
         item={detail.item} open={detail.resourceOpen}
         sessionKey={`${detail.selection.session}:${detail.resourceSession || 0}:${detail.item.bangumiId}:${detail.item.evidenceToken || ''}`}
@@ -366,16 +372,10 @@ function RecommendationWorkspace({ client, sessionScope, cache, adult, setAdult,
           onClick={() => { if (detail.snapshotChanged) { closePanel(); reload() } else detailController.retry() }}>{detail.snapshotChanged ? '重新加载推荐' : '重试详情'}</button></div>
           : <div className="rec-detail-content"><RecommendationCover item={detail.item} priority />
             <div><p className="rec-original-title">{detail.item.originalTitle}</p><RecommendationMeta item={detail.item} />
-              <h3>推荐依据</h3><RecommendationEvidence item={detail.item} expanded onReload={() => { closePanel(); reload() }} />
+              <h3>推荐依据</h3><RecommendationEvidence item={detail.item} onReload={() => { closePanel(); reload() }} />
               <ExplorationTagChips tags={detail.item.tags} beforeNavigate={closePanel} /><h3>故事简介</h3><p>{detail.item.synopsis || '暂未收录简介。'}</p>
               <SeriesSummary client={client} bangumiId={detail.item.bangumiId} />
               <CreditsSummary client={client} bangumiId={detail.item.bangumiId} />
-              <RecommendationDetailActions item={detail.item} resourceOpen={detail.resourceOpen}
-                onSimilar={capabilities?.navigation?.[1]?.available ? item => { closePanel(); navigate(`/recommendations/similar?seed=${item.bangumiId}`) } : undefined}
-                resourceTriggerRef={resourceTrigger}
-                onResourceOpen={detailController.openResources} onResourceClose={detailController.closeResources} onClose={closePanel}
-                onWant={addWant} operation={want.operations[detail.item.bangumiId]} onIdentity={openWantIdentity}
-                writeBlocked={feedback.state.operations[detail.item.bangumiId]?.status === 'saving' || feedback.state.operations[detail.item.bangumiId]?.uncertain} />
             </div></div>}
     </RecommendationDialog>}
     <BackToTop isModalOpen={Boolean(panel)} theme="memphis" />

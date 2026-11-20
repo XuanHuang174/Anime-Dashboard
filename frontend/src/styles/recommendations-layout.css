@@ -14,7 +14,7 @@
 .memphis-rec-container .rec-browse-help > summary { position: absolute; top: 5px; right: 10px; white-space: nowrap; cursor: pointer; min-height: 34px; display: flex; align-items: center; gap: 6px; font-weight: 700; }
 .memphis-rec-container .rec-browse-help > summary::after { content: '+'; width: 1em; flex-shrink: 0; text-align: center; }
 .memphis-rec-container .rec-browse-help[open] > summary::after { content: '−'; }
-.memphis-rec-container .rec-browse-help-body { padding: 10px 14px; border: 1px solid #ded6c9; background: white; line-height: 1.8; }
+.memphis-rec-container .rec-browse-help-body { padding: 10px 14px; border: 2px solid var(--rec-ink, #111); background: var(--rec-cream, #fff5ee); line-height: 1.8; }
 .memphis-rec-container .rec-browse-help-body p { margin: 5px 0; }
 .memphis-rec-container .rec-browse-help-body .rec-category-guide { margin: 0; padding: 0; }
 .memphis-rec-container .rec-results { scroll-margin-top: 16px; }

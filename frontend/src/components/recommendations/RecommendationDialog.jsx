@@ -5,7 +5,7 @@ import { lockDialogBody } from '../../utils/dialogBodyLock.js'
 
 // Native modal dialog supplies top-layer stacking, inert background and focus trap.
 export default function RecommendationDialog({ title, children, onClose, kind = 'detail', busy = false,
-  resourceOpen = false, resourcePanel, onResourceClose, resourceTriggerRef, headerActions, fallbackFocusRef }) {
+  resourceOpen = false, resourcePanel, onResourceClose, resourceTriggerRef, headerActions, fallbackFocusRef, footer }) {
   const ref = useRef(null)
   const wasResourceOpen = useRef(false)
   const [compact, setCompact] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches)
@@ -72,8 +72,9 @@ export default function RecommendationDialog({ title, children, onClose, kind = 
     {resourcePanel ? <div className="rec-dialog-workspace">
       <div className="rec-dialog-main" inert={resourceOpen && compact} aria-hidden={resourceOpen && compact}>
         <div className="rec-dialog-body">{children}</div>
+        {footer && <footer className="rec-detail-footer">{footer}</footer>}
       </div>
       <div className="rec-dialog-resource" inert={!resourceOpen} aria-hidden={!resourceOpen}>{resourcePanel}</div>
-    </div> : <div className="rec-dialog-body">{children}</div>}
+    </div> : <><div className="rec-dialog-body">{children}</div>{footer && <footer className="rec-detail-footer">{footer}</footer>}</>}
   </dialog>
 }

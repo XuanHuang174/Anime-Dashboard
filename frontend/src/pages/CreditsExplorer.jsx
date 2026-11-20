@@ -1,3 +1,4 @@
+import { openCardDetail } from '../utils/recommendationCardInteraction.js'
 import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import defaultClient from '../api/recommendations.js'
@@ -259,8 +260,8 @@ function EntityWorks({ client, kind, person, scope, session, cache, onReady, adu
       {state.pending && <p role="status">{data ? '正在按新条件读取，当前保留上次结果…' : '正在读取关联作品…'}</p>}
       {data && <><div className="credits-work-batches">{batches.map(rows => <SeriesAnnotationsProvider key={`${data.credits_revision}:${rows[0].bangumi_id}`}
         client={client} enabled={seriesEnabled} blocked={state.stale || state.pending || writing} items={rows.map(creditItem)}>
-        <div className="credits-work-grid">{rows.map(row => <article className="rec-card credits-work" key={row.bangumi_id}>
-        <RecommendationCover item={creditItem(row)} /><div className="rec-card-body"><h3>{row.title_zh || row.title_jp}</h3><RecommendationMeta item={creditItem(row)} /><SeriesBadges item={creditItem(row)} />
+        <div className="credits-work-grid">{rows.map(row => <article className="rec-card credits-work" key={row.bangumi_id} onClick={event => openCardDetail(event, row.bangumi_id, controller.select, blocked)}>
+        <RecommendationCover item={creditItem(row)} onDetail={() => controller.select(row.bangumi_id)} disabled={blocked} /><div className="rec-card-body"><h3><button type="button" className="rec-title-button" disabled={blocked} onClick={() => controller.select(row.bangumi_id)}>{row.title_zh || row.title_jp}</button></h3><RecommendationMeta item={creditItem(row)} /><SeriesBadges item={creditItem(row)} />
           <p className="credits-proof">{kind === 'studio' ? '参与职务：动画制作' : `饰演：${row.evidence.characters.slice(0, 3).map(c => c.name).join('、')}${row.evidence.characters.length > 3 ? ` 等 ${row.evidence.characters.length} 个角色` : ''}`}</p>
           {row.evidence.source_episode_note && <p>来源备注：{row.evidence.source_episode_note}</p>}
           {kind === 'voice_actor' && (row.evidence.characters.length > 3 || row.evidence.characters.some(c => c.source_episode_note)) && <details><summary>完整角色与出演备注</summary>{row.evidence.characters.map(c => <p key={c.character_id}>{c.name}{c.source_episode_note ? `：${c.source_episode_note}` : ''}</p>)}</details>}
@@ -279,6 +280,9 @@ function EntityWorks({ client, kind, person, scope, session, cache, onReady, adu
     </RecommendationDialog>}
     {state.detail && <RecommendationDialog title={state.detail.item?.title || '参与作品详情'} onClose={controller.closeDetail}
       resourceOpen={resources && state.detail.status === 'ready'} onResourceClose={() => setResources(false)} resourceTriggerRef={resourceTrigger}
+      footer={state.detail.status === 'ready' ? <div className="credits-work-actions"><CreditsWant row={{ bangumi_id: state.detail.target, watch_status: state.detail.item.watchStatus }}
+            operation={state.operations[state.detail.target]} blocked={blocked} onWant={() => controller.want(state.detail.target)} />
+            <button ref={resourceTrigger} className="rec-button" aria-expanded={resources} onClick={() => setResources(v => !v)}>🧲 寻找资源</button></div> : null}
       resourcePanel={state.detail.status === 'ready' ? <RecommendationResourcePanel item={state.detail.item} open={resources}
         sessionKey={`${session}:${kind}:${person}:${state.detail.target}`} onClose={() => setResources(false)} /> : null}>
       {state.detail.status === 'loading' ? <p role="status">正在读取作品详情与本人状态…</p> : state.detail.status === 'error'
@@ -288,9 +292,6 @@ function EntityWorks({ client, kind, person, scope, session, cache, onReady, adu
           <h3>故事简介</h3><p>{state.detail.item.synopsis || '暂未收录简介。'}</p><p>{state.detail.item.tags.join(' · ')}</p>
           <SeriesSummary client={client} bangumiId={state.detail.item.bangumiId} />
           <CreditsSummary client={client} bangumiId={state.detail.item.bangumiId} />
-          <div className="credits-work-actions"><CreditsWant row={{ bangumi_id: state.detail.target, watch_status: state.detail.item.watchStatus }}
-            operation={state.operations[state.detail.target]} blocked={blocked} onWant={() => controller.want(state.detail.target)} />
-            <button ref={resourceTrigger} className="rec-button" aria-expanded={resources} onClick={() => setResources(v => !v)}>🧲 寻找资源</button></div>
           {state.stale && <p role="status">{state.message}</p>}</div></div>}
     </RecommendationDialog>}</>
 }
