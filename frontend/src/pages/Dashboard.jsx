@@ -37,6 +37,8 @@ import useJournalDisplayMode from '../hooks/useJournalDisplayMode.js'
 import useJournalListPreferences from '../hooks/useJournalListPreferences.js'
 import JournalIdentityReview from '../components/JournalIdentityReview.jsx'
 import { createVisiblePoller } from '../utils/visiblePoller.js'
+import useReadRecovery from '../hooks/useReadRecovery.js'
+import { connectionRecovery, isConnectionFailure } from '../api/connectionRecovery.js'
 
 gsap.registerPlugin(useGSAP)
 
@@ -96,6 +98,9 @@ function Dashboard() {
   const [records, setRecords] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
+  const [recordsConnectionFailure, setRecordsConnectionFailure] = useState(false)
+  const recordsRecovery = useReadRecovery()
+  const featuredRecovery = useReadRecovery()
   const [selectedItem, setSelectedItem] = useState(null)
   const [identityPanel, setIdentityPanel] = useState(null)
   const [identityRevision, setIdentityRevision] = useState(0)
@@ -300,6 +305,10 @@ function Dashboard() {
           api.get(statsEndpoint, { signal: controller.signal }),
           api.get(optionsEndpoint, { signal: controller.signal }),
         ])
+        if (controller.signal.aborted) return
+        const failedRead = [recordsResult, filtersResult, statsResult, optionsResult].find(result => result.status === 'rejected' && isConnectionFailure(result.reason))
+        if (failedRead) recordsRecovery.markFailed(failedRead.reason)
+        else recordsRecovery.markReady()
         if (recordsResult.status === 'rejected') throw recordsResult.reason
 
         const recordsResponse = recordsResult.value
@@ -312,6 +321,7 @@ function Dashboard() {
         recordsTotalRef.current = nextRecordsTotal
         setRecordsTotal(nextRecordsTotal)
         setLastLoadedPage(currentPage)
+        setRecordsConnectionFailure(false)
 
         const filterData = isSharedJournal
           ? optionsResponse?.data?.quick_filters
@@ -322,7 +332,9 @@ function Dashboard() {
         if (statsResponse) setStatsData(statsResponse.data)
         if (optionsResponse) setFilterOptions(optionsResponse.data)
       } catch (requestError) {
-        if (requestError.code === 'ERR_CANCELED') return
+        if (controller.signal.aborted || ['ERR_CANCELED', 'SESSION_CHANGED'].includes(requestError.code)) return
+        recordsRecovery.markFailed(requestError)
+        setRecordsConnectionFailure(isConnectionFailure(requestError))
 
         if (!isSharedJournal && requestError.response?.status === 401) {
           clearTokens()
@@ -361,6 +373,7 @@ function Dashboard() {
     pageSize,
     paginatedFilterKey,
     recordsRefreshKey,
+    recordsRecovery.readVersion,
     sharedUsername,
   ])
 
@@ -373,17 +386,21 @@ function Dashboard() {
 
     api.get('featured-submissions/state/', { signal: controller.signal })
       .then((response) => {
+        if (controller.signal.aborted) return
+        featuredRecovery.markReady()
         setFeaturedSubmissions(response.data.submissions ?? [])
         setFeaturedLimit(Number(response.data.max_featured_limit) || 0)
       })
       .catch((requestError) => {
+        featuredRecovery.markFailed(requestError)
+        if (controller.signal.aborted || isConnectionFailure(requestError) || requestError.code === 'SESSION_CHANGED') return
         if (requestError.code !== 'ERR_CANCELED') {
           showToast('精选专栏状态加载失败，请稍后刷新重试。', 'error')
         }
       })
 
     return () => controller.abort()
-  }, [featuredRefreshKey, isSharedJournal, showToast])
+  }, [featuredRefreshKey, isSharedJournal, showToast, featuredRecovery.readVersion])
 
   useEffect(() => {
     if (isSharedJournal) return undefined
@@ -403,6 +420,7 @@ function Dashboard() {
       onError: (requestError) => {
         if (
           requestError.code !== 'ERR_CANCELED'
+          && !isConnectionFailure(requestError)
           && requestError.response?.status !== 401
         ) {
           showToast('站内通知读取失败，请稍后重试。', 'error')
@@ -410,11 +428,17 @@ function Dashboard() {
       },
     })
     poller.wake()
+    let connectionVersion = connectionRecovery.getSnapshot().version
+    const unsubscribe = connectionRecovery.subscribe(() => {
+      const next = connectionRecovery.getSnapshot().version
+      if (next !== connectionVersion) { connectionVersion = next; poller.recover() }
+    })
     window.addEventListener('focus', poller.wake)
     document.addEventListener('visibilitychange', poller.wake)
 
     return () => {
       poller.stop()
+      unsubscribe()
       window.removeEventListener('focus', poller.wake)
       document.removeEventListener('visibilitychange', poller.wake)
       controller.abort()
@@ -967,7 +991,7 @@ function Dashboard() {
         returnLabel={isAdminJournalReview ? '返回通行证审批' : '返回共创大厅'}
       />
 
-      {isPreviewMode && isHeaderEntranceComplete && hasLoadedRecords && !error && (
+      {isPreviewMode && isHeaderEntranceComplete && hasLoadedRecords && (!error || recordsConnectionFailure) && (
         <div className="dashboard-content-piece dashboard-entrance-piece relative z-20 mx-auto -mt-6 max-w-7xl px-4 sm:px-6 lg:px-8">
           <StatsSummary db={db} statsData={statsData} theme="memphis" />
         </div>
@@ -990,14 +1014,15 @@ function Dashboard() {
           </div>
         )}
 
-        {isHeaderEntranceComplete && error && (
+        {isHeaderEntranceComplete && error && !recordsConnectionFailure && (
           <div role="alert" className="border-4 border-black bg-[#ff6b6b] px-5 py-5 font-black text-black shadow-[8px_8px_0_#111]">
             <i className="fa-solid fa-circle-exclamation mr-2"></i>
             {error}
           </div>
         )}
 
-        {isHeaderEntranceComplete && hasLoadedRecords && !error && (
+        {hasLoadedRecords && recordsConnectionFailure && <p role="status" className="mb-4 border-[3px] border-black bg-[#fff2a8] p-3 text-sm font-bold">当前显示上次成功读取的内容，新的分页或筛选结果暂未同步。</p>}
+        {isHeaderEntranceComplete && hasLoadedRecords && (!error || recordsConnectionFailure) && (
           <>
             <div className="dashboard-content-piece dashboard-entrance-piece">
             <FilterBar

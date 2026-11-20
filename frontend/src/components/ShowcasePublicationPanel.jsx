@@ -4,6 +4,8 @@ import { getAccessToken } from '../auth/tokenStorage.js'
 import { recommendationSessionScope } from '../utils/recommendationSession.js'
 import { createPublicationClient, createPublicationController } from '../utils/showcasePublication.js'
 import './ShowcasePublicationPanel.css'
+import useReadRecovery from '../hooks/useReadRecovery.js'
+import { connectionRecovery } from '../api/connectionRecovery.js'
 
 const defaultClient = createPublicationClient(api)
 const readScope = () => recommendationSessionScope(getAccessToken())
@@ -19,16 +21,22 @@ export default function ShowcasePublicationPanel(props) {
 }
 
 function PublicationWorkspace({ refreshKey, scope, client = defaultClient }) {
-  const controller = useMemo(() => createPublicationController(client, () => readScope() === scope), [client, scope])
+  const recovery = useReadRecovery()
+  const connection = useSyncExternalStore(connectionRecovery.subscribe, connectionRecovery.getSnapshot, connectionRecovery.getSnapshot)
+  const controller = useMemo(() => createPublicationController({ ...client, pending: async (...args) => {
+    try { const data = await client.pending(...args); recovery.markReady(); return data }
+    catch (error) { recovery.markFailed(error); throw error }
+  } }, () => readScope() === scope), [client, scope])
   const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot)
   const [selected, setSelected] = useState({})
   const [open, setOpen] = useState(false)
   const summary = useRef(null)
   useEffect(() => { controller.activate(); return () => controller.dispose() }, [controller])
-  useEffect(() => { setSelected({}); controller.read(1) }, [controller, refreshKey])
+  useEffect(() => { setSelected({}); controller.read(1) }, [controller, refreshKey, recovery.readVersion])
   useEffect(() => { setSelected({}) }, [state.items])
   if (state.canPublish === false || (!state.count && !state.saved && !state.error)) return null
   if (state.saved && !state.count && !state.error) return <section className="showcase-publication" role="status">作品已公开，可在公共番剧库中搜索。</section>
+  if (state.canPublish === null && connection.phase !== 'idle') return null
   if (state.canPublish === null) return <section className="showcase-publication" role="status">
     公共库状态尚未读取。<button type="button" disabled={state.loading} onClick={() => controller.read(1)}>重试读取</button></section>
   const busy = state.busy !== null || state.loading

@@ -50,3 +50,16 @@ test('temporary failures back off and successful response resets the interval', 
   assert.equal([...state.timers.values()][0].delay, 30000)
   poller.stop()
 })
+
+test('explicit network recovery wakes a transport failure but cannot bypass Retry-After', async () => {
+  for (const limited of [false, true]) {
+    const { state, poller } = fixture(() => {
+      throw limited ? { response: { status: 429, data: { retry_after: 180 } } } : { code: 'ERR_NETWORK' }
+    })
+    poller.wake(); await settle()
+    state.time = 1000
+    poller.recover(); poller.recover(); await settle()
+    assert.equal(state.calls, limited ? 1 : 2)
+    poller.stop()
+  }
+})

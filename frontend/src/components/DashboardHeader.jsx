@@ -4,6 +4,8 @@ import AccountDeletionModal from './AccountDeletionModal.jsx'
 import JournalHeaderActions from './JournalHeaderActions.jsx'
 import JournalRecommendationBanner from './JournalRecommendationBanner.jsx'
 import ProfileModal from './ProfileModal.jsx'
+import useReadRecovery from '../hooks/useReadRecovery.js'
+import { isConnectionFailure } from '../api/connectionRecovery.js'
 
 const DEFAULT_SUBTITLE = '记录每一次与动画相遇，也珍藏属于自己的追番时光。'
 
@@ -38,14 +40,17 @@ function DashboardHeader({
   const [isAccountDeletionOpen, setIsAccountDeletionOpen] = useState(false)
   const [isModeTransitioning, setIsModeTransitioning] = useState(false)
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false)
+  const profileRecovery = useReadRecovery()
 
   useEffect(() => {
     if (isSharedJournal) return undefined
     const controller = new AbortController()
     api.get('user/profile/', { signal: controller.signal })
-      .then((response) => setProfile(response.data))
+      .then((response) => { if (!controller.signal.aborted) { setProfile(response.data); profileRecovery.markReady() } })
       .catch((error) => {
         if (error.code === 'ERR_CANCELED') return
+        profileRecovery.markFailed(error)
+        if (isConnectionFailure(error) || error.code === 'SESSION_CHANGED') return
         if (error.response?.status === 401) {
           onUnauthorized()
           return
@@ -53,7 +58,7 @@ function DashboardHeader({
         showToast?.('个人资料加载失败，暂时使用默认头像。', 'error')
       })
     return () => controller.abort()
-  }, [isSharedJournal])
+  }, [isSharedJournal, profileRecovery.readVersion])
 
   useEffect(() => {
     if (!isMenuOpen) return undefined
@@ -88,7 +93,7 @@ function DashboardHeader({
   const displayName = activeProfile?.nickname?.trim()
     || activeProfile?.username
     || '手账主理人'
-  const subtitle = activeProfile?.showcase_subtitle?.trim() || DEFAULT_SUBTITLE
+  const subtitle = activeProfile ? activeProfile.showcase_subtitle?.trim() || DEFAULT_SUBTITLE : '个人资料暂未读取，连接恢复后将自动更新。'
 
   const avatar = (sizeClass, preview = false) => (
     <span
@@ -271,7 +276,7 @@ function DashboardHeader({
                     {!isSharedJournal && dropdownMenu}
                   </span>
                   <span className="inline-block bg-black px-3 py-2 text-white">
-                    {displayName} 的番剧汇总
+                    {activeProfile ? `${displayName} 的番剧汇总` : '我的番剧手账'}
                   </span>
                 </h1>
 
@@ -312,7 +317,7 @@ function DashboardHeader({
 
                 <div className="min-w-0">
                   <h1 className="truncate text-2xl font-black tracking-tight sm:text-3xl">
-                    {displayName}的番剧手账房
+                    {activeProfile ? `${displayName}的番剧手账房` : '我的番剧手账房'}
                   </h1>
                   <div className="mt-1 flex max-w-2xl items-start gap-2 text-xs font-bold leading-5 sm:text-sm">
                     <p className="line-clamp-2">{subtitle}</p>

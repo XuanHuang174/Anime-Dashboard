@@ -1,4 +1,5 @@
 import { retryAfterMs } from './retryAfter.js'
+import { isConnectionFailure } from './connectionRecovery.js'
 
 export function installSessionRefresh(api, refreshClient, {
   getAccessToken, getRefreshToken, saveTokens, clearTokens, onExpired,
@@ -69,6 +70,13 @@ export function installSessionRefresh(api, refreshClient, {
       )) {
         clearTokens()
         if (!request.optionalAuth) onExpired()
+      }
+      if (isConnectionFailure(refreshError)) {
+        // Expose the original read to the connection UI without replaying the
+        // rotating refresh POST or mutating the shared cooldown error object.
+        throw Object.assign(new Error('登录状态刷新暂时无法连接，请重新连接后重试。'), {
+          code: refreshError.code, config: request, sessionRefreshFailure: true,
+        })
       }
       throw refreshError
     }
