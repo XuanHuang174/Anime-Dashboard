@@ -17,6 +17,8 @@ const emptyManualForm = {
   description: '',
   posterUrl: '',
   baikeUrl: '',
+  bangumiUrl: '',
+  autofillTicket: '',
   watchStatus: 'completed',
   personalScore: '',
   review: '',
@@ -578,6 +580,7 @@ function AddAnimeModal({
         description: scraped.description,
         posterUrl: scraped.posterUrl,
         baikeUrl: scraped.baikeUrl,
+        bangumiUrl: scraped.bangumiUrl,
       }
       const filledFieldNames = Object.entries(autofillFieldMap)
         .filter(([, value]) => typeof value === 'string' && value.trim())
@@ -601,6 +604,8 @@ function AddAnimeModal({
         studio: keepExistingWhenBlank(scraped.studio, current.studio),
         episodes: keepExistingWhenBlank(scraped.episodes, current.episodes),
         tags: keepExistingWhenBlank(scraped.tags, current.tags),
+        bangumiUrl: scraped.bangumiUrl || '',
+        autofillTicket: scraped.autofillTicket || '',
         description: keepExistingWhenBlank(
           scraped.description,
           current.description,
@@ -685,6 +690,8 @@ function AddAnimeModal({
 
     const formData = new FormData()
     formData.append('anime_data', JSON.stringify(animeData))
+    formData.append('bangumi_url', manualForm.bangumiUrl.trim())
+    if (manualForm.autofillTicket) formData.append('autofill_ticket', manualForm.autofillTicket)
     formData.append('watch_status', manualForm.watchStatus)
     formData.append('review', manualForm.review)
     if (score !== null) formData.append('personal_score', String(score))
@@ -973,7 +980,8 @@ function AddAnimeModal({
                   <label className="block"><span className={labelClass}>制作公司</span><input name="studio" value={manualForm.studio} onChange={updateManualField} className={inputClass} data-autofill-field="studio" /></label>
                   <label className="block"><span className={labelClass}>话数情况</span><input name="episodes" value={manualForm.episodes} onChange={updateManualField} className={inputClass} placeholder="例如 12、12+1" data-autofill-field="episodes" /></label>
                   <label className="block"><span className={labelClass}>萌娘百科 URL</span><input name="baikeUrl" type="url" value={manualForm.baikeUrl} onChange={updateManualField} className={inputClass} placeholder="https://zh.moegirl.org.cn/..." data-autofill-field="baikeUrl" /></label>
-                  <label className="block sm:col-span-2"><span className={labelClass}>公共标签</span><input name="tags" value={manualForm.tags} onChange={updateManualField} className={inputClass} placeholder="使用逗号分隔，例如：日常，治愈，原创" data-autofill-field="tags" /></label>
+                  <label className="block"><span className={labelClass}>公共标签</span><input name="tags" value={manualForm.tags} onChange={updateManualField} className={inputClass} placeholder="使用逗号分隔，例如：日常，治愈，原创" data-autofill-field="tags" /></label>
+                  <label className="block"><span className={labelClass}>Bangumi 作品 URL</span><input name="bangumiUrl" type="url" value={manualForm.bangumiUrl} readOnly={Boolean(manualForm.autofillTicket)} onChange={updateManualField} className={inputClass} placeholder="https://bgm.tv/subject/..." data-autofill-field="bangumiUrl" />{manualForm.autofillTicket && <button type="button" className="mt-2 text-xs font-bold underline" onClick={() => setManualForm(current => ({ ...current, autofillTicket: '', bangumiUrl: '' }))}>清除智能录入来源，改为手动填写</button>}</label>
                   <label className="flex min-h-[220px] flex-col"><span className={labelClass}>剧情简介</span><textarea name="description" value={manualForm.description} onChange={updateManualField} className={`${inputClass} min-h-[190px] flex-1 resize-y leading-6`} data-autofill-field="description" /></label>
 
                   <div className="border-[3px] border-black bg-[#ffe66d] p-4 shadow-[6px_6px_0_#ff8fab]">

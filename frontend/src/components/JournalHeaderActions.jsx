@@ -5,7 +5,7 @@ import JournalDataTransfer from './JournalDataTransfer.jsx'
 import PublicJournalShareButton from './PublicJournalShareButton.jsx'
 
 export default function JournalHeaderActions({ isPreviewMode, onReturnHome, onTogglePreview, onImportBangumi,
-  onRecordsImported, onFindResources, onExportCsv, csvDisabled, csvCount, publicStatus, onStatusChange, showToast }) {
+  onRecordsImported, onFindResources, onExportCsv, csvDisabled, csvCount, publicStatus, onStatusChange, showToast, onReviewIdentity }) {
   const [mobile, setMobile] = useState(() => window.innerWidth < 768)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [activeMenu, setActiveMenu] = useState('')
@@ -35,13 +35,14 @@ export default function JournalHeaderActions({ isPreviewMode, onReturnHome, onTo
               <button type="button" className="journal-menu-item journal-menu-item--pink" disabled={isExporting || isImporting}
                 onClick={run(onImport)}>📥 导入模板 (JSON)</button>
               <button type="button" className="journal-menu-item" onClick={run(onImportBangumi)}>☁ Bangumi 导入</button>
-              {csvButton}
+              <button type="button" className="journal-menu-item" onClick={run(onReviewIdentity)}><i className="fa-solid fa-link" aria-hidden="true" /> 核对标准作品</button>{csvButton}
             </MemphisDropdown>}
             <button type="button" className="dashboard-arcade-button bg-[#4ecdc4]"
               onClick={run(onFindResources)}>🧲 寻找资源</button>
             {isPreviewMode && <MemphisDropdown label="🛠 更多功能" className="bg-[#ff8fab]"
               open={activeMenu === 'tools'} onOpenChange={(value) => setActiveMenu(value ? 'tools' : '')} owner={owner} inline={mobile}>
               <Link className="journal-menu-item" to="/featured" onClick={close}><i className="fa-solid fa-medal" aria-hidden="true" /> 浏览精选专栏</Link>
+              <button type="button" className="journal-menu-item" onClick={run(onReviewIdentity)}><i className="fa-solid fa-link" aria-hidden="true" /> 核对标准作品</button>
               <Link className="journal-menu-item journal-menu-item--pink" to="/universe" onClick={close}><i className="fa-solid fa-earth-asia" aria-hidden="true" /> 番剧共创宇宙</Link>
               {csvButton}<div onClick={close}>{shareButton}</div>
             </MemphisDropdown>}

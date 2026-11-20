@@ -99,6 +99,7 @@ from .tag_services import (
     replace_record_tag_colors,
 )
 from .throttles import SensitiveAuthRateThrottle, AuthSustainedThrottle, LoginAccountThrottle
+from .journal_sources import source_ticket, validate_record_source
 from .showcase_services import (PUBLICATION_CONTRACT, confirm_showcase_publication,
     imported_visibility_defaults, publication_candidates, publish_new_showcase_record)
 from .showcase_policy import filter_publication_content, PublicContentResponseMixin
@@ -496,6 +497,8 @@ class ExternalAnimeAutofillView(ExternalMetadataAPIView):
         return Response(
             {
                 "bangumiId": details["bangumi_id"],
+                "bangumiUrl": f'https://bgm.tv/subject/{details["bangumi_id"]}',
+                "autofillTicket": source_ticket(request.user, details['bangumi_id']),
                 "chineseTitle": details["chinese_title"],
                 "japaneseTitle": details["japanese_title"],
                 "airDate": details["air_date"],
@@ -1863,7 +1866,7 @@ class UserJournalExportView(APIView):
     def get(self, request):
         records = (
             UserAnimeRecord.objects.filter(user=request.user)
-            .select_related("anime")
+            .select_related("anime", "recommendation_identity__catalog_anime")
             .prefetch_related("tag_preferences")
             .order_by("pk")
         )
@@ -1898,6 +1901,7 @@ class UserJournalExportView(APIView):
                         "description": anime_data["description"],
                         "poster_url": poster_url,
                         "baike_url": anime_data["baike_url"],
+                        "bangumi_url": anime_data['bangumi_url'],
                         "base_tags": anime_data["base_tags"],
                         "tag_colors": anime_data["tag_colors"],
                     },
@@ -2013,6 +2017,7 @@ class UserJournalImportView(APIView):
                 for item in validated_records:
                     anime_data = dict(item["anime"])
                     identity_references.append(anime_data.pop('identity_reference', None))
+                    source_url = anime_data.pop('bangumi_url', '')
                     private_tag_colors = anime_data.pop("tag_colors", {})
                     lookup = {
                         "chinese_title": anime_data.pop("chinese_title"),
@@ -2043,6 +2048,7 @@ class UserJournalImportView(APIView):
                             private_description=private_metadata.get("description", ""),
                             private_poster_url=private_metadata.get("poster_url", ""),
                             private_baike_url=private_metadata.get("baike_url", ""),
+                            private_bangumi_url=source_url,
                             private_base_tags=private_metadata.get("base_tags", []),
                         )
                     )
@@ -2284,7 +2290,7 @@ class UserAnimeRecordViewSet(viewsets.ModelViewSet):
 
         return (
             UserAnimeRecord.objects.filter(user=self.request.user)
-            .select_related("user", "anime")
+            .select_related("user", "anime", "recommendation_identity__catalog_anime")
             .prefetch_related("tag_preferences")
         )
 
@@ -2396,6 +2402,9 @@ class UserAnimeRecordViewSet(viewsets.ModelViewSet):
         )
         input_serializer.is_valid(raise_exception=True)
         record = input_serializer.save()
+        from recommendations.binding import try_auto_link
+        try_auto_link(record)
+        validate_record_source(record, record.private_bangumi_url)
         output_serializer = UserAnimeRecordSerializer(
             record,
             context=self.get_serializer_context(),
@@ -2490,6 +2499,8 @@ class UserAnimeRecordViewSet(viewsets.ModelViewSet):
         )
         anime_serializer.is_valid(raise_exception=True)
         record_serializer.is_valid(raise_exception=True)
+        if 'bangumi_url' in anime_serializer.validated_data:
+            anime_serializer.validated_data['bangumi_url'] = validate_record_source(record, anime_serializer.validated_data['bangumi_url'])
 
         metadata_field_map = {
             "chinese_title": "private_chinese_title",
@@ -2501,6 +2512,7 @@ class UserAnimeRecordViewSet(viewsets.ModelViewSet):
             "poster_url": "private_poster_url",
             "poster_image": "private_poster_image",
             "baike_url": "private_baike_url",
+            "bangumi_url": "private_bangumi_url",
             "base_tags": "private_base_tags",
         }
         for source_field, target_field in metadata_field_map.items():

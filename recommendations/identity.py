@@ -72,7 +72,7 @@ def has_possible_legacy_record(*, user, anime, records=None):
         if (row['identity_state'] != 'linked' and
                 row.get('recommendation_identity__catalog_anime__bangumi_id') == anime.bangumi_id):
             return True  # Stale/revoked aliases require confirmation, not a duplicate.
-        if row['anime__bgm_id'] or row['identity_state'] == 'linked':
+        if row.get('verified_bangumi_id') or row['anime__bgm_id'] or row['identity_state'] == 'linked':
             continue  # A valid alias for another season is not an unresolved identity.
         names = (row['metadata']['title_zh'], row['metadata']['title_jp'])
         if any(lookup_title(name) in expected for name in names if name):
@@ -122,7 +122,7 @@ def recommendation_identity(*, user, bangumi_id, scope_context=None):
         'anime_id': owned['anime_id'] if owned else shared.pk if shared else None,
         'record_id': owned['pk'] if owned else None,
         'watch_status': owned['watch_status'] if owned else None,
-        'mapping_status': 'aligned_alias' if owned and owned['anime__bgm_id'] != identity else 'identity_conflict' if release_conflict else 'aligned' if shared else 'unlinked',
+        'mapping_status': 'aligned_alias' if owned and (owned.get('verified_bangumi_id') or owned['anime__bgm_id']) != identity else 'identity_conflict' if release_conflict else 'aligned' if shared else 'unlinked',
         'requires_identity_confirmation': False if owned else possible_legacy or release_conflict,
         'possible_legacy_record': possible_legacy,
         'identity_service_ready': records.schema_available,

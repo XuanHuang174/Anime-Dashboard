@@ -301,6 +301,8 @@ class UserAnimeRecord(models.Model):
         blank=True,
         default="",
     )
+    private_bangumi_url = models.URLField('私人 Bangumi 条目链接', max_length=1000, blank=True, default='')
+    verified_bangumi_id = models.PositiveIntegerField('已核验的录入来源 ID', null=True, blank=True, editable=False)
     private_base_tags = models.JSONField(
         "私人基础标签",
         default=list,
@@ -406,6 +408,7 @@ class UserAnimeRecord(models.Model):
                 "poster_url": self.anime.poster_url,
                 "poster_image": self.anime.poster_image,
                 "baike_url": self.anime.baike_url,
+                "bangumi_url": self.private_bangumi_url,
                 "base_tags": list(self.anime.base_tags or []),
             }
         return {
@@ -418,6 +421,7 @@ class UserAnimeRecord(models.Model):
             "poster_url": self.private_poster_url,
             "poster_image": self.private_poster_image,
             "baike_url": self.private_baike_url,
+            "bangumi_url": self.private_bangumi_url,
             "base_tags": list(self.private_base_tags or []),
         }
 

@@ -14,6 +14,7 @@ import { getImageFileError, IMAGE_FILE_ACCEPT } from '../utils/imageUpload.js'
 import { mapRecordToAnimeItem } from '../utils/recordMapping.js'
 import './EditableDetailModal.css'
 import useTagPresets from '../hooks/useTagPresets.js'
+import { bangumiSubjectUrl, moegirlTitleUrl } from '../utils/journalSourceLinks.js'
 
 gsap.registerPlugin(useGSAP)
 
@@ -27,15 +28,6 @@ const presetTags = [
 
 const fieldClass = 'w-full border-2 border-black bg-white px-3 py-2 text-sm font-bold text-black shadow-[3px_3px_0_#111] outline-none transition-none placeholder:text-zinc-400 focus:translate-x-1 focus:translate-y-1 focus:bg-[#fff2a8] focus:shadow-none'
 const arcadeButton = 'border-[3px] border-black px-4 py-2.5 text-sm font-black text-black shadow-[5px_5px_0_#111] transition-none active:translate-x-[5px] active:translate-y-[5px] active:shadow-none disabled:cursor-not-allowed disabled:opacity-50'
-
-function isHttpUrl(value) {
-  try {
-    const url = new URL(value)
-    return url.protocol === 'http:' || url.protocol === 'https:'
-  } catch {
-    return false
-  }
-}
 
 function createForm(item) {
   const editableTags = [
@@ -57,6 +49,7 @@ function createForm(item) {
     cover: item.posterImage || item.posterUrl || item.cover || '',
     description: item.description ?? '',
     baikeUrl: item.baikeUrl ?? '',
+    bangumiUrl: item.bangumiUrl ?? '',
     score: item.score ?? '',
     status: item.status ?? 'plan',
     watchedEps: item.watchedEps ?? 0,
@@ -338,6 +331,7 @@ function EditableDetailModal({
       tag_colors: normalizedTagColors,
       description: formData.description.trim(),
       baike_url: formData.baikeUrl.trim(),
+      bangumi_url: formData.bangumiUrl.trim(),
     }
     const persistedCover = (
       renderedItem.posterImage
@@ -407,7 +401,6 @@ function EditableDetailModal({
     || formData.cover.trim()
     || renderedItem.posterImage
     || getCoverSrc({ title: formData.title || '番剧', cover: '' })
-  const validBaikeUrl = isHttpUrl(formData.baikeUrl.trim())
   const editorPanelOptions = [
     { value: 'tags', label: '标签管理', icon: 'fa-tags', activeClass: 'bg-[#ffe66d]' },
     { value: 'description', label: '剧情简介', icon: 'fa-align-left', activeClass: 'bg-[#4ecdc4]' },
@@ -490,16 +483,14 @@ function EditableDetailModal({
 
               <label htmlFor="editBaikeUrl" className="mb-1 mt-3 block shrink-0 text-[11px] font-black">萌娘百科 URL</label>
               <input id="editBaikeUrl" name="baikeUrl" type="url" value={formData.baikeUrl} onChange={updateField} placeholder="https://zh.moegirl.org.cn/..." className={fieldClass} />
-              <a
-                href={validBaikeUrl ? formData.baikeUrl.trim() : undefined}
-                target={validBaikeUrl ? '_blank' : undefined}
-                rel={validBaikeUrl ? 'noreferrer' : undefined}
-                aria-disabled={!validBaikeUrl}
-                className={`mt-3 flex w-full shrink-0 items-center justify-center gap-2 border-[3px] border-black bg-[#ff8fab] px-3 py-2 text-[11px] font-black shadow-[4px_4px_0_#111] transition-none active:translate-x-1 active:translate-y-1 active:shadow-none${validBaikeUrl ? '' : ' pointer-events-none bg-zinc-300 text-zinc-500'}`}
-              >
-                <i className={`fa-solid ${validBaikeUrl ? 'fa-book-open' : 'fa-link-slash'}`}></i>
-                {validBaikeUrl ? '前往萌娘百科' : '请输入有效的 HTTP(S) 地址'}
-              </a>
+              <label htmlFor="editBangumiUrl" className="mb-1 mt-3 block shrink-0 text-[11px] font-black">Bangumi 作品 URL</label>
+              <input id="editBangumiUrl" name="bangumiUrl" type="url" value={formData.bangumiUrl} onChange={updateField} placeholder="https://bgm.tv/subject/..." className={fieldClass} />
+              <div className="mt-3 grid shrink-0 grid-cols-2 gap-2">
+                <button type="button" className={`${arcadeButton} bg-[#4ecdc4] !px-2 !text-[10px]`} disabled={!bangumiSubjectUrl(renderedItem.confirmedBangumiId)} onClick={() => setFormData(current => ({ ...current, bangumiUrl: bangumiSubjectUrl(renderedItem.confirmedBangumiId) }))}><i className="fa-solid fa-link mr-1" />填入 Bangumi</button>
+                <button type="button" className={`${arcadeButton} bg-[#ff8fab] !px-2 !text-[10px]`} disabled={!formData.title.trim()} onClick={() => setFormData(current => ({ ...current, baikeUrl: moegirlTitleUrl(current.title) }))}><i className="fa-solid fa-book-open mr-1" />生成萌百链接</button>
+              </div>
+              <p className="mt-2 text-[10px] font-bold">Bangumi 根据已确认身份填写；未确认时可在预览中核对。萌百按标题生成，可能需要修正消歧义页面。修改名称不会自动覆盖链接。</p>
+
             </aside>
 
             <div className="flex min-h-0 flex-col gap-3">

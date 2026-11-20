@@ -35,6 +35,7 @@ import useExplorationTopics from '../hooks/useExplorationTopics.js'
 import useSeriesJournalReturn from '../hooks/useSeriesJournalReturn.js'
 import useJournalDisplayMode from '../hooks/useJournalDisplayMode.js'
 import useJournalListPreferences from '../hooks/useJournalListPreferences.js'
+import JournalIdentityReview from '../components/JournalIdentityReview.jsx'
 import { createVisiblePoller } from '../utils/visiblePoller.js'
 
 gsap.registerPlugin(useGSAP)
@@ -96,6 +97,8 @@ function Dashboard() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [selectedItem, setSelectedItem] = useState(null)
+  const [identityPanel, setIdentityPanel] = useState(null)
+  const [identityRevision, setIdentityRevision] = useState(0)
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [isBangumiImportOpen, setIsBangumiImportOpen] = useState(false)
   const [resourceSearch, setResourceSearch] = useState(null)
@@ -937,6 +940,7 @@ function Dashboard() {
         onTogglePreview={togglePreviewMode}
         onAddAnime={() => setIsAddModalOpen(true)}
         onImportBangumi={() => setIsBangumiImportOpen(true)}
+        onReviewIdentity={() => setIdentityPanel({ recordId: null })}
         onReturnHome={handleReturnHome}
         onRecordsImported={handleRecordsImported}
         onFindResources={() => openResourceSearch()}
@@ -1139,6 +1143,8 @@ function Dashboard() {
           closeModal={() => setSelectedItem(null)}
           isPrivateJournal={!isSharedJournal}
           explorationTags={explorationTags}
+          identityRevision={identityRevision}
+          onReviewIdentity={!isSharedJournal ? recordId => setIdentityPanel({ recordId }) : undefined}
           onSimilar={!isSharedJournal ? item => navigate('/recommendations/similar', { state: { journalRecord: item.id } }) : undefined}
           showToast={showToast}
           featuredAction={featuredAction ? {
@@ -1159,6 +1165,15 @@ function Dashboard() {
       )}
       {!isSharedJournal && (
         <>
+          {identityPanel && <JournalIdentityReview recordId={identityPanel.recordId} onClose={() => setIdentityPanel(null)}
+            onChanged={() => {
+              setIdentityRevision(value => value + 1)
+              setRecordsRefreshKey(value => value + 1)
+              notifyRecommendationChange()
+              if (selectedItem) api.get(`records/${selectedItem.id}/`).then(response => {
+                setSelectedItem(current => current?.id === response.data.id ? mapRecordToAnimeItem(response.data) : current)
+              }).catch(() => showToast('身份处理后资料读取暂未完成，可关闭详情后重新打开。', 'error'))
+            }} />}
           <FeaturedActionConfirmModal
             action={featuredConfirmAction}
             onClose={() => setFeaturedConfirmAction(null)}

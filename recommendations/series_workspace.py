@@ -29,7 +29,7 @@ def own_states(user, ids, scope):
         linked = [row for row in records if row['resolved_bangumi_id'] == identity]
         owned = max(linked, key=lambda row: (PRIORITY.get(row['watch_status'], 0), -row['pk']), default=None)
         ambiguous = any(row['resolved_bangumi_id'] is None and identity in (
-            row['anime__bgm_id'], row['recommendation_identity__catalog_anime__bangumi_id']) for row in records)
+            row.get('verified_bangumi_id'), row['anime__bgm_id'], row['recommendation_identity__catalog_anime__bangumi_id']) for row in records)
         result[identity] = {'watch_status': owned['watch_status'] if owned else None,
                             'record_state': 'linked' if owned else 'needs_review' if ambiguous else 'no_confirmed_record'}
     return result

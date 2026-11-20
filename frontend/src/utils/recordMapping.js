@@ -32,6 +32,8 @@ export function mapRecordToAnimeItem(record) {
     studio: anime.studio ?? '',
     episodes: anime.episodes ?? '',
     baikeUrl: anime.baike_url ?? anime.baikeUrl ?? '',
+    bangumiUrl: anime.bangumi_url ?? '',
+    confirmedBangumiId: anime.confirmed_bangumi_id ?? anime.bgm_id ?? null,
     createdAt: record.created_at,
     updatedAt: record.updated_at,
     rawRecord: record,

@@ -4,7 +4,7 @@ from rest_framework.exceptions import NotFound
 from .binding import candidate_ticket
 from .identity import safe_catalog
 from .matching import catalog_matcher, IdentityCatalogUnavailable
-from .resolution import resolved_records
+from .resolution import resolved_records, authoritative_id
 from .services import preference_contract
 from .profile_policy import sampling_policy
 
@@ -31,7 +31,7 @@ def review_contract(user, options, *, scope_context=None):
     matcher = catalog_matcher(force=True) if selected and 'keyword' not in options else None
     results = []
     for row in selected:
-        if row['anime__bgm_id']:
+        if authoritative_id(row):
             status, candidates = 'needs_admin_review', []
         elif 'keyword' in options:
             keyword = options['keyword']

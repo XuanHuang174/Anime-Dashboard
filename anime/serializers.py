@@ -543,7 +543,14 @@ class AnimeSerializer(serializers.ModelSerializer):
 class PrivateAnimeMetadataSerializer(AnimeSerializer):
     """Validate a user's isolated anime snapshot without public-library uniqueness."""
 
+    bangumi_url = serializers.CharField(required=False, allow_blank=True, max_length=1000)
+
+    def validate_bangumi_url(self, value):
+        from .journal_sources import normalize_bangumi_url
+        return normalize_bangumi_url(value)
+
     class Meta(AnimeSerializer.Meta):
+        fields = AnimeSerializer.Meta.fields + ('bangumi_url',)
         validators = ()
 
 
@@ -551,6 +558,11 @@ class JournalAnimeImportSerializer(serializers.Serializer):
     """Portable anime metadata accepted by the journal import endpoint."""
 
     chinese_title = serializers.CharField(max_length=200)
+    bangumi_url = serializers.CharField(required=False, allow_blank=True, default='', max_length=1000)
+
+    def validate_bangumi_url(self, value):
+        from .journal_sources import normalize_bangumi_url
+        return normalize_bangumi_url(value)
     identity_reference = serializers.DictField(required=False, allow_null=True, default=None)
 
     def validate_identity_reference(self, value):
@@ -726,6 +738,10 @@ class UserAnimeRecordSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         private_image = metadata.pop("poster_image")
         data.update(metadata)
+        from .journal_sources import confirmed_source_id, bangumi_url
+        identity = confirmed_source_id(record, private=bool(request and request.user.pk == record.user_id))
+        data['confirmed_bangumi_id'] = identity
+        data['bangumi_url'] = metadata['bangumi_url'] or bangumi_url(identity)
         if private_image:
             data["poster_image"] = (
                 request.build_absolute_uri(private_image.url)
@@ -1012,6 +1028,8 @@ class UserAnimeRecordAddSerializer(serializers.Serializer):
         required=False,
     )
     anime_data = JsonObjectField(required=False, write_only=True)
+    bangumi_url = serializers.CharField(required=False, allow_blank=True, max_length=1000)
+    autofill_ticket = serializers.CharField(required=False, allow_blank=True, max_length=2048, write_only=True)
     poster_image = serializers.ImageField(
         required=False,
         allow_null=True,
@@ -1063,6 +1081,17 @@ class UserAnimeRecordAddSerializer(serializers.Serializer):
             )
 
         request = self.context["request"]
+        from .journal_sources import normalize_bangumi_url, verify_source_ticket, bangumi_url
+        supplied_url = attrs.get('bangumi_url', '')
+        attrs['bangumi_url'] = normalize_bangumi_url(supplied_url)
+        if attrs.get('autofill_ticket'):
+            identity = verify_source_ticket(request.user, attrs['autofill_ticket'])
+            if existing_anime and existing_anime.bgm_id and existing_anime.bgm_id != identity:
+                raise serializers.ValidationError('录入来源与已有作品身份冲突，请核对后重新选择。')
+            if attrs['bangumi_url'] and attrs['bangumi_url'] != bangumi_url(identity):
+                raise serializers.ValidationError({'bangumi_url': '链接与本次智能录入来源不同，请重新选择条目。'})
+            attrs['_verified_bangumi_id'] = identity
+            attrs['bangumi_url'] = bangumi_url(identity)
         if existing_anime and UserAnimeRecord.objects.filter(
             user=request.user,
             anime=existing_anime,
@@ -1171,6 +1200,9 @@ class UserAnimeRecordAddSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         request = self.context["request"]
+        source_url = validated_data.pop('bangumi_url', '')
+        source_id = validated_data.pop('_verified_bangumi_id', None)
+        validated_data.pop('autofill_ticket', None)
         anime_serializer = validated_data.pop("_anime_serializer", None)
         private_metadata = validated_data.pop("_private_metadata", None)
         validated_data.pop("anime_data", None)
@@ -1179,6 +1211,12 @@ class UserAnimeRecordAddSerializer(serializers.Serializer):
         created_anime = anime is None
         if anime is None:
             anime = anime_serializer.save()
+        if source_id and anime.bgm_id and source_id != anime.bgm_id:
+            raise serializers.ValidationError('录入来源与已有作品身份冲突，请重新核对。')
+        from .journal_sources import bangumi_url
+        known_id = source_id or anime.bgm_id
+        if source_url and known_id and source_url != bangumi_url(known_id):
+            raise serializers.ValidationError({'bangumi_url': '链接与已有作品身份不一致，请先核对标准作品。'})
 
         source_metadata = (
             anime_serializer.validated_data
@@ -1213,6 +1251,8 @@ class UserAnimeRecordAddSerializer(serializers.Serializer):
         record = UserAnimeRecord.objects.create(
             user=request.user,
             anime=anime,
+            private_bangumi_url=source_url,
+            verified_bangumi_id=source_id,
             **validated_data,
         )
         if private_metadata:

@@ -10,6 +10,7 @@ import AnimeResourceDrawer from './AnimeResourceDrawer.jsx'
 import SeriesSummary from './recommendations/SeriesSummary.jsx'
 import CreditsSummary from './recommendations/CreditsSummary.jsx'
 import { lockDialogBody } from '../utils/dialogBodyLock.js'
+import { safeExternalUrl, normalizeBangumiLink } from '../utils/journalSourceLinks.js'
 
 gsap.registerPlugin(useGSAP)
 
@@ -72,6 +73,8 @@ function DetailModal({
   isPrivateJournal = false,
   onSimilar,
   explorationTags = [],
+  onReviewIdentity,
+  identityRevision = 0,
 }) {
   const [selectedItem, setSelectedItem] = useState(activeItem)
   const [formData, setFormData] = useState({
@@ -88,6 +91,7 @@ function DetailModal({
   const backdropRef = useRef(null)
   const modalPanelRef = useRef(null)
   const closingRef = useRef(false)
+  const previousRecordId = useRef(null)
 
   useEffect(() => { setResourceOpen(false) }, [activeItem?.id])
 
@@ -98,6 +102,7 @@ function DetailModal({
 
   useEffect(() => {
     if (!activeItem) {
+      previousRecordId.current = null
       if (!closingRef.current) setSelectedItem(null)
       return
     }
@@ -113,7 +118,8 @@ function DetailModal({
       review: activeItem.review ?? '',
     })
     setActionError('')
-    setActiveTextPanel('description')
+    if (previousRecordId.current !== activeItem.id) setActiveTextPanel('description')
+    previousRecordId.current = activeItem.id
   }, [activeItem])
 
   const { contextSafe } = useGSAP(() => {
@@ -264,7 +270,8 @@ function DetailModal({
   if (!selectedItem) return null
 
   const coverSrc = getCoverSrc(selectedItem)
-  const hasBaikeUrl = Boolean(selectedItem.baikeUrl)
+  const baikeLink = safeExternalUrl(selectedItem.baikeUrl)
+  const bangumiLink = normalizeBangumiLink(selectedItem.bangumiUrl)
   const usesUploadedPoster = Boolean(selectedItem.posterImage)
 
   const handleFieldChange = (event) => {
@@ -472,22 +479,16 @@ function DetailModal({
               <div className="memphis-modal-piece mt-3 shrink-0 border-[3px] border-black bg-[#ff8fab] p-2.5 shadow-[5px_5px_0_#111]">
                 <span className="mb-2 block text-[11px] font-black text-black">
                   <i className="fa-solid fa-book-open mr-2"></i>
-                  前往萌娘百科查看完整信息
+                  百科与原站资料
                 </span>
-                <a
-                  id="modalBaikeBtn"
-                  href={hasBaikeUrl ? selectedItem.baikeUrl : undefined}
-                  target={hasBaikeUrl ? '_blank' : undefined}
-                  rel={hasBaikeUrl ? 'noreferrer' : undefined}
-                  aria-disabled={!hasBaikeUrl}
-                  className={`flex w-full items-center justify-center gap-2 border-[3px] border-black bg-[#ffe66d] px-3 py-1.5 text-[11px] font-black text-black shadow-[3px_3px_0_#111] transition-none hover:bg-[#4ecdc4] active:translate-x-[3px] active:translate-y-[3px] active:shadow-none${hasBaikeUrl ? '' : ' pointer-events-none cursor-not-allowed opacity-50 grayscale'}`}
-                >
-                  {hasBaikeUrl ? (
-                    <><i className="fa-solid fa-arrow-up-right-from-square"></i> 点击跳转</>
-                  ) : (
-                    <><i className="fa-solid fa-link-slash"></i> 暂未录入百科链接</>
-                  )}
-                </a>
+                <p className="mb-2 text-[10px] font-bold">在新标签页打开外部资料；链接可在私人编辑中补充。</p>
+                <div className="grid grid-cols-2 gap-2">{[
+                  { name: '萌娘百科', url: baikeLink, icon: 'fa-book-open' },
+                  { name: 'Bangumi 条目', url: bangumiLink, icon: 'fa-tv' },
+                ].map(link => <a key={link.name} href={link.url || undefined} target={link.url ? '_blank' : undefined} rel="noopener noreferrer" aria-disabled={!link.url}
+                  className={`flex min-w-0 items-center justify-center gap-1 border-[3px] border-black bg-[#ffe66d] px-1 py-2 text-[10px] font-black shadow-[3px_3px_0_#111] hover:bg-[#4ecdc4]${link.url ? '' : ' pointer-events-none opacity-50'}`}>
+                  <i className={`fa-solid ${link.icon}`} aria-hidden="true" />{link.url ? link.name : `${link.name}未设置`} {link.url && '↗'}
+                </a>)}</div>
               </div>
             </div>
 
@@ -604,8 +605,8 @@ function DetailModal({
                 </div>
               </div>
 
-              {isPrivateJournal && !editable && <div className="memphis-modal-piece shrink-0"><SeriesSummary compact recordId={selectedItem.id} /></div>}
-              {isPrivateJournal && !editable && <div className="memphis-modal-piece shrink-0"><CreditsSummary recordId={selectedItem.id} /></div>}
+              {isPrivateJournal && !editable && <div className="memphis-modal-piece shrink-0"><SeriesSummary key={`series:${selectedItem.id}:${identityRevision}`} compact recordId={selectedItem.id} onReviewIdentity={onReviewIdentity} /></div>}
+              {isPrivateJournal && !editable && <div className="memphis-modal-piece shrink-0"><CreditsSummary key={`credits:${selectedItem.id}:${identityRevision}`} recordId={selectedItem.id} /></div>}
 
               {editable && (
                 <div className="memphis-modal-piece border-[3px] border-black bg-[#4ecdc4] p-3 shadow-[5px_5px_0_#111]">

@@ -203,7 +203,7 @@ def live_revision(user, scope, session):
             if priority.get(row['watch_status'], 0) > priority.get(states.get(identity), 0):
                 states[identity] = row['watch_status']
         else:
-            blocked.update(v for v in (row['anime__bgm_id'], row[LINK_FIELDS[0]]) if v)
+            blocked.update(v for v in (row.get('verified_bangumi_id'), row['anime__bgm_id'], row[LINK_FIELDS[0]]) if v)
     feedback = feedback_snapshot(user)
     # Includes identity fingerprints/metadata and status, but never scores/reviews/tags.
     owned_revision = digest(rows)

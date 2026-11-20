@@ -8,6 +8,7 @@ import { CREDIT_COVERAGE, creditsAvailable, creditsFailure, creditsNavigationSta
 import { CreditsIcon } from './CreditsEntry.jsx'
 import { watchRecommendationScope } from '../../utils/recommendationScopeMonitor.js'
 import '../../styles/recommendation-credits.css'
+import { journalIdentityMessage } from '../../utils/journalSourceLinks.js'
 
 export default function CreditsSummary(props) {
   const session = useSeriesSession()
@@ -29,7 +30,7 @@ function Summary({ client: base = defaultClient, recordId, bangumiId, session })
       let identity = bangumiId
       if (recordId) {
         const ref = validateCreditsRecord(await client.creditsRecord(recordId, request.signal), recordId, scope)
-        if (ref.identity_state !== 'linked') { if (current()) setState({ status: 'unlinked', unsafe: ref.identity_state === 'unsafe_or_unknown' }); return }
+        if (ref.identity_state !== 'linked') { if (current()) setState({ status: 'unlinked', identityState: ref.identity_state, unsafe: ref.identity_state === 'unsafe_or_unknown' }); return }
         identity = ref.bangumi_id
       }
       const data = validateCreditsSummary(await client.creditsSummary(identity, false, request.signal), identity, scope)
@@ -79,7 +80,7 @@ function Summary({ client: base = defaultClient, recordId, bangumiId, session })
     <h3><CreditsIcon />声优与制作</h3>
     {state.status === 'loading' ? <p role="status">正在读取参与资料…</p> : state.status === 'error'
       ? <p role="status">{state.message} <button type="button" className="series-link" onClick={() => retry(n => n + 1)}>重新读取</button></p>
-      : state.status === 'unlinked' ? <><p>当前范围内尚无已确认的作品身份，不会根据私人填写的公司名建立关联。</p>
+      : state.status === 'unlinked' ? <><p>{journalIdentityMessage(state.identityState)}</p>
         {recordId && state.unsafe && !adult && <button type="button" className="series-link" onClick={() => setAdult(true)}>以包含已审核 NSFW 的范围读取（仅本次）</button>}</>
         : <>{data.sections.studio.status !== 'disabled' && <div className="credits-studios"><strong><CreditsIcon kind="studio" />动画制作</strong>
           {data.sections.studio.results.map(row => <button type="button" className="credits-person-link" key={row.person_id} onClick={() => go('studio', row.person_id)}>{row.name} ↗</button>)}

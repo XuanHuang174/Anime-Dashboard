@@ -9,7 +9,7 @@ from anime.models import UserAnimeRecord
 from .matching import (MATCHING_VERSION, catalog_fingerprint, catalog_matcher, digest,
                        effective_metadata, metadata_signature, record_fingerprint)
 from .models import RecommendationAnime, RecommendationIdentityEvent, RecommendationRecordIdentity
-from .resolution import record_row
+from .resolution import record_row, authoritative_id
 
 logger = logging.getLogger(__name__)
 SALT = 'recommendations.identity-candidate.v1'
@@ -53,7 +53,7 @@ def bind_record(*, record_id, user_id, target_id, source, expected_version=None,
         ensure_scope(owner, scope)
     if target is None:
         raise NotFound('该作品不可用于推荐。')
-    direct = row['anime__bgm_id']
+    direct = authoritative_id(row)
     if direct:
         if direct != target_id:
             raise IdentityConflict('已有权威身份，不能用私人关联覆盖。')
@@ -112,7 +112,7 @@ def bind_record(*, record_id, user_id, target_id, source, expected_version=None,
 
 def auto_link(record, *, matcher=None, batch_id=None):
     """For explicit create/import/worker operations only, never GET or general save signals."""
-    if record.anime.bgm_id:
+    if record.anime.bgm_id or record.verified_bangumi_id:
         return {'status': 'authoritative'}
     with transaction.atomic():
         get_user_model().objects.select_for_update().get(pk=record.user_id)

@@ -45,7 +45,7 @@ def snapshot(user, scope):
         raise RecommendationUnavailable('手账身份服务尚未就绪。')
     completed = {row['resolved_bangumi_id'] for row in records if row['resolved_bangumi_id'] and row['watch_status'] == 'completed'}
     # Also exclude stale/conflicting aliases: absence of a confirmed link is not unseen.
-    owned = {identity for row in records for identity in (row['anime__bgm_id'], row['recommendation_identity__catalog_anime__bangumi_id']) if identity}
+    owned = {identity for row in records for identity in (row.get('verified_bangumi_id'), row['anime__bgm_id'], row['recommendation_identity__catalog_anime__bangumi_id']) if identity}
     feedback = feedback_snapshot(user)
     hidden = set(feedback['hidden_ids'])
     data = graph(completed, scope)

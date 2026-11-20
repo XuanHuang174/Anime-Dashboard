@@ -5,12 +5,13 @@ import useSeriesSession, { seriesSession } from '../../hooks/useSeriesSession.js
 import { COVERAGE, validateSeries, seriesBackground, seriesFailure, isSeriesDisabled } from '../../utils/recommendationSeries.js'
 import { watchRecommendationScope } from '../../utils/recommendationScopeMonitor.js'
 import '../../styles/recommendation-series.css'
+import { journalIdentityMessage, canReviewJournalIdentity } from '../../utils/journalSourceLinks.js'
 
 export default function SeriesSummary(props) {
   const session = useSeriesSession()
   return <Summary key={`${session}:${props.bangumiId || props.recordId}`} {...props} session={session} />
 }
-function Summary({ client: baseClient = defaultClient, bangumiId, recordId, session, compact = false }) {
+function Summary({ client: baseClient = defaultClient, bangumiId, recordId, session, compact = false, onReviewIdentity }) {
   const [state, setState] = useState({ status: 'loading' }), [attempt, retry] = useState(0)
   const [adult, setAdult] = useState(false)
   const client = useMemo(() => recordId && adult ? baseClient.forScope('include_adult') : baseClient, [baseClient, recordId, adult])
@@ -26,14 +27,14 @@ function Summary({ client: baseClient = defaultClient, bangumiId, recordId, sess
         const ref = await client.seriesRecord(recordId, controller.signal)
         if (ref?.contract_version !== 'recommendations.series.record.v1' || ref.record_id !== recordId) throw new Error('手账身份合同不兼容。')
         if (ref.identity_state !== 'linked' || !Number.isInteger(ref.bangumi_id)) {
-          if (current()) setState({ status: 'unlinked' })
+          if (current()) setState({ status: 'unlinked', identityState: ref.identity_state })
           return
         }
         source = ref.bangumi_id
       }
       const data = validateSeries(await client.series(source, null, controller.signal), source, scope)
       if (current()) setState({ status: 'ready', data })
-    })().catch(error => { if (current()) setState({ status: error?.response?.status === 503 ? 'disabled' : 'error', message: seriesFailure(error) }) })
+    })().catch(error => { if (current()) setState({ status: isSeriesDisabled(error) ? 'disabled' : 'error', message: seriesFailure(error) }) })
     return () => controller.abort()
   }, [client, bangumiId, recordId, attempt, session, scope])
   const data = state.data
@@ -58,8 +59,9 @@ function Summary({ client: baseClient = defaultClient, bangumiId, recordId, sess
   return <section className={`series-summary${compact ? ' series-summary--compact' : ''}`} aria-label="系列与关联">
     <h3><span aria-hidden="true">⌘</span> 系列与关联</h3>
     {state.status === 'loading' ? <p role="status">正在读取关联资料…</p> : state.status === 'unlinked'
-      ? <><p>当前范围内没有已确认的作品身份，暂不能读取关联。旧资料可在个性化推荐的旧记录核对中确认身份。</p>
-        {!adult && recordId && <button type="button" className="series-link" onClick={() => setAdult(true)}>以包含已审核 NSFW 的范围重新读取（仅本次）</button>}</>
+      ? <><p>{journalIdentityMessage(state.identityState)}</p>
+        {onReviewIdentity && canReviewJournalIdentity(state.identityState) && <button type="button" className="rec-button" onClick={() => onReviewIdentity(recordId)}>核对标准作品 ↗</button>}
+        {!adult && recordId && state.identityState === 'unsafe_or_unknown' && <button type="button" className="series-link" onClick={() => setAdult(true)}>以包含已审核 NSFW 的范围重新读取（仅本次）</button>}</>
       : state.status === 'error' ? <p role="status">{state.message} <button type="button" className="series-link" onClick={() => retry(n => n + 1)}>重试</button></p>
         : <><p>{COVERAGE[state.data.coverage]}{state.data.last_attempt_status === 'failed' && state.data.coverage !== 'failed' ? ' · 最近更新失败，保留上次资料' : ''}</p>
           {state.data.results.length > 0 && (compact ? <p>{[...new Set(state.data.results.map(row => row.relation_label))].slice(0, 3).join(' · ')}</p>
