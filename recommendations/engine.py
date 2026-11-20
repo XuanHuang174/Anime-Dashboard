@@ -1,4 +1,5 @@
 """Bounded, deterministic content ranking. Only public features are cached."""
+from .type_filters import matches_type, type_query
 import hashlib
 import hmac
 import json
@@ -232,7 +233,7 @@ def _rank_context_v1(context, options, index, *, observer=None):
     for identity, tags, score, status_type in index['features']:
         if identity in hidden_ids or identity in seed_ids or (options['hide_recorded'] and identity in context['owned']):
             continue
-        if not matches_score(score, options) or (options['type'] != 'all' and status_type != options['type']):
+        if not matches_score(score, options) or not matches_type(status_type, options['type']):
             continue
         affinity = evidence_for(tags, context, weights)[2] if options['category'] == 'familiar' else 0
         value = candidate_score(tags, score, vector, weights, options['category'], affinity)
@@ -247,8 +248,7 @@ def _rank_context_v1(context, options, index, *, observer=None):
     _diagnostic_target_trace(context, eligible=(identity for _, identity in shortlist), pool=pool_ids)
     # Fetch CURRENT safe rows before evidence, ranking, pagination and serialization.
     query = score_query(candidate_catalog(context).filter(bangumi_id__in=pool_ids), options)
-    if options['type'] != 'all':
-        query = query.filter(status_type=options['type'])
+    query = type_query(query, options['type'])
     rows = list(query.order_by('bangumi_id').defer('synopsis', 'source_cover_url'))
     if observer is not None:
         observer.stage('hydrated', (anime.bangumi_id for anime in rows))
@@ -438,8 +438,7 @@ def _rank_context_v2(context, options, index, *, policy_version=None, observer=N
     # Cached tags are usable ONLY after an exact CURRENT SHA256 input match.
     # Safety and scores are live even when the feature fingerprint is unchanged.
     query = score_query(safe_catalog(), options)
-    if options['type'] != 'all':
-        query = query.filter(status_type=options['type'])
+    query = type_query(query, options['type'])
     fields = ('bangumi_id', 'tags', 'title_zh', 'title_jp', 'score', 'status_type')
     if browse_control_version is not None:
         fields += ('season',)

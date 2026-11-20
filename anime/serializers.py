@@ -782,7 +782,7 @@ class UserQuickFilterSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserQuickFilter
         fields = (
-            "id", "name", "tags", "title_keywords", "match_mode", "exclude_tags", "exclude_title_keywords",
+            "id", "name", "tags", "title_keywords", "match_mode", "exclude_tags", "exclude_title_keywords", "year_from", "year_to",
             "created_at", "updated_at",
         )
         read_only_fields = ("id", "created_at", "updated_at")
@@ -798,8 +798,12 @@ class UserQuickFilterSerializer(serializers.ModelSerializer):
                 attrs[key] = list(dict.fromkeys(attrs[key]))
         values = {key: attrs.get(key, getattr(self.instance, key, [])) for key in
                   ('tags', 'title_keywords', 'exclude_tags', 'exclude_title_keywords')}
-        if not any(values.values()):
-            raise serializers.ValidationError("请至少设置一项包含或排除条件。")
+        year_from = attrs.get('year_from', getattr(self.instance, 'year_from', None))
+        year_to = attrs.get('year_to', getattr(self.instance, 'year_to', None))
+        if year_from is not None and year_to is not None and year_from > year_to:
+            raise serializers.ValidationError('年份起点不能大于终点。')
+        if not any(values.values()) and year_from is None and year_to is None:
+            raise serializers.ValidationError("请至少设置一项包含、排除或年份条件。")
         if set(values['tags']) & set(values['exclude_tags']):
             raise serializers.ValidationError("标签不能同时包含与排除。")
         if {v.casefold() for v in values['title_keywords']} & {v.casefold() for v in values['exclude_title_keywords']}:

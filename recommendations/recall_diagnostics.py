@@ -16,6 +16,7 @@ from django.conf import settings
 from django.db import connection
 
 from . import engine, ranking_v2
+from .type_filters import matches_type, normalize_types
 from .browse_controls import season_year, filter_index
 from .comparison import QueryCounter, comparable_metrics
 from .diagnostics import prepare_sample
@@ -36,7 +37,7 @@ FILTER_KEYS = {'type', 'min_score', 'hide_recorded', 'year_from', 'year_to'}
 def validate_filters(value):
     if set(value) != FILTER_KEYS or type(value['hide_recorded']) is not bool:
         raise ValueError('Invalid filter contract')
-    if value['type'] not in ('all', 'TV', 'OVA', 'WEB', '剧场版', '短片', '动态漫画'):
+    if normalize_types(value['type']) != value['type']:
         raise ValueError('Unsupported work type')
     if type(value['min_score']) not in (int, float) or not math.isfinite(value['min_score']) or not 0 <= value['min_score'] <= 10:
         raise ValueError('Invalid public score filter')
@@ -137,7 +138,7 @@ def census(context, filters, catalog, states, target):
     safe = {identity for identity, state in states.items() if state is False}
     filtered = {identity for identity, row in catalog.items() if identity in safe
                 and row['score'] >= filters['min_score']
-                and (filters['type'] == 'all' or row['status_type'] == filters['type'])}
+                and matches_type(row['status_type'], filters['type'])}
     hidden = context.get('feedback', {}).get('hidden_ids', ())
     seeds = {row['bangumi_id'] for row in context['seeds']}
     excluded = set(hidden) | seeds | (set(context['owned']) if filters['hide_recorded'] else set())

@@ -1,3 +1,4 @@
+import { isTypeSelection, matchesTypeSelection } from './animeTypeSelection.js'
 import { scoreConditions } from './browseScore.js'
 // Exploration owns its query/evidence contract. Never use the profile mapper here.
 import { checkScopeResponse } from './recommendationContentScope.js'
@@ -31,7 +32,7 @@ export function validateExplorationQuery(q) {
     || q.intent === 'tags' && (!topics(q.include_tags) || !q.include_tags.length || q.include_tags.length > 5
       || !topics(q.exclude_tags) || q.exclude_tags.length > 5 || q.include_tags.some(tag => q.exclude_tags.includes(tag))
       || !['all', 'any'].includes(q.match) || !['relevance', 'score'].includes(q.sort))
-    || !['all', 'TV', 'OVA', '剧场版', 'WEB', '短片', '动态漫画'].includes(q.type)
+    || !isTypeSelection(q.type)
     || ![q.min_score, q.max_score].every(value => typeof value === 'string' && /^(?:[0-9]\.\d|10\.0)$/.test(value))
     || typeof q.max_score_exclusive !== 'boolean' || typeof q.hide_recorded !== 'boolean'
     || Number(q.min_score) > Number(q.max_score) || q.max_score_exclusive && Number(q.min_score) >= Number(q.max_score)
@@ -73,7 +74,7 @@ function mapItem(row, query, seed, versions, scope, seriesContext) {
     || source.tags.length !== seed.tags.length || source.tags.some((tag, index) => tag !== seed.tags[index])
     || e.shared_tags.some(tag => !row.tags.includes(tag) || !source.tags.includes(tag))
     || source.tags.filter(tag => row.tags.includes(tag)).join('\0') !== e.shared_tags.join('\0')) explorationInvalid()
-  if (query.type !== 'all' && row.status_type !== query.type || query.hide_recorded && row.watch_status !== null
+  if (!matchesTypeSelection(row.status_type, query.type) || query.hide_recorded && row.watch_status !== null
     || row.score < Number(query.min_score) || row.score > Number(query.max_score)
     || query.max_score_exclusive && !(row.score > 0 && row.score < Number(query.max_score))) explorationInvalid()
   const year = /^([1-9]\d{3})/.exec(row.season)?.[1]

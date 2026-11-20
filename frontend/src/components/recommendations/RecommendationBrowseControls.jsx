@@ -1,3 +1,4 @@
+import AnimeTypeFilter from './AnimeTypeFilter.jsx'
 import BangumiScoreFilter from './BangumiScoreFilter.jsx'
 import { useState } from 'react'
 import { REC_CATEGORIES } from '../../utils/recommendations.js'
@@ -43,8 +44,7 @@ export function RecommendationFilterPanel({ initialFilters, onApply, legacy = fa
   return <form className="rec-filter-form" onSubmit={event => { event.preventDefault(); const message = filterDraftError(draft); setError(message); if (!message) onApply(withAvailableScope(draft, scopeAvailable)) }}>
     <div className="rec-filter-scroll">
     <p className="rec-muted rec-filter-intro">仅筛选本次浏览，不修改偏好；默认排除成人作品，未知分级始终排除。</p>
-    <label className="rec-field">作品类型<select aria-label="作品类型" value={draft.type} onChange={event => field('type', event.target.value)}>
-      <option value="all">全部类型</option>{['TV', '剧场版', 'OVA', 'WEB', '短片', '动态漫画'].map(type => <option key={type}>{type}</option>)}</select></label>
+    <AnimeTypeFilter value={draft.type} onChange={value => field('type', value)} />
     {!legacy && <fieldset className="rec-year-range"><legend>放送年份区间</legend>
       <label className="rec-field">起始年份<input aria-label="起始年份" inputMode="numeric" maxLength={4} placeholder="不限" value={draft.yearFrom}
         onChange={event => field('yearFrom', event.target.value)} /></label>

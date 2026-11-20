@@ -76,6 +76,15 @@ class BrowseAPITests(TransactionTestCase):
         self.assertEqual(response.status_code, 200, response.data)
         return response.data
 
+    def test_multi_type_browse_keeps_union_in_signed_conditions(self):
+        RecommendationAnime.objects.filter(bangumi_id=10).update(status_type='OVA', score=10)
+        RecommendationAnime.objects.filter(bangumi_id=11).update(status_type='WEB', score=10)
+        first = self.start(type='TV,OVA')
+        self.assertEqual(first['effective_conditions']['type'], 'OVA,TV')
+        self.assertTrue(all(row['status_type'] in ('TV', 'OVA') for row in first['results']))
+        self.assertIn(10, self.ids(first))
+        self.assertNotIn(11, self.ids(first))
+
     def follow(self, cursor, **params):
         response = self.get(cursor=cursor, **params)
         self.assertEqual(response.status_code, 200, response.data)

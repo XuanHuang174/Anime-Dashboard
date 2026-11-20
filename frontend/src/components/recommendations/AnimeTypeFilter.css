@@ -1,0 +1,8 @@
+.memphis-rec-container .rec-type-filter { min-width: 0; margin: 0 0 14px; padding: 0; border: 0; }
+.memphis-rec-container .rec-type-filter legend { margin-bottom: 8px; font-size: 13px; font-weight: 800; }
+.memphis-rec-container .rec-type-options { display: flex; flex-wrap: wrap; gap: 8px; }
+.memphis-rec-container .rec-type-options button { min-height: 38px; padding: 6px 10px; border: 2px solid #111; background: white; color: #111; font-size: 12px; font-weight: 800; box-shadow: 2px 2px 0 #111; cursor: pointer; }
+.memphis-rec-container .rec-type-options button[aria-checked="true"] { background: #4ecdc4; }
+.memphis-rec-container .rec-type-options button:hover { background: #ffe66d; }
+.memphis-rec-container .rec-type-options button:focus-visible { outline: 3px solid #111; outline-offset: 3px; }
+.memphis-rec-container .rec-type-filter p { margin: 8px 0 0; font-size: 11px; line-height: 1.7; color: #555; }

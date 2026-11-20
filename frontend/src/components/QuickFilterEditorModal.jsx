@@ -7,7 +7,7 @@ import { quickFilterSummary } from '../utils/quickFilter.js'
 
 gsap.registerPlugin(useGSAP)
 
-const emptyForm = { name: '', tags: [], title_keywords: '', exclude_tags: [], exclude_title_keywords: '', match_mode: 'any' }
+const emptyForm = { name: '', tags: [], title_keywords: '', exclude_tags: [], exclude_title_keywords: '', match_mode: 'any', year_from: '', year_to: '' }
 const keywords = value => [...new Set(value.split(/[，,、\n]/).map(word => word.trim()).filter(Boolean))]
 const fieldClass = 'mt-1 w-full border-[3px] border-black bg-white px-3 py-2.5 text-sm font-black text-black shadow-[4px_4px_0_#111] outline-none transition-none placeholder:text-zinc-400 focus:translate-x-1 focus:translate-y-1 focus:bg-[#fff2a8] focus:shadow-none'
 
@@ -27,7 +27,7 @@ function QuickFilterEditorModal({
   onDeleted,
   showToast,
   endpoint = 'quick-filters',
-  description = '组合常用标签，并保存到当前账号。',
+  description = '组合标签、标题词与年份条件，并保存到当前账号。',
 }) {
   const overlayRef = useRef(null)
   const modalRef = useRef(null)
@@ -38,6 +38,7 @@ function QuickFilterEditorModal({
   const [busy, setBusy] = useState(false)
   const [deletingId, setDeletingId] = useState(null)
   const [error, setError] = useState('')
+  const [tagSearch, setTagSearch] = useState({ tags: '', exclude_tags: '' })
 
   const sortedTags = useMemo(
     () => [...availableTags].filter((tag) => tag !== '轩皇力推').sort(),
@@ -128,6 +129,7 @@ function QuickFilterEditorModal({
   useEffect(() => {
     if (!isOpen) return
     setForm(emptyForm)
+    setTagSearch({ tags: '', exclude_tags: '' })
     setEditingId(null)
     setError('')
   }, [isOpen])
@@ -169,6 +171,7 @@ function QuickFilterEditorModal({
   const resetForm = () => {
     setEditingId(null)
     setForm(emptyForm)
+    setTagSearch({ tags: '', exclude_tags: '' })
     setError('')
   }
 
@@ -176,23 +179,26 @@ function QuickFilterEditorModal({
     setEditingId(filter.id)
     setForm({ name: filter.name, tags: [...filter.tags], match_mode: filter.match_mode,
       title_keywords: (filter.title_keywords ?? []).join('，'), exclude_tags: [...(filter.exclude_tags ?? [])],
-      exclude_title_keywords: (filter.exclude_title_keywords ?? []).join('，') })
+      exclude_title_keywords: (filter.exclude_title_keywords ?? []).join('，'), year_from: filter.year_from ?? '', year_to: filter.year_to ?? '' })
+    setTagSearch({ tags: '', exclude_tags: '' })
     setError('')
   }
 
   const handleSubmit = async (event) => {
     event.preventDefault()
     const name = form.name.trim()
-    if (!name || !(form.tags.length || form.exclude_tags.length || keywords(form.title_keywords).length || keywords(form.exclude_title_keywords).length)) {
-      setError('请填写筛选名称，并至少设置一项包含或排除条件。')
+    if (!name || !(form.tags.length || form.exclude_tags.length || keywords(form.title_keywords).length || keywords(form.exclude_title_keywords).length || form.year_from !== '' || form.year_to !== '')) {
+      setError('请填写筛选名称，并至少设置一项包含、排除或年份条件。')
       return
     }
+    if ([form.year_from, form.year_to].some(value => value !== '' && !/^[1-9]\d{3}$/.test(String(value)))) { setError('年份必须是 1000—9999 的四位整数。'); return }
+    if (form.year_from !== '' && form.year_to !== '' && Number(form.year_from) > Number(form.year_to)) { setError('年份起点不能大于终点。'); return }
     if (form.tags.some(tag => form.exclude_tags.includes(tag))) { setError('标签不能同时包含与排除。'); return }
 
     setBusy(true)
     setError('')
     try {
-      const payload = { ...form, name, title_keywords: keywords(form.title_keywords), exclude_title_keywords: keywords(form.exclude_title_keywords) }
+      const payload = { ...form, name, title_keywords: keywords(form.title_keywords), exclude_title_keywords: keywords(form.exclude_title_keywords), year_from: form.year_from === '' ? null : Number(form.year_from), year_to: form.year_to === '' ? null : Number(form.year_to) }
       const response = editingId
         ? await api.patch(`${endpoint}/${editingId}/`, payload)
         : await api.post(`${endpoint}/`, payload)
@@ -295,12 +301,20 @@ function QuickFilterEditorModal({
             </label>
             </div></div>
             <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto p-4 custom-scrollbar sm:px-5 md:grid-cols-2">
+            <fieldset className="min-w-0 border-[3px] border-black bg-white p-3 md:col-span-2">
+              <legend className="px-1 text-xs font-black">放送年份范围（含起止年份）</legend>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="min-w-0 text-xs font-bold">起始年份<input aria-label="组合起始年份" type="number" min="1000" max="9999" step="1" placeholder="不限" value={form.year_from} onChange={event => setForm(current => ({ ...current, year_from: event.target.value }))} className={fieldClass} /></label>
+                <label className="min-w-0 text-xs font-bold">结束年份<input aria-label="组合结束年份" type="number" min="1000" max="9999" step="1" placeholder="不限" value={form.year_to} onChange={event => setForm(current => ({ ...current, year_to: event.target.value }))} className={fieldClass} /></label>
+              </div><p className="mt-2 text-[11px] font-bold">与包含、排除条件同时生效；设置范围后不匹配未知年份。</p>
+            </fieldset>
             <section className="min-w-0 self-start border-[3px] border-black bg-[#ffe66d] p-3 shadow-[4px_4px_0_#ff8fab]" aria-label="包含条件">
             <h4 className="mb-3 text-sm font-black">包含条件</h4>
             <fieldset>
               <legend className="mb-2 text-xs font-black text-black">包含标签（最多 8 个）</legend>
+              <input type="search" aria-label="搜索包含标签" placeholder="搜索标签…" value={tagSearch.tags} onChange={event => setTagSearch(current => ({ ...current, tags: event.target.value }))} className="mb-2 w-full min-w-0 border-2 border-black bg-white px-2 py-1.5 text-xs font-bold" />
               <div className="flex max-h-40 flex-wrap gap-2 overflow-y-auto border-[3px] border-black bg-[#fff5ee] p-3 shadow-[4px_4px_0_#111] custom-scrollbar">
-                {sortedTags.map((tag) => {
+                {[...new Set([...form.tags, ...sortedTags])].filter(tag => form.tags.includes(tag) || tag.toLocaleLowerCase().includes(tagSearch.tags.trim().toLocaleLowerCase())).map((tag) => {
                   const selected = form.tags.includes(tag)
                   return <button key={tag} type="button" disabled={!selected && form.tags.length >= 8} onClick={() => toggleTag(tag)} className={`rounded-full border-2 border-black px-2.5 py-1.5 text-xs font-black shadow-[2px_2px_0_#111] transition-none ${selected ? `${getTagClass(tag)} translate-x-1 translate-y-1 shadow-none` : 'bg-white text-black hover:bg-[#bdf4ef]'} disabled:cursor-not-allowed disabled:opacity-30`}><i className={`fa-solid ${selected ? 'fa-check' : 'fa-plus'} mr-1.5 text-[9px]`}></i>{tag}</button>
                 })}
@@ -312,8 +326,9 @@ function QuickFilterEditorModal({
             </section><section className="min-w-0 self-start border-[3px] border-black bg-[#bdf4ef] p-3 shadow-[4px_4px_0_#ffe66d]" aria-label="排除条件">
             <h4 className="mb-3 text-sm font-black">排除条件</h4>
             <fieldset><legend className="mb-2 text-xs font-black">排除标签（最多 8 个）</legend>
+              <input type="search" aria-label="搜索排除标签" placeholder="搜索标签…" value={tagSearch.exclude_tags} onChange={event => setTagSearch(current => ({ ...current, exclude_tags: event.target.value }))} className="mb-2 w-full min-w-0 border-2 border-black bg-white px-2 py-1.5 text-xs font-bold" />
               <div className="flex max-h-40 flex-wrap gap-2 overflow-y-auto border-[3px] border-black bg-[#fff5ee] p-3 custom-scrollbar">
-                {[...new Set([...sortedTags, ...form.exclude_tags])].map(tag => <button key={tag} type="button" onClick={() => toggleTag(tag, 'exclude_tags')}
+                {[...new Set([...form.exclude_tags, ...sortedTags])].filter(tag => form.exclude_tags.includes(tag) || tag.toLocaleLowerCase().includes(tagSearch.exclude_tags.trim().toLocaleLowerCase())).map(tag => <button key={tag} type="button" disabled={!form.exclude_tags.includes(tag) && form.exclude_tags.length >= 8} onClick={() => toggleTag(tag, 'exclude_tags')}
                   className={`rounded-full border-2 border-black px-2.5 py-1.5 text-xs font-black ${form.exclude_tags.includes(tag) ? 'bg-[#ff8fab]' : 'bg-white'}`}>
                   {form.exclude_tags.includes(tag) ? '− ' : '+ '}{tag}</button>)}
               </div>

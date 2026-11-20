@@ -1,3 +1,4 @@
+import { isTypeSelection, typeSelectionLabel } from './animeTypeSelection.js'
 import { scoreConditions, scoreError, scoreLabel } from './browseScore.js'
 import { mapRecommendationItem, validateColdStartState } from './recommendations.js'
 import { sameEvidenceContext } from './recommendationEpoch.js'
@@ -40,7 +41,7 @@ export function mapBrowsePage(data) {
     || c.max_score_exclusive !== undefined && (c.max_score_exclusive !== true || c.max_score === undefined || Number(c.min_score) >= Number(c.max_score))
     || c.max_score !== undefined && (typeof c.max_score !== 'string' || !/^(?:[0-9]\.\d|10\.0)$/.test(c.max_score) || Number(c.max_score) >= 10 || Number(c.max_score) < Number(c.min_score))
     || !['all', 'familiar', 'explore'].includes(c.category) || c.style !== data.style
-    || !['all', 'TV', 'OVA', '剧场版', 'WEB', '短片', '动态漫画'].includes(c.type)
+    || !isTypeSelection(c.type)
     || typeof c.min_score !== 'string' || !/^(?:[0-9]\.\d|10\.0)$/.test(c.min_score)
     || typeof c.hide_recorded !== 'boolean' || !int(c.page_size, 1, 24)
     || ![c.year_from, c.year_to].every(year => year === null || int(year, 1000, 9999))
@@ -97,7 +98,7 @@ export function filterDraftError(filters) {
 }
 
 export function filterChips(filters) {
-  return [filters.includeAdult && { id: 'includeAdult', label: '包含 NSFW' }, filters.type !== 'all' && { id: 'type', label: filters.type },
+  return [filters.includeAdult && { id: 'includeAdult', label: '包含 NSFW' }, filters.type !== 'all' && { id: 'type', label: typeSelectionLabel(filters.type) },
     (filters.yearFrom || filters.yearTo) && { id: 'years', label: `${filters.yearFrom || '不限'}—${filters.yearTo || '不限'}` },
     scoreLabel(filters) && { id: 'minScore', label: scoreLabel(filters) },
     filters.hideRecorded && { id: 'hideRecorded', label: '隐藏手账已有记录' }].filter(Boolean)

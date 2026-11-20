@@ -303,7 +303,10 @@ class TagExplorationTests(TransactionTestCase):
         with patch('recommendations.browsing.cache.get', side_effect=public_cache_failure):
             self.assertEqual(self.options().status_code, 200); self.assertEqual(self.start().status_code, 200)
         with patch('recommendations.browsing.cache.get', side_effect=RuntimeError('synthetic-cache')):
-            self.assertEqual(self.options().status_code, 503); self.assertEqual(self.start().status_code, 503)
+            self.assertEqual(self.options().status_code, 200)
+            fresh = self.start()
+            self.assertEqual(fresh.status_code, 200, fresh.data)
+            self.assertEqual(fresh.data['intent'], 'tags')
         with patch('recommendations.exploration_tags.catalog_revision', side_effect=DatabaseError('synthetic-db')):
             self.assertEqual(self.options().status_code, 503)
         with self.settings(RECOMMENDATION_EXPLORATION_ENABLED=False):

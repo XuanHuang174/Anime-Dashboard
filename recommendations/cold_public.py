@@ -3,6 +3,7 @@
 Never trusts a timestamp/TTL. No user, evidence or results are stored. A stale
 bundle fails closed: rebuilding it is explicit, not a silent partial fallback.
 """
+from .type_filters import matches_type
 from collections import OrderedDict
 import gzip
 import hashlib
@@ -124,7 +125,7 @@ class SeededPublicReader:
         _transaction(count, readonly, isolation, limit)
         if key not in self._scopes:
             rows = tuple(row for row in self.rows if matches_score(row[1], options)
-                         and (options['type'] == 'all' or row[4] == options['type']))
+                         and matches_type(row[4], options['type']))
             self._scopes[key] = (len(rows), row_digest(rows), rows)
         expected_count, expected_digest, rows = self._scopes[key]
         self._scopes.move_to_end(key)

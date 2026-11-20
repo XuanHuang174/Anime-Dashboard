@@ -60,6 +60,21 @@ class CreditsHTTPTests(TransactionTestCase):
     def works(self, kind='studio', person=201, **params):
         return self.get(f'entities/{kind}/{person}/works/', **params)
 
+    def test_combined_types_survive_works_pagination_and_scope_checks(self):
+        RecommendationAnime.objects.filter(bangumi_id__in=(1, 2, 26, 27)).update(status_type='OVA')
+        RecommendationAnime.objects.filter(bangumi_id=3).update(status_type='WEB')
+        response = self.works(type='TV,OVA')
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data['conditions']['type'], 'OVA,TV')
+        self.assertEqual(response.data['count'], 24)
+        ids = [row['bangumi_id'] for row in response.data['results']]
+        while response.data['next_cursor']:
+            response = self.works(cursor=response.data['next_cursor'])
+            self.assertEqual(response.status_code, 200, response.data)
+            ids.extend(row['bangumi_id'] for row in response.data['results'])
+        self.assertEqual(set(ids), set(range(1, 26)) - {3})
+        self.assertEqual(len(ids), len(set(ids)))
+
     def record(self, user=None, identity=1, **changes):
         anime, _ = Anime.objects.get_or_create(bgm_id=identity, defaults={
             'chinese_title': f'私人{identity}', 'airing_period': '2026-1'}) if identity else (Anime.objects.create(

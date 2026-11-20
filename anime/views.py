@@ -55,6 +55,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from .email_service import EmailDeliveryError, send_transactional_email
 from .daily_push import fetch_today_bangumi_items, send_daily_pushes
+from .quick_filtering import matches_year_range
 from .models import (
     Anime,
     FeaturedQuickFilter,
@@ -1074,10 +1075,12 @@ def _apply_record_filters(queryset, request, filter_owner):
         "private_base_tags",
         "private_chinese_title",
         "private_japanese_title",
+        "private_airing_period",
         "custom_tags",
         "anime__base_tags",
         "anime__chinese_title",
         "anime__japanese_title",
+        "anime__airing_period",
     )
     for record in records.iterator(chunk_size=2000):
         tags = _combined_record_tags(record)
@@ -1100,6 +1103,9 @@ def _apply_record_filters(queryset, request, filter_owner):
                 continue
 
         if custom_filter is not None:
+            period = _record_metadata_value(record, 'private_airing_period', 'anime__airing_period')
+            if not matches_year_range(period, custom_filter.year_from, custom_filter.year_to):
+                continue
             japanese_title = _record_metadata_value(record, 'private_japanese_title', 'anime__japanese_title') or ''
             titles = [title_upper, japanese_title.upper()]
             if (any(value in tags for value in custom_filter.exclude_tags)

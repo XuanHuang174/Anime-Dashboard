@@ -640,6 +640,8 @@ class UserQuickFilter(models.Model):
         related_name="anime_quick_filters",
     )
     name = models.CharField("筛选名称", max_length=30)
+    year_from = models.PositiveSmallIntegerField("起始年份", null=True, blank=True, validators=[MinValueValidator(1000), MaxValueValidator(9999)])
+    year_to = models.PositiveSmallIntegerField("结束年份", null=True, blank=True, validators=[MinValueValidator(1000), MaxValueValidator(9999)])
     exclude_tags = models.JSONField("排除标签", default=list, blank=True, validators=[validate_tag_list])
     exclude_title_keywords = models.JSONField("排除标题词", default=list, blank=True, validators=[validate_tag_list])
     tags = models.JSONField(
@@ -672,6 +674,7 @@ class UserQuickFilter(models.Model):
                 fields=("user", "name"),
                 name="unique_user_quick_filter_name",
             ),
+            models.CheckConstraint(condition=models.Q(year_from__isnull=True) | models.Q(year_to__isnull=True) | models.Q(year_from__lte=models.F('year_to')), name='user_quick_filter_year_order'),
         ]
 
     def __str__(self):
@@ -686,6 +689,8 @@ class FeaturedQuickFilter(models.Model):
         ALL = "all", "匹配全部标签"
 
     name = models.CharField("筛选名称", max_length=30, unique=True)
+    year_from = models.PositiveSmallIntegerField("起始年份", null=True, blank=True, validators=[MinValueValidator(1000), MaxValueValidator(9999)])
+    year_to = models.PositiveSmallIntegerField("结束年份", null=True, blank=True, validators=[MinValueValidator(1000), MaxValueValidator(9999)])
     exclude_tags = models.JSONField("排除标签", default=list, blank=True, validators=[validate_tag_list])
     exclude_title_keywords = models.JSONField("排除标题词", default=list, blank=True, validators=[validate_tag_list])
     tags = models.JSONField(
@@ -713,6 +718,7 @@ class FeaturedQuickFilter(models.Model):
         verbose_name = "精选专栏快捷筛选"
         verbose_name_plural = "精选专栏快捷筛选"
         ordering = ("created_at",)
+        constraints = [models.CheckConstraint(condition=models.Q(year_from__isnull=True) | models.Q(year_to__isnull=True) | models.Q(year_from__lte=models.F('year_to')), name='featured_quick_filter_year_order')]
 
     def __str__(self):
         return self.name

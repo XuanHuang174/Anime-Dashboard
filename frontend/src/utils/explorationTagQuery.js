@@ -1,4 +1,5 @@
 import { scoreDraft } from './browseScore.js'
+import { isTypeSelection } from './animeTypeSelection.js'
 import { DEFAULT_BROWSE_FILTERS, filterDraftError } from './recommendationBrowse.js'
 import { similarQuery, validateExplorationQuery } from './explorationResults.js'
 
@@ -9,7 +10,7 @@ export function tagDraftError(draft, tags) {
   if ([...draft.include, ...draft.exclude].some(tag => !tags.includes(tag))) return '请选择目录中的标准题材。'
   if (new Set([...draft.include, ...draft.exclude]).size !== draft.include.length + draft.exclude.length) return '题材不能重复或同时包含与排除。'
   if (!['all', 'any'].includes(draft.match) || !['relevance', 'score'].includes(draft.sort)) return '匹配规则或排序无效。'
-  if (!['all', 'TV', 'OVA', '剧场版', 'WEB', '短片', '动态漫画'].includes(draft.filters.type)
+  if (!isTypeSelection(draft.filters.type)
     || !['0', '6', '7', '8', '9', 'lt6', 'custom'].includes(draft.filters.minScore) || typeof draft.filters.hideRecorded !== 'boolean') return '普通筛选条件无效。'
   return filterDraftError(draft.filters)
 }

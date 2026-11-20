@@ -402,24 +402,15 @@ class MetadataScraper:
         return f"{year}-{season_month}"
 
     @staticmethod
-    def _top_tags(tags):
-        valid_tags = [
-            tag
-            for tag in (tags or [])
-            if isinstance(tag, dict) and str(tag.get("name", "")).strip()
-        ]
-        valid_tags.sort(
-            key=lambda tag: int(tag.get("count") or 0),
-            reverse=True,
-        )
-        names = []
-        for tag in valid_tags:
-            name = str(tag["name"]).strip()
-            if name not in names:
-                names.append(name)
-            if len(names) == 8:
-                break
-        return ",".join(names)
+    def _top_tags(tags, titles=()):
+        from recommendations.features import feature_tags
+        from recommendations.taxonomy import AVAILABLE_TAGS
+        names = [tag['name'] for tag in (tags if isinstance(tags, list) else [])
+                 if isinstance(tag, dict) and isinstance(tag.get('name'), str)]
+        # Scan all supplied labels before projection; popular years, studios and
+        # work names must not displace genuine genres beyond the first eight.
+        genres = feature_tags(names, titles)
+        return ','.join(tag for tag in AVAILABLE_TAGS if tag in genres)
 
     @classmethod
     def _get_studio_from_persons(cls, subject_id):
@@ -550,8 +541,9 @@ class MetadataScraper:
             raise ValueError("Bangumi 条目 ID 必须是正整数。")
 
         image_proxy = getattr(settings, "BANGUMI_PROXY_IMAGE", "")
+        from recommendations.taxonomy import TAXONOMY_VERSION
         cache_key = cls._cache_key(
-            "bangumi-details",
+            f"bangumi-details-genres-v1-{TAXONOMY_VERSION}",
             f"{subject_id}:{image_proxy}",
         )
         cached = cache.get(cache_key)
@@ -613,7 +605,7 @@ class MetadataScraper:
                 or images.get("medium")
                 or ""
             ),
-            "tags": cls._top_tags(subject.get("tags")),
+            "tags": cls._top_tags(subject.get("tags"), (subject.get('name_cn'), subject.get('name'))),
         }
         cache.set(cache_key, details, cls.DETAILS_CACHE_SECONDS)
         return details

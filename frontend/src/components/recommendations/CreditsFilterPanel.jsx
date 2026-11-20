@@ -1,3 +1,4 @@
+import AnimeTypeFilter from './AnimeTypeFilter.jsx'
 import { useState } from 'react'
 import { CREDIT_DEFAULTS } from '../../utils/recommendationCredits.js'
 import { creditsFilterDraft, creditsFilterOptions } from '../../utils/creditsBrowseFilters.js'
@@ -14,9 +15,7 @@ export default function CreditsFilterPanel({ options, adult, client, busy, onApp
     catch (error) { setError(error.message) }
   }}><div className="rec-filter-scroll">
     <p className="rec-muted rec-filter-intro">仅筛选本次参与作品；浏览范围与排序保持主界面的选择。</p>
-    <label className="rec-field">作品类型<select value={draft.type} onChange={event => field('type', event.target.value)}>
-      {['all', 'TV', 'OVA', '剧场版', 'WEB', '短片', '动态漫画'].map(type => <option key={type} value={type}>{type === 'all' ? '不限类型' : type}</option>)}
-    </select></label>
+    <AnimeTypeFilter value={draft.type} onChange={value => field('type', value)} />
     <fieldset className="rec-year-range"><legend>放送年份区间</legend>
       {[['yearFrom', '起始年份'], ['yearTo', '结束年份']].map(([key, label]) => <label className="rec-field" key={key}>{label}
         <input aria-label={label} inputMode="numeric" maxLength={4} placeholder="不限" value={draft[key]} onChange={event => field(key, event.target.value)} />

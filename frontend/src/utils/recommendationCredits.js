@@ -1,3 +1,4 @@
+import { isTypeSelection } from './animeTypeSelection.js'
 import { checkScopeResponse } from './recommendationContentScope.js'
 
 export const CREDIT_KINDS = { voice_actor: '声优', studio: '制作公司' }
@@ -99,7 +100,7 @@ export function validateCreditConditions(options) {
   const keys = Object.keys(CREDIT_DEFAULTS)
   if (!options || Object.keys(options).length !== keys.length || keys.some(k => !Object.hasOwn(options, k))
     || !['all', 'completed'].includes(options.view) || !['score_desc', 'release_desc', 'release_asc'].includes(options.sort)
-    || !['all', 'TV', 'OVA', '剧场版', 'WEB', '短片', '动态漫画'].includes(options.type)
+    || !isTypeSelection(options.type)
     || typeof options.hide_recorded !== 'boolean' || typeof options.max_score_exclusive !== 'boolean'
     || options.view === 'completed' && options.hide_recorded
     || [options.year_from, options.year_to].some(v => v !== null && (!Number.isInteger(v) || v < 1000 || v > 9999))

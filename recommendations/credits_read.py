@@ -21,6 +21,7 @@ from .content_scope import catalog_for_scope
 from .browsing import catalog_revision
 from .browse_controls import season_year
 from .score_filters import matches_score
+from .type_filters import matches_type
 from .evidence import _token
 from .feedback import feedback_snapshot
 from .resolution import resolved_records, LINK_FIELDS
@@ -277,7 +278,7 @@ def works(user, scope, kind, person_id, query, session):
             continue
         if options['view'] == 'completed' and states.get(identity) != 'completed':
             continue
-        if options['type'] != 'all' and item.status_type != options['type'] or not matches_score(item.score, options):
+        if not matches_type(item.status_type, options['type']) or not matches_score(item.score, options):
             continue
         if ((options['year_from'] is not None and (year is None or year < options['year_from']))
                 or (options['year_to'] is not None and (year is None or year > options['year_to']))):

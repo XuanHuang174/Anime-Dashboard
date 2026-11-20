@@ -4063,7 +4063,7 @@ class MetadataScraperDetailTests(APITestCase):
         self.assertEqual(details["episodes"], "12")
         self.assertEqual(
             details["tags"],
-            "标签10,标签9,标签8,标签7,标签6,标签5,标签4,标签3",
+            "",
         )
 
     @patch.object(MetadataScraper, "_request_json")

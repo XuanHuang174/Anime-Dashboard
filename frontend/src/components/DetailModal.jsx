@@ -441,9 +441,9 @@ function DetailModal({
             </button>
           </div>
 
-          <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 sm:grid-cols-[minmax(190px,0.78fr)_minmax(0,2fr)]">
-            <div className="flex min-h-0 flex-col">
-              <div className="memphis-modal-piece group relative aspect-[3/4] min-h-0 flex-1 overflow-hidden border-4 border-black bg-white shadow-[7px_7px_0_#4ecdc4] sm:aspect-auto">
+          <div className="detail-modal-layout grid shrink-0 grid-cols-1 gap-4 sm:min-h-0 sm:flex-1 sm:grid-cols-[minmax(190px,0.78fr)_minmax(0,2fr)]">
+            <div className="detail-modal-sources flex flex-col sm:min-h-0 sm:overflow-y-auto sm:pr-2 custom-scrollbar">
+              <div className="memphis-modal-piece group relative aspect-[3/4] shrink-0 overflow-hidden border-4 border-black bg-white shadow-[7px_7px_0_#4ecdc4] sm:aspect-auto sm:min-h-[120px] sm:flex-1 sm:shrink">
                 <img
                   id="modalCoverImg"
                   className="h-full w-full object-cover transition-[transform,filter,opacity] duration-300 ease-out group-hover:scale-[1.025] group-hover:rotate-[0.4deg] group-hover:opacity-85 group-hover:saturate-[0.85]"
@@ -495,7 +495,7 @@ function DetailModal({
               </div>
             </div>
 
-            <div className={`flex min-h-0 min-w-0 flex-col gap-3${isPrivateJournal ? ' sm:overflow-y-auto sm:pr-2' : ''}`}>
+            <div className={`detail-modal-metadata flex min-w-0 flex-col gap-3 sm:min-h-0${isPrivateJournal ? ' sm:overflow-y-auto sm:pr-2' : ''}`}>
               <div className="grid shrink-0 grid-cols-2 gap-2.5 text-sm lg:grid-cols-12">
                 {[
                   {

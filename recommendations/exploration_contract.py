@@ -1,4 +1,5 @@
 """11A: independent, read-only exploration contracts; no ranking/profile writes."""
+from .type_filters import TypeSelectionField
 import re
 import hashlib
 import json
@@ -152,7 +153,7 @@ class ExplorationQuerySerializer(StrictQuerySerializer):
     exclude_tags = TopicSetField(required=False)
     match = serializers.ChoiceField(choices=('all', 'any'), required=False)
     sort = serializers.ChoiceField(choices=('relevance', 'score'), required=False)
-    type = serializers.ChoiceField(choices=('all', 'TV', 'OVA', '剧场版', 'WEB', '短片', '动态漫画'), default='all')
+    type = TypeSelectionField(default='all')
     min_score = serializers.DecimalField(max_digits=3, decimal_places=1, min_value=0, max_value=10, default=0)
     max_score = serializers.DecimalField(max_digits=3, decimal_places=1, min_value=0, max_value=10, default=10)
     max_score_exclusive = serializers.BooleanField(default=False)

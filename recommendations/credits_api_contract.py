@@ -1,4 +1,5 @@
 """13C strict read contracts and independent, default-closed rollout."""
+from .type_filters import TypeSelectionField
 import re
 from django.conf import settings
 from rest_framework import serializers
@@ -75,7 +76,7 @@ class ActionQuery(StrictQuery):
 class WorksQuery(StrictQuery):
     view = serializers.ChoiceField(choices=('all', 'completed'), default='all')
     sort = serializers.ChoiceField(choices=('score_desc', 'release_desc', 'release_asc'), default='score_desc')
-    type = serializers.ChoiceField(choices=('all', 'TV', 'OVA', '剧场版', 'WEB', '短片', '动态漫画'), default='all')
+    type = TypeSelectionField(default='all')
     year_from = serializers.IntegerField(min_value=1000, max_value=9999, default=None)
     year_to = serializers.IntegerField(min_value=1000, max_value=9999, default=None)
     min_score = serializers.DecimalField(max_digits=3, decimal_places=1, min_value=0, max_value=10, default=0)

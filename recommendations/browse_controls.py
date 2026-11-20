@@ -1,4 +1,5 @@
 """9A opt-in controls. Frozen V1/default arithmetic is never changed here."""
+from .type_filters import matches_type
 import re
 
 from . import engine
@@ -46,7 +47,7 @@ def filter_index(index, rows, options):
     for row in rows:
         if not matches_score(row['score'], options):
             continue
-        if options['type'] != 'all' and row['status_type'] != options['type']:
+        if not matches_type(row['status_type'], options['type']):
             continue
         if options['year_from'] is not None or options['year_to'] is not None:
             year = season_year(row['season'])

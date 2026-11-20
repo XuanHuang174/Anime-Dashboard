@@ -1,3 +1,4 @@
+import AnimeTypeFilter from './AnimeTypeFilter.jsx'
 import BangumiScoreFilter from './BangumiScoreFilter.jsx'
 import { useState } from 'react'
 import { emptyTagDraft, tagDraftError } from '../../utils/explorationTagQuery.js'
@@ -41,7 +42,7 @@ export default function ExplorationTagEditor({ draft, onChange, options, status,
         className={draft.include.includes(tag) ? 'is-included' : draft.exclude.includes(tag) ? 'is-excluded' : ''}>{draft.include.includes(tag) ? '＋ ' : draft.exclude.includes(tag) ? '− ' : ''}{tag}<small>{count} 部</small></button>)}{!choices.length && <p>没有匹配的标准题材。</p>}</div>}
     <p className="rec-muted">{options?.exclusion_description || '按目录已有标注筛选，不能保证作品绝无相关内容。'}</p>
     <details className="rec-tag-common"><summary>类型、年份与评分范围</summary>
-      <label className="rec-field">作品类型<select value={draft.filters.type} onChange={event => filter('type', event.target.value)}><option value="all">全部类型</option>{['TV', '剧场版', 'OVA', 'WEB', '短片', '动态漫画'].map(type => <option key={type}>{type}</option>)}</select></label>
+      <AnimeTypeFilter value={draft.filters.type} onChange={value => filter('type', value)} />
       <fieldset className="rec-year-range"><legend>放送年份</legend>{[['yearFrom', '起始年份'], ['yearTo', '结束年份']].map(([key, label]) => <label className="rec-field" key={key}>{label}<input aria-label={label} inputMode="numeric" maxLength={4} placeholder="不限" value={draft.filters[key]} onChange={event => filter(key, event.target.value)} /></label>)}</fieldset>
       <BangumiScoreFilter filters={draft.filters} onChange={next => field('filters', next)} />
     </details>

@@ -272,6 +272,11 @@ class SingleWorkSnapshotTests(TransactionTestCase):
         data = response.data
         self.assertEqual(len(data['results']), 12)
         with patch('recommendations.browsing.cache.get', side_effect=RuntimeError('synthetic-all-cache')):
+            # Public cache is optional: fresh, live-verified DB results remain valid.
+            fresh = self.start()
+            self.assertEqual(fresh.status_code, 200, fresh.data)
+            self.assertEqual(fresh.data['intent'], 'similar')
+        with patch('recommendations.exploration_browsing.public_browse_index', side_effect=DatabaseError('synthetic-db')):
             self.assertEqual(self.start().status_code, 503)
         tags = self.client.get('/api/recommendations/explore/', {'intent': 'tags', 'include_tags': '音乐'})
         self.assertEqual(tags.status_code, 200, tags.data)

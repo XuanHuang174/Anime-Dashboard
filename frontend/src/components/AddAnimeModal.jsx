@@ -603,7 +603,7 @@ function AddAnimeModal({
         ),
         studio: keepExistingWhenBlank(scraped.studio, current.studio),
         episodes: keepExistingWhenBlank(scraped.episodes, current.episodes),
-        tags: keepExistingWhenBlank(scraped.tags, current.tags),
+        tags: scraped.tags || '',
         bangumiUrl: scraped.bangumiUrl || '',
         autofillTicket: scraped.autofillTicket || '',
         description: keepExistingWhenBlank(
@@ -980,7 +980,7 @@ function AddAnimeModal({
                   <label className="block"><span className={labelClass}>制作公司</span><input name="studio" value={manualForm.studio} onChange={updateManualField} className={inputClass} data-autofill-field="studio" /></label>
                   <label className="block"><span className={labelClass}>话数情况</span><input name="episodes" value={manualForm.episodes} onChange={updateManualField} className={inputClass} placeholder="例如 12、12+1" data-autofill-field="episodes" /></label>
                   <label className="block"><span className={labelClass}>萌娘百科 URL</span><input name="baikeUrl" type="url" value={manualForm.baikeUrl} onChange={updateManualField} className={inputClass} placeholder="https://zh.moegirl.org.cn/..." data-autofill-field="baikeUrl" /></label>
-                  <label className="block"><span className={labelClass}>公共标签</span><input name="tags" value={manualForm.tags} onChange={updateManualField} className={inputClass} placeholder="使用逗号分隔，例如：日常，治愈，原创" data-autofill-field="tags" /></label>
+                  <label className="block"><span className={labelClass}>题材标签</span><input name="tags" value={manualForm.tags} onChange={updateManualField} className={inputClass} placeholder="使用逗号分隔，例如：日常，治愈，原创" data-autofill-field="tags" /><span className="mt-2 block text-[11px] font-bold">智能录入仅带入已识别的标准题材，可自行补充标签。</span></label>
                   <label className="block"><span className={labelClass}>Bangumi 作品 URL</span><input name="bangumiUrl" type="url" value={manualForm.bangumiUrl} readOnly={Boolean(manualForm.autofillTicket)} onChange={updateManualField} className={inputClass} placeholder="https://bgm.tv/subject/..." data-autofill-field="bangumiUrl" />{manualForm.autofillTicket && <button type="button" className="mt-2 text-xs font-bold underline" onClick={() => setManualForm(current => ({ ...current, autofillTicket: '', bangumiUrl: '' }))}>清除智能录入来源，改为手动填写</button>}</label>
                   <label className="flex min-h-[220px] flex-col"><span className={labelClass}>剧情简介</span><textarea name="description" value={manualForm.description} onChange={updateManualField} className={`${inputClass} min-h-[190px] flex-1 resize-y leading-6`} data-autofill-field="description" /></label>
 
@@ -1018,10 +1018,10 @@ function AddAnimeModal({
         {activeTab === 'manual' && <footer className="add-modal-piece shrink-0 border-t-4 border-black bg-[#fff5ee] px-5 py-4 sm:px-6">
               {manualError && <p role="alert" className="mb-4 border-[3px] border-black bg-[#ff6b6b] px-4 py-3 text-sm font-black shadow-[4px_4px_0_#111]"><i className="fa-solid fa-circle-exclamation mr-2"></i>{manualError}</p>}
               <div className="flex flex-wrap justify-end gap-3">
-                <button type="button" onClick={handleClose} disabled={isCreating} className={`${arcadeButton} bg-white`}>取消</button>
                 <button type="submit" form={createFormId} disabled={isCreating} className={`${arcadeButton} bg-[#ff4f9a]`}>
                   <i className={`fa-solid ${isCreating ? 'fa-spinner animate-spin' : 'fa-wand-magic-sparkles'} mr-2`}></i>{isCreating ? '创建中...' : '创建并加入手账'}
                 </button>
+                <button type="button" onClick={handleClose} disabled={isCreating} className={`${arcadeButton} bg-white`}>取消</button>
               </div>
         </footer>}
       </section>

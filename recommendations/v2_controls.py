@@ -1,4 +1,5 @@
 """D1 versioned V2 controls; not V1 formulas, not an HTTP algorithm switch."""
+from .type_filters import matches_type
 import math
 
 from . import engine, ranking_v2, rerank_runtime
@@ -45,7 +46,7 @@ def validate_options(options):
 def matches(row, options):
     if not matches_score(row['score'], options):
         return False
-    if options['type'] != 'all' and row['status_type'] != options['type']:
+    if not matches_type(row['status_type'], options['type']):
         return False
     if options['year_from'] is not None or options['year_to'] is not None:
         year = season_year(row['season'])

@@ -16,6 +16,7 @@ import {
 } from './components/RecordPaginationControls.jsx'
 import StatsSummary from './components/StatsSummary.jsx'
 import animeData from './data/animeData.js'
+import { matchesCustomQuickFilter as matchesShowcaseQuickFilter } from './utils/quickFilter.js'
 import { comparePeriod } from './utils/animeDisplay.js'
 import { mapRecordToAnimeItem } from './utils/recordMapping.js'
 
@@ -23,16 +24,6 @@ gsap.registerPlugin(useGSAP)
 
 let hasPlayedPublicEntrance = false
 
-function matchesShowcaseQuickFilter(item, filter) {
-  if (!filter) return true
-  const titleKeywords = filter.title_keywords ?? []
-  if (filter.match_mode === 'all') {
-    return filter.tags.every((tag) => item.tags.includes(tag))
-      && titleKeywords.every((keyword) => item.title.toUpperCase().includes(keyword.toUpperCase()))
-  }
-  return filter.tags.some((tag) => item.tags.includes(tag))
-    || titleKeywords.some((keyword) => item.title.toUpperCase().includes(keyword.toUpperCase()))
-}
 
 function App() {
   const publicPageRef = useRef(null)
