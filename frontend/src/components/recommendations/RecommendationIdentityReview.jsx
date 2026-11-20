@@ -19,7 +19,7 @@ export default function RecommendationIdentityReview({ client, onClose, onChange
   return <RecommendationDialog kind="identity" title={title} busy={sending} onClose={close}>
     <div className="rec-identity-workbench">
       <p className="rec-identity-intro">核对你自己的{scope === 'all' ? '旧记录（全部观看状态）' : '评分达到当前取样门槛的旧记录'}，逐条选择并勾选后统一提交。请留意不同季、OVA 和剧场版；评分、长评、状态和私人标签不修改。</p>
-      {scopeControl && <fieldset disabled={locked || drafts.length > 0 || searching}>{typeof scopeControl === 'function' ? scopeControl(state) : scopeControl}{drafts.length > 0 && <p className="rec-muted">请先提交或移除暂存选择，再切换内容范围。</p>}</fieldset>}
+      {scopeControl && <fieldset className="rec-identity-scope" disabled={locked || drafts.length > 0 || searching}>{typeof scopeControl === 'function' ? scopeControl(state) : scopeControl}{drafts.length > 0 && <p className="rec-muted">请先提交或移除暂存选择，再切换内容范围。</p>}</fieldset>}
       <div className="rec-identity-content">
         <div className="rec-identity-pagination"><span>{state.focusedId ? '正在核对清单中的单条记录' : state.data ? `${state.data.count} 条记录待核对 · 第 ${state.page} 页` : '待核对列表'}</span>
           {state.focusedId && <button type="button" className="rec-button" disabled={locked} onClick={() => controller.loadPage(1)}>返回待核对列表</button>}

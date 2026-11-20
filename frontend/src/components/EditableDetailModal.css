@@ -1,9 +1,47 @@
-/* Only the desktop editor workspace is bounded; the dialog sizes to its content.
-   Short windows scroll the body while the existing header/footer stay outside it.
-   Keep the existing mobile/tablet stack and visual styles. */
+/* Short windows keep a scrolling body, with the module controls above the editor.
+   Taller desktop windows give the sources and editing workspace separate budgets. */
 @media (min-width: 1024px) {
+  .edit-record-panel-switcher {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+
   .edit-record-editor {
     height: clamp(18rem, calc(100dvh - 28rem), 26rem);
     flex: none;
+  }
+}
+
+@media (min-width: 1024px) and (min-height: 700px) {
+  .edit-record-modal {
+    height: min(58rem, calc(100dvh - 2rem));
+  }
+
+  .edit-record-body {
+    overflow: hidden;
+  }
+
+  .edit-record-layout {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .edit-record-sources {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0 8px 8px 0;
+    scrollbar-gutter: stable;
+  }
+
+  .edit-record-workspace {
+    padding: 0 8px 8px 0;
+  }
+
+  .edit-record-editor {
+    height: auto;
+    flex: 1;
+    min-height: 0;
   }
 }

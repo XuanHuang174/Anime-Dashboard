@@ -477,18 +477,21 @@ function DetailModal({
               </div>
 
               <div className="memphis-modal-piece mt-3 shrink-0 border-[3px] border-black bg-[#ff8fab] p-2.5 shadow-[5px_5px_0_#111]">
-                <span className="mb-2 block text-[11px] font-black text-black">
+                <span className="mb-1 block text-xs font-black text-black">
                   <i className="fa-solid fa-book-open mr-2"></i>
                   百科与原站资料
                 </span>
-                <p className="mb-2 text-[10px] font-bold">在新标签页打开外部资料；链接可在私人编辑中补充。</p>
-                <div className="grid grid-cols-2 gap-2">{[
+                <p className="mb-2 text-[11px] font-bold">在新标签页打开</p>
+                <div className="grid grid-cols-1 gap-2">{[
                   { name: '萌娘百科', url: baikeLink, icon: 'fa-book-open' },
                   { name: 'Bangumi 条目', url: bangumiLink, icon: 'fa-tv' },
                 ].map(link => <a key={link.name} href={link.url || undefined} target={link.url ? '_blank' : undefined} rel="noopener noreferrer" aria-disabled={!link.url}
-                  className={`flex min-w-0 items-center justify-center gap-1 border-[3px] border-black bg-[#ffe66d] px-1 py-2 text-[10px] font-black shadow-[3px_3px_0_#111] hover:bg-[#4ecdc4]${link.url ? '' : ' pointer-events-none opacity-50'}`}>
-                  <i className={`fa-solid ${link.icon}`} aria-hidden="true" />{link.url ? link.name : `${link.name}未设置`} {link.url && '↗'}
+                  className={`flex min-h-11 min-w-0 items-center gap-1 border-[3px] border-black px-2 py-2 text-xs font-black shadow-[3px_3px_0_#111] transition-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black ${link.url ? 'bg-[#ffe66d] hover:bg-[#4ecdc4] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none' : 'pointer-events-none bg-[#fff1c2] text-zinc-600'}`}>
+                  <i className={`fa-solid ${link.icon} w-3.5 shrink-0 text-center`} aria-hidden="true" />
+                  <span className="min-w-0 whitespace-nowrap">{link.name}</span>
+                  <span className="ml-auto shrink-0 whitespace-nowrap text-[11px]" aria-hidden={link.url ? true : undefined}>{link.url ? '↗' : '未设置'}</span>
                 </a>)}</div>
+                {(!baikeLink || !bangumiLink) && <p className="mt-2 text-[11px] font-bold leading-relaxed">{isPrivateJournal ? '缺少的链接可在编辑模式中补充。' : '部分资料链接尚未设置。'}</p>}
               </div>
             </div>
 

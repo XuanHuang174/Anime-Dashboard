@@ -407,7 +407,7 @@ function EditableDetailModal({
     { value: 'review', label: '个人评价', icon: 'fa-pen-nib', activeClass: 'bg-[#ff8fab]' },
   ]
   const editorPanelSwitcher = (
-    <div className="grid grid-cols-3 border-[3px] border-black bg-white shadow-[4px_4px_0_#111]">
+    <div className="grid grid-cols-3 border-[3px] border-black bg-white shadow-[4px_4px_0_#111]" role="group" aria-label="切换编辑模块">
       {editorPanelOptions.map((option, index) => (
         <button
           key={option.value}
@@ -465,8 +465,8 @@ function EditableDetailModal({
         </header>
 
         <div className="edit-record-body min-h-0 flex-1 overflow-y-auto p-3 custom-scrollbar sm:p-4">
-          <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
-            <aside className="edit-modal-piece mx-auto w-full max-w-[240px] lg:mx-0 lg:flex lg:max-w-[220px] lg:flex-col">
+          <div className="edit-record-layout grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
+            <aside className="edit-record-sources edit-modal-piece mx-auto w-full max-w-[240px] lg:mx-0 lg:flex lg:max-w-[220px] lg:flex-col custom-scrollbar">
               <div className="aspect-[3/4] shrink-0 overflow-hidden border-4 border-black bg-[#ff8fab] shadow-[7px_7px_0_#4ecdc4]">
                 <img src={coverPreview} alt={`${formData.title} 海报`} className="h-full w-full object-cover" />
               </div>
@@ -481,19 +481,25 @@ function EditableDetailModal({
               <label htmlFor="editCoverUrl" className="mb-1 mt-3 block shrink-0 text-[11px] font-black">网络图片 URL</label>
               <input id="editCoverUrl" name="cover" type="url" value={formData.cover} onChange={updateField} placeholder="https://..." className={fieldClass} />
 
-              <label htmlFor="editBaikeUrl" className="mb-1 mt-3 block shrink-0 text-[11px] font-black">萌娘百科 URL</label>
-              <input id="editBaikeUrl" name="baikeUrl" type="url" value={formData.baikeUrl} onChange={updateField} placeholder="https://zh.moegirl.org.cn/..." className={fieldClass} />
-              <label htmlFor="editBangumiUrl" className="mb-1 mt-3 block shrink-0 text-[11px] font-black">Bangumi 作品 URL</label>
-              <input id="editBangumiUrl" name="bangumiUrl" type="url" value={formData.bangumiUrl} onChange={updateField} placeholder="https://bgm.tv/subject/..." className={fieldClass} />
-              <div className="mt-3 grid shrink-0 grid-cols-2 gap-2">
-                <button type="button" className={`${arcadeButton} bg-[#4ecdc4] !px-2 !text-[10px]`} disabled={!bangumiSubjectUrl(renderedItem.confirmedBangumiId)} onClick={() => setFormData(current => ({ ...current, bangumiUrl: bangumiSubjectUrl(renderedItem.confirmedBangumiId) }))}><i className="fa-solid fa-link mr-1" />填入 Bangumi</button>
-                <button type="button" className={`${arcadeButton} bg-[#ff8fab] !px-2 !text-[10px]`} disabled={!formData.title.trim()} onClick={() => setFormData(current => ({ ...current, baikeUrl: moegirlTitleUrl(current.title) }))}><i className="fa-solid fa-book-open mr-1" />生成萌百链接</button>
+              <div className="mb-1 mt-3 flex shrink-0 flex-wrap items-center justify-between gap-1">
+                <label htmlFor="editBaikeUrl" className="text-[11px] font-black">萌娘百科 URL</label>
+                <button type="button" className="border-2 border-black bg-[#ff8fab] px-2 py-1 text-[11px] font-black hover:bg-[#ffe66d] disabled:opacity-50" disabled={!formData.title.trim()} onClick={() => setFormData(current => ({ ...current, baikeUrl: moegirlTitleUrl(current.title) }))}><i className="fa-solid fa-book-open mr-1" aria-hidden="true" />生成链接</button>
               </div>
-              <p className="mt-2 text-[10px] font-bold">Bangumi 根据已确认身份填写；未确认时可在预览中核对。萌百按标题生成，可能需要修正消歧义页面。修改名称不会自动覆盖链接。</p>
+              <input id="editBaikeUrl" name="baikeUrl" type="url" value={formData.baikeUrl} onChange={updateField} placeholder="https://zh.moegirl.org.cn/..." className={fieldClass} />
+              <div className="mb-1 mt-3 flex shrink-0 flex-wrap items-center justify-between gap-1">
+                <label htmlFor="editBangumiUrl" className="text-[11px] font-black">Bangumi 作品 URL</label>
+                <button type="button" className="border-2 border-black bg-[#4ecdc4] px-2 py-1 text-[11px] font-black hover:bg-[#ffe66d] disabled:opacity-50" disabled={!bangumiSubjectUrl(renderedItem.confirmedBangumiId)} onClick={() => setFormData(current => ({ ...current, bangumiUrl: bangumiSubjectUrl(renderedItem.confirmedBangumiId) }))}><i className="fa-solid fa-link mr-1" aria-hidden="true" />填入链接</button>
+              </div>
+              <input id="editBangumiUrl" name="bangumiUrl" type="url" value={formData.bangumiUrl} onChange={updateField} placeholder="https://bgm.tv/subject/..." className={fieldClass} />
+              {!bangumiSubjectUrl(renderedItem.confirmedBangumiId) && <p className="mt-2 text-[11px] font-bold leading-relaxed">尚未确认标准作品，可在预览中核对身份。</p>}
+              <details className="mt-3 shrink-0 text-[11px] font-bold leading-relaxed">
+                <summary className="cursor-pointer py-1 underline underline-offset-2">链接填写说明</summary>
+                <p className="mt-1">Bangumi 根据已确认身份填写。萌百按标题生成，可能需要修正消歧义页面。修改名称不会自动覆盖链接。</p>
+              </details>
 
             </aside>
 
-            <div className="flex min-h-0 flex-col gap-3">
+            <div className="edit-record-workspace flex min-h-0 min-w-0 flex-col gap-3">
               <div className="edit-modal-piece grid shrink-0 gap-2.5 border-[3px] border-black bg-white p-3 shadow-[6px_6px_0_#ffe66d] sm:grid-cols-2 lg:grid-cols-12">
                 {[
                   ['period', '放送季度', 'text', '2026-1', 'lg:col-span-4'],
@@ -538,6 +544,9 @@ function EditableDetailModal({
                 )}
               </div>
 
+              <div className="edit-record-panel-switcher edit-modal-piece shrink-0 bg-[#fff5ee] pb-1">
+                {editorPanelSwitcher}
+              </div>
               <section className="edit-record-editor edit-modal-piece min-h-0 flex-1">
                 {activeEditorPanel === 'tags' ? (
                   <div className="grid h-full min-h-0 gap-3 lg:grid-cols-2">
@@ -594,7 +603,7 @@ function EditableDetailModal({
                         <p className="mt-1 text-[10px] font-bold">点击即可加入，再在左侧选择专属颜色。</p>
                       </div>
                       <div className="edit-record-presets-scroll min-h-0 flex-1 overflow-y-auto pr-1 custom-scrollbar">
-                        {/* Natural-height rows scroll inside the bounded viewport; the switcher stays outside. */}
+                        {/* Natural-height rows scroll inside the bounded viewport. */}
                         <div className="flex flex-wrap items-start content-start gap-1.5 pb-2">
                         {personalPresets.error && <p role="alert" className="w-full text-xs font-bold text-red-700">{personalPresets.error}</p>}
                         {managePresets && <div className="w-full border-2 border-black bg-white p-2">
@@ -624,19 +633,12 @@ function EditableDetailModal({
                         })}
                         </div>
                       </div>
-                      <div className="edit-record-panel-switcher relative mt-3 shrink-0 border-t-[3px] border-black bg-[#ffe66d] pt-3">
-                        <p className="mb-2 text-[10px] font-black uppercase tracking-[0.12em]">切换编辑模块</p>
-                        {editorPanelSwitcher}
-                      </div>
                     </div>
                   </div>
                 ) : (
                   <div className={`flex h-full min-h-0 flex-col border-[3px] border-black p-3 shadow-[6px_6px_0_#111] ${
                     activeEditorPanel === 'description' ? 'bg-[#4ecdc4]' : 'bg-[#ff8fab]'
                   }`}>
-                    <div className="mb-3 shrink-0">
-                      {editorPanelSwitcher}
-                    </div>
                     <textarea
                       key={activeEditorPanel}
                       name={activeEditorPanel}

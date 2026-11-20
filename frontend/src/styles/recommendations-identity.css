@@ -4,6 +4,11 @@
 .memphis-rec-container .rec-dialog--identity > .rec-dialog-body { flex: 1; min-height: 0; display: flex; padding: 0; overflow: hidden; }
 .memphis-rec-container .rec-identity-workbench { display: flex; flex-direction: column; width: 100%; min-width: 0; min-height: 0; }
 .memphis-rec-container .rec-identity-intro { flex-shrink: 0; margin: 0; padding: 14px 20px; font-size: 12px; line-height: 1.8; border-bottom: 1px solid #ded6c9; }
+.memphis-rec-container .rec-identity-scope { flex-shrink: 0; min-width: 0; margin: 0; padding: 10px 20px; border: 0; }
+.memphis-rec-container .rec-identity-scope .rec-checkbox { display: flex; align-items: flex-start; gap: 10px; margin: 0; padding: 8px 0; min-height: 44px; line-height: 1.7; cursor: pointer; }
+.memphis-rec-container .rec-identity-scope input { flex-shrink: 0; margin: 3px 0 0; }
+.memphis-rec-container .rec-identity-scope:disabled .rec-checkbox { cursor: default; }
+.memphis-rec-container .rec-identity-scope .rec-muted { margin: 4px 0 0; }
 .memphis-rec-container .rec-identity-content { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 20px 20px; scrollbar-gutter: stable; }
 .memphis-rec-container .rec-identity-pagination { display: flex; align-items: center; justify-content: end; flex-wrap: wrap; gap: 8px; padding: 14px 0; font-size: 12px; }
 .memphis-rec-container .rec-identity-pagination > span { margin-right: auto; }
@@ -36,7 +41,8 @@
   .memphis-rec-container .rec-dialog.rec-dialog--identity { width: 100%; inset: auto 0 0; margin: 0; height: 96dvh; max-height: 96dvh; border-bottom: 0; box-shadow: none; }
   .memphis-rec-container .rec-dialog--identity > .rec-dialog-header { padding: 10px 12px; }
   .memphis-rec-container .rec-identity-intro { padding: 10px 12px; font-size: 11px; }
-  .memphis-rec-container .rec-identity-content { padding: 0 10px 12px; }
+  .memphis-rec-container .rec-identity-scope { padding: 6px 12px; }
+  .memphis-rec-container .rec-identity-content { padding: 0 12px 12px; }
   .memphis-rec-container .rec-identity-workbench .rec-identity-row { padding: 12px; }
   .memphis-rec-container .rec-identity-heading { flex-wrap: wrap; gap: 4px; }
   .memphis-rec-container .rec-identity-heading .rec-muted { font-size: 11px; }
