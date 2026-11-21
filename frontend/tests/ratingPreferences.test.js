@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { getScoreAccentColor } from '../src/utils/animeDisplay.js'
-import { defaultRatingPreferences, legacyRatingPreferences, restoreClassicAppearance, ratingPreferencesError, normalizeRatingPreferences, ratingForScore, histogramHighlight, highlightRange, ratingPreset, ratingStyle } from '../src/utils/ratingPreferences.js'
+import { RATING_COLORS, defaultRatingPreferences, legacyRatingPreferences, restoreClassicAppearance, ratingPreferencesError, normalizeRatingPreferences, ratingForScore, histogramHighlight, highlightRange, ratingPreset, ratingStyle } from '../src/utils/ratingPreferences.js'
 
 test('rating defaults match the backend versioned contract and never share mutable defaults', () => {
   const fixture = JSON.parse(readFileSync(new URL('./fixtures/ratingPreferencesContract.json', import.meta.url), 'utf8'))
@@ -12,12 +12,19 @@ test('rating defaults match the backend versioned contract and never share mutab
   assert.equal(ratingPreferencesError(fixture), '')
 })
 
-test('classic palette exactly matches the pre-personalization colors and three-stop gradients', () => {
+test('classic defaults use neon soft glow while the original palettes remain selectable', () => {
   const config = defaultRatingPreferences()
   for (const [score, number, stars] of [[8, '#1e293b', '#fbbf24'], [9.3, '#f97316', '#fbbf24'], [9.5, '#dc2626', '#ea580c']]) {
     assert.equal(ratingStyle(ratingForScore(score, config)).color, number)
     assert.equal(ratingStyle(ratingForScore(score, config), true).color, stars)
   }
+  const glow = { color: '#ff2a85', textShadow: '0 1px 7px #b537f255' }
+  assert.deepEqual(ratingStyle(ratingForScore(9.9, config)), glow)
+  assert.deepEqual(ratingStyle(ratingForScore(9.9, config), true), glow)
+  assert.deepEqual(ratingStyle(ratingForScore(9.9, ratingPreset('numbers'))), glow)
+  assert.equal(RATING_COLORS.classic.label, '紫蓝渐变')
+  config.tiers[0].effect = 'gradient'
+  assert.deepEqual(normalizeRatingPreferences(config), config, 'Explicitly saved rainbow gradients remain selectable')
   const neon = 'linear-gradient(to right, #ff2a85, #ff7b00, #ffd000, #00e5ff, #4d7cff, #b537f2, #ff2a85)'
   assert.equal(ratingStyle(ratingForScore(9.9, config)).backgroundImage, neon)
   assert.equal(ratingStyle(ratingForScore(9.9, config), true).backgroundImage, neon)
@@ -48,7 +55,7 @@ test('legacy default upgrade preserves names, star counts, statistics and never 
 
 test('compact view defaults upgrade old defaults while explicit purple and view choices stay intact', () => {
   const old = defaultRatingPreferences(); delete old.display
-  old.tiers[0].color = 'classic'; old.tiers[0].star_color = 'classic'
+  old.tiers[0].color = 'classic'; old.tiers[0].star_color = 'classic'; old.tiers[0].effect = 'gradient'
   assert.equal(normalizeRatingPreferences(old).tiers[0].color, 'rainbow')
   old.display = { mobile_stars: true, detail_stars: true, poster_style: 'stars' }
   assert.deepEqual(normalizeRatingPreferences(old), old)
@@ -90,5 +97,5 @@ test('presets change presentation and count criteria only, with numeric-only and
   const config = defaultRatingPreferences(); config.star_max = 10; config.tiers[0].stars = 10
   assert.equal(ratingForScore(9.9, config).max, 10)
   assert.equal(ratingForScore(9.9, config).stars, 10)
-  assert.match(ratingStyle(ratingForScore(9.9, config)).backgroundImage, /^linear-gradient/)
+  assert.ok(ratingStyle(ratingForScore(9.9, config)).textShadow)
 })

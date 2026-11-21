@@ -31,7 +31,7 @@ def restore_classic_appearance(value):
         low = tier['min']
         tier.update(color='rainbow' if low >= 9.9 else 'red' if low >= 9.5 else 'orange' if low >= 9 else 'ink',
                     star_color='rainbow' if low >= 9.9 else 'deeporange' if low >= 9.5 else 'gold',
-                    effect='gradient' if low >= 9.9 else 'plain')
+                    effect='glow' if low >= 9.9 else 'plain')
     return result
 
 
@@ -108,7 +108,7 @@ def normalized_rating_preferences(value):
         previous = restore_classic_appearance(legacy_rating_preferences())['tiers']
         for row in previous:
             if row['color'] == 'rainbow':
-                row.update(color='classic', star_color='classic')
+                row.update(color='classic', star_color='classic', effect='gradient')
         legacy = len(value['tiers']) == len(old) and all(
             all(row[key] == previous[key] for key in ('min', 'color', 'star_color', 'effect'))
             for row, previous in zip(value['tiers'], old)

@@ -32,7 +32,7 @@ class RatingConfigurationTests(SimpleTestCase):
     def test_previous_default_and_optional_view_settings_are_compatible(self):
         old = default_rating_preferences()
         del old['display']
-        old['tiers'][0].update(color='classic', star_color='classic')
+        old['tiers'][0].update(color='classic', star_color='classic', effect='gradient')
         self.assertEqual(normalized_rating_preferences(old)['tiers'][0]['color'], 'rainbow')
         old['display'] = {'mobile_stars': True, 'detail_stars': True, 'poster_style': 'stars'}
         self.assertEqual(normalized_rating_preferences(old), old)
@@ -45,10 +45,13 @@ class RatingConfigurationTests(SimpleTestCase):
     def test_default_contract_is_shared_with_frontend_and_new_objects_are_independent(self):
         fixture = Path(__file__).resolve().parents[1] / 'frontend/tests/fixtures/ratingPreferencesContract.json'
         config = default_rating_preferences()
+        self.assertEqual(config['tiers'][0]['effect'], 'glow')
         self.assertEqual(config, json.loads(fixture.read_text(encoding='utf-8')))
         validate_rating_preferences(config)
         config['tiers'][0]['label'] = 'changed'
         self.assertEqual(default_rating_preferences()['tiers'][0]['label'], '殿堂')
+        config['tiers'][0]['effect'] = 'gradient'
+        self.assertEqual(normalized_rating_preferences(config), config)
 
     def test_non_finite_numbers_and_unsafe_or_ambiguous_settings_fail_closed(self):
         for value in (None, {}, [], {'version': 2}):

@@ -7,7 +7,7 @@ export const RATING_COLORS = {
   orange: { label: '明橙', color: '#f97316', light: '#fb923c' },
   gold: { label: '经典金星', color: '#fbbf24', light: '#f59e0b' },
   deeporange: { label: '经典橙星', color: '#ea580c', light: '#f97316' },
-  classic: { label: '紫蓝渐变（原版）', color: '#9333ea', light: '#d946ef', accent: '#a78bfa',
+  classic: { label: '紫蓝渐变', color: '#9333ea', light: '#d946ef', accent: '#a78bfa',
     gradient: ['#4f46e5', '#9333ea', '#d946ef'], starGradient: ['#ec4899', '#a855f7', '#6366f1'] },
   rainbow: { label: '霓虹虹彩', color: '#ff2a85', light: '#b537f2', accent: '#a78bfa',
     gradient: ['#ff2a85', '#ff7b00', '#ffd000', '#00e5ff', '#4d7cff', '#b537f2', '#ff2a85'],
@@ -30,7 +30,7 @@ export function restoreClassicAppearance(value) {
   return { ...value, tiers: value.tiers.map(tier => ({ ...tier,
     color: tier.min >= 9.9 ? 'rainbow' : tier.min >= 9.5 ? 'red' : tier.min >= 9 ? 'orange' : 'ink',
     star_color: tier.min >= 9.9 ? 'rainbow' : tier.min >= 9.5 ? 'deeporange' : 'gold',
-    effect: tier.min >= 9.9 ? 'gradient' : 'plain',
+    effect: tier.min >= 9.9 ? 'glow' : 'plain',
   })) }
 }
 export function defaultRatingPreferences() { return { ...restoreClassicAppearance(legacyRatingPreferences()), display: defaultRatingDisplay() } }
@@ -40,8 +40,8 @@ export function hasLegacyDefaultAppearance(value) {
 }
 function hasPreviousDefaultAppearance(value) {
   if (Object.hasOwn(value, 'display') || value.tiers.length !== 8) return false
-  const previous = restoreClassicAppearance(legacyRatingPreferences()).tiers
-  return value.tiers.every((tier, index) => ['min', 'color', 'star_color', 'effect'].every(key => tier[key] === (previous[index][key] === 'rainbow' ? 'classic' : previous[index][key])))
+  const previous = restoreClassicAppearance(legacyRatingPreferences()).tiers.map(tier => tier.color === 'rainbow' ? { ...tier, color: 'classic', star_color: 'classic', effect: 'gradient' } : tier)
+  return value.tiers.every((tier, index) => ['min', 'color', 'star_color', 'effect'].every(key => tier[key] === previous[index][key]))
 }
 const keys = (value, expected) => value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).sort().join('|') === [...expected].sort().join('|')
 const boundary = value => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 10 && Math.abs(value * 10 - Math.round(value * 10)) < 1e-8

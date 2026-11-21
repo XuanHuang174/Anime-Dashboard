@@ -9,7 +9,7 @@ import './RatingPreferencesModal.css'
 
 const errorText = error => error?.response?.status === 429 ? '操作较频繁，请稍后重试。不会自动重复保存。' : error?.response?.data?.detail || Object.values(error?.response?.data || {}).flat().join('；') || error.message || '连接暂时中断，请重试。'
 const copy = value => JSON.parse(JSON.stringify(value))
-const presets = [['default', '经典默认', '七彩高分 · 简洁视图'], ['bangumi', 'Bangumi 整数习惯', '按整数分档 · 8 分起统计'], ['numbers', '仅数字', '保留数字 · 隐藏星级']]
+const presets = [['default', '经典默认', '霓虹柔光 · 简洁视图'], ['bangumi', 'Bangumi 整数习惯', '按整数分档 · 8 分起统计'], ['numbers', '仅数字', '霓虹柔光 · 隐藏星级']]
 const numeric = value => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 10 && Math.abs(value * 10 - Math.round(value * 10)) < 1e-8
 const validName = value => value.trim() && [...value].length <= 16 && !/[\u0000-\u001f]/.test(value)
 const rangeLabel = (rows, index) => `${rows[index].min === '' ? '…' : rows[index].min} ≤ 分数 ${index ? `< ${rows[index - 1].min || 0}` : '≤ 10'}`
