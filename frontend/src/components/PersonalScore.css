@@ -10,6 +10,10 @@
 .personal-score--grid .personal-score-stars { font-size: 9px; gap: 1px; }
 .personal-score--detail { font-size: 28px; }
 .personal-score--detail .personal-score-stars { font-size: 14px; }
+.personal-score--detail .personal-score-denominator { font-size: .65em; }
+.personal-score.personal-score--badge { flex-direction: row; gap: 5px; align-items: center; }
+.personal-score-badge-icon { color: #fbbf24; font-size: 12px; }
+.personal-score--badge .personal-score-number { line-height: 1.5; }
 .memphis-grid-score { max-width: calc(100% - 16px); }
 .memphis-grid-score .personal-score { min-width: 0; }
 .memphis-grid-score .personal-score-stars { font-size: 9px; }
@@ -18,8 +22,11 @@
   .memphis-anime-list .personal-score-stars { font-size: 9px; }
   .memphis-anime-list .personal-score-denominator { display: none; }
   .memphis-anime-list .personal-score { font-size: 18px; }
+  :is(.memphis-anime-list, .rating-context-card--list) .personal-score--compact-mobile .personal-score-stars { display: none; }
+  .rating-context-card--list .personal-score-denominator { display: none; }
 }
 .rating-legend { margin: 0 0 18px; padding: 10px 14px; border: 2px solid #111; background: #fff6dc; font-size: 12px; }
 .rating-legend summary { cursor: pointer; font-weight: 800; }
 .rating-legend > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding: 5px 0; border-top: 1px solid #c9c0ac; }
 .rating-legend p { margin: 10px 0; }
+.rating-stat-endpoints { display: block; white-space: nowrap; }

@@ -97,7 +97,7 @@ function StatsSummary({ db = [], statsData = null, theme = 'default', idPrefix =
     {
       label: `${highlight.label} (${highlightRange(preferences)})`,
       value: stats.masterpieceCount,
-      note: `个人评分 ${highlight.min}–${highlight.max} 分（含端点）`,
+      note: <>{`个人评分 ${highlight.min}–${highlight.max} 分`}<span className="rating-stat-endpoints">（含端点）</span></>,
       icon: 'fa-crown',
       color: 'bg-[#ff6b6b]',
       valueClass: 'text-red-600',

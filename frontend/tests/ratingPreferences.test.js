@@ -8,7 +8,7 @@ test('rating defaults match the backend versioned contract and never share mutab
   const fixture = JSON.parse(readFileSync(new URL('./fixtures/ratingPreferencesContract.json', import.meta.url), 'utf8'))
   assert.deepEqual(defaultRatingPreferences(), fixture)
   const value = defaultRatingPreferences(); value.tiers[0].color = 'red'
-  assert.equal(defaultRatingPreferences().tiers[0].color, 'classic')
+  assert.equal(defaultRatingPreferences().tiers[0].color, 'rainbow')
   assert.equal(ratingPreferencesError(fixture), '')
 })
 
@@ -18,6 +18,8 @@ test('classic palette exactly matches the pre-personalization colors and three-s
     assert.equal(ratingStyle(ratingForScore(score, config)).color, number)
     assert.equal(ratingStyle(ratingForScore(score, config), true).color, stars)
   }
+  assert.equal(ratingStyle(ratingForScore(9.9, config)).backgroundImage, 'linear-gradient(to right, #ef4444, #f97316, #eab308, #22c55e, #06b6d4, #3b82f6, #a855f7)')
+  config.tiers[0].color = 'classic'; config.tiers[0].star_color = 'classic'
   assert.equal(ratingStyle(ratingForScore(9.9, config)).backgroundImage, 'linear-gradient(to right, #4f46e5, #9333ea, #d946ef)')
   assert.equal(ratingStyle(ratingForScore(9.9, config), true).backgroundImage, 'linear-gradient(to right, #ec4899, #a855f7, #6366f1)')
   assert.equal(getScoreAccentColor(9.9, config), '#a78bfa')
@@ -35,11 +37,23 @@ test('legacy default upgrade preserves names, star counts, statistics and never 
   assert.deepEqual(upgraded.statistics, old.statistics)
   assert.equal(upgraded.tiers[0].label, '我的殿堂'); assert.equal(upgraded.tiers[0].stars, 3)
   old.tiers[0].star_color = 'teal'
-  assert.deepEqual(normalizeRatingPreferences(old), old, 'Hand-picked legacy palettes must remain unchanged')
+  assert.deepEqual(normalizeRatingPreferences(old), { ...old, display: { mobile_stars: true, detail_stars: true, poster_style: 'stars' } }, 'Hand-picked legacy palettes and expanded display must remain unchanged')
   old.tiers[0].min = 9.8
   const classic = restoreClassicAppearance(old)
   assert.equal(classic.tiers[0].min, 9.8); assert.equal(classic.tiers[0].stars, 3)
   assert.deepEqual(classic.statistics, old.statistics)
+})
+
+test('compact view defaults upgrade old defaults while explicit purple and view choices stay intact', () => {
+  const old = defaultRatingPreferences(); delete old.display
+  old.tiers[0].color = 'classic'; old.tiers[0].star_color = 'classic'
+  assert.equal(normalizeRatingPreferences(old).tiers[0].color, 'rainbow')
+  old.display = { mobile_stars: true, detail_stars: true, poster_style: 'stars' }
+  assert.deepEqual(normalizeRatingPreferences(old), old)
+  assert.deepEqual(defaultRatingPreferences().display, { mobile_stars: false, detail_stars: false, poster_style: 'badge' })
+  for (const display of [{ mobile_stars: 'yes', detail_stars: false, poster_style: 'badge' }, { mobile_stars: false, detail_stars: false, poster_style: 'html' }, { mobile_stars: false, poster_style: 'badge' }]) {
+    assert.ok(ratingPreferencesError({ ...defaultRatingPreferences(), display }))
+  }
 })
 
 test('threshold boundaries assign one tier and preserve original numeric scores including real zero', () => {

@@ -6,7 +6,7 @@ import math
 from django.core.exceptions import ValidationError
 
 COLORS = ('slate', 'violet', 'red', 'amber', 'teal', 'blue', 'pink', 'green',
-          'ink', 'orange', 'gold', 'deeporange', 'classic')
+          'ink', 'orange', 'gold', 'deeporange', 'classic', 'rainbow')
 CARDS = ('completed', 'average', 'movie', 'ova', 'short', 'highlight')
 
 
@@ -29,14 +29,18 @@ def restore_classic_appearance(value):
     result = deepcopy(value)
     for tier in result['tiers']:
         low = tier['min']
-        tier.update(color='classic' if low >= 9.9 else 'red' if low >= 9.5 else 'orange' if low >= 9 else 'ink',
-                    star_color='classic' if low >= 9.9 else 'deeporange' if low >= 9.5 else 'gold',
+        tier.update(color='rainbow' if low >= 9.9 else 'red' if low >= 9.5 else 'orange' if low >= 9 else 'ink',
+                    star_color='rainbow' if low >= 9.9 else 'deeporange' if low >= 9.5 else 'gold',
                     effect='gradient' if low >= 9.9 else 'plain')
     return result
 
 
 def default_rating_preferences():
-    return restore_classic_appearance(legacy_rating_preferences())
+    return {**restore_classic_appearance(legacy_rating_preferences()), 'display': default_rating_display()}
+
+
+def default_rating_display():
+    return {'mobile_stars': False, 'detail_stars': False, 'poster_style': 'badge'}
 
 
 def score_number(value):
@@ -59,7 +63,13 @@ def label(value):
 
 
 def validate_rating_preferences(value):
-    exact_keys(value, ('version', 'star_max', 'show_stars', 'tiers', 'statistics'))
+    exact_keys(value, ('version', 'star_max', 'show_stars', 'tiers', 'statistics') +
+               (('display',) if isinstance(value, dict) and 'display' in value else ()))
+    if 'display' in value:
+        display = value['display']
+        exact_keys(display, ('mobile_stars', 'detail_stars', 'poster_style'))
+        if type(display['mobile_stars']) is not bool or type(display['detail_stars']) is not bool or display['poster_style'] not in ('badge', 'stars', 'number'):
+            raise ValidationError('包含不支持的评分显示方式。')
     if type(value['version']) is not int or value['version'] != 1:
         raise ValidationError('不支持的评分配置版本。')
     if type(value['star_max']) is not int or not 1 <= value['star_max'] <= 10 or type(value['show_stars']) is not bool:
@@ -95,11 +105,21 @@ def normalized_rating_preferences(value):
     try:
         validate_rating_preferences(value)
         old = legacy_rating_preferences()['tiers']
-        if len(value['tiers']) == len(old) and all(
+        previous = restore_classic_appearance(legacy_rating_preferences())['tiers']
+        for row in previous:
+            if row['color'] == 'rainbow':
+                row.update(color='classic', star_color='classic')
+        legacy = len(value['tiers']) == len(old) and all(
             all(row[key] == previous[key] for key in ('min', 'color', 'star_color', 'effect'))
             for row, previous in zip(value['tiers'], old)
-        ):
-            return restore_classic_appearance(value)
-        return deepcopy(value)
+        )
+        former_default = 'display' not in value and len(value['tiers']) == len(previous) and all(
+            all(row[key] == old_row[key] for key in ('min', 'color', 'star_color', 'effect'))
+            for row, old_row in zip(value['tiers'], previous)
+        )
+        result = restore_classic_appearance(value) if legacy or former_default else deepcopy(value)
+        result.setdefault('display', default_rating_display() if legacy or former_default else
+                          {'mobile_stars': True, 'detail_stars': True, 'poster_style': 'stars'})
+        return result
     except (ValidationError, TypeError, ValueError, InvalidOperation):
         return default_rating_preferences()

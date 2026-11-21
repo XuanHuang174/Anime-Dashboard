@@ -7,9 +7,13 @@ export const RATING_COLORS = {
   orange: { label: '明橙', color: '#f97316', light: '#fb923c' },
   gold: { label: '经典金星', color: '#fbbf24', light: '#f59e0b' },
   deeporange: { label: '经典橙星', color: '#ea580c', light: '#f97316' },
-  classic: { label: '经典幻彩', color: '#9333ea', light: '#d946ef', accent: '#a78bfa',
+  classic: { label: '紫蓝渐变（原版）', color: '#9333ea', light: '#d946ef', accent: '#a78bfa',
     gradient: ['#4f46e5', '#9333ea', '#d946ef'], starGradient: ['#ec4899', '#a855f7', '#6366f1'] },
+  rainbow: { label: '七彩渐变', color: '#e11d48', light: '#7c3aed', accent: '#a78bfa',
+    gradient: ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#a855f7'],
+    starGradient: ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#a855f7'] },
 }
+export const defaultRatingDisplay = () => ({ mobile_stars: false, detail_stars: false, poster_style: 'badge' })
 export const STAT_CARDS = { completed: '追番数量', average: '平均评分', movie: '剧场版', ova: 'OVA', short: '泡面番', highlight: '自定义推荐统计' }
 export function legacyRatingPreferences() {
   return { version: 1, star_max: 5, show_stars: true, tiers: [
@@ -24,21 +28,27 @@ export function legacyRatingPreferences() {
 // Only the complete former default appearance is upgraded, without touching thresholds or statistics.
 export function restoreClassicAppearance(value) {
   return { ...value, tiers: value.tiers.map(tier => ({ ...tier,
-    color: tier.min >= 9.9 ? 'classic' : tier.min >= 9.5 ? 'red' : tier.min >= 9 ? 'orange' : 'ink',
-    star_color: tier.min >= 9.9 ? 'classic' : tier.min >= 9.5 ? 'deeporange' : 'gold',
+    color: tier.min >= 9.9 ? 'rainbow' : tier.min >= 9.5 ? 'red' : tier.min >= 9 ? 'orange' : 'ink',
+    star_color: tier.min >= 9.9 ? 'rainbow' : tier.min >= 9.5 ? 'deeporange' : 'gold',
     effect: tier.min >= 9.9 ? 'gradient' : 'plain',
   })) }
 }
-export function defaultRatingPreferences() { return restoreClassicAppearance(legacyRatingPreferences()) }
+export function defaultRatingPreferences() { return { ...restoreClassicAppearance(legacyRatingPreferences()), display: defaultRatingDisplay() } }
 export function hasLegacyDefaultAppearance(value) {
   const old = legacyRatingPreferences().tiers
   return value?.tiers?.length === old.length && value.tiers.every((tier, i) => ['min', 'color', 'star_color', 'effect'].every(key => tier[key] === old[i][key]))
+}
+function hasPreviousDefaultAppearance(value) {
+  if (Object.hasOwn(value, 'display') || value.tiers.length !== 8) return false
+  const previous = restoreClassicAppearance(legacyRatingPreferences()).tiers
+  return value.tiers.every((tier, index) => ['min', 'color', 'star_color', 'effect'].every(key => tier[key] === (previous[index][key] === 'rainbow' ? 'classic' : previous[index][key])))
 }
 const keys = (value, expected) => value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).sort().join('|') === [...expected].sort().join('|')
 const boundary = value => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 10 && Math.abs(value * 10 - Math.round(value * 10)) < 1e-8
 const label = value => typeof value === 'string' && value.trim() && [...value].length <= 16 && !/[\u0000-\u001f]/.test(value)
 export function ratingPreferencesError(value) {
-  if (!keys(value, ['version', 'star_max', 'show_stars', 'tiers', 'statistics']) || value.version !== 1 || !Number.isInteger(value.star_max) || value.star_max < 1 || value.star_max > 10 || typeof value.show_stars !== 'boolean') return '请选择 1–10 的星级上限。'
+  if (!keys(value, ['version', 'star_max', 'show_stars', 'tiers', 'statistics', ...(Object.hasOwn(value ?? {}, 'display') ? ['display'] : [])]) || value.version !== 1 || !Number.isInteger(value.star_max) || value.star_max < 1 || value.star_max > 10 || typeof value.show_stars !== 'boolean') return '请选择 1–10 的星级上限。'
+  if (Object.hasOwn(value, 'display') && (!keys(value.display, ['mobile_stars', 'detail_stars', 'poster_style']) || typeof value.display.mobile_stars !== 'boolean' || typeof value.display.detail_stars !== 'boolean' || !['badge', 'stars', 'number'].includes(value.display.poster_style))) return '请选择合法的手机列表、作品详情及海报墙显示方式。'
   if (!Array.isArray(value.tiers) || !value.tiers.length || value.tiers.length > 10) return '评分档位需为 1–10 档。'
   let previous = 11
   for (const tier of value.tiers) {
@@ -52,14 +62,19 @@ export function ratingPreferencesError(value) {
   if (!Array.isArray(stats.cards) || !stats.cards.length || stats.cards.some(key => !Object.hasOwn(STAT_CARDS, key)) || new Set(stats.cards).size !== stats.cards.length) return '请至少选择一张统计卡片。'
   return ''
 }
-export const normalizeRatingPreferences = value => ratingPreferencesError(value) ? defaultRatingPreferences() : hasLegacyDefaultAppearance(value) ? restoreClassicAppearance(value) : value
+export function normalizeRatingPreferences(value) {
+  if (ratingPreferencesError(value)) return defaultRatingPreferences()
+  const usesDefaultAppearance = hasLegacyDefaultAppearance(value) || hasPreviousDefaultAppearance(value)
+  const config = usesDefaultAppearance ? restoreClassicAppearance(value) : value
+  return config.display ? config : { ...config, display: usesDefaultAppearance ? defaultRatingDisplay() : { mobile_stars: true, detail_stars: true, poster_style: 'stars' } }
+}
 export function ratingForScore(score, preferences) {
   const config = normalizeRatingPreferences(preferences)
   if (score === null || score === undefined || score === '' || typeof score === 'boolean') return null
   const value = Number(score)
   if (!Number.isFinite(value) || value < 0 || value > 10) return null
   const tier = config.tiers.find(row => value >= row.min)
-  return { ...tier, score: value, max: config.star_max, show_stars: config.show_stars }
+  return { ...tier, score: value, max: config.star_max, show_stars: config.show_stars, display: config.display }
 }
 export function ratingStyle(tier, stars = false) {
   if (!tier) return { color: '#64748b' }

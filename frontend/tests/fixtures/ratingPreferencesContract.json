@@ -7,8 +7,8 @@
       "min": 9.9,
       "label": "殿堂",
       "stars": 5,
-      "color": "classic",
-      "star_color": "classic",
+      "color": "rainbow",
+      "star_color": "rainbow",
       "effect": "gradient"
     },
     {
@@ -80,5 +80,10 @@
       "short",
       "highlight"
     ]
+  },
+  "display": {
+    "mobile_stars": false,
+    "detail_stars": false,
+    "poster_style": "badge"
   }
 }

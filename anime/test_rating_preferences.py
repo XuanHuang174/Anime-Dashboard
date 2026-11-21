@@ -22,12 +22,25 @@ class RatingConfigurationTests(SimpleTestCase):
         before = deepcopy(old)
         result = normalized_rating_preferences(old)
         self.assertEqual(old, before)
-        self.assertEqual(result['tiers'][0]['color'], 'classic')
+        self.assertEqual(result['tiers'][0]['color'], 'rainbow')
         self.assertEqual(result['tiers'][0]['label'], '私人名称')
         self.assertEqual(result['tiers'][0]['stars'], 3)
         self.assertEqual(result['statistics'], old['statistics'])
         old['tiers'][0]['star_color'] = 'teal'
+        self.assertEqual(normalized_rating_preferences(old), {**old, 'display': {'mobile_stars': True, 'detail_stars': True, 'poster_style': 'stars'}})
+
+    def test_previous_default_and_optional_view_settings_are_compatible(self):
+        old = default_rating_preferences()
+        del old['display']
+        old['tiers'][0].update(color='classic', star_color='classic')
+        self.assertEqual(normalized_rating_preferences(old)['tiers'][0]['color'], 'rainbow')
+        old['display'] = {'mobile_stars': True, 'detail_stars': True, 'poster_style': 'stars'}
         self.assertEqual(normalized_rating_preferences(old), old)
+        for display in ({'mobile_stars': 'yes', 'detail_stars': False, 'poster_style': 'badge'},
+                        {'mobile_stars': False, 'detail_stars': False, 'poster_style': 'html'},
+                        {'mobile_stars': False, 'poster_style': 'badge'}):
+            with self.assertRaises(ValidationError):
+                validate_rating_preferences({**default_rating_preferences(), 'display': display})
 
     def test_default_contract_is_shared_with_frontend_and_new_objects_are_independent(self):
         fixture = Path(__file__).resolve().parents[1] / 'frontend/tests/fixtures/ratingPreferencesContract.json'
@@ -64,6 +77,7 @@ class RatingPreferencesAPITests(APITestCase):
     def custom(self):
         config = default_rating_preferences(); config['statistics'].update(label='我的推荐', min=8.0, max=9.0)
         config['tiers'][0].update(label='珍藏', color='teal', star_color='teal', effect='glow')
+        config['display'].update(mobile_stars=True, detail_stars=True, poster_style='stars')
         return config
 
     def test_read_histogram_includes_zero_excludes_other_owners_and_never_exposes_records(self):
@@ -83,7 +97,7 @@ class RatingPreferencesAPITests(APITestCase):
         profile.save(update_fields=['rating_preferences'])
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data['preferences']['tiers'][0]['color'], 'classic')
+        self.assertEqual(response.data['preferences']['tiers'][0]['color'], 'rainbow')
         self.assertEqual(response.data['preferences']['statistics'], old['statistics'])
         profile.refresh_from_db()
         self.assertEqual(profile.rating_preferences, old)
@@ -188,6 +202,10 @@ class RatingPreferencesAPITests(APITestCase):
         self.save(default_rating_preferences(), revision=1)
         response = self.client.post('/api/import/', backup, format='json')
         self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(self.client.get(self.url).data['preferences'], config)
+        legacy_settings = deepcopy(backup)
+        legacy_settings['rating_preferences'].pop('display')
+        self.assertEqual(self.client.post('/api/import/', legacy_settings, format='json').status_code, 200)
         self.assertEqual(self.client.get(self.url).data['preferences'], config)
         old = deepcopy(backup); old.pop('rating_preferences')
         self.assertEqual(self.client.post('/api/import/', old, format='json').status_code, 200)

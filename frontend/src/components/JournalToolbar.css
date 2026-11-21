@@ -11,6 +11,8 @@
 .journal-dropdown-panel--inline { position: static; z-index: auto; width: 100%; max-height: none; overflow: visible; border-width: 2px; box-shadow: 2px 2px 0 #000; background: #fff; }
 .journal-menu-item { display: block; width: 100%; margin-bottom: 8px; border: 2px solid #000; padding: 12px; background: #fff; text-align: left; font-size: 13px; font-weight: 900; cursor: pointer; }
 .journal-menu-item:last-child { margin-bottom: 0; }
+.journal-menu-share { clear: both; padding: 4px 4px 5px 0; }
+.journal-menu-share .dashboard-arcade-button { display: flex; margin: 0; min-height: 44px; }
 .journal-menu-item--yellow { background: #ffe66d; }
 .journal-menu-item--pink { background: #ff8fab; }
 .journal-menu-item small { display: block; margin-top: 4px; font-size: 10px; }

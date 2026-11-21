@@ -47,8 +47,9 @@ export default function JournalHeaderActions({ isPreviewMode, onReturnHome, onTo
               <Link className="journal-menu-item" to="/featured" onClick={close}><i className="fa-solid fa-medal" aria-hidden="true" /> 浏览精选专栏</Link>
               <button type="button" className="journal-menu-item" onClick={run(onReviewIdentity)}><i className="fa-solid fa-link" aria-hidden="true" /> 核对标准作品</button>
               <Link className="journal-menu-item journal-menu-item--pink" to="/universe" onClick={close}><i className="fa-solid fa-earth-asia" aria-hidden="true" /> 番剧共创宇宙</Link>
-              {csvButton}<div onClick={close}>{shareButton}</div>
+              {csvButton}
               {ratingButton}
+              <div className="journal-menu-share" onClick={close}>{shareButton}</div>
             </MemphisDropdown>}
             <button type="button" className={`dashboard-arcade-button ${isPreviewMode ? 'journal-preview-edit-button' : 'bg-white'}`}
               onClick={run(onTogglePreview)}>{isPreviewMode ? '📝 编辑模式' : '👁 预览模式'}</button>
