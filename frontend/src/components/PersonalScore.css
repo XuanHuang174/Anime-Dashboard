@@ -8,9 +8,10 @@
 .personal-score--list .personal-score-number { filter: drop-shadow(0 1px 1px rgb(0 0 0 / .05)); }
 .personal-score--grid { font-size: 12px; gap: 2px; }
 .personal-score--grid .personal-score-stars { font-size: 9px; gap: 1px; }
-.personal-score--detail { font-size: 28px; }
+.personal-score--detail { font-size: 16px; gap: 2px; }
 .personal-score--detail .personal-score-stars { font-size: 14px; }
-.personal-score--detail .personal-score-denominator { font-size: .65em; }
+.personal-score--detail .personal-score-denominator { font-size: inherit; font-weight: 900; line-height: 1.4; }
+@media (min-width: 640px) { .personal-score--detail { font-size: 18px; } }
 .personal-score.personal-score--badge { flex-direction: row; gap: 5px; align-items: center; }
 .personal-score-badge-icon { color: #fbbf24; font-size: 12px; }
 .personal-score--badge .personal-score-number { line-height: 1.5; }

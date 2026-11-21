@@ -18,7 +18,9 @@ test('classic palette exactly matches the pre-personalization colors and three-s
     assert.equal(ratingStyle(ratingForScore(score, config)).color, number)
     assert.equal(ratingStyle(ratingForScore(score, config), true).color, stars)
   }
-  assert.equal(ratingStyle(ratingForScore(9.9, config)).backgroundImage, 'linear-gradient(to right, #ef4444, #f97316, #eab308, #22c55e, #06b6d4, #3b82f6, #a855f7)')
+  const neon = 'linear-gradient(to right, #ff2a85, #ff7b00, #ffd000, #00e5ff, #4d7cff, #b537f2, #ff2a85)'
+  assert.equal(ratingStyle(ratingForScore(9.9, config)).backgroundImage, neon)
+  assert.equal(ratingStyle(ratingForScore(9.9, config), true).backgroundImage, neon)
   config.tiers[0].color = 'classic'; config.tiers[0].star_color = 'classic'
   assert.equal(ratingStyle(ratingForScore(9.9, config)).backgroundImage, 'linear-gradient(to right, #4f46e5, #9333ea, #d946ef)')
   assert.equal(ratingStyle(ratingForScore(9.9, config), true).backgroundImage, 'linear-gradient(to right, #ec4899, #a855f7, #6366f1)')

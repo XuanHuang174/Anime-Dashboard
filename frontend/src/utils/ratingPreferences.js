@@ -9,9 +9,9 @@ export const RATING_COLORS = {
   deeporange: { label: '经典橙星', color: '#ea580c', light: '#f97316' },
   classic: { label: '紫蓝渐变（原版）', color: '#9333ea', light: '#d946ef', accent: '#a78bfa',
     gradient: ['#4f46e5', '#9333ea', '#d946ef'], starGradient: ['#ec4899', '#a855f7', '#6366f1'] },
-  rainbow: { label: '七彩渐变', color: '#e11d48', light: '#7c3aed', accent: '#a78bfa',
-    gradient: ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#a855f7'],
-    starGradient: ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#a855f7'] },
+  rainbow: { label: '霓虹虹彩', color: '#ff2a85', light: '#b537f2', accent: '#a78bfa',
+    gradient: ['#ff2a85', '#ff7b00', '#ffd000', '#00e5ff', '#4d7cff', '#b537f2', '#ff2a85'],
+    starGradient: ['#ff2a85', '#ff7b00', '#ffd000', '#00e5ff', '#4d7cff', '#b537f2', '#ff2a85'] },
 }
 export const defaultRatingDisplay = () => ({ mobile_stars: false, detail_stars: false, poster_style: 'badge' })
 export const STAT_CARDS = { completed: '追番数量', average: '平均评分', movie: '剧场版', ova: 'OVA', short: '泡面番', highlight: '自定义推荐统计' }
