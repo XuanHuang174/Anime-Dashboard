@@ -293,6 +293,11 @@ function AdminDashboard() {
         ].filter(Boolean).join(' ').toLowerCase()
         const filterItem = {
           title: submission.chinese_title ?? '',
+          japaneseTitle: submission.japanese_title ?? '',
+          period: submission.airing_period || String(submission.year || ''),
+          score: submission.score,
+          status: submission.watch_status,
+          review: submission.review ?? '',
           tags: submission.tags ?? [],
         }
         return (!search || searchableText.includes(search))
@@ -326,13 +331,14 @@ function AdminDashboard() {
     ? '先选择需要管理的功能模块，再进入对应的独立控制面板。'
     : currentModule?.description || '该管理模块不存在，请返回控制台主菜单。'
 
-  function handleFeaturedQuickFilterSaved(savedFilter) {
+  function handleFeaturedQuickFilterSaved(savedFilter, { apply = false } = {}) {
     setFeaturedQuickFilters((current) => {
       const exists = current.some((filter) => filter.id === savedFilter.id)
       return exists
         ? current.map((filter) => filter.id === savedFilter.id ? savedFilter : filter)
         : [...current, savedFilter]
     })
+    if (apply) { setActiveCustomFilterId(savedFilter.id); setTypeFilter('all') }
   }
 
   function handleFeaturedQuickFilterDeleted(filterId) {

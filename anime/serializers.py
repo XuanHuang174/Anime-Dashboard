@@ -781,6 +781,7 @@ class UserAnimeRecordSerializer(serializers.ModelSerializer):
 
 
 class UserQuickFilterSerializer(serializers.ModelSerializer):
+    watch_statuses = serializers.ListField(child=serializers.ChoiceField(choices=UserAnimeRecord.WatchStatus.choices), required=False, max_length=4)
     exclude_tags = serializers.ListField(child=serializers.CharField(max_length=50), required=False, max_length=8)
     exclude_title_keywords = serializers.ListField(child=serializers.CharField(max_length=30), required=False, max_length=4)
     tags = serializers.ListField(
@@ -799,7 +800,7 @@ class UserQuickFilterSerializer(serializers.ModelSerializer):
         model = UserQuickFilter
         fields = (
             "id", "name", "tags", "title_keywords", "match_mode", "exclude_tags", "exclude_title_keywords", "year_from", "year_to",
-            "created_at", "updated_at",
+            "score_min", "score_max", "score_state", "watch_statuses", "review_state", "created_at", "updated_at",
         )
         read_only_fields = ("id", "created_at", "updated_at")
 
@@ -818,8 +819,22 @@ class UserQuickFilterSerializer(serializers.ModelSerializer):
         year_to = attrs.get('year_to', getattr(self.instance, 'year_to', None))
         if year_from is not None and year_to is not None and year_from > year_to:
             raise serializers.ValidationError('年份起点不能大于终点。')
-        if not any(values.values()) and year_from is None and year_to is None:
-            raise serializers.ValidationError("请至少设置一项包含、排除或年份条件。")
+        score_min = attrs.get('score_min', getattr(self.instance, 'score_min', None))
+        score_max = attrs.get('score_max', getattr(self.instance, 'score_max', None))
+        score_state = attrs.get('score_state', getattr(self.instance, 'score_state', 'any'))
+        if score_min is not None and score_max is not None and score_min > score_max:
+            raise serializers.ValidationError('评分下限不能高于上限。')
+        has_score_range = score_min is not None or score_max is not None
+        if has_score_range and score_state == 'unrated':
+            raise serializers.ValidationError('仅未评分不能同时设置评分区间，请清空区间。')
+        if has_score_range:
+            attrs['score_state'] = score_state = 'rated'
+        statuses = attrs.get('watch_statuses', getattr(self.instance, 'watch_statuses', []))
+        if len(set(statuses)) != len(statuses):
+            raise serializers.ValidationError('观看状态不能重复。')
+        review_state = attrs.get('review_state', getattr(self.instance, 'review_state', 'any'))
+        if not any(values.values()) and year_from is None and year_to is None and not has_score_range and score_state == 'any' and not statuses and review_state == 'any':
+            raise serializers.ValidationError("请至少设置一项筛选条件。")
         if set(values['tags']) & set(values['exclude_tags']):
             raise serializers.ValidationError("标签不能同时包含与排除。")
         if {v.casefold() for v in values['title_keywords']} & {v.casefold() for v in values['exclude_title_keywords']}:
@@ -832,6 +847,9 @@ class UserQuickFilterSerializer(serializers.ModelSerializer):
         name = value.strip()
         if not name:
             raise serializers.ValidationError("筛选名称不能为空。")
+
+        if self.context.get('preview'):
+            return name
 
         model = self.Meta.model
         duplicates = model.objects.filter(name__iexact=name)

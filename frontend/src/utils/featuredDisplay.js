@@ -28,6 +28,7 @@ export function mapFeaturedSubmission(submission) {
     title: submission.chinese_title || '未命名番剧',
     japaneseTitle: submission.japanese_title || '',
     period: submission.airing_period || (submission.year ? `${year}-全年` : year),
+    filterPeriod: submission.airing_period || (submission.year ? year : ''),
     cover: submission.poster || submission.poster_url || '',
     posterImage: submission.poster || '',
     posterUrl: submission.poster_url || '',

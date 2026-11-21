@@ -768,13 +768,16 @@ function Dashboard() {
     setRecordsRefreshKey((key) => key + 1)
   }
 
-  const handleQuickFilterSaved = (savedFilter) => {
+  const handleQuickFilterSaved = (savedFilter, { apply = false } = {}) => {
     setCustomQuickFilters((current) => {
       const exists = current.some((filter) => filter.id === savedFilter.id)
       return exists
         ? current.map((filter) => filter.id === savedFilter.id ? savedFilter : filter)
         : [...current, savedFilter]
     })
+    if (apply) { setActiveCustomFilterId(savedFilter.id); setTypeFilter('all') }
+    if (apply || activeCustomFilterId === savedFilter.id) setCurrentPage(1)
+    setRecordsRefreshKey(value => value + 1)
   }
 
   const handleQuickFilterDeleted = (filterId) => {

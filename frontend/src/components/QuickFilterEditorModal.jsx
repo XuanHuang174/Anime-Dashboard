@@ -1,353 +1,136 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { useGSAP } from '@gsap/react'
-import gsap from 'gsap'
+import { useEffect, useRef, useState } from 'react'
 import api from '../api/api.js'
-import { getTagClass } from '../utils/animeDisplay.js'
-import { quickFilterSummary } from '../utils/quickFilter.js'
+import useSeriesSession, { seriesSession } from '../hooks/useSeriesSession.js'
+import { lockDialogBody } from '../utils/dialogBodyLock.js'
+import { emptyQuickFilter, quickFilterPayload, quickFilterDraftError, quickFilterSummary, WATCH_STATES } from '../utils/quickFilter.js'
+import './QuickFilterEditorModal.css'
 
-gsap.registerPlugin(useGSAP)
+const errorText = error => error?.response?.status === 429 ? '操作较频繁，请稍后重试，不会自动重复保存。' : (typeof error?.response?.data === 'object' && error.response.data ? Object.values(error.response.data).flat().join('；') : '') || error.message || '连接暂时中断，请重试。'
+const editForm = filter => ({ ...emptyQuickFilter(), ...filter, title_keywords: (filter.title_keywords || []).join('，'), exclude_title_keywords: (filter.exclude_title_keywords || []).join('，'), year_from: filter.year_from ?? '', year_to: filter.year_to ?? '', score_min: filter.score_min ?? '', score_max: filter.score_max ?? '' })
+// Only editable fields go to the API, including when opening an older saved combination.
+const fieldsOnly = form => Object.fromEntries(Object.keys(emptyQuickFilter()).map(key => [key, form[key]]))
 
-const emptyForm = { name: '', tags: [], title_keywords: '', exclude_tags: [], exclude_title_keywords: '', match_mode: 'any', year_from: '', year_to: '' }
-const keywords = value => [...new Set(value.split(/[，,、\n]/).map(word => word.trim()).filter(Boolean))]
-const fieldClass = 'mt-1 w-full border-[3px] border-black bg-white px-3 py-2.5 text-sm font-black text-black shadow-[4px_4px_0_#111] outline-none transition-none placeholder:text-zinc-400 focus:translate-x-1 focus:translate-y-1 focus:bg-[#fff2a8] focus:shadow-none'
-
-function getRequestErrorMessage(requestError, fallback) {
-  const detail = requestError.response?.data
-  if (!detail || typeof detail === 'string') return fallback
-  const message = Object.values(detail).flat(Infinity).filter(Boolean).join(' ')
-  return message || fallback
-}
-
-function QuickFilterEditorModal({
-  isOpen,
-  onClose,
-  availableTags,
-  filters,
-  onSaved,
-  onDeleted,
-  showToast,
-  endpoint = 'quick-filters',
-  description = '组合标签、标题词与年份条件，并保存到当前账号。',
-}) {
-  const overlayRef = useRef(null)
-  const modalRef = useRef(null)
-  const closeHandlerRef = useRef(null)
-  const [form, setForm] = useState(emptyForm)
-  const [savedOpen, setSavedOpen] = useState(() => typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches)
-  const [editingId, setEditingId] = useState(null)
-  const [busy, setBusy] = useState(false)
-  const [deletingId, setDeletingId] = useState(null)
-  const [error, setError] = useState('')
-  const [tagSearch, setTagSearch] = useState({ tags: '', exclude_tags: '' })
-
-  const sortedTags = useMemo(
-    () => [...availableTags].filter((tag) => tag !== '轩皇力推').sort(),
-    [availableTags],
-  )
-
-  const { contextSafe } = useGSAP(() => {
-    if (!isOpen || !overlayRef.current || !modalRef.current) return undefined
-
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      gsap.set([overlayRef.current, modalRef.current, '.quick-filter-piece'], {
-        clearProps: 'all',
-      })
-      return undefined
-    }
-
-    const timeline = gsap.timeline()
-    timeline
-      .fromTo(
-        overlayRef.current,
-        { autoAlpha: 0 },
-        { autoAlpha: 1, duration: 0.14, ease: 'power1.out' },
-      )
-      .fromTo(
-        modalRef.current,
-        { autoAlpha: 0, scale: 0.7, y: -40, rotation: -1.5 },
-        {
-          autoAlpha: 1,
-          scale: 1,
-          y: 0,
-          rotation: 0,
-          duration: 0.7,
-          ease: 'elastic.out(1, 0.6)',
-          clearProps: 'transform,opacity,visibility',
-        },
-        0,
-      )
-      .fromTo(
-        '.quick-filter-piece',
-        { autoAlpha: 0, y: -18, scale: 0.96 },
-        {
-          autoAlpha: 1,
-          y: 0,
-          scale: 1,
-          duration: 0.34,
-          stagger: 0.1,
-          ease: 'back.out(1.5)',
-          clearProps: 'transform,opacity,visibility',
-        },
-        0.18,
-      )
-
-    return () => timeline.kill()
-  }, {
-    scope: overlayRef,
-    dependencies: [isOpen],
-    revertOnUpdate: true,
-  })
-
-  const playExit = contextSafe((afterExit = onClose) => {
-    if (!overlayRef.current || !modalRef.current
-      || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      afterExit()
-      return
-    }
-
-    gsap.killTweensOf([modalRef.current, overlayRef.current])
-    gsap.timeline({ onComplete: afterExit })
-      .to(modalRef.current, {
-        y: 50,
-        scale: 0.9,
-        autoAlpha: 0,
-        duration: 0.22,
-        ease: 'power3.in',
-      })
-      .to(overlayRef.current, {
-        autoAlpha: 0,
-        duration: 0.12,
-        ease: 'power2.in',
-      }, '-=0.07')
-  })
-
-  const handleClose = () => {
-    if (!busy && !deletingId) playExit(onClose)
+export default function QuickFilterEditorModal({ isOpen, onClose, availableTags, filters, onSaved, onDeleted, showToast, endpoint = 'quick-filters', description = '组合评分、状态、年份与标签条件，并保存到当前账号。' }) {
+  const session = useSeriesSession(), owner = useRef(seriesSession()), dialog = useRef(null), live = useRef(false), gate = useRef(false), operation = useRef(null), exitTimer = useRef(null)
+  const [form, setForm] = useState(emptyQuickFilter), [baseline, setBaseline] = useState(() => JSON.stringify(emptyQuickFilter())), [editingId, setEditingId] = useState(null)
+  const [tab, setTab] = useState('basic'), [savedOpen, setSavedOpen] = useState(() => window.innerWidth >= 1024), [search, setSearch] = useState({ tags: '', exclude_tags: '' })
+  const [busy, setBusy] = useState(false), [error, setError] = useState(''), [pending, setPending] = useState(null), [deleteTarget, setDeleteTarget] = useState(null), [closing, setClosing] = useState(false)
+  const [preview, setPreview] = useState({ state: 'idle' }), [retry, setRetry] = useState(0)
+  const dirty = JSON.stringify(form) !== baseline
+  const validDraft = quickFilterDraftError(form, false)
+  const payload = quickFilterPayload(form), payloadKey = JSON.stringify({ ...payload, name: payload.name || '未命名预览' })
+  const current = () => live.current && owner.current === seriesSession()
+  const disabled = busy || closing
+  const reset = filter => {
+    const next = filter ? fieldsOnly(editForm(filter)) : emptyQuickFilter()
+    setForm(next); setBaseline(JSON.stringify(next)); setEditingId(filter?.id ?? null); setError(''); setPending(null); setDeleteTarget(null); setTab('basic'); setSearch({ tags: '', exclude_tags: '' })
   }
-  closeHandlerRef.current = handleClose
-
+  const finishClose = () => {
+    if (exitTimer.current) return
+    setClosing(true)
+    exitTimer.current = setTimeout(onClose, window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 140)
+  }
+  const transition = action => { if (gate.current || closing) return; if (dirty) setPending({ run: action }); else action() }
+  const requestClose = () => transition(finishClose)
+  const closeRef = useRef(requestClose); closeRef.current = requestClose
   useEffect(() => {
     if (!isOpen) return
-    setForm(emptyForm)
-    setTagSearch({ tags: '', exclude_tags: '' })
-    setEditingId(null)
-    setError('')
-  }, [isOpen])
-
-  useEffect(() => {
-    if (!isOpen) return undefined
-    const previousOverflow = document.body.style.overflow
-    const previousPaddingRight = document.body.style.paddingRight
-    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth
-    const currentPaddingRight = Number.parseFloat(
-      window.getComputedStyle(document.body).paddingRight,
-    ) || 0
-    if (scrollbarWidth > 0) {
-      document.body.style.paddingRight = `${currentPaddingRight + scrollbarWidth}px`
-    }
-    document.body.style.overflow = 'hidden'
-    const handleKeyDown = (event) => {
-      if (event.key === 'Escape') closeHandlerRef.current?.()
-    }
-    window.addEventListener('keydown', handleKeyDown)
+    owner.current = seriesSession(); live.current = true; gate.current = false; exitTimer.current = null
+    setBusy(false); setClosing(false); reset(); dialog.current.showModal()
+    const query = window.matchMedia('(max-width: 1023px)'), resize = () => setSavedOpen(!query.matches)
+    resize(); query.addEventListener('change', resize)
+    const previous = document.activeElement, release = lockDialogBody(document)
     return () => {
-      document.body.style.overflow = previousOverflow
-      document.body.style.paddingRight = previousPaddingRight
-      window.removeEventListener('keydown', handleKeyDown)
+      live.current = false; operation.current?.abort(); clearTimeout(exitTimer.current); dialog.current?.close(); release()
+      query.removeEventListener('change', resize)
+      const visible = el => el?.isConnected && el.getClientRects().length && !el.closest('[hidden],[inert]')
+      const target = visible(previous) && previous !== document.body ? previous : [...document.querySelectorAll('.journal-dropdown-trigger')].find(visible)
+      target?.focus({ preventScroll: true })
     }
   }, [isOpen])
+  useEffect(() => { if (isOpen && session !== owner.current) { operation.current?.abort(); onClose() } }, [session, isOpen, onClose])
+  useEffect(() => {
+    if (!isOpen || !current()) return
+    let active = true
+    const controller = new AbortController()
+    if (validDraft) { setPreview({ state: 'idle' }); return () => { active = false } }
+    setPreview({ state: 'loading' })
+    const timer = setTimeout(async () => {
+      try {
+        const { data } = await api.post(`${endpoint}/preview/`, JSON.parse(payloadKey), { signal: controller.signal })
+        if (!Number.isSafeInteger(data.count) || data.count < 0 || typeof data.scope !== 'string') throw new Error('预览数量读取不完整。')
+        if (active && current()) setPreview({ state: 'ready', ...data })
+      } catch (reason) { if (active && current() && !controller.signal.aborted) setPreview({ state: 'error', message: errorText(reason) }) }
+    }, 350)
+    return () => { active = false; clearTimeout(timer); controller.abort() }
+  }, [isOpen, payloadKey, validDraft, endpoint, retry, session])
 
-  if (!isOpen) return null
-
-  const toggleTag = (tag, field = 'tags') => {
-    setForm((current) => ({
-      ...current,
-      [field]: current[field].includes(tag)
-        ? current[field].filter((item) => item !== tag)
-        : current[field].length < 8 ? [...current[field], tag] : current[field],
-    }))
-  }
-
-  const resetForm = () => {
-    setEditingId(null)
-    setForm(emptyForm)
-    setTagSearch({ tags: '', exclude_tags: '' })
-    setError('')
-  }
-
-  const beginEdit = (filter) => {
-    setEditingId(filter.id)
-    setForm({ name: filter.name, tags: [...filter.tags], match_mode: filter.match_mode,
-      title_keywords: (filter.title_keywords ?? []).join('，'), exclude_tags: [...(filter.exclude_tags ?? [])],
-      exclude_title_keywords: (filter.exclude_title_keywords ?? []).join('，'), year_from: filter.year_from ?? '', year_to: filter.year_to ?? '' })
-    setTagSearch({ tags: '', exclude_tags: '' })
-    setError('')
-  }
-
-  const handleSubmit = async (event) => {
+  const change = (key, value) => { setForm(old => ({ ...old, [key]: value })); setError(''); setPending(null) }
+  const scoreBound = (key, value) => { setError(''); setPending(null); setForm(old => ({ ...old, [key]: value, score_state: value !== '' ? 'rated' : old.score_state })) }
+  const scoreState = value => { setError(''); setPending(null); setForm(old => ({ ...old, score_state: value, ...(value === 'unrated' || value === 'any' ? { score_min: '', score_max: '' } : {}) })) }
+  const toggle = (key, value, limit) => { setError(''); setPending(null); setForm(old => ({ ...old, [key]: old[key].includes(value) ? old[key].filter(item => item !== value) : old[key].length < limit ? [...old[key], value] : old[key] })) }
+  const submit = async (event, apply = false) => {
     event.preventDefault()
-    const name = form.name.trim()
-    if (!name || !(form.tags.length || form.exclude_tags.length || keywords(form.title_keywords).length || keywords(form.exclude_title_keywords).length || form.year_from !== '' || form.year_to !== '')) {
-      setError('请填写筛选名称，并至少设置一项包含、排除或年份条件。')
-      return
-    }
-    if ([form.year_from, form.year_to].some(value => value !== '' && !/^[1-9]\d{3}$/.test(String(value)))) { setError('年份必须是 1000—9999 的四位整数。'); return }
-    if (form.year_from !== '' && form.year_to !== '' && Number(form.year_from) > Number(form.year_to)) { setError('年份起点不能大于终点。'); return }
-    if (form.tags.some(tag => form.exclude_tags.includes(tag))) { setError('标签不能同时包含与排除。'); return }
-
-    setBusy(true)
-    setError('')
+    if (gate.current || closing || pending || deleteTarget) return
+    const badNumber = [...dialog.current.querySelectorAll('input')].some(input => input.validity.badInput)
+    const problem = badNumber ? '请填写有效的年份或评分数字。' : quickFilterDraftError(form)
+    if (problem) { setError(problem); return }
+    gate.current = true; setBusy(true); setError('')
+    const controller = new AbortController(); operation.current = controller
     try {
-      const payload = { ...form, name, title_keywords: keywords(form.title_keywords), exclude_title_keywords: keywords(form.exclude_title_keywords), year_from: form.year_from === '' ? null : Number(form.year_from), year_to: form.year_to === '' ? null : Number(form.year_to) }
-      const response = editingId
-        ? await api.patch(`${endpoint}/${editingId}/`, payload)
-        : await api.post(`${endpoint}/`, payload)
-      onSaved(response.data)
-      showToast(editingId ? '快捷筛选已更新。' : '快捷筛选已创建。', 'success')
-      playExit(() => {
-        resetForm()
-        onClose()
-      })
-    } catch (requestError) {
-      setError(getRequestErrorMessage(requestError, '保存失败，请稍后重试。'))
-    } finally {
-      setBusy(false)
-    }
+      const { data } = editingId ? await api.patch(`${endpoint}/${editingId}/`, payload, { signal: controller.signal }) : await api.post(`${endpoint}/`, payload, { signal: controller.signal })
+      if (!current()) return
+      onSaved(data, { apply }); showToast(editingId ? '快捷筛选已更新。' : '快捷筛选已创建。', 'success'); finishClose()
+    } catch (reason) { if (current() && !controller.signal.aborted) setError(errorText(reason)) }
+    finally { gate.current = false; if (current()) setBusy(false) }
   }
-
-  const handleDelete = async (filter) => {
-    if (!window.confirm(`确定删除快捷筛选“${filter.name}”吗？`)) return
-    setDeletingId(filter.id)
+  const remove = async () => {
+    if (gate.current || !deleteTarget) return
+    const target = deleteTarget
+    gate.current = true; setBusy(true); setError('')
+    const controller = new AbortController(); operation.current = controller
     try {
-      await api.delete(`${endpoint}/${filter.id}/`)
-      onDeleted(filter.id)
-      if (editingId === filter.id) resetForm()
+      await api.delete(`${endpoint}/${target.id}/`, { signal: controller.signal })
+      if (!current()) return
+      onDeleted(target.id); setDeleteTarget(null); if (editingId === target.id) reset()
       showToast('快捷筛选已删除。', 'success')
-    } catch {
-      setError('删除失败，请稍后重试。')
-    } finally {
-      setDeletingId(null)
-    }
+    } catch (reason) { if (current() && !controller.signal.aborted) setError(errorText(reason)) }
+    finally { gate.current = false; if (current()) setBusy(false) }
   }
-
-  return (
-    <div
-      ref={overlayRef}
-      className="memphis-modal-backdrop fixed inset-0 z-[130] flex items-center justify-center bg-zinc-950/80 p-3 backdrop-blur-sm sm:p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="quickFilterEditorTitle"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) handleClose()
-      }}
-    >
-      <section ref={modalRef} className="flex max-h-[94dvh] w-full max-w-6xl flex-col overflow-hidden border-4 border-black bg-[#fff5ee] text-black shadow-[12px_12px_0_#111]" onMouseDown={(event) => event.stopPropagation()}>
-        <header className="quick-filter-piece relative flex shrink-0 items-start justify-between gap-4 border-b-4 border-black bg-[#4ecdc4] px-5 py-4 sm:px-6">
-          <div className="pointer-events-none absolute right-20 top-3 grid grid-cols-4 gap-2 opacity-40" aria-hidden="true">
-            {Array.from({ length: 8 }, (_, index) => <span key={index} className="h-2 w-2 rounded-full bg-black" />)}
-          </div>
-          <div>
-            <span className="inline-block border-2 border-black bg-[#ffe66d] px-2 py-1 text-[10px] font-black uppercase tracking-[0.16em] shadow-[3px_3px_0_#111]">
-              Filter Workshop
-            </span>
-            <h2 id="quickFilterEditorTitle" className="mt-3 text-xl font-black sm:text-2xl">
-              <i className="fa-solid fa-filter-circle-plus mr-2"></i>自定义快速筛选
-            </h2>
-            <p className="mt-1 text-xs font-bold text-zinc-700">{description}</p>
-          </div>
-          <button type="button" onClick={handleClose} disabled={busy || Boolean(deletingId)} className="relative flex h-10 w-10 shrink-0 items-center justify-center border-[3px] border-black bg-white text-lg shadow-[4px_4px_0_#111] transition-none hover:bg-[#ff6b6b] active:translate-x-1 active:translate-y-1 active:shadow-none disabled:opacity-50" aria-label="关闭自定义筛选编辑器">
-            <i className="fa-solid fa-xmark"></i>
-          </button>
-        </header>
-
-        <div className="flex min-h-0 flex-1 flex-col lg:grid lg:grid-cols-[minmax(200px,0.8fr)_minmax(0,2fr)] lg:grid-rows-[minmax(0,1fr)] lg:gap-4 lg:p-4">
-          <aside className="quick-filter-piece mx-4 mt-3 shrink-0 border-[3px] border-black bg-white p-3 shadow-[4px_4px_0_#ffe66d] sm:mx-5 lg:m-0 lg:min-h-0 lg:max-h-full lg:self-start lg:overflow-y-auto">
-            <h3 className="mb-2 inline-block border-2 border-black bg-[#ff8fab] px-3 py-1.5 text-xs font-black shadow-[3px_3px_0_#111]">
-              <i className="fa-solid fa-bookmark mr-2"></i>已保存的组合
-            </h3>
-            <button type="button" aria-expanded={savedOpen} className="ml-2 text-xs font-bold underline" onClick={() => setSavedOpen(value => !value)}>{savedOpen ? '收起' : '展开'}（{filters.length}）</button>
-            {savedOpen && <div className="grid max-h-28 gap-2 overflow-y-auto pb-1 pr-1 custom-scrollbar sm:grid-cols-2 lg:max-h-[52dvh] lg:grid-cols-1">
-              {filters.length === 0 && (
-                <div className="border-[3px] border-dashed border-black bg-[#f4f1ea] py-3 text-center text-xs font-black text-zinc-500">暂时没有自定义筛选</div>
-              )}
-              {filters.map((filter) => (
-                <article key={filter.id} className={`border-2 border-black p-3 shadow-[4px_4px_0_#111] transition-none hover:bg-[#fff2a8] ${editingId === filter.id ? 'translate-x-1 translate-y-1 bg-[#bdf4ef] shadow-none' : 'bg-white'}`}>
-                  <div className="flex items-center justify-between gap-2">
-                    <strong className="truncate text-sm font-black text-black">{filter.name}</strong>
-                    <div className="flex gap-2">
-                      <button type="button" onClick={() => beginEdit(filter)} className="flex h-8 w-8 items-center justify-center border-2 border-black bg-[#4ecdc4] text-black shadow-[2px_2px_0_#111] transition-none active:translate-x-0.5 active:translate-y-0.5 active:shadow-none" aria-label={`编辑 ${filter.name}`}><i className="fa-solid fa-pen"></i></button>
-                      <button type="button" disabled={deletingId === filter.id} onClick={() => handleDelete(filter)} className="flex h-8 w-8 items-center justify-center border-2 border-black bg-[#ff6b6b] text-black shadow-[2px_2px_0_#111] transition-none active:translate-x-0.5 active:translate-y-0.5 active:shadow-none disabled:opacity-50" aria-label={`删除 ${filter.name}`}><i className={`fa-solid ${deletingId === filter.id ? 'fa-spinner animate-spin' : 'fa-trash-can'}`}></i></button>
-                    </div>
-                  </div>
-                  <p className="mt-2 text-[10px] font-bold leading-5 text-zinc-600">{quickFilterSummary(filter)}</p>
-                </article>
-              ))}
-            </div>}
-          </aside>
-
-          <form onSubmit={handleSubmit} className="quick-filter-piece flex min-h-0 flex-1 flex-col">
-            <div className="shrink-0 px-4 pt-3 sm:px-5"><div className="mb-3 flex items-center justify-between">
-              <h3 className="border-2 border-black bg-white px-3 py-1.5 text-xs font-black shadow-[3px_3px_0_#111]">{editingId ? '修改组合' : '创建新组合'}</h3>
-              {editingId && <button type="button" onClick={resetForm} className="border-2 border-black bg-[#f4f1ea] px-2.5 py-1 text-xs font-black shadow-[2px_2px_0_#111] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none">取消编辑</button>}
-            </div></div>
-            <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto p-4 custom-scrollbar sm:px-5 md:grid-cols-2">
-            <div className="quick-filter-basics grid gap-4 md:col-span-2 md:grid-cols-2"><label className="block min-w-0 text-xs font-black text-black">筛选名称
-              <input value={form.name} maxLength={30} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} className={fieldClass} placeholder="例如：治愈日常" />
-            </label>
-            <label className="block min-w-0 text-xs font-black text-black">匹配方式
-              <select value={form.match_mode} onChange={(event) => setForm((current) => ({ ...current, match_mode: event.target.value }))} className={fieldClass}>
-                <option value="any">包含条件命中任意一项</option>
-                <option value="all">包含条件必须全部满足</option>
-              </select>
-            </label>
-            </div>
-            <fieldset className="min-w-0 border-[3px] border-black bg-white p-3 md:col-span-2">
-              <legend className="px-1 text-xs font-black">放送年份范围（含起止年份）</legend>
-              <div className="grid grid-cols-2 gap-3">
-                <label className="min-w-0 text-xs font-bold">起始年份<input aria-label="组合起始年份" type="number" min="1000" max="9999" step="1" placeholder="不限" value={form.year_from} onChange={event => setForm(current => ({ ...current, year_from: event.target.value }))} className={fieldClass} /></label>
-                <label className="min-w-0 text-xs font-bold">结束年份<input aria-label="组合结束年份" type="number" min="1000" max="9999" step="1" placeholder="不限" value={form.year_to} onChange={event => setForm(current => ({ ...current, year_to: event.target.value }))} className={fieldClass} /></label>
-              </div><p className="mt-2 text-[11px] font-bold">与包含、排除条件同时生效；设置范围后不匹配未知年份。</p>
-            </fieldset>
-            <section className="min-w-0 self-start border-[3px] border-black bg-[#ffe66d] p-3 shadow-[4px_4px_0_#ff8fab]" aria-label="包含条件">
-            <h4 className="mb-3 text-sm font-black">包含条件</h4>
-            <fieldset>
-              <legend className="mb-2 text-xs font-black text-black">包含标签（最多 8 个）</legend>
-              <input type="search" aria-label="搜索包含标签" placeholder="搜索标签…" value={tagSearch.tags} onChange={event => setTagSearch(current => ({ ...current, tags: event.target.value }))} className="mb-2 w-full min-w-0 border-2 border-black bg-white px-2 py-1.5 text-xs font-bold" />
-              <div className="flex max-h-40 flex-wrap gap-2 overflow-y-auto border-[3px] border-black bg-[#fff5ee] p-3 shadow-[4px_4px_0_#111] custom-scrollbar">
-                {[...new Set([...form.tags, ...sortedTags])].filter(tag => form.tags.includes(tag) || tag.toLocaleLowerCase().includes(tagSearch.tags.trim().toLocaleLowerCase())).map((tag) => {
-                  const selected = form.tags.includes(tag)
-                  return <button key={tag} type="button" disabled={!selected && form.tags.length >= 8} onClick={() => toggleTag(tag)} className={`rounded-full border-2 border-black px-2.5 py-1.5 text-xs font-black shadow-[2px_2px_0_#111] transition-none ${selected ? `${getTagClass(tag)} translate-x-1 translate-y-1 shadow-none` : 'bg-white text-black hover:bg-[#bdf4ef]'} disabled:cursor-not-allowed disabled:opacity-30`}><i className={`fa-solid ${selected ? 'fa-check' : 'fa-plus'} mr-1.5 text-[9px]`}></i>{tag}</button>
-                })}
-              </div>
-            </fieldset>
-            <label className="mt-4 block text-xs font-black">包含标题词（最多 4 个）
-              <input value={form.title_keywords} onChange={event => setForm(current => ({ ...current, title_keywords: event.target.value }))} className={fieldClass} placeholder="逗号分隔；匹配中日文标题" />
-            </label>
-            </section><section className="min-w-0 self-start border-[3px] border-black bg-[#bdf4ef] p-3 shadow-[4px_4px_0_#ffe66d]" aria-label="排除条件">
-            <h4 className="mb-3 text-sm font-black">排除条件</h4>
-            <fieldset><legend className="mb-2 text-xs font-black">排除标签（最多 8 个）</legend>
-              <input type="search" aria-label="搜索排除标签" placeholder="搜索标签…" value={tagSearch.exclude_tags} onChange={event => setTagSearch(current => ({ ...current, exclude_tags: event.target.value }))} className="mb-2 w-full min-w-0 border-2 border-black bg-white px-2 py-1.5 text-xs font-bold" />
-              <div className="flex max-h-40 flex-wrap gap-2 overflow-y-auto border-[3px] border-black bg-[#fff5ee] p-3 custom-scrollbar">
-                {[...new Set([...form.exclude_tags, ...sortedTags])].filter(tag => form.exclude_tags.includes(tag) || tag.toLocaleLowerCase().includes(tagSearch.exclude_tags.trim().toLocaleLowerCase())).map(tag => <button key={tag} type="button" disabled={!form.exclude_tags.includes(tag) && form.exclude_tags.length >= 8} onClick={() => toggleTag(tag, 'exclude_tags')}
-                  className={`rounded-full border-2 border-black px-2.5 py-1.5 text-xs font-black ${form.exclude_tags.includes(tag) ? 'bg-[#ff8fab]' : 'bg-white'}`}>
-                  {form.exclude_tags.includes(tag) ? '− ' : '+ '}{tag}</button>)}
-              </div>
-            </fieldset>
-            <label className="mt-4 block text-xs font-black">排除标题词（最多 4 个）
-              <input value={form.exclude_title_keywords} onChange={event => setForm(current => ({ ...current, exclude_title_keywords: event.target.value }))} className={fieldClass} placeholder="例如：总集篇，回顾" />
-            </label>
-            <p className="mt-3 text-xs font-bold leading-5">排除项命中任意一项即移除。可以只设置排除条件；OVA／剧场版标签和标题词不代表完整的作品类型识别。</p>
-            </section></div><footer className="shrink-0 border-t-4 border-black bg-[#fff5ee] px-4 pb-4 pt-3 sm:px-5">
-            {error && <p className="mb-3 border-[3px] border-black bg-[#ff6b6b] px-4 py-3 text-xs font-black text-black shadow-[4px_4px_0_#111]" role="alert"><i className="fa-solid fa-circle-exclamation mr-2"></i>{error}</p>}
-            <button type="submit" disabled={busy} className="ml-auto block w-full border-[3px] border-black bg-[#ff4f9a] px-5 py-3 text-sm font-black text-black shadow-[6px_6px_0_#111] transition-none hover:bg-[#4ecdc4] active:translate-x-[6px] active:translate-y-[6px] active:shadow-none disabled:cursor-wait disabled:opacity-60">
-              <i className={`fa-solid ${busy ? 'fa-spinner animate-spin' : editingId ? 'fa-floppy-disk' : 'fa-plus'} mr-2`}></i>{busy ? '保存中...' : editingId ? '保存修改' : '创建组合筛选'}
-            </button>
-            </footer>
-          </form>
-        </div>
-      </section>
-    </div>
-  )
+  const tagPicker = (key, title, caption) => <section className={`quick-workshop-tag-panel quick-workshop-tag-panel--${key}`} aria-label={title}>
+    <h4>{title}</h4><fieldset><legend>{caption}（最多 8 个）</legend>
+      <input type="search" aria-label={`搜索${caption}`} placeholder="搜索标签…" value={search[key]} onChange={event => setSearch(old => ({ ...old, [key]: event.target.value }))} />
+      <div className="quick-workshop-tags">{[...new Set([...form[key], ...availableTags.filter(tag => tag !== '轩皇力推').sort()])].filter(tag => form[key].includes(tag) || tag.toLowerCase().includes(search[key].trim().toLowerCase())).map(tag => <button key={tag} type="button" aria-pressed={form[key].includes(tag)} disabled={disabled || (!form[key].includes(tag) && form[key].length >= 8)} onClick={() => toggle(key, tag, 8)}>{form[key].includes(tag) ? '✓ ' : '+ '}{tag}</button>)}</div>
+    </fieldset><label>{title === '包含条件' ? '包含' : '排除'}标题词（最多 4 个）<input value={form[key === 'tags' ? 'title_keywords' : 'exclude_title_keywords']} onChange={event => change(key === 'tags' ? 'title_keywords' : 'exclude_title_keywords', event.target.value)} placeholder="逗号分隔；匹配中日文标题" /></label>
+  </section>
+  if (!isOpen) return null
+  return <dialog ref={dialog} className={`quick-workshop-backdrop${closing ? ' is-closing' : ''}`} aria-labelledby="quickFilterEditorTitle" aria-modal="true" onCancel={event => { event.preventDefault(); closeRef.current() }}>
+    <section className="quick-workshop"><header><div><span>FILTER WORKSHOP</span><h2 id="quickFilterEditorTitle">自定义快速筛选</h2><p>{description}</p></div><button type="button" aria-label="关闭自定义筛选编辑器" disabled={disabled} onClick={requestClose}>×</button></header>
+      <div className="quick-workshop-body"><aside><button type="button" className="quick-workshop-history-toggle" aria-expanded={savedOpen} onClick={() => setSavedOpen(value => !value)}>已保存的组合（{filters.length}） <span>{savedOpen ? '－' : '＋'}</span></button><div hidden={!savedOpen} className="quick-workshop-history">
+        {!filters.length && <p>暂时没有自定义筛选。</p>}{filters.map(filter => <article key={filter.id} className={editingId === filter.id ? 'is-selected' : ''}><div><strong>{filter.name}</strong><button type="button" disabled={disabled} aria-label={`编辑 ${filter.name}`} onClick={() => transition(() => reset(filter))}>✎</button><button type="button" disabled={disabled} aria-label={`删除 ${filter.name}`} onClick={() => setDeleteTarget(filter)}>×</button></div><p>{quickFilterSummary(filter)}</p></article>)}
+      </div></aside>
+      <form noValidate onSubmit={submit}><div className="quick-workshop-editor"><div className="quick-workshop-heading"><h3>{editingId ? '修改组合' : '创建新组合'}</h3><button type="button" disabled={disabled} onClick={() => transition(() => reset())}>创建新组合</button></div>
+        <fieldset disabled={disabled}><label>筛选名称<input aria-label="筛选名称" maxLength={30} value={form.name} onChange={event => change('name', event.target.value)} placeholder="例如：我的高分收藏" /></label></fieldset>
+        <div className="quick-workshop-summary"><strong>当前条件</strong><p>{quickFilterSummary(payload)}</p><small>条件组之间同时满足；包含条件中的标签和标题词按所选匹配方式处理。</small></div>
+        <nav aria-label="快速筛选条件分类">{[['basic', '常用条件'], ['tags', '标签与标题']].map(([key, label]) => <button key={key} type="button" disabled={disabled} aria-pressed={tab === key} onClick={() => setTab(key)}>{label}</button>)}</nav>
+        <fieldset disabled={disabled} hidden={tab !== 'basic'} className="quick-workshop-basic"><legend className="quick-workshop-sr">常用条件</legend>
+          <fieldset><legend>放送年份范围（含起止年份）</legend><div className="quick-workshop-pair">{[['year_from', '起始年份'], ['year_to', '结束年份']].map(([key,label]) => <label key={key}>{label}<input aria-label={`组合${label}`} type="number" min="1000" max="9999" step="1" placeholder="不限" value={form[key]} onChange={event => change(key, event.target.value)} /></label>)}</div><p>设置范围后不匹配未知年份。</p></fieldset>
+          <fieldset><legend>个人评分（原始 0–10 分）</legend><label>评分状态<select aria-label="组合评分状态" value={form.score_state} onChange={event => scoreState(event.target.value)}><option value="any">不限</option><option value="rated">仅已评分</option><option value="unrated">仅未评分</option></select></label>
+            {form.score_state !== 'unrated' && <div className="quick-workshop-pair">{[['score_min', '最低分'], ['score_max', '最高分']].map(([key,label]) => <label key={key}>{label}（含）<input aria-label={`组合${label}`} type="number" min="0" max="10" step="0.1" placeholder="不限" value={form[key]} onChange={event => scoreBound(key, event.target.value)} /></label>)}</div>}
+            <p>{form.score_state === 'unrated' ? '仅匹配没有个人评分的作品；评分区间已清空。' : '可只填单侧边界；设置区间会切换为仅已评分。0 分属于已评分，星级和配色不影响筛选。'}</p>
+          </fieldset>
+          <fieldset><legend>观看状态（多选，命中其中任意一种）</legend><div className="quick-workshop-statuses">{Object.entries(WATCH_STATES).map(([key,label]) => <label key={key}><input type="checkbox" checked={form.watch_statuses.includes(key)} onChange={() => toggle('watch_statuses', key, 4)} />{label}</label>)}</div><p>不选择时不限观看状态。</p></fieldset>
+          <label>长评状态<select aria-label="组合长评状态" value={form.review_state} onChange={event => change('review_state', event.target.value)}><option value="any">不限</option><option value="with">有长评</option><option value="without">无长评</option></select><small>仅含空格或换行视为无长评。</small></label>
+        </fieldset>
+        <fieldset disabled={disabled} hidden={tab !== 'tags'} className="quick-workshop-tag-fields"><legend className="quick-workshop-sr">标签与标题</legend><label>包含条件匹配方式<select value={form.match_mode} onChange={event => change('match_mode', event.target.value)}><option value="any">包含条件命中任意一项</option><option value="all">包含条件必须全部满足</option></select></label><div className="quick-workshop-pair">{tagPicker('tags', '包含条件', '包含标签')}{tagPicker('exclude_tags', '排除条件', '排除标签')}</div><p>排除项命中任意一项即移除；不改变年份、评分或状态条件。OVA 等标题词不等于完整的作品类型识别。</p></fieldset>
+      </div><footer>
+        <div className="quick-workshop-preview" role="status" aria-live="polite">{validDraft ? validDraft : preview.state === 'ready' ? <><strong>匹配 {preview.count} 部</strong><span>范围：{preview.scope}，包含其他分页；不叠加页面外层筛选。</span></> : preview.state === 'loading' ? '正在统计完整范围…' : preview.state === 'error' ? <><span>{preview.message}</span><button type="button" disabled={disabled} onClick={() => setRetry(value => value + 1)}>重试预览</button></> : '设置条件后预览'}</div>
+        <p className="quick-workshop-note">应用后仍与页面搜索、年份和状态条件叠加；如无结果，可清除页面外层条件。预览不会保存草稿。</p>
+        {error && <p className="quick-workshop-error" role="alert">{error}</p>}
+        {pending && <div className="quick-workshop-confirm" role="group" aria-label="放弃筛选草稿"><p>有未保存修改，是否放弃本页草稿？</p><button type="button" disabled={disabled} onClick={() => setPending(null)}>继续编辑</button><button type="button" disabled={disabled} onClick={() => pending.run()}>放弃修改</button></div>}
+        {deleteTarget && <div className="quick-workshop-confirm" role="group" aria-label="删除筛选确认"><p>删除“{deleteTarget.name}”？不会删除作品。</p><button type="button" disabled={disabled} onClick={() => setDeleteTarget(null)}>取消删除</button><button type="button" disabled={disabled} onClick={remove}>确认删除</button></div>}
+        <div className="quick-workshop-actions"><span>{dirty ? '草稿未保存' : '条件组合'}</span><button type="submit" disabled={disabled || Boolean(pending) || Boolean(deleteTarget)}>{busy ? '保存中…' : '保存组合'}</button><button type="button" className="quick-workshop-primary" disabled={disabled || Boolean(pending) || Boolean(deleteTarget)} onClick={event => submit(event, true)}>保存并应用</button><button type="button" disabled={disabled} onClick={requestClose}>关闭</button></div>
+      </footer></form></div>
+    </section>
+  </dialog>
 }
-
-export default QuickFilterEditorModal

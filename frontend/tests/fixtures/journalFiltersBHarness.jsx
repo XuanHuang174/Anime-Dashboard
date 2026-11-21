@@ -19,7 +19,8 @@ api.defaults.adapter=async config=>{
  if(config.url==='external/search/')data=[{id:123,chinese_title:'合成番剧',japanese_title:'Synthetic',date:'2020-01-01'}]
  if(config.url==='external/autofill/')data={chineseTitle:'合成番剧',japaneseTitle:'Synthetic',airingPeriod:'2020-1',tags:'日常,治愈,喜剧',bangumiUrl:'https://bgm.tv/subject/123',autofillTicket:'synthetic-proof',baikeUrl:''}
  if(config.url==='recommendations/capabilities/')data={}
- if(config.method==='post'||config.method==='patch'){data=typeof config.data==='string'?JSON.parse(config.data):{};window.lastSaved=data}
+ if(config.url==='quick-filters/preview/')data={count:0,scope:'合成全范围'}
+ else if(config.method==='post'||config.method==='patch'){data=typeof config.data==='string'?JSON.parse(config.data):{};window.lastSaved=data}
  return {config,data,status:200,headers:{}}
 }
 function App(){

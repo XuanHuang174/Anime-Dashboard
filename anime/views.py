@@ -58,7 +58,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from .email_service import EmailDeliveryError, send_transactional_email
 from .daily_push import fetch_today_bangumi_items, send_daily_pushes
 from .rating_config import normalized_rating_preferences, validate_rating_preferences
-from .quick_filtering import matches_year_range
+from .quick_filtering import scalar_filters, matches_metadata, preview_config
 from .models import (
     Anime,
     FeaturedQuickFilter,
@@ -1020,7 +1020,7 @@ def _record_metadata_value(record, private_field, shared_field):
     return record.get(shared_field)
 
 
-def _apply_record_filters(queryset, request, filter_owner):
+def _apply_record_filters(queryset, request, filter_owner, *, draft_filter=None):
     """Filter the complete record collection before DRF paginates it."""
 
     search = request.query_params.get("search", "").strip()
@@ -1056,17 +1056,25 @@ def _apply_record_filters(queryset, request, filter_owner):
     if status_value in valid_statuses:
         queryset = queryset.filter(watch_status=status_value)
 
-    custom_filter = None
-    if quick_filter_id.isdigit():
+    custom_filter = draft_filter
+    if custom_filter is None and quick_filter_id.isdigit():
         custom_filter = UserQuickFilter.objects.filter(
             pk=int(quick_filter_id),
             user=filter_owner,
         ).first()
 
+    if custom_filter is not None:
+        queryset = scalar_filters(queryset, custom_filter)
+
+    has_quick_metadata = custom_filter is not None and (
+        custom_filter.tags or custom_filter.title_keywords or custom_filter.exclude_tags or custom_filter.exclude_title_keywords
+        or custom_filter.year_from is not None or custom_filter.year_to is not None or custom_filter.review_state != 'any'
+    )
+
     needs_tag_scan = (
         (tag and tag != "all")
         or (type_filter and type_filter != "all")
-        or custom_filter is not None
+        or has_quick_metadata
     )
     if not needs_tag_scan:
         return queryset
@@ -1074,6 +1082,7 @@ def _apply_record_filters(queryset, request, filter_owner):
     matched_ids = []
     records = queryset.values(
         "pk",
+        "review",
         "metadata_initialized",
         "private_base_tags",
         "private_chinese_title",
@@ -1107,22 +1116,8 @@ def _apply_record_filters(queryset, request, filter_owner):
 
         if custom_filter is not None:
             period = _record_metadata_value(record, 'private_airing_period', 'anime__airing_period')
-            if not matches_year_range(period, custom_filter.year_from, custom_filter.year_to):
-                continue
             japanese_title = _record_metadata_value(record, 'private_japanese_title', 'anime__japanese_title') or ''
-            titles = [title_upper, japanese_title.upper()]
-            if (any(value in tags for value in custom_filter.exclude_tags)
-                    or any(value.upper() in title for value in custom_filter.exclude_title_keywords for title in titles)):
-                continue
-            filter_tags = custom_filter.tags or []
-            keywords = custom_filter.title_keywords or []
-            tag_matches = [value in tags for value in filter_tags]
-            keyword_matches = [any(value.upper() in title for title in titles) for value in keywords]
-            matches = tag_matches + keyword_matches
-            if custom_filter.match_mode == UserQuickFilter.MatchMode.ALL:
-                if not all(matches):
-                    continue
-            elif matches and not any(matches):
+            if not matches_metadata(custom_filter, tags=tags, title=title_upper, japanese_title=japanese_title, period=period, review=record['review']):
                 continue
 
         matched_ids.append(record["pk"])
@@ -2355,7 +2350,8 @@ class UserAnimeRecordViewSet(viewsets.ModelViewSet):
         """Atomically increment one private watching-progress value."""
 
         record = generics.get_object_or_404(
-            self._base_queryset().select_for_update(),
+            # Identity joins may be nullable; only the private record needs a write lock.
+            self._base_queryset().select_for_update(of=('self',)),
             pk=pk,
         )
         if record.watch_status != UserAnimeRecord.WatchStatus.WATCHING:
@@ -2578,6 +2574,16 @@ class UserQuickFilterViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return UserQuickFilter.objects.filter(user=self.request.user)
+
+    @action(detail=False, methods=('post',))
+    def preview(self, request):
+        from types import SimpleNamespace
+        serializer = self.get_serializer(data=request.data, context={**self.get_serializer_context(), 'preview': True})
+        serializer.is_valid(raise_exception=True)
+        records = UserAnimeRecord.objects.filter(user=request.user)
+        count = _apply_record_filters(records, SimpleNamespace(query_params={}), request.user,
+                                      draft_filter=preview_config(serializer.validated_data)).count()
+        return Response({'count': count, 'scope': '本人全手账'}, headers={'Cache-Control': 'private, no-store', 'Vary': 'Authorization, Cookie'})
 
     def perform_create(self, serializer):
         try:
@@ -2833,6 +2839,16 @@ class FeaturedQuickFilterViewSet(viewsets.ModelViewSet):
         if self.request.method in permissions.SAFE_METHODS:
             return [permissions.AllowAny()]
         return [IsSuperUser()]
+
+    @action(detail=False, methods=('post',))
+    def preview(self, request):
+        serializer = self.get_serializer(data=request.data, context={**self.get_serializer_context(), 'preview': True})
+        serializer.is_valid(raise_exception=True)
+        config = preview_config(serializer.validated_data)
+        rows = scalar_filters(FeaturedSubmission.objects.exclude(audit_status=FeaturedSubmission.AuditStatus.REJECTED), config, 'score')
+        count = sum(matches_metadata(config, tags=row.tags, title=row.chinese_title, japanese_title=row.japanese_title,
+                                     period=row.airing_period or str(row.year or ''), review=row.review) for row in rows.iterator(chunk_size=1000))
+        return Response({'count': count, 'scope': '全部未拒绝投稿'}, headers={'Cache-Control': 'private, no-store'})
 
     @action(detail=False, methods=("get",), url_path="available-tags")
     def available_tags(self, request):

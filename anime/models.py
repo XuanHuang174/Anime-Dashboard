@@ -17,6 +17,11 @@ def validate_tag_list(value):
         raise ValidationError("每个标签都必须是非空字符串。")
 
 
+def validate_watch_statuses(value):
+    if not isinstance(value, list) or any(status not in ('plan', 'watching', 'completed', 'on_hold') for status in value) or len(set(value)) != len(value):
+        raise ValidationError('观看状态必须是不重复的有效状态数组。')
+
+
 TAG_COLOR_KEYS = {
     "pink", "rose", "blue", "emerald", "amber", "orange", "indigo",
     "violet", "fuchsia", "yellow", "purple", "cyan", "lime", "sky",
@@ -696,6 +701,11 @@ class UserQuickFilter(models.Model):
     name = models.CharField("筛选名称", max_length=30)
     year_from = models.PositiveSmallIntegerField("起始年份", null=True, blank=True, validators=[MinValueValidator(1000), MaxValueValidator(9999)])
     year_to = models.PositiveSmallIntegerField("结束年份", null=True, blank=True, validators=[MinValueValidator(1000), MaxValueValidator(9999)])
+    score_min = models.DecimalField("最低个人评分", max_digits=3, decimal_places=1, null=True, blank=True, validators=[MinValueValidator(0), MaxValueValidator(10)])
+    score_max = models.DecimalField("最高个人评分", max_digits=3, decimal_places=1, null=True, blank=True, validators=[MinValueValidator(0), MaxValueValidator(10)])
+    score_state = models.CharField("评分状态", max_length=8, default='any', choices=(('any', '不限'), ('rated', '仅已评分'), ('unrated', '仅未评分')))
+    watch_statuses = models.JSONField("观看状态组合", default=list, blank=True, validators=[validate_watch_statuses])
+    review_state = models.CharField("长评状态", max_length=8, default='any', choices=(('any', '不限'), ('with', '有长评'), ('without', '无长评')))
     exclude_tags = models.JSONField("排除标签", default=list, blank=True, validators=[validate_tag_list])
     exclude_title_keywords = models.JSONField("排除标题词", default=list, blank=True, validators=[validate_tag_list])
     tags = models.JSONField(
@@ -729,6 +739,8 @@ class UserQuickFilter(models.Model):
                 name="unique_user_quick_filter_name",
             ),
             models.CheckConstraint(condition=models.Q(year_from__isnull=True) | models.Q(year_to__isnull=True) | models.Q(year_from__lte=models.F('year_to')), name='user_quick_filter_year_order'),
+            models.CheckConstraint(condition=models.Q(score_min__isnull=True) | models.Q(score_max__isnull=True) | models.Q(score_min__lte=models.F('score_max')), name='user_quick_filter_score_order'),
+            models.CheckConstraint(condition=~models.Q(score_state='unrated') | (models.Q(score_min__isnull=True) & models.Q(score_max__isnull=True)), name='user_quick_filter_unrated_bounds'),
         ]
 
     def __str__(self):
@@ -745,6 +757,11 @@ class FeaturedQuickFilter(models.Model):
     name = models.CharField("筛选名称", max_length=30, unique=True)
     year_from = models.PositiveSmallIntegerField("起始年份", null=True, blank=True, validators=[MinValueValidator(1000), MaxValueValidator(9999)])
     year_to = models.PositiveSmallIntegerField("结束年份", null=True, blank=True, validators=[MinValueValidator(1000), MaxValueValidator(9999)])
+    score_min = models.DecimalField("最低个人评分", max_digits=3, decimal_places=1, null=True, blank=True, validators=[MinValueValidator(0), MaxValueValidator(10)])
+    score_max = models.DecimalField("最高个人评分", max_digits=3, decimal_places=1, null=True, blank=True, validators=[MinValueValidator(0), MaxValueValidator(10)])
+    score_state = models.CharField("评分状态", max_length=8, default='any', choices=(('any', '不限'), ('rated', '仅已评分'), ('unrated', '仅未评分')))
+    watch_statuses = models.JSONField("观看状态组合", default=list, blank=True, validators=[validate_watch_statuses])
+    review_state = models.CharField("长评状态", max_length=8, default='any', choices=(('any', '不限'), ('with', '有长评'), ('without', '无长评')))
     exclude_tags = models.JSONField("排除标签", default=list, blank=True, validators=[validate_tag_list])
     exclude_title_keywords = models.JSONField("排除标题词", default=list, blank=True, validators=[validate_tag_list])
     tags = models.JSONField(
@@ -772,7 +789,11 @@ class FeaturedQuickFilter(models.Model):
         verbose_name = "精选专栏快捷筛选"
         verbose_name_plural = "精选专栏快捷筛选"
         ordering = ("created_at",)
-        constraints = [models.CheckConstraint(condition=models.Q(year_from__isnull=True) | models.Q(year_to__isnull=True) | models.Q(year_from__lte=models.F('year_to')), name='featured_quick_filter_year_order')]
+        constraints = [
+            models.CheckConstraint(condition=models.Q(year_from__isnull=True) | models.Q(year_to__isnull=True) | models.Q(year_from__lte=models.F('year_to')), name='featured_quick_filter_year_order'),
+            models.CheckConstraint(condition=models.Q(score_min__isnull=True) | models.Q(score_max__isnull=True) | models.Q(score_min__lte=models.F('score_max')), name='featured_quick_filter_score_order'),
+            models.CheckConstraint(condition=~models.Q(score_state='unrated') | (models.Q(score_min__isnull=True) & models.Q(score_max__isnull=True)), name='featured_quick_filter_unrated_bounds'),
+        ]
 
     def __str__(self):
         return self.name

@@ -1,0 +1,25 @@
+{
+  "records": [
+    {"id":1,"score":null,"status":"completed","review":"","period":"2020-1","tags":["日常"],"title":"合成1"},
+    {"id":2,"score":0,"status":"completed","review":"　\n\t\ufeff","period":"2020-4","tags":["日常"],"title":"合成2"},
+    {"id":3,"score":8.9,"status":"watching","review":"有长评","period":"2021-1","tags":["治愈"],"title":"合成3"},
+    {"id":4,"score":9,"status":"completed","review":"有长评","period":"2021-7","tags":["日常"],"title":"合成4"},
+    {"id":5,"score":9.9,"status":"on_hold","review":"","period":"2022-1","tags":["日常","后宫"],"title":"合成5"},
+    {"id":6,"score":10,"status":"plan","review":"有长评","period":"","tags":["日常"],"title":"合成6"},
+    {"id":7,"score":null,"status":"watching","review":"有长评","period":"2022-4","tags":[],"title":"番外7","japaneseTitle":"Synthetic OVA"}
+  ],
+  "cases": [
+    {"filter":{"score_state":"unrated"},"ids":[1,7]},
+    {"filter":{"score_state":"rated"},"ids":[2,3,4,5,6]},
+    {"filter":{"score_min":0,"score_max":0},"ids":[2]},
+    {"filter":{"score_min":8.9,"score_max":9.9},"ids":[3,4,5]},
+    {"filter":{"score_min":10},"ids":[6]},
+    {"filter":{"score_max":8.9},"ids":[2,3]},
+    {"filter":{"watch_statuses":["completed","watching"]},"ids":[1,2,3,4,7]},
+    {"filter":{"review_state":"with"},"ids":[3,4,6,7]},
+    {"filter":{"review_state":"without"},"ids":[1,2,5]},
+    {"filter":{"tags":["日常","治愈"],"match_mode":"any","score_min":9,"watch_statuses":["completed","watching"],"review_state":"with"},"ids":[4]},
+    {"filter":{"score_min":9,"exclude_tags":["后宫"],"year_from":2021,"year_to":2022},"ids":[4]},
+    {"filter":{"score_state":"unrated","title_keywords":["ova"]},"ids":[7]}
+  ]
+}
