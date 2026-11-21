@@ -5,11 +5,12 @@ import math
 
 from django.core.exceptions import ValidationError
 
-COLORS = ('slate', 'violet', 'red', 'amber', 'teal', 'blue', 'pink', 'green')
+COLORS = ('slate', 'violet', 'red', 'amber', 'teal', 'blue', 'pink', 'green',
+          'ink', 'orange', 'gold', 'deeporange', 'classic')
 CARDS = ('completed', 'average', 'movie', 'ova', 'short', 'highlight')
 
 
-def default_rating_preferences():
+def legacy_rating_preferences():
     return {'version': 1, 'star_max': 5, 'show_stars': True, 'tiers': [
         {'min': low, 'label': label, 'stars': stars, 'color': color, 'star_color': star_color, 'effect': effect}
         for low, label, stars, color, star_color, effect in (
@@ -22,6 +23,20 @@ def default_rating_preferences():
             (0.1, '其他评分', 1, 'slate', 'amber', 'plain'),
             (0.0, '零分', 0, 'slate', 'amber', 'plain'),
         )], 'statistics': {'label': '极高推荐', 'min': 9.5, 'max': 10.0, 'cards': list(CARDS)}}
+
+
+def restore_classic_appearance(value):
+    result = deepcopy(value)
+    for tier in result['tiers']:
+        low = tier['min']
+        tier.update(color='classic' if low >= 9.9 else 'red' if low >= 9.5 else 'orange' if low >= 9 else 'ink',
+                    star_color='classic' if low >= 9.9 else 'deeporange' if low >= 9.5 else 'gold',
+                    effect='gradient' if low >= 9.9 else 'plain')
+    return result
+
+
+def default_rating_preferences():
+    return restore_classic_appearance(legacy_rating_preferences())
 
 
 def score_number(value):
@@ -79,6 +94,12 @@ def validate_rating_preferences(value):
 def normalized_rating_preferences(value):
     try:
         validate_rating_preferences(value)
+        old = legacy_rating_preferences()['tiers']
+        if len(value['tiers']) == len(old) and all(
+            all(row[key] == previous[key] for key in ('min', 'color', 'star_color', 'effect'))
+            for row, previous in zip(value['tiers'], old)
+        ):
+            return restore_classic_appearance(value)
         return deepcopy(value)
     except (ValidationError, TypeError, ValueError, InvalidOperation):
         return default_rating_preferences()

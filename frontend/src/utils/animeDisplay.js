@@ -79,7 +79,10 @@ export function getCoverSrc(item) {
 }
 
 export function getScoreAccentColor(score, preferences) {
-  if (preferences) return RATING_COLORS[ratingForScore(score, preferences)?.color || 'pink'].color
+  if (preferences) {
+    const palette = RATING_COLORS[ratingForScore(score, preferences)?.color || 'pink']
+    return palette.accent || palette.color
+  }
   const numericScore = Number(score)
   if (!Number.isFinite(numericScore)) return '#ff8fab'
   if (numericScore >= 9.9) return '#a78bfa'

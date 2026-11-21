@@ -78,7 +78,7 @@ function AnimeGrid({
               )}
 
               <div className={`${isMemphis ? 'memphis-grid-score' : 'border-white/10 bg-black/40 text-white shadow-sm backdrop-blur-md'} absolute right-2 top-2 flex items-center gap-1 rounded-lg border px-2 py-1`}>
-                <PersonalScore score={item.score} preferences={item.ratingPreferences} className="text-xs" />
+                <PersonalScore score={item.score} preferences={item.ratingPreferences} variant="grid" className="text-xs" />
               </div>
 
               {!isMemphis && (

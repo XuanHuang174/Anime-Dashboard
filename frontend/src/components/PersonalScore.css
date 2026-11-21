@@ -1,15 +1,23 @@
-.personal-score { display: inline-flex; flex-direction: column; gap: 2px; max-width: 100%; vertical-align: middle; font-weight: 850; }
-.personal-score-number { display: inline-block; line-height: 1.25; font-variant-numeric: tabular-nums; }
-.personal-score-number small { font-size: .6em; font-weight: 600; }
-.personal-score-stars { display: inline-flex; flex-wrap: wrap; gap: 1px; max-width: 100%; font-size: 11px; line-height: 1.2; color: #89909a; }
-.personal-score-stars span { display: inline-block; }
+.personal-score { display: inline-flex; flex-direction: column; align-items: center; gap: 4px; max-width: 100%; vertical-align: middle; font-weight: 900; }
+.personal-score-value { display: inline-flex; align-items: baseline; gap: 2px; white-space: nowrap; }
+.personal-score-number { display: inline-block; line-height: 1.4; font-variant-numeric: tabular-nums; }
+.personal-score-denominator { color: #94a3b8; font-size: 10px; font-weight: 600; line-height: 1; }
+.personal-score-stars { display: inline-flex; flex-wrap: wrap; justify-content: center; gap: 2px; max-width: 100%; font-size: 12px; line-height: 1; color: #e2e8f0; }
+.personal-score-stars i { display: inline-block; }
+.personal-score--list { font-size: 20px; }
+.personal-score--list .personal-score-number { filter: drop-shadow(0 1px 1px rgb(0 0 0 / .05)); }
+.personal-score--grid { font-size: 12px; gap: 2px; }
+.personal-score--grid .personal-score-stars { font-size: 9px; gap: 1px; }
+.personal-score--detail { font-size: 28px; }
+.personal-score--detail .personal-score-stars { font-size: 14px; }
 .memphis-grid-score { max-width: calc(100% - 16px); }
 .memphis-grid-score .personal-score { min-width: 0; }
 .memphis-grid-score .personal-score-stars { font-size: 9px; }
 @media (max-width: 767px) {
   .memphis-anime-list .personal-score { max-width: 58px; align-items: flex-end; }
   .memphis-anime-list .personal-score-stars { font-size: 9px; }
-  .memphis-anime-list .personal-score-number small { display: none; }
+  .memphis-anime-list .personal-score-denominator { display: none; }
+  .memphis-anime-list .personal-score { font-size: 18px; }
 }
 .rating-legend { margin: 0 0 18px; padding: 10px 14px; border: 2px solid #111; background: #fff6dc; font-size: 12px; }
 .rating-legend summary { cursor: pointer; font-weight: 800; }

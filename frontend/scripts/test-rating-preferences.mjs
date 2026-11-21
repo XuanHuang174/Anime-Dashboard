@@ -65,16 +65,77 @@ const hit = async locator => {
     return x >= 0 && y >= 0 && x < innerWidth && y < innerHeight && (hit === el || el.contains(hit))
   }), 'Control must remain visible and clickable')
 }
+// Frozen pre-personalization list appearance from 19500ac; deliberately no rating helper calls.
+const compareClassicAppearance = async () => {
+  await page.locator('#btnViewList').click()
+  await page.locator('.personal-score[aria-label^="8.0 分"]').first().waitFor()
+  await page.evaluate(() => document.fonts.ready)
+  await page.evaluate(() => {
+    const fixture = document.createElement('section'); fixture.id = 'classic-appearance-comparison'; fixture.className = 'memphis-public'
+    fixture.style.cssText = 'position:fixed;inset:25px;z-index:10000;background:#fff5ee;padding:24px;overflow:auto;border:3px solid #111;display:grid;grid-template-columns:1fr 1fr;gap:20px;align-content:start'
+    fixture.innerHTML = '<h2 style="font-weight:900">旧版冻结基准</h2><h2 style="font-weight:900">当前共用评分组件</h2>'
+    for (const [score, color, stars, count] of [[8,'#1e293b','#fbbf24',4],[9,'#f97316','#fbbf24',5],[9.5,'#dc2626','#ea580c',5],[9.9,'gradient','gradient',5]]) {
+      const reference = document.createElement('div'); reference.className = 'legacy-score-reference'; reference.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:4px;padding:20px;border:2px solid #111;background:white'
+      const paint = value => value === 'gradient' ? 'color:transparent;background-clip:text;-webkit-background-clip:text;background-image:linear-gradient(to right,#4f46e5,#9333ea,#d946ef)' : `color:${value}`
+      reference.innerHTML = `<div style="display:inline-flex;align-items:baseline;gap:2px"><span class="reference-number" style="font-size:20px;font-weight:900;line-height:28px;${paint(color)}">${score.toFixed(1)}</span><span class="reference-denominator" style="font-size:10px;font-weight:600;line-height:10px;color:#94a3b8">/10</span></div><div class="reference-stars" style="display:flex;gap:2px;line-height:12px">${Array.from({length:5},(_,i) => `<i class="fa-${i<count?'solid':'regular'} fa-star" style="font-size:12px;${i>=count?'color:#e2e8f0':stars==='gradient'?'color:transparent;background-clip:text;-webkit-background-clip:text;background-image:linear-gradient(to right,#ec4899,#a855f7,#6366f1)':`color:${stars}`}"></i>`).join('')}</div>`
+      const actual = document.querySelector(`.memphis-anime-list .personal-score[aria-label^="${score.toFixed(1)} 分"]`).cloneNode(true)
+      const card = document.createElement('div'); card.className = 'current-score-comparison'; card.style.cssText = 'display:flex;align-items:center;justify-content:center;padding:20px;border:2px solid #111;background:white'; card.append(actual)
+      fixture.append(reference, card)
+    }
+    document.body.append(fixture)
+  })
+  const fixture = page.locator('#classic-appearance-comparison')
+  assert.ok(await fixture.evaluate(el => {
+    const old = [...el.querySelectorAll('.legacy-score-reference')], current = [...el.querySelectorAll('.current-score-comparison')]
+    const same = (a,b,properties) => properties.every(key => getComputedStyle(a)[key] === getComputedStyle(b)[key])
+    return old.every((row,i) => same(row.querySelector('.reference-number'),current[i].querySelector('.personal-score-number'),['color','backgroundImage','fontSize','fontWeight','lineHeight']) && same(row.querySelector('.reference-denominator'),current[i].querySelector('.personal-score-denominator'),['color','fontSize','fontWeight']) && [...row.querySelectorAll('i')].every((icon,j) => same(icon,current[i].querySelectorAll('i')[j],['color','backgroundImage','fontFamily','fontWeight','fontSize']) && Math.abs(icon.getBoundingClientRect().width-current[i].querySelectorAll('i')[j].getBoundingClientRect().width)<.5))
+  }), 'Classic appearance matches frozen old number/suffix/star color, type and glyph metrics')
+  await fixture.screenshot({ path: '../.tools/rating-preferences-qa/classic-before-after.png' })
+  await fixture.evaluate(el => el.remove())
+}
 await mkdir('../.tools/rating-preferences-qa', { recursive: true })
 try {
-  await page.goto(`${base}/dashboard`); await open()
+  await page.goto(`${base}/dashboard`); await compareClassicAppearance(); await open()
   assert.equal(patches.length, 0)
+  await page.evaluate(() => document.fonts.ready)
+  const classic = modal().locator('.rating-preview-feature .personal-score')
+  assert.equal(await classic.locator('.personal-score-number').evaluate(el => getComputedStyle(el).color), 'rgb(220, 38, 38)')
+  assert.equal(await classic.locator('.personal-score-denominator').evaluate(el => getComputedStyle(el).color), 'rgb(148, 163, 184)')
+  assert.equal(await classic.locator('.personal-score-stars i').first().evaluate(el => getComputedStyle(el).color), 'rgb(234, 88, 12)')
+  assert.match(await classic.locator('.personal-score-stars i').first().evaluate(el => getComputedStyle(el).fontFamily), /Font Awesome/)
+  assert.equal(await classic.locator('.personal-score-stars i').first().evaluate(el => getComputedStyle(el, '::before').content), '"\uf005"')
+  assert.equal(await modal().locator('.rating-tier.is-open').count(), 1)
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  assert.ok(await modal().locator('.rating-tier-panel').first().evaluate(el => getComputedStyle(el).transitionDuration.split(',').every(time => parseFloat(time) > 0)))
+  await modal().getByRole('button', { name: '编辑第 2 档：极高推荐', exact: true }).click()
+  await modal().getByLabel('第 1 档名称', { exact: true }).waitFor({ state: 'hidden' })
+  assert.equal(await modal().locator('.rating-tier.is-open').count(), 1)
+  await modal().getByRole('button', { name: '编辑第 1 档：殿堂', exact: true }).click()
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  assert.ok(await modal().locator('.rating-tier-panel').first().evaluate(el => getComputedStyle(el).transitionDuration.split(',').every(time => parseFloat(time) === 0)))
+  await modal().getByLabel('预览分数', { exact: true }).fill('9.9')
+  await modal().getByRole('group', { name: '第 1 档数字配色色板', exact: true }).getByRole('button', { name: '数字配色：青绿', exact: true }).click()
+  assert.equal(await modal().getByLabel('第 1 档数字配色', { exact: true }).inputValue(), 'teal')
+  await button('恢复经典外观').click()
+  assert.equal(await modal().getByLabel('第 1 档起点', { exact: true }).inputValue(), '9.9')
+  assert.equal(await modal().getByLabel('第 1 档星数', { exact: true }).inputValue(), '5')
+  assert.equal(await button('保存并应用').isDisabled(), true)
+  await modal().getByRole('group', { name: '边界与未评分示例' }).getByRole('button', { name: /^未评分/ }).click()
+  assert.equal(await classic.locator('.personal-score-number').textContent(), '待定')
+  await modal().getByLabel('预览分数', { exact: true }).fill('9.5')
+  await modal().locator('.rating-preferences-editor').evaluate(el => { el.scrollTop = 0 })
+  await page.screenshot({ path: '../.tools/rating-preferences-qa/classic-editor.png' })
+  for (const name of ['海报墙', '详情', '列表']) {
+    await modal().getByRole('navigation', { name: '预览展示场景' }).getByRole('button', { name, exact: true }).click()
+    assert.equal(await modal().locator('.rating-preview-comparison .personal-score').count(), 2)
+  }
   await button('Bangumi 整数习惯').click()
   await modal().getByLabel('星级上限', { exact: true }).selectOption('10')
   await modal().getByLabel('第 1 档星数', { exact: true }).selectOption('10')
   await modal().getByLabel('第 1 档数字配色', { exact: true }).selectOption('teal')
   await modal().getByLabel('第 1 档星级配色', { exact: true }).selectOption('teal')
   await modal().getByLabel('第 1 档效果', { exact: true }).selectOption('glow')
+  assert.equal(await modal().locator('.rating-preview-comparison .personal-score').first().locator('.personal-score-number').evaluate(el => getComputedStyle(el).color), 'rgb(220, 38, 38)', 'Saved preview stays unchanged while drafting')
   await button('统计显示').click()
   await modal().getByLabel('推荐统计名称', { exact: true }).fill('我的珍藏')
   await modal().getByLabel('最低分（含）', { exact: true }).fill('8')
@@ -123,6 +184,17 @@ try {
     await page.screenshot({ path: `../.tools/rating-preferences-qa/mobile-${width}.png` })
   }
   await button('关闭').click(); await button('放弃修改并关闭').click()
+  await page.setViewportSize({ width: 390, height: 720 })
+  await open()
+  assert.equal(await modal().locator('.rating-preview-toggle').getAttribute('aria-expanded'), 'false')
+  await page.screenshot({ path: '../.tools/rating-preferences-qa/mobile-initial.png' })
+  await modal().locator('.rating-preview-toggle').click()
+  await modal().getByRole('navigation', { name: '预览展示场景' }).getByRole('button', { name: '海报墙', exact: true }).click()
+  await hit(modal().getByLabel('预览分数', { exact: true }))
+  assert.equal(await modal().evaluate(el => el.scrollWidth <= el.clientWidth), true)
+  await page.screenshot({ path: '../.tools/rating-preferences-qa/mobile-preview.png' })
+  await button('关闭').click()
+  await page.setViewportSize({ width: 1440, height: 950 })
   records[8].anime.chinese_title = '合成作品 9：超长中日文副标题与十星展示的手机布局验收'
   await page.goto(`${base}/dashboard`)
   await page.locator('#btnViewGrid').click()
@@ -161,14 +233,17 @@ try {
   await button('仅数字').click(); assert.equal(await modal().locator('.rating-preview-feature .personal-score-stars').count(), 0)
   await modal().getByLabel('第 1 档起点', { exact: true }).fill('9.5')
   assert.equal(await button('保存并应用').isDisabled(), true)
-  await button('项目默认').click()
+  await button('定位问题').click()
+  assert.equal(await modal().getByLabel('第 2 档起点', { exact: true }).evaluate(el => el === document.activeElement), true)
+  await button('经典默认').click()
   await button('＋ 添加档位').click(); assert.equal(await modal().locator('.rating-tier').count(), 9)
   await modal().getByRole('button', { name: '删除第 7 档', exact: true }).click()
   assert.equal(await modal().locator('.rating-tier').count(), 8)
+  await modal().getByRole('button', { name: '编辑第 8 档：零分', exact: true }).click()
   assert.equal(await modal().getByRole('button', { name: '删除第 8 档', exact: true }).isDisabled(), true)
   await page.evaluate(() => { localStorage.setItem('anime_journal_access_token', 'synthetic-other-account'); window.dispatchEvent(new Event('storage')) })
   await modal().waitFor({ state: 'detached' })
   assert.deepEqual(errors, [])
-  console.log(JSON.stringify({ result: 'passed', checks: ['actual edit and preview menu entry', 'draft-only live count', 'ten-star and colors', 'duplicate save gate', 'stale stats revision protection', 'reload persistence', '409 preserves draft', '500 and 429 no auto replay', 'discard confirmation', 'mobile and landscape hit targets', 'owner public stats and legend', 'universe custom label', 'featured immutable author style and detail', 'invalid boundary blocks save', 'account isolation'], patchAttempts: patches.length }))
+  console.log(JSON.stringify({ result: 'passed', checks: ['frozen classic visual baseline', 'Font Awesome star glyphs and neutral denominator', 'single accordion and reduced motion', 'color swatches and classic appearance restore', 'saved/draft comparison in three contexts', 'unrated preview', 'actual edit and preview menu entry', 'draft-only live count', 'ten-star and colors', 'duplicate save gate', 'stale stats revision protection', 'reload persistence', '409 preserves draft', '500 and 429 no auto replay', 'discard confirmation', 'mobile collapsed/expanded preview and landscape hit targets', 'owner public stats and legend', 'universe custom label', 'featured immutable author style and detail', 'invalid boundary blocks save and error focus', 'account isolation'], patchAttempts: patches.length }))
 } catch (error) { await page.screenshot({ path: '../.tools/rating-preferences-qa/failure.png' }).catch(() => {}); throw error }
 finally { await browser.close() }

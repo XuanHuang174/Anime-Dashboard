@@ -7,8 +7,8 @@
       "min": 9.9,
       "label": "殿堂",
       "stars": 5,
-      "color": "violet",
-      "star_color": "violet",
+      "color": "classic",
+      "star_color": "classic",
       "effect": "gradient"
     },
     {
@@ -16,55 +16,55 @@
       "label": "极高推荐",
       "stars": 5,
       "color": "red",
-      "star_color": "amber",
+      "star_color": "deeporange",
       "effect": "plain"
     },
     {
       "min": 9.0,
       "label": "强烈推荐",
       "stars": 5,
-      "color": "amber",
-      "star_color": "amber",
+      "color": "orange",
+      "star_color": "gold",
       "effect": "plain"
     },
     {
       "min": 8.0,
       "label": "推荐",
       "stars": 4,
-      "color": "slate",
-      "star_color": "amber",
+      "color": "ink",
+      "star_color": "gold",
       "effect": "plain"
     },
     {
       "min": 7.0,
       "label": "值得一看",
       "stars": 3,
-      "color": "slate",
-      "star_color": "amber",
+      "color": "ink",
+      "star_color": "gold",
       "effect": "plain"
     },
     {
       "min": 6.0,
       "label": "一般",
       "stars": 2,
-      "color": "slate",
-      "star_color": "amber",
+      "color": "ink",
+      "star_color": "gold",
       "effect": "plain"
     },
     {
       "min": 0.1,
       "label": "其他评分",
       "stars": 1,
-      "color": "slate",
-      "star_color": "amber",
+      "color": "ink",
+      "star_color": "gold",
       "effect": "plain"
     },
     {
       "min": 0.0,
       "label": "零分",
       "stars": 0,
-      "color": "slate",
-      "star_color": "amber",
+      "color": "ink",
+      "star_color": "gold",
       "effect": "plain"
     }
   ],

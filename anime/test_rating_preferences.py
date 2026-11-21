@@ -11,10 +11,24 @@ from django.test import SimpleTestCase, TransactionTestCase
 from rest_framework.test import APITestCase, APIClient
 
 from .models import Anime, UserAnimeRecord, UserProfile, FeaturedSubmission
-from .rating_config import default_rating_preferences, validate_rating_preferences, normalized_rating_preferences
+from .rating_config import default_rating_preferences, legacy_rating_preferences, validate_rating_preferences, normalized_rating_preferences
 
 
 class RatingConfigurationTests(SimpleTestCase):
+    def test_legacy_default_visual_upgrade_is_read_only_and_preserves_personal_choices(self):
+        old = legacy_rating_preferences()
+        old['statistics'].update(min=8, label='私人统计')
+        old['tiers'][0].update(label='私人名称', stars=3)
+        before = deepcopy(old)
+        result = normalized_rating_preferences(old)
+        self.assertEqual(old, before)
+        self.assertEqual(result['tiers'][0]['color'], 'classic')
+        self.assertEqual(result['tiers'][0]['label'], '私人名称')
+        self.assertEqual(result['tiers'][0]['stars'], 3)
+        self.assertEqual(result['statistics'], old['statistics'])
+        old['tiers'][0]['star_color'] = 'teal'
+        self.assertEqual(normalized_rating_preferences(old), old)
+
     def test_default_contract_is_shared_with_frontend_and_new_objects_are_independent(self):
         fixture = Path(__file__).resolve().parents[1] / 'frontend/tests/fixtures/ratingPreferencesContract.json'
         config = default_rating_preferences()
@@ -60,6 +74,20 @@ class RatingPreferencesAPITests(APITestCase):
         self.assertCountEqual(response.data['histogram'], [{'score': None, 'count': 1}, {'score': 0.0, 'count': 1}, {'score': 8.0, 'count': 2}, {'score': 10.0, 'count': 1}])
         self.assertNotIn('作品', json.dumps(response.data, ensure_ascii=False))
         self.assertIn('no-store', response['Cache-Control'])
+
+    def test_legacy_account_default_is_presented_classically_without_writing_on_read(self):
+        profile = UserProfile.objects.get(user=self.owner)
+        old = legacy_rating_preferences()
+        old['statistics'].update(min=8, label='自己的统计')
+        profile.rating_preferences = old
+        profile.save(update_fields=['rating_preferences'])
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['preferences']['tiers'][0]['color'], 'classic')
+        self.assertEqual(response.data['preferences']['statistics'], old['statistics'])
+        profile.refresh_from_db()
+        self.assertEqual(profile.rating_preferences, old)
+        self.assertEqual(profile.rating_revision, 0)
 
     def test_save_only_updates_own_presentation_and_original_scores_and_snapshots_are_untouched(self):
         record = self.record(Decimal('9.9')); before = UserAnimeRecord.objects.get(pk=record.pk).__dict__.copy()

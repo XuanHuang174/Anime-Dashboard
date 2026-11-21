@@ -568,7 +568,7 @@ function DetailModal({
                         </span>
                       ) : (
                         <span className="inline-flex max-w-full bg-white px-2 py-1 text-base font-black shadow-[2px_2px_0_#111] sm:text-lg">
-                          <PersonalScore score={selectedItem.score} preferences={selectedItem.ratingPreferences} suffix />
+                          <PersonalScore score={selectedItem.score} preferences={selectedItem.ratingPreferences} variant="detail" suffix />
                         </span>
                       )
                     ) : (

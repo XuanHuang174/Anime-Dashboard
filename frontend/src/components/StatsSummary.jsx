@@ -3,7 +3,7 @@ import { highlightRange } from '../utils/ratingPreferences.js'
 import { useMemo } from 'react'
 import { countJournalStatuses } from '../utils/journalStats'
 
-function StatsSummary({ db = [], statsData = null, theme = 'default' }) {
+function StatsSummary({ db = [], statsData = null, theme = 'default', idPrefix = '' }) {
   const preferences = useRatingPreferences()
   const highlight = preferences.statistics
   const calculatedStats = useMemo(() => {
@@ -122,7 +122,7 @@ function StatsSummary({ db = [], statsData = null, theme = 'default' }) {
               </span>
             </div>
             <span
-              id={card.id}
+              id={`${idPrefix}${card.id}`}
               className={`mt-2 w-fit text-[2.75rem] font-black leading-none ${card.valueClass} ${card.valueBackdrop ? 'border-2 border-black bg-white px-2 py-1 shadow-[3px_3px_0_0_#111]' : ''}`}
             >
               {card.value}
@@ -141,7 +141,7 @@ function StatsSummary({ db = [], statsData = null, theme = 'default' }) {
       {cards.map((card) => (
         <div key={card.id} className="flex flex-col justify-between rounded-2xl border border-slate-100 bg-white p-4 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
           <span className="text-xs font-medium text-yellow-700">{card.label}</span>
-          <span id={card.id} className={`mt-1 text-2xl font-bold sm:text-3xl ${card.defaultValueClass}`}>
+          <span id={`${idPrefix}${card.id}`} className={`mt-1 text-2xl font-bold sm:text-3xl ${card.defaultValueClass}`}>
             {card.value}
           </span>
           <span className="mt-1 text-xs text-slate-500">{card.note}</span>

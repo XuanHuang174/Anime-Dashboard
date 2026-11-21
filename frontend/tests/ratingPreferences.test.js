@@ -1,14 +1,45 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { defaultRatingPreferences, ratingPreferencesError, normalizeRatingPreferences, ratingForScore, histogramHighlight, highlightRange, ratingPreset, ratingStyle } from '../src/utils/ratingPreferences.js'
+import { getScoreAccentColor } from '../src/utils/animeDisplay.js'
+import { defaultRatingPreferences, legacyRatingPreferences, restoreClassicAppearance, ratingPreferencesError, normalizeRatingPreferences, ratingForScore, histogramHighlight, highlightRange, ratingPreset, ratingStyle } from '../src/utils/ratingPreferences.js'
 
 test('rating defaults match the backend versioned contract and never share mutable defaults', () => {
   const fixture = JSON.parse(readFileSync(new URL('./fixtures/ratingPreferencesContract.json', import.meta.url), 'utf8'))
   assert.deepEqual(defaultRatingPreferences(), fixture)
   const value = defaultRatingPreferences(); value.tiers[0].color = 'red'
-  assert.equal(defaultRatingPreferences().tiers[0].color, 'violet')
+  assert.equal(defaultRatingPreferences().tiers[0].color, 'classic')
   assert.equal(ratingPreferencesError(fixture), '')
+})
+
+test('classic palette exactly matches the pre-personalization colors and three-stop gradients', () => {
+  const config = defaultRatingPreferences()
+  for (const [score, number, stars] of [[8, '#1e293b', '#fbbf24'], [9.3, '#f97316', '#fbbf24'], [9.5, '#dc2626', '#ea580c']]) {
+    assert.equal(ratingStyle(ratingForScore(score, config)).color, number)
+    assert.equal(ratingStyle(ratingForScore(score, config), true).color, stars)
+  }
+  assert.equal(ratingStyle(ratingForScore(9.9, config)).backgroundImage, 'linear-gradient(to right, #4f46e5, #9333ea, #d946ef)')
+  assert.equal(ratingStyle(ratingForScore(9.9, config), true).backgroundImage, 'linear-gradient(to right, #ec4899, #a855f7, #6366f1)')
+  assert.equal(getScoreAccentColor(9.9, config), '#a78bfa')
+  config.tiers[0].color = 'teal'
+  assert.equal(getScoreAccentColor(9.9, config), '#0f766e')
+})
+
+test('legacy default upgrade preserves names, star counts, statistics and never mutates the source', () => {
+  const old = legacyRatingPreferences(), snapshot = JSON.stringify(old)
+  assert.deepEqual(normalizeRatingPreferences(old), defaultRatingPreferences())
+  assert.equal(JSON.stringify(old), snapshot)
+  old.statistics = { ...old.statistics, min: 7, label: '我的口径', cards: ['highlight'] }
+  old.tiers[0].label = '我的殿堂'; old.tiers[0].stars = 3
+  const upgraded = normalizeRatingPreferences(old)
+  assert.deepEqual(upgraded.statistics, old.statistics)
+  assert.equal(upgraded.tiers[0].label, '我的殿堂'); assert.equal(upgraded.tiers[0].stars, 3)
+  old.tiers[0].star_color = 'teal'
+  assert.deepEqual(normalizeRatingPreferences(old), old, 'Hand-picked legacy palettes must remain unchanged')
+  old.tiers[0].min = 9.8
+  const classic = restoreClassicAppearance(old)
+  assert.equal(classic.tiers[0].min, 9.8); assert.equal(classic.tiers[0].stars, 3)
+  assert.deepEqual(classic.statistics, old.statistics)
 })
 
 test('threshold boundaries assign one tier and preserve original numeric scores including real zero', () => {

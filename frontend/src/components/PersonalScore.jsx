@@ -5,13 +5,13 @@ import './PersonalScore.css'
 export const RatingPreferencesContext = createContext(null)
 export const useRatingPreferences = () => normalizeRatingPreferences(useContext(RatingPreferencesContext))
 
-export default function PersonalScore({ score, preferences, stars = true, suffix = false, className = '' }) {
+export default function PersonalScore({ score, preferences, stars = true, suffix = false, className = '', variant = 'list' }) {
   const inherited = useContext(RatingPreferencesContext)
   const tier = ratingForScore(score, preferences ?? inherited)
   const description = tier ? `${tier.score.toFixed(1)} 分，${tier.label}${stars && tier.show_stars ? `，${tier.stars}/${tier.max} 星` : ''}` : '尚未评分'
-  return <span className={`personal-score ${className}`} title={description} aria-label={description}>
-    <span className="personal-score-number" style={ratingStyle(tier)} aria-hidden="true">{tier ? tier.score.toFixed(1) : '待定'}{suffix && tier && <small> / 10</small>}</span>
-    {tier && stars && tier.show_stars && <span className="personal-score-stars" aria-hidden="true">{Array.from({ length: tier.max }, (_, index) => <span key={index} style={index < tier.stars ? ratingStyle(tier, true) : undefined} className={index < tier.stars ? 'is-lit' : ''}>{index < tier.stars ? '★' : '☆'}</span>)}</span>}
+  return <span className={`personal-score personal-score--${variant} ${className}`} title={description} aria-label={description}>
+    <span className="personal-score-value" aria-hidden="true"><span className="personal-score-number" style={ratingStyle(tier)}>{tier ? tier.score.toFixed(1) : '待定'}</span>{suffix && tier && <small className="personal-score-denominator">/10</small>}</span>
+    {tier && stars && tier.show_stars && <span className="personal-score-stars" aria-hidden="true">{Array.from({ length: tier.max }, (_, index) => <i key={index} style={index < tier.stars ? ratingStyle(tier, true) : undefined} className={`fa-${index < tier.stars ? 'solid' : 'regular'} fa-star ${index < tier.stars ? 'is-lit' : ''}`} />)}</span>}
   </span>
 }
 
