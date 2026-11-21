@@ -2,6 +2,7 @@ from django.urls import path
 from rest_framework.routers import DefaultRouter
 from .resource_search import AnimeResourceSearchView
 from .rate_limit_views import RateLimitStatusView
+from .tag_cleanup import TagCleanupViewSet
 
 from .views import (
     AdminFeaturedSubmissionViewSet,
@@ -45,6 +46,7 @@ from .views import (
 
 
 router = DefaultRouter()
+router.register('tag-cleanup', TagCleanupViewSet, basename='tag-cleanup')
 router.register("animes", AnimeViewSet, basename="animes")
 router.register("anime", AnimeViewSet, basename="anime")
 router.register("records", UserAnimeRecordViewSet, basename="user-anime-record")

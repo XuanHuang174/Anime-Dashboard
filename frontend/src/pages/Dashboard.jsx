@@ -18,6 +18,7 @@ import FeaturedActionConfirmModal from '../components/FeaturedActionConfirmModal
 import FilterBar from '../components/FilterBar.jsx'
 import MemphisToastStack from '../components/MemphisToastStack.jsx'
 import QuickFilterEditorModal from '../components/QuickFilterEditorModal.jsx'
+import TagCleanupModal from '../components/TagCleanupModal.jsx'
 import { matchesCustomQuickFilter } from '../utils/quickFilter.js'
 import {
   PageNavigation,
@@ -124,6 +125,7 @@ function Dashboard() {
   const [customQuickFilters, setCustomQuickFilters] = useState([])
   const [activeCustomFilterId, setActiveCustomFilterId] = useState(null)
   const [isQuickFilterEditorOpen, setIsQuickFilterEditorOpen] = useState(false)
+  const [isTagCleanupOpen, setIsTagCleanupOpen] = useState(false)
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false)
   const [logoutDestination, setLogoutDestination] = useState('login')
   const [isPreviewMode, setIsPreviewMode] = useJournalDisplayMode(isSharedJournal)
@@ -967,6 +969,8 @@ function Dashboard() {
         onAddAnime={() => setIsAddModalOpen(true)}
         onImportBangumi={() => setIsBangumiImportOpen(true)}
         onReviewIdentity={() => setIdentityPanel({ recordId: null })}
+        onCleanTags={() => setIsTagCleanupOpen(true)}
+        cleanupDisabled={isLoading || Boolean(error) || searchQuery.trim() !== debouncedSearchQuery}
         onReturnHome={handleReturnHome}
         onRecordsImported={handleRecordsImported}
         onFindResources={() => openResourceSearch()}
@@ -1192,6 +1196,10 @@ function Dashboard() {
       ) : null}
       {!isSharedJournal && (
         <>
+          {isTagCleanupOpen && <TagCleanupModal onClose={() => setIsTagCleanupOpen(false)}
+            filteredCount={pageSize === 'all' ? filteredAnime.length : (recordsTotal ?? 0)}
+            filters={{ search: searchQuery.trim(), tag: tagFilter, year: yearFilter, status: statusFilter, type_filter: typeFilter, ...(activeCustomFilterId ? { quick_filter: activeCustomFilterId } : {}) }}
+            onChanged={() => { setCurrentPage(1); setRecordsRefreshKey(value => value + 1); notifyRecommendationChange() }} />}
           {identityPanel && <JournalIdentityReview recordId={identityPanel.recordId} onClose={() => setIdentityPanel(null)}
             onChanged={() => {
               setIdentityRevision(value => value + 1)

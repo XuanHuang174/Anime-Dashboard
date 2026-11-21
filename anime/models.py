@@ -1,4 +1,5 @@
 from decimal import Decimal
+import uuid
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -20,6 +21,50 @@ TAG_COLOR_KEYS = {
     "violet", "fuchsia", "yellow", "purple", "cyan", "lime", "sky",
     "slate",
 }
+
+
+class TagCleanupJob(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='tag_cleanup_jobs')
+    request_id = models.UUIDField()
+    status = models.CharField(max_length=16, default='scanning')
+    scope = models.CharField(max_length=16)
+    filters = models.JSONField(default=dict)
+    record_ids = models.JSONField(default=list)
+    selection = models.JSONField(default=list)
+    scan_cursor = models.PositiveIntegerField(default=0)
+    apply_cursor = models.PositiveIntegerField(default=0)
+    undo_cursor = models.PositiveIntegerField(default=0)
+    rule_version = models.CharField(max_length=80)
+    created_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True)
+    expires_at = models.DateTimeField()
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=('user', 'request_id'), name='tag_cleanup_request_once')]
+        indexes = [models.Index(fields=('user', '-created_at'), name='tag_cleanup_owner_created')]
+
+
+class TagCleanupItem(models.Model):
+    job = models.ForeignKey(TagCleanupJob, on_delete=models.CASCADE, related_name='items')
+    record_id = models.PositiveBigIntegerField()
+    title = models.CharField(max_length=200, blank=True)
+    before = models.JSONField(default=list)
+    after = models.JSONField(default=list)
+    changes = models.JSONField(default=list)
+    protected = models.JSONField(default=list)
+    uncertain = models.JSONField(default=list)
+    source_note = models.CharField(max_length=200, blank=True)
+    before_hash = models.CharField(max_length=64, blank=True)
+    plan_hash = models.CharField(max_length=64, blank=True)
+    after_hash = models.CharField(max_length=64, blank=True)
+    protection_hash = models.CharField(max_length=64, blank=True)
+    status = models.CharField(max_length=20, default='proposed')
+    message = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=('job', 'record_id'), name='tag_cleanup_record_once')]
+        ordering = ('record_id',)
 
 
 class UserProfile(models.Model):

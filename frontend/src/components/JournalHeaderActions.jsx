@@ -5,7 +5,7 @@ import JournalDataTransfer from './JournalDataTransfer.jsx'
 import PublicJournalShareButton from './PublicJournalShareButton.jsx'
 
 export default function JournalHeaderActions({ isPreviewMode, onReturnHome, onTogglePreview, onImportBangumi,
-  onRecordsImported, onFindResources, onExportCsv, csvDisabled, csvCount, publicStatus, onStatusChange, showToast, onReviewIdentity }) {
+  onRecordsImported, onFindResources, onExportCsv, csvDisabled, csvCount, publicStatus, onStatusChange, showToast, onReviewIdentity, onCleanTags, cleanupDisabled }) {
   const [mobile, setMobile] = useState(() => window.innerWidth < 768)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [activeMenu, setActiveMenu] = useState('')
@@ -36,6 +36,7 @@ export default function JournalHeaderActions({ isPreviewMode, onReturnHome, onTo
                 onClick={run(onImport)}>📥 导入模板 (JSON)</button>
               <button type="button" className="journal-menu-item" onClick={run(onImportBangumi)}>☁ Bangumi 导入</button>
               <button type="button" className="journal-menu-item" onClick={run(onReviewIdentity)}><i className="fa-solid fa-link" aria-hidden="true" /> 核对标准作品</button>{csvButton}
+              <button type="button" className="journal-menu-item" disabled={!onCleanTags || cleanupDisabled} onClick={run(onCleanTags)}>🧹 整理作品标签<small>先预览再应用 · 保留个人标记 · 可撤销</small></button>
             </MemphisDropdown>}
             <button type="button" className="dashboard-arcade-button bg-[#4ecdc4]"
               onClick={run(onFindResources)}>🧲 寻找资源</button>

@@ -24,12 +24,14 @@ def authoritative_id(row):
     return row.get('verified_bangumi_id') or row['anime__bgm_id']
 
 
-def resolved_records(user, *, allowed_adult_ids=(), include_profile=True, max_rows=None, record_id=None, bangumi_ids=None):
+def resolved_records(user, *, allowed_adult_ids=(), include_profile=True, max_rows=None, record_id=None, bangumi_ids=None, record_ids=None):
     query = UserAnimeRecord.objects.filter(user=user).order_by('pk')
     if bangumi_ids is not None:
         query = query.filter(Q(anime__bgm_id__in=bangumi_ids) | Q(verified_bangumi_id__in=bangumi_ids) | Q(recommendation_identity__catalog_anime__bangumi_id__in=bangumi_ids))
     if record_id is not None:
         query = query.filter(pk=record_id)
+    if record_ids is not None:
+        query = query.filter(pk__in=record_ids)
     if max_rows is not None:
         query = query[:max_rows + 1]
     fields = RECORD_FIELDS if include_profile else tuple(field for field in RECORD_FIELDS if field not in (

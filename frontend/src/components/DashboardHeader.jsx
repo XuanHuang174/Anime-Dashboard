@@ -15,6 +15,8 @@ function DashboardHeader({
   onAddAnime,
   onImportBangumi,
   onReviewIdentity,
+  onCleanTags,
+  cleanupDisabled,
   onReturnHome,
   onRecordsImported,
   onFindResources,
@@ -198,7 +200,7 @@ function DashboardHeader({
         </div>
       ) : (
         <div className={isPreviewMode ? 'journal-preview-actions' : ''}>
-          <JournalHeaderActions onReviewIdentity={onReviewIdentity} isPreviewMode={isPreviewMode} onReturnHome={onReturnHome}
+          <JournalHeaderActions onReviewIdentity={onReviewIdentity} onCleanTags={onCleanTags} cleanupDisabled={cleanupDisabled} isPreviewMode={isPreviewMode} onReturnHome={onReturnHome}
             onTogglePreview={onTogglePreview} onImportBangumi={onImportBangumi}
             onRecordsImported={onRecordsImported} onFindResources={onFindResources}
             onExportCsv={onExportCsv} csvDisabled={csvDisabled} csvCount={csvCount}
