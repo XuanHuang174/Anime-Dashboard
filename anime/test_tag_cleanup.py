@@ -65,6 +65,8 @@ class TagCleanupTests(APITestCase):
         self.assertIn('自定义', item['protected']); self.assertIn('用途不明', item['uncertain'])
         record.refresh_from_db(); self.assertEqual(record.private_base_tags, before); self.assertEqual(record.updated_at, timestamp)
         self.assertEqual(self.detail(job, filter='protected')['item_count'], 1)
+        self.assertEqual(job['change_records'], 1)
+        self.assertEqual(self.detail(job, filter='conflicts')['item_count'], 0)
 
     def test_apply_undo_and_retries_do_not_touch_public_or_other_record_fields(self):
         record = self.record(personal_score=Decimal('8.5'), watch_status='watching', review='原评价', custom_tags=['二刷'])
@@ -87,10 +89,15 @@ class TagCleanupTests(APITestCase):
         first, second, third = self.record('一'), self.record('二'), self.record('三')
         job = self.apply(self.finish(self.create(), 'scan'))
         first.private_base_tags = ['用户新编辑']; first.save(update_fields=['private_base_tags'])
+        deleted_id = second.pk
         second.delete()
         job = self.finish(self.action(job, 'undo').data, 'undo')
         first.refresh_from_db(); third.refresh_from_db()
         self.assertEqual(first.private_base_tags, ['用户新编辑']); self.assertEqual(job['counts']['undo_conflict'], 2)
+        conflicts = self.detail(job, filter='conflicts')
+        self.assertEqual(conflicts['item_count'], 2)
+        self.assertEqual({row['record_id'] for row in conflicts['items']}, {first.pk, deleted_id})
+        self.assertEqual(job['change_records'], 3)
         self.assertIn('2020', third.private_base_tags)
 
     def test_only_confirmed_safe_catalog_enriches_and_source_changes_conflict(self):

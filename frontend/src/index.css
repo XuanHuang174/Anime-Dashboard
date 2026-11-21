@@ -1312,7 +1312,7 @@ select {
   box-shadow: 2px 2px 0 #111;
 }
 
-.memphis-public nav[aria-label] {
+.memphis-public .memphis-record-pagination {
   border: 4px solid var(--memphis-ink) !important;
   border-radius: 0 !important;
   background: var(--memphis-coral) !important;
@@ -1320,8 +1320,8 @@ select {
   backdrop-filter: none !important;
 }
 
-.memphis-public nav[aria-label] button,
-.memphis-public nav[aria-label] input {
+.memphis-public .memphis-record-pagination button,
+.memphis-public .memphis-record-pagination input {
   border: 3px solid var(--memphis-ink) !important;
   border-radius: 9999px !important;
   background: #fff !important;
@@ -1329,14 +1329,14 @@ select {
   box-shadow: 3px 3px 0 var(--memphis-ink) !important;
 }
 
-.memphis-public nav[aria-label] button:hover:not(:disabled),
-.memphis-public nav[aria-label] button:active:not(:disabled) {
+.memphis-public .memphis-record-pagination button:hover:not(:disabled),
+.memphis-public .memphis-record-pagination button:active:not(:disabled) {
   transform: translate(3px, 3px) !important;
   background: var(--memphis-yellow) !important;
   box-shadow: none !important;
 }
 
-.memphis-public nav[aria-label] > span {
+.memphis-public .memphis-record-pagination > span {
   border: 3px solid var(--memphis-ink);
   border-radius: 0 !important;
   background: var(--memphis-yellow) !important;

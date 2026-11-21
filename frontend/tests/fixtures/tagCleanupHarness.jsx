@@ -4,10 +4,13 @@ import { createRoot } from 'react-dom/client'
 import { MemoryRouter } from 'react-router-dom'
 import JournalHeaderActions from '../../src/components/JournalHeaderActions.jsx'
 import TagCleanupModal from '../../src/components/TagCleanupModal.jsx'
+import { PageNavigation } from '../../src/components/RecordPaginationControls.jsx'
+import '../../src/index.css'
 
 function Harness() {
   const [open, setOpen] = useState(false), [preview, setPreview] = useState(false), [changes, setChanges] = useState(0)
-  return <main style={{ padding: 24 }}><h1>本机合成手账</h1><output aria-label="手账刷新次数">{changes}</output>
+  return <main className="memphis-public memphis-dashboard" style={{ padding: 24 }}><h1>本机合成手账</h1><output aria-label="手账刷新次数">{changes}</output>
+    <PageNavigation currentPage={1} totalPages={2} hasNext onPageChange={() => {}} />
     <JournalHeaderActions isPreviewMode={preview} onTogglePreview={() => setPreview(value => !value)}
       onCleanTags={() => setOpen(true)} publicStatus="private" csvCount={26} />
     {open && <TagCleanupModal filters={{ search: '合成', status: 'plan' }} filteredCount={26}

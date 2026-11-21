@@ -154,7 +154,11 @@ def plan(record, saved, source):
 
 def summary(job):
     counts = Counter(job.items.values_list('status', flat=True))
-    extra = job.items.aggregate(protected_records=Count('id', filter=~Q(protected=[])), needs_review=Count('id', filter=~Q(uncertain=[])))
+    extra = job.items.aggregate(
+        protected_records=Count('id', filter=~Q(protected=[])),
+        needs_review=Count('id', filter=~Q(uncertain=[])),
+        change_records=Count('id', filter=~Q(changes=[])),
+    )
     return {'id': str(job.id), 'status': job.status, 'scope': job.scope, 'filters': job.filters,
         'total': len(job.record_ids), 'scan_cursor': job.scan_cursor, 'apply_cursor': job.apply_cursor,
         'undo_cursor': job.undo_cursor, 'selected_count': len(job.selection), 'counts': dict(counts), **extra,
@@ -229,6 +233,7 @@ class TagCleanupViewSet(viewsets.GenericViewSet):
         if mode == 'changes': rows = rows.exclude(changes=[])
         elif mode == 'review': rows = rows.exclude(uncertain=[])
         elif mode == 'protected': rows = rows.exclude(protected=[])
+        elif mode == 'conflicts': rows = rows.filter(status__in=('conflict', 'undo_conflict'))
         elif mode != 'all': raise ValidationError('未支持的预览类别。')
         try: page = int(request.query_params.get('page', 1))
         except (ValueError, TypeError): raise ValidationError('页码无效。')

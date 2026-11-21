@@ -90,7 +90,7 @@ export function PageNavigation({
   return (
     <nav
       aria-label="追番记录分页"
-      className="mt-6 flex flex-wrap items-center justify-center gap-3 rounded-2xl border border-white/80 bg-white/75 px-4 py-4 shadow-[0_8px_24px_rgba(99,102,241,0.08)] backdrop-blur-xl"
+      className="memphis-record-pagination mt-6 flex flex-wrap items-center justify-center gap-3 rounded-2xl border border-white/80 bg-white/75 px-4 py-4 shadow-[0_8px_24px_rgba(99,102,241,0.08)] backdrop-blur-xl"
     >
       <button
         type="button"
