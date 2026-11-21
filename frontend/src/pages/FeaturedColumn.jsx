@@ -1,3 +1,5 @@
+import PersonalScore from '../components/PersonalScore.jsx'
+import { ratingForScore, RATING_COLORS } from '../utils/ratingPreferences.js'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
@@ -23,14 +25,6 @@ gsap.registerPlugin(useGSAP)
 
 const FEATURED_CHARACTER_URL = '/renako.png'
 
-function getScoreTextClass(score) {
-  if (score >= 9.9) {
-    return 'bg-gradient-to-r from-indigo-700 via-purple-700 to-fuchsia-600 bg-clip-text text-transparent'
-  }
-  if (score >= 9.5) return 'text-red-600'
-  if (score >= 9) return 'text-orange-600'
-  return 'text-black'
-}
 
 function FeaturedColumn() {
   const returnTarget = usePublicReturn()
@@ -453,15 +447,12 @@ function FeaturedColumn() {
                       <div className="border-[3px] border-black bg-[#fff5ee] p-2 shadow-[3px_3px_0_#ff2f92]">
                         <div className="mb-1 flex items-center justify-between text-xs font-black">
                           <span>主观评分</span>
-                          <span className={`inline-flex items-center gap-1 bg-white px-1.5 text-base ${getScoreTextClass(item.score)}`}>
-                            <i className="fa-solid fa-star text-[11px]"></i>
-                            {item.score === null ? '待定' : `${item.score.toFixed(1)} / 10`}
-                          </span>
+                          <span className="inline-flex bg-white px-1.5 text-base"><PersonalScore score={item.score} preferences={item.ratingPreferences} suffix /></span>
                         </div>
                         <div className="h-3 overflow-hidden border-2 border-black bg-white">
                           <div
                             className="h-full bg-[#ff2f92]"
-                            style={{ width: `${Math.max(0, Math.min(100, score * 10))}%` }}
+                            style={{ width: `${Math.max(0, Math.min(100, score * 10))}%`, backgroundColor: RATING_COLORS[ratingForScore(item.score, item.ratingPreferences)?.color || 'pink'].color }}
                           />
                         </div>
                       </div>

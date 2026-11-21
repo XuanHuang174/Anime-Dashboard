@@ -1,3 +1,4 @@
+import { normalizeRatingPreferences, highlightRange } from '../utils/ratingPreferences.js'
 import { useEffect, useRef, useState } from 'react'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
@@ -438,13 +439,13 @@ function PublicUniverse() {
                       {profile.showcase_subtitle?.trim() || '这位主理人还没有留下宇宙宣言。'}
                     </p>
                     <div className="mt-4 flex flex-wrap items-center gap-2">
-                      {CORE_STATS.map((stat) => (
+                      {CORE_STATS.filter(stat => normalizeRatingPreferences(profile.rating_preferences).statistics.cards.includes({ completed_count: 'completed', average_score: 'average', masterpiece_count: 'highlight' }[stat.key])).map((stat) => (
                         <span
                           key={stat.key}
                           className={`${stat.color} inline-flex items-center gap-2 rounded-full border-2 border-black px-3 py-1 text-[11px] font-black shadow-[3px_3px_0_#111]`}
                         >
                           <i className={`fa-solid ${stat.icon}`} />
-                          <span>{stat.label}</span>
+                          <span>{stat.key === 'masterpiece_count' ? `${normalizeRatingPreferences(profile.rating_preferences).statistics.label} (${highlightRange(profile.rating_preferences)})` : stat.label}</span>
                           <strong className="border-l-2 border-black pl-2 text-sm leading-none">
                             {formatStatValue(profile, stat.key)}
                           </strong>
@@ -452,7 +453,7 @@ function PublicUniverse() {
                       ))}
                     </div>
                     <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                      {SECONDARY_STATS.map((stat, statIndex) => (
+                      {SECONDARY_STATS.filter(stat => normalizeRatingPreferences(profile.rating_preferences).statistics.cards.includes({ movie_count: 'movie', ova_count: 'ova', short_count: 'short' }[stat.key])).map((stat, statIndex) => (
                         <span
                           key={stat.key}
                           className={`${statIndex === 1 ? 'bg-zinc-200 text-black' : 'bg-black text-white'} inline-flex items-center gap-1.5 border-2 border-black px-2 py-1 text-[10px] font-black tracking-wide`}

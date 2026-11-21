@@ -16,6 +16,7 @@ function DashboardHeader({
   onImportBangumi,
   onReviewIdentity,
   onCleanTags,
+  onRatingPreferences,
   cleanupDisabled,
   onReturnHome,
   onRecordsImported,
@@ -200,7 +201,7 @@ function DashboardHeader({
         </div>
       ) : (
         <div className={isPreviewMode ? 'journal-preview-actions' : ''}>
-          <JournalHeaderActions onReviewIdentity={onReviewIdentity} onCleanTags={onCleanTags} cleanupDisabled={cleanupDisabled} isPreviewMode={isPreviewMode} onReturnHome={onReturnHome}
+          <JournalHeaderActions onRatingPreferences={onRatingPreferences} onReviewIdentity={onReviewIdentity} onCleanTags={onCleanTags} cleanupDisabled={cleanupDisabled} isPreviewMode={isPreviewMode} onReturnHome={onReturnHome}
             onTogglePreview={onTogglePreview} onImportBangumi={onImportBangumi}
             onRecordsImported={onRecordsImported} onFindResources={onFindResources}
             onExportCsv={onExportCsv} csvDisabled={csvDisabled} csvCount={csvCount}

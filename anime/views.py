@@ -14,6 +14,7 @@ from uuid import uuid4
 import requests
 from PIL import Image, ImageOps, UnidentifiedImageError
 from django.conf import settings
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
 from django.core.files.base import ContentFile
@@ -34,7 +35,8 @@ from django.db.models import (
     Value,
     When,
 )
-from django.db.models.functions import Cast, Substr
+from django.db.models.functions import Cast, Substr, Coalesce
+from django.db.models.fields.json import KeyTextTransform, KeyTransform
 from django.http import HttpResponse
 from django.utils import timezone
 from django.utils.encoding import force_bytes, force_str
@@ -55,6 +57,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from .email_service import EmailDeliveryError, send_transactional_email
 from .daily_push import fetch_today_bangumi_items, send_daily_pushes
+from .rating_config import normalized_rating_preferences, validate_rating_preferences
 from .quick_filtering import matches_year_range
 from .models import (
     Anime,
@@ -1244,9 +1247,14 @@ def _build_shared_journal_filter_options(queryset, owner):
     return options
 
 
-def _build_record_stats(queryset):
+def _build_record_stats(queryset, owner=None):
     """Calculate summary cards from the complete record queryset."""
 
+    owner_id = getattr(owner, 'pk', None) or queryset.values_list('user_id', flat=True).first()
+    rating_profile = UserProfile.objects.filter(user_id=owner_id).first()
+    preferences = normalized_rating_preferences(rating_profile.rating_preferences if rating_profile else None)
+    highlight = preferences['statistics']
+    minimum, maximum = Decimal(str(highlight['min'])), Decimal(str(highlight['max']))
     completed_count = 0
     watching_count = 0
     scored_count = 0
@@ -1290,7 +1298,7 @@ def _build_record_stats(queryset):
         if score is not None:
             scored_count += 1
             score_total += score
-            if score >= 9.5:
+            if minimum <= score <= maximum:
                 masterpiece_count += 1
         if "剧场版" in title or "剧场版" in tags:
             movie_count += 1
@@ -1312,6 +1320,8 @@ def _build_record_stats(queryset):
         else "N/A"
     )
     return {
+        "rating_preferences": preferences,
+        "rating_revision": rating_profile.rating_revision if rating_profile else 0,
         "total_count": queryset.count(),
         "completed_count": completed_count,
         "watching_count": watching_count,
@@ -1694,8 +1704,9 @@ def _public_journal_profiles():
         ),
         "masterpiece_count": Count(
             "user__anime_records",
-            filter=Q(user__anime_records__personal_score__gte=9.5),
+            filter=Q(user__anime_records__personal_score__gte=F('_rating_min'), user__anime_records__personal_score__lte=F('_rating_max')),
         ),
+        "_ranking_masterpiece_count": Count("user__anime_records", filter=Q(user__anime_records__personal_score__gte=9.5)),
     }
     for rank in range(1, 4):
         offset = rank - 1
@@ -1714,8 +1725,12 @@ def _public_journal_profiles():
             public_status=UserProfile.PublicStatus.APPROVED,
         )
         .select_related("user")
+        .annotate(
+            _rating_min=Coalesce(Cast(KeyTextTransform('min', KeyTransform('statistics', 'rating_preferences')), DecimalField(max_digits=3, decimal_places=1)), Value(Decimal('9.5'))),
+            _rating_max=Coalesce(Cast(KeyTextTransform('max', KeyTransform('statistics', 'rating_preferences')), DecimalField(max_digits=3, decimal_places=1)), Value(Decimal('10.0'))),
+        )
         .annotate(**annotations)
-        .order_by("-masterpiece_count", "-average_score", "user__username")
+        .order_by("-_ranking_masterpiece_count", "-average_score", "user__username")
     )
 
 
@@ -1793,7 +1808,7 @@ class PublicJournalStatsView(APIView):
             UserAnimeRecord.objects.filter(user=profile.user)
             .select_related("user", "anime")
         )
-        return Response(_build_record_stats(queryset))
+        return Response(_build_record_stats(queryset, owner=profile.user))
 
 
 class PublicJournalFilterOptionsView(APIView):
@@ -1926,6 +1941,7 @@ class UserJournalExportView(APIView):
 
         payload = {
             "format": "anime-journal",
+            "rating_preferences": normalized_rating_preferences(UserProfile.objects.filter(user=request.user).values_list("rating_preferences", flat=True).first()),
             "version": 2,
             "exported_at": timezone.now().isoformat(),
             "records": exported_records,
@@ -1996,6 +2012,13 @@ class UserJournalImportView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        imported_rating = payload.get('rating_preferences') if isinstance(payload, dict) and 'rating_preferences' in payload else None
+        if isinstance(payload, dict) and 'rating_preferences' in payload:
+            try:
+                validate_rating_preferences(imported_rating)
+            except DjangoValidationError as error:
+                return Response({'rating_preferences': error.messages}, status=400)
+
         serializer = JournalRecordImportSerializer(data=record_data, many=True)
         serializer.is_valid(raise_exception=True)
         validated_records = serializer.validated_data
@@ -2017,6 +2040,11 @@ class UserJournalImportView(APIView):
         try:
             with transaction.atomic():
                 get_user_model().objects.select_for_update().get(pk=request.user.pk)
+                if imported_rating is not None:
+                    profile, _ = UserProfile.objects.select_for_update().get_or_create(user=request.user)
+                    profile.rating_preferences = imported_rating
+                    profile.rating_revision += 1
+                    profile.save(update_fields=['rating_preferences', 'rating_revision'])
                 replacement_records = []
                 identity_references = []
                 private_colors_by_anime_id = {}
@@ -2208,7 +2236,7 @@ class PublicShowcaseViewSet(PublicContentResponseMixin, viewsets.ReadOnlyModelVi
     def stats(self, request):
         """Return aggregate showcase statistics independent of pagination."""
 
-        return Response(_build_record_stats(self._base_queryset()))
+        return Response(_build_record_stats(self._base_queryset(), owner=get_user_model().objects.filter(username=settings.PUBLIC_SHOWCASE_USERNAME).first()))
 
     @action(detail=False, methods=("get",), url_path="filter-options")
     def filter_options(self, request):
@@ -2315,7 +2343,7 @@ class UserAnimeRecordViewSet(viewsets.ModelViewSet):
     def stats(self, request):
         """Return this user's aggregate statistics independent of pagination."""
 
-        return Response(_build_record_stats(self._base_queryset()))
+        return Response(_build_record_stats(self._base_queryset(), owner=request.user))
 
     @action(detail=False, methods=("get",), url_path="filter-options")
     def filter_options(self, request):
@@ -2659,6 +2687,7 @@ class FeaturedSubmissionViewSet(
             user=request.user,
             source_anime=anime,
             source_record=record,
+            rating_preferences=normalized_rating_preferences(profile.rating_preferences),
             chinese_title=metadata["chinese_title"],
             japanese_title=metadata["japanese_title"],
             year=int(year_match.group()) if year_match else None,
@@ -2975,7 +3004,7 @@ class AdminPublicJournalStatsView(APIView):
         queryset = UserAnimeRecord.objects.filter(user=profile.user).select_related(
             "anime",
         )
-        return Response(_build_record_stats(queryset))
+        return Response(_build_record_stats(queryset, owner=profile.user))
 
 
 class AdminPublicJournalFilterOptionsView(APIView):

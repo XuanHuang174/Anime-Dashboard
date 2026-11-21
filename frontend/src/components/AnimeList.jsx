@@ -1,35 +1,8 @@
+import PersonalScore from './PersonalScore.jsx'
 import useScrollReveal from '../hooks/useScrollReveal.js'
 import { getCoverSrc, getSeasonDetails, getTagClass } from '../utils/animeDisplay.js'
 import { AddAnimeListPlaceholder } from './AddAnimePlaceholder.jsx'
 import WatchingProgress from './WatchingProgress.jsx'
-
-function getScoreColorClass(score) {
-  if (score >= 9.9) {
-    return 'bg-gradient-to-r from-indigo-600 via-purple-600 to-fuchsia-500 bg-clip-text text-transparent'
-  }
-  if (score >= 9.5) return 'text-red-600'
-  if (score >= 9.0) return 'text-orange-500'
-  return 'text-slate-800'
-}
-
-function getStarCount(score) {
-  if (score === null) return 0
-  if (score >= 9.0) return 5
-  if (score >= 8.0) return 4
-  if (score >= 7.0) return 3
-  if (score >= 6.0) return 2
-  if (score > 0) return 1
-  return 0
-}
-
-function getStarColorClass(score, isLit) {
-  if (score >= 9.9 && isLit) {
-    return 'text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500'
-  }
-  if (score >= 9.5 && isLit) return 'text-orange-600'
-  if (isLit) return 'text-amber-400'
-  return 'text-slate-200'
-}
 
 function AnimeList({
   items,
@@ -111,9 +84,6 @@ function AnimeList({
             </thead>
             <tbody id="animeTableBody" className="divide-y divide-slate-100/80 text-sm">
               {items.map((item, index) => {
-                const scoreDisplay = item.score !== null ? item.score.toFixed(1) : '待定'
-                const scoreColorClass = getScoreColorClass(item.score)
-                const stars = getStarCount(item.score)
                 const season = getSeasonDetails(item.period)
                 const listTopTags = item.tags.slice(0, 3)
 
@@ -225,29 +195,7 @@ function AnimeList({
 
                     <td className="absolute top-4 right-4 md:relative md:top-auto md:right-auto md:py-5 md:px-6 text-center">
                       <div className="flex flex-col items-end md:items-center group-hover:scale-105 transition-transform duration-300">
-                        <div className="flex items-baseline gap-0.5">
-                          <span className={`font-black ${scoreColorClass} text-lg md:text-xl drop-shadow-sm`}>
-                            {scoreDisplay}
-                          </span>
-                          {item.score !== null && (
-                            <span className="hidden md:inline text-[10px] text-slate-400 font-semibold">/10</span>
-                          )}
-                        </div>
-                        <div className="hidden md:flex gap-0.5 mt-1">
-                          {item.score === null ? (
-                            <span className="text-xs text-slate-400">期待开播</span>
-                          ) : (
-                            Array.from({ length: 5 }, (_, starIndex) => {
-                              const isLit = starIndex + 1 <= stars
-                              return (
-                                <i
-                                  key={starIndex}
-                                  className={`${isLit ? 'fa-solid' : 'fa-regular'} fa-star ${getStarColorClass(item.score, isLit)} text-xs`}
-                                ></i>
-                              )
-                            })
-                          )}
-                        </div>
+                        <PersonalScore score={item.score} preferences={item.ratingPreferences} suffix className="text-lg md:text-xl" />
                       </div>
                     </td>
 

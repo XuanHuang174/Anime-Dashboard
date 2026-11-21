@@ -1,7 +1,11 @@
+import { useRatingPreferences } from './PersonalScore.jsx'
+import { highlightRange } from '../utils/ratingPreferences.js'
 import { useMemo } from 'react'
 import { countJournalStatuses } from '../utils/journalStats'
 
 function StatsSummary({ db = [], statsData = null, theme = 'default' }) {
+  const preferences = useRatingPreferences()
+  const highlight = preferences.statistics
   const calculatedStats = useMemo(() => {
     const hasScoreList = db.filter((item) => item.score !== null)
     const completedCount = db.filter((item) => item.status === 'completed').length
@@ -18,11 +22,11 @@ function StatsSummary({ db = [], statsData = null, theme = 'default' }) {
       ).length,
       shortCount: db.filter((item) => item.tags.includes('泡面番')).length,
       masterpieceCount: db.filter(
-        (item) => item.score !== null && item.score >= 9.5,
+        (item) => item.score !== null && item.score >= highlight.min && item.score <= highlight.max,
       ).length,
       ...countJournalStatuses(db),
     }
-  }, [db])
+  }, [db, highlight.min, highlight.max])
 
   const stats = statsData
     ? {
@@ -91,9 +95,9 @@ function StatsSummary({ db = [], statsData = null, theme = 'default' }) {
       id: 'statShort',
     },
     {
-      label: '极高推荐 (9.5+)',
+      label: `${highlight.label} (${highlightRange(preferences)})`,
       value: stats.masterpieceCount,
-      note: '殿堂级佳作',
+      note: `个人评分 ${highlight.min}–${highlight.max} 分（含端点）`,
       icon: 'fa-crown',
       color: 'bg-[#ff6b6b]',
       valueClass: 'text-red-600',
@@ -101,11 +105,11 @@ function StatsSummary({ db = [], statsData = null, theme = 'default' }) {
       defaultValueClass: 'text-red-600',
       id: 'statMasterpiece',
     },
-  ]
+  ].filter((card, index) => highlight.cards.includes(['completed', 'average', 'movie', 'ova', 'short', 'highlight'][index]))
 
   if (theme === 'memphis') {
     return (
-      <section className="mb-7 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6" aria-label="番剧统计">
+      <section style={{ '--rating-card-count': cards.length, '--rating-card-tablet': Math.min(3, cards.length), '--rating-card-mobile': Math.min(2, cards.length) }} className="rating-stats-grid mb-7 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6" aria-label="番剧统计">
         {cards.map((card, index) => (
           <article
             key={card.id}

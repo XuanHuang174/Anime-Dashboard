@@ -47,6 +47,7 @@ export function mapFeaturedSubmission(submission) {
     authorAvatar: submission.author_avatar || submission.submitter?.avatar || '',
     createdAt: submission.created_at,
     updatedAt: submission.updated_at,
+    ratingPreferences: submission.rating_preferences,
     rawSubmission: submission,
   }
 }

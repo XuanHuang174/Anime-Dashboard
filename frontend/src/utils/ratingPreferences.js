@@ -1,0 +1,66 @@
+export const RATING_COLORS = {
+  slate: { label: '墨灰', color: '#334155', light: '#64748b' }, violet: { label: '紫色', color: '#7c3aed', light: '#c026d3' },
+  red: { label: '红色', color: '#dc2626', light: '#e11d48' }, amber: { label: '金橙', color: '#b45309', light: '#ea580c' },
+  teal: { label: '青绿', color: '#0f766e', light: '#059669' }, blue: { label: '蓝色', color: '#2563eb', light: '#4f46e5' },
+  pink: { label: '粉色', color: '#be185d', light: '#db2777' }, green: { label: '绿色', color: '#15803d', light: '#0d9488' },
+}
+export const STAT_CARDS = { completed: '追番数量', average: '平均评分', movie: '剧场版', ova: 'OVA', short: '泡面番', highlight: '自定义推荐统计' }
+export function defaultRatingPreferences() {
+  return { version: 1, star_max: 5, show_stars: true, tiers: [
+    [9.9, '殿堂', 5, 'violet', 'violet', 'gradient'], [9.5, '极高推荐', 5, 'red', 'amber', 'plain'],
+    [9, '强烈推荐', 5, 'amber', 'amber', 'plain'], [8, '推荐', 4, 'slate', 'amber', 'plain'],
+    [7, '值得一看', 3, 'slate', 'amber', 'plain'], [6, '一般', 2, 'slate', 'amber', 'plain'],
+    [0.1, '其他评分', 1, 'slate', 'amber', 'plain'], [0, '零分', 0, 'slate', 'amber', 'plain'],
+  ].map(([min, label, stars, color, star_color, effect]) => ({ min, label, stars, color, star_color, effect })),
+  statistics: { label: '极高推荐', min: 9.5, max: 10, cards: Object.keys(STAT_CARDS) } }
+}
+const keys = (value, expected) => value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).sort().join('|') === [...expected].sort().join('|')
+const boundary = value => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 10 && Math.abs(value * 10 - Math.round(value * 10)) < 1e-8
+const label = value => typeof value === 'string' && value.trim() && [...value].length <= 16 && !/[\u0000-\u001f]/.test(value)
+export function ratingPreferencesError(value) {
+  if (!keys(value, ['version', 'star_max', 'show_stars', 'tiers', 'statistics']) || value.version !== 1 || !Number.isInteger(value.star_max) || value.star_max < 1 || value.star_max > 10 || typeof value.show_stars !== 'boolean') return '请选择 1–10 的星级上限。'
+  if (!Array.isArray(value.tiers) || !value.tiers.length || value.tiers.length > 10) return '评分档位需为 1–10 档。'
+  let previous = 11
+  for (const tier of value.tiers) {
+    if (!keys(tier, ['min', 'label', 'stars', 'color', 'star_color', 'effect']) || !boundary(tier.min) || tier.min >= previous) return '起点需在 0–10 内，最多一位小数；档位需从高到低且不重复。'
+    if (!label(tier.label) || !Number.isInteger(tier.stars) || tier.stars < 0 || tier.stars > value.star_max || !Object.hasOwn(RATING_COLORS, tier.color) || !Object.hasOwn(RATING_COLORS, tier.star_color) || !['plain', 'gradient', 'glow'].includes(tier.effect)) return '请填写档位名称、合法星数和配色。'
+    previous = tier.min
+  }
+  if (previous !== 0) return '最低档从 0 分开始，上限随相邻档位自动联动。'
+  const stats = value.statistics
+  if (!keys(stats, ['label', 'min', 'max', 'cards']) || !label(stats.label) || !boundary(stats.min) || !boundary(stats.max) || stats.min > stats.max) return '统计名称需为 1–16 字，范围需在 0–10 内且下限不高于上限。'
+  if (!Array.isArray(stats.cards) || !stats.cards.length || stats.cards.some(key => !Object.hasOwn(STAT_CARDS, key)) || new Set(stats.cards).size !== stats.cards.length) return '请至少选择一张统计卡片。'
+  return ''
+}
+export const normalizeRatingPreferences = value => ratingPreferencesError(value) ? defaultRatingPreferences() : value
+export function ratingForScore(score, preferences) {
+  const config = normalizeRatingPreferences(preferences)
+  if (score === null || score === undefined || score === '' || typeof score === 'boolean') return null
+  const value = Number(score)
+  if (!Number.isFinite(value) || value < 0 || value > 10) return null
+  const tier = config.tiers.find(row => value >= row.min)
+  return { ...tier, score: value, max: config.star_max, show_stars: config.show_stars }
+}
+export function ratingStyle(tier, stars = false) {
+  if (!tier) return { color: '#64748b' }
+  const palette = RATING_COLORS[stars ? tier.star_color : tier.color]
+  if (tier.effect === 'gradient') return { color: 'transparent', backgroundImage: `linear-gradient(110deg, ${palette.color}, ${palette.light})`, backgroundClip: 'text', WebkitBackgroundClip: 'text' }
+  return { color: palette.color, ...(tier.effect === 'glow' ? { textShadow: `0 1px 7px ${palette.light}55` } : {}) }
+}
+export function highlightRange(preferences) {
+  const { min, max } = normalizeRatingPreferences(preferences).statistics
+  return max === 10 ? `${min}+` : `${min}–${max}`
+}
+export function histogramHighlight(histogram, preferences) {
+  const { min, max } = normalizeRatingPreferences(preferences).statistics
+  return histogram.reduce((sum, row) => sum + (row.score !== null && Number(row.score) >= min && Number(row.score) <= max ? row.count : 0), 0)
+}
+export function ratingPreset(name) {
+  const value = defaultRatingPreferences()
+  if (name === 'bangumi') {
+    value.tiers = [[9, '神作', 5, 'violet'], [8, '力荐', 4, 'red'], [7, '推荐', 3, 'amber'], [6, '还行', 2, 'teal'], [1, '其他评分', 1, 'slate'], [0, '零分', 0, 'slate']].map(([min, label, stars, color]) => ({ min, label, stars, color, star_color: color, effect: 'plain' }))
+    value.statistics = { ...value.statistics, min: 8, label: '强烈推荐' }
+  }
+  if (name === 'numbers') value.show_stars = false
+  return value
+}

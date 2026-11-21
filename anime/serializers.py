@@ -9,6 +9,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.files.storage import default_storage
 from django.db.models import Count
+from django.db import transaction
 from rest_framework import serializers
 from rest_framework.validators import UniqueTogetherValidator
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -214,6 +215,16 @@ class UserProfileSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source="user.email", read_only=True)
     avatar = serializers.ImageField(required=False, allow_null=True)
 
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        # Profile edits must not write an old rating snapshot back over a settings save.
+        current = UserProfile.objects.select_for_update().get(pk=instance.pk)
+        for key, value in validated_data.items():
+            setattr(current, key, value)
+        if validated_data:
+            current.save(update_fields=list(validated_data))
+        return current
+
     class Meta:
         model = UserProfile
         fields = (
@@ -221,15 +232,19 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "email",
             "nickname",
             "showcase_subtitle",
+            "rating_preferences",
             "avatar",
+            "rating_revision",
             "max_featured_limit",
             "public_status",
             "is_public",
             "is_push_enabled",
         )
         read_only_fields = (
+            "rating_preferences",
             "username",
             "email",
+            "rating_revision",
             "max_featured_limit",
             "public_status",
             "is_public",
@@ -259,7 +274,7 @@ class PublicUserProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserProfile
-        fields = ("username", "nickname", "showcase_subtitle", "avatar")
+        fields = ("username", "nickname", "showcase_subtitle", "avatar", "rating_preferences")
         read_only_fields = fields
 
 
@@ -296,6 +311,7 @@ class PublicJournalLobbySerializer(serializers.ModelSerializer):
             "username",
             "nickname",
             "showcase_subtitle",
+            "rating_preferences",
             "avatar",
             "completed_count",
             "average_score",
@@ -861,6 +877,7 @@ class FeaturedSubmissionSerializer(serializers.ModelSerializer):
     class Meta:
         model = FeaturedSubmission
         fields = (
+            "rating_preferences",
             "id",
             "user",
             "source_anime_id",
@@ -886,6 +903,7 @@ class FeaturedSubmissionSerializer(serializers.ModelSerializer):
             "updated_at",
         )
         read_only_fields = (
+            "rating_preferences",
             "id",
             "user",
             "source_anime_id",
@@ -956,6 +974,7 @@ class PublicFeaturedSubmissionSerializer(serializers.ModelSerializer):
     class Meta:
         model = FeaturedSubmission
         fields = (
+            "rating_preferences",
             "id",
             "author_name",
             "author_avatar",

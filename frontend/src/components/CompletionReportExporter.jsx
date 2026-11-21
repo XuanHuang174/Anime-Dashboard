@@ -1,3 +1,4 @@
+import { useRatingPreferences } from './PersonalScore.jsx'
 import { useRef, useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import api from '../api/api.js'
@@ -90,6 +91,7 @@ function getReportTagWidth(tag) {
 }
 
 function CompletionReportExporter({ item, disabled = false, buttonClassName = '', showToast }) {
+  const ratingPreferences = useRatingPreferences()
   const posterRef = useRef(null)
   const coverRef = useRef(null)
   const [isGenerating, setIsGenerating] = useState(false)
@@ -150,7 +152,7 @@ function CompletionReportExporter({ item, disabled = false, buttonClassName = ''
   const score = item.score === null || item.score === undefined
     ? '--'
     : Number(item.score).toFixed(1)
-  const scoreAccentColor = getScoreAccentColor(item.score)
+  const scoreAccentColor = getScoreAccentColor(item.score, item.ratingPreferences || ratingPreferences)
 
   return (
     <>

@@ -29,7 +29,15 @@ class UserProfileAdmin(admin.ModelAdmin):
     list_filter = ("public_status", "is_public", "is_push_enabled")
     search_fields = ("user__username", "user__email", "nickname", "showcase_subtitle")
     autocomplete_fields = ("user",)
-    readonly_fields = ("last_push_date",)
+    readonly_fields = ("last_push_date", "rating_preferences", "rating_revision")
+
+    def save_model(self, request, obj, form, change):
+        if change:
+            # Unrelated administrative edits cannot replace account-owned settings.
+            if form.changed_data:
+                obj.save(update_fields=form.changed_data)
+        else:
+            super().save_model(request, obj, form, change)
 
 
 @admin.register(Anime)
@@ -189,7 +197,7 @@ class FeaturedSubmissionAdmin(admin.ModelAdmin):
         "review",
     )
     autocomplete_fields = ("user", "source_anime")
-    readonly_fields = ("created_at", "updated_at")
+    readonly_fields = ("created_at", "updated_at", "rating_preferences")
     list_select_related = ("user",)
 
 

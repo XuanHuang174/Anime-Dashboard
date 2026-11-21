@@ -1,5 +1,6 @@
 from decimal import Decimal
 import uuid
+from .rating_config import default_rating_preferences, validate_rating_preferences
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -83,6 +84,8 @@ class UserProfile(models.Model):
     )
     nickname = models.CharField("昵称", max_length=50, blank=True, default="")
     tag_presets = models.JSONField("个人常用标签", default=list, blank=True, validators=[validate_tag_list])
+    rating_preferences = models.JSONField('评分展示与统计', default=default_rating_preferences, validators=[validate_rating_preferences])
+    rating_revision = models.PositiveBigIntegerField(default=0)
     showcase_subtitle = models.CharField(
         "展示页副标题",
         max_length=200,
@@ -520,6 +523,7 @@ class UserAnimeTag(models.Model):
 
 class FeaturedSubmission(models.Model):
     """A user-authored snapshot submitted to the curated featured column."""
+    rating_preferences = models.JSONField('投稿评分展示快照', default=default_rating_preferences, validators=[validate_rating_preferences])
 
     class AuditStatus(models.TextChoices):
         PENDING = "pending", "待审核"

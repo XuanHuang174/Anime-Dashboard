@@ -3,6 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .resource_search import AnimeResourceSearchView
 from .rate_limit_views import RateLimitStatusView
 from .tag_cleanup import TagCleanupViewSet
+from .rating_views import RatingPreferencesView
 
 from .views import (
     AdminFeaturedSubmissionViewSet,
@@ -173,6 +174,7 @@ urlpatterns = [
         name="public-journal-filter-options",
     ),
     path("export/", UserJournalExportView.as_view(), name="journal-export"),
+    path('rating-preferences/', RatingPreferencesView.as_view(), name='rating-preferences'),
     path("import/", UserJournalImportView.as_view(), name="journal-import"),
     path("showcase-profile/", PublicShowcaseProfileView.as_view(), name="showcase-profile"),
     *router.urls,

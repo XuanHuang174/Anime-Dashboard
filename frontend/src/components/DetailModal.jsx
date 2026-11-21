@@ -1,3 +1,4 @@
+import PersonalScore from './PersonalScore.jsx'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
@@ -566,8 +567,8 @@ function DetailModal({
                           </OverflowPingPongText>
                         </span>
                       ) : (
-                        <span className="inline-flex max-w-full whitespace-nowrap bg-white px-2 py-0.5 text-base font-black text-rose-700 shadow-[2px_2px_0_#111] sm:text-lg">
-                          {field.value}
+                        <span className="inline-flex max-w-full bg-white px-2 py-1 text-base font-black shadow-[2px_2px_0_#111] sm:text-lg">
+                          <PersonalScore score={selectedItem.score} preferences={selectedItem.ratingPreferences} suffix />
                         </span>
                       )
                     ) : (

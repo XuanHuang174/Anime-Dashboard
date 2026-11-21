@@ -5,7 +5,7 @@ import JournalDataTransfer from './JournalDataTransfer.jsx'
 import PublicJournalShareButton from './PublicJournalShareButton.jsx'
 
 export default function JournalHeaderActions({ isPreviewMode, onReturnHome, onTogglePreview, onImportBangumi,
-  onRecordsImported, onFindResources, onExportCsv, csvDisabled, csvCount, publicStatus, onStatusChange, showToast, onReviewIdentity, onCleanTags, cleanupDisabled }) {
+  onRecordsImported, onFindResources, onExportCsv, csvDisabled, csvCount, publicStatus, onStatusChange, showToast, onReviewIdentity, onCleanTags, cleanupDisabled, onRatingPreferences }) {
   const [mobile, setMobile] = useState(() => window.innerWidth < 768)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [activeMenu, setActiveMenu] = useState('')
@@ -21,6 +21,7 @@ export default function JournalHeaderActions({ isPreviewMode, onReturnHome, onTo
   const run = (action) => () => { close(); action?.() }
   const csvButton = <button type="button" className="journal-menu-item journal-menu-item--yellow"
     disabled={csvDisabled} onClick={run(onExportCsv)}>📊 导出当前数据 (CSV)<small>当前筛选列表 · {csvCount} 条</small></button>
+  const ratingButton = <button type="button" className="journal-menu-item" disabled={!onRatingPreferences} onClick={run(onRatingPreferences)}>★ 评分样式与统计<small>个人档位、星级、配色与统计口径</small></button>
   return <JournalDataTransfer theme="memphis" onImported={onRecordsImported} showToast={showToast}
     renderActions={({ onExport, onImport, isExporting, isImporting }) => (
       <PublicJournalShareButton publicStatus={publicStatus} onStatusChange={onStatusChange} showToast={showToast}
@@ -37,6 +38,7 @@ export default function JournalHeaderActions({ isPreviewMode, onReturnHome, onTo
               <button type="button" className="journal-menu-item" onClick={run(onImportBangumi)}>☁ Bangumi 导入</button>
               <button type="button" className="journal-menu-item" onClick={run(onReviewIdentity)}><i className="fa-solid fa-link" aria-hidden="true" /> 核对标准作品</button>{csvButton}
               <button type="button" className="journal-menu-item" disabled={!onCleanTags || cleanupDisabled} onClick={run(onCleanTags)}>🧹 整理作品标签<small>先预览再应用 · 保留个人标记 · 可撤销</small></button>
+              {ratingButton}
             </MemphisDropdown>}
             <button type="button" className="dashboard-arcade-button bg-[#4ecdc4]"
               onClick={run(onFindResources)}>🧲 寻找资源</button>
@@ -46,6 +48,7 @@ export default function JournalHeaderActions({ isPreviewMode, onReturnHome, onTo
               <button type="button" className="journal-menu-item" onClick={run(onReviewIdentity)}><i className="fa-solid fa-link" aria-hidden="true" /> 核对标准作品</button>
               <Link className="journal-menu-item journal-menu-item--pink" to="/universe" onClick={close}><i className="fa-solid fa-earth-asia" aria-hidden="true" /> 番剧共创宇宙</Link>
               {csvButton}<div onClick={close}>{shareButton}</div>
+              {ratingButton}
             </MemphisDropdown>}
             <button type="button" className={`dashboard-arcade-button ${isPreviewMode ? 'journal-preview-edit-button' : 'bg-white'}`}
               onClick={run(onTogglePreview)}>{isPreviewMode ? '📝 编辑模式' : '👁 预览模式'}</button>

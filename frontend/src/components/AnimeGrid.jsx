@@ -1,16 +1,8 @@
+import PersonalScore from './PersonalScore.jsx'
 import useScrollReveal from '../hooks/useScrollReveal.js'
 import { getCoverSrc, getSeasonDetails, getTagClass } from '../utils/animeDisplay.js'
 import { AddAnimeGridPlaceholder } from './AddAnimePlaceholder.jsx'
 import WatchingProgress from './WatchingProgress.jsx'
-
-function getGridScoreColorClass(score, isMemphis = false) {
-  if (score >= 9.9) {
-    return 'bg-gradient-to-r from-indigo-600 via-purple-600 to-fuchsia-500 bg-clip-text text-transparent'
-  }
-  if (score >= 9.5) return 'text-red-600'
-  if (score >= 9.0) return 'text-orange-500'
-  return isMemphis ? 'text-slate-800' : 'text-white'
-}
 
 function AnimeGrid({
   items,
@@ -41,8 +33,6 @@ function AnimeGrid({
       className={`${isMemphis ? 'memphis-anime-grid' : ''} grid grid-cols-2 gap-4 pb-8 sm:grid-cols-3 sm:gap-5 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6`}
     >
       {items.map((item) => {
-        const scoreDisplay = item.score !== null ? item.score.toFixed(1) : '待定'
-        const scoreColorClass = getGridScoreColorClass(item.score, isMemphis)
         const season = getSeasonDetails(item.period)
         // 固定展示前三个完整标签；超出卡片的部分由容器裁切，
         // 右侧省略入口独立置顶，避免长标签把它挤出可视区域。
@@ -88,10 +78,7 @@ function AnimeGrid({
               )}
 
               <div className={`${isMemphis ? 'memphis-grid-score' : 'border-white/10 bg-black/40 text-white shadow-sm backdrop-blur-md'} absolute right-2 top-2 flex items-center gap-1 rounded-lg border px-2 py-1`}>
-                <i className="fa-solid fa-star text-amber-400 text-[10px]"></i>
-                <span className={`text-[11px] font-bold tracking-wider ${scoreColorClass}`}>
-                  {scoreDisplay}
-                </span>
+                <PersonalScore score={item.score} preferences={item.ratingPreferences} className="text-xs" />
               </div>
 
               {!isMemphis && (

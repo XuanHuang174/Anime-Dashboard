@@ -1,3 +1,4 @@
+import { RatingPreferencesContext } from './components/PersonalScore.jsx'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
@@ -370,7 +371,7 @@ function App() {
   })
 
   return (
-    <main
+    <RatingPreferencesContext.Provider value={statsData?.rating_preferences}><main
       ref={publicPageRef}
       className="memphis-public relative min-h-screen overflow-hidden bg-[#fff5ee] pb-3 text-black"
     >
@@ -487,7 +488,7 @@ function App() {
         closeModal={closeModal}
       />
       <BackToTop isModalOpen={isModalOpen} theme="memphis" />
-    </main>
+    </main></RatingPreferencesContext.Provider>
   )
 }
 

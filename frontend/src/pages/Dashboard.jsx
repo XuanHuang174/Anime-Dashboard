@@ -1,3 +1,6 @@
+import RatingPreferencesModal from '../components/RatingPreferencesModal.jsx'
+import { RatingPreferencesContext, RatingLegend } from '../components/PersonalScore.jsx'
+import { histogramHighlight } from '../utils/ratingPreferences.js'
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
@@ -125,6 +128,7 @@ function Dashboard() {
   const [customQuickFilters, setCustomQuickFilters] = useState([])
   const [activeCustomFilterId, setActiveCustomFilterId] = useState(null)
   const [isQuickFilterEditorOpen, setIsQuickFilterEditorOpen] = useState(false)
+  const [isRatingPreferencesOpen, setIsRatingPreferencesOpen] = useState(false)
   const [isTagCleanupOpen, setIsTagCleanupOpen] = useState(false)
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false)
   const [logoutDestination, setLogoutDestination] = useState('login')
@@ -333,7 +337,7 @@ function Dashboard() {
         if (filterData) {
           setCustomQuickFilters(Array.isArray(filterData) ? filterData : filterData.results ?? [])
         }
-        if (statsResponse) setStatsData(statsResponse.data)
+        if (statsResponse) setStatsData(current => !isSharedJournal && (current?.rating_revision ?? -1) > (statsResponse.data?.rating_revision ?? -1) ? current : statsResponse.data)
         if (optionsResponse) setFilterOptions(optionsResponse.data)
       } catch (requestError) {
         if (controller.signal.aborted || ['ERR_CANCELED', 'SESSION_CHANGED'].includes(requestError.code)) return
@@ -632,6 +636,7 @@ function Dashboard() {
           nickname: sharedProfile?.nickname || '',
           showcase_subtitle: sharedProfile?.showcase_subtitle || '',
         },
+        rating_preferences: statsData?.rating_preferences,
         records: exportedRecords,
       }
       const blob = new Blob([JSON.stringify(payload, null, 2)], {
@@ -949,7 +954,7 @@ function Dashboard() {
   })
 
   return (
-    <main
+    <RatingPreferencesContext.Provider value={statsData?.rating_preferences}><main
       ref={dashboardRef}
       className={`memphis-public memphis-dashboard ${isPreviewMode ? 'dashboard-preview-mode' : 'dashboard-edit-mode'} relative min-h-screen overflow-x-clip bg-[#fff5ee] text-black ${hasCompactResult ? 'pb-0' : 'pb-8'}`}
     >
@@ -969,6 +974,7 @@ function Dashboard() {
         onAddAnime={() => setIsAddModalOpen(true)}
         onImportBangumi={() => setIsBangumiImportOpen(true)}
         onReviewIdentity={() => setIdentityPanel({ recordId: null })}
+        onRatingPreferences={() => setIsRatingPreferencesOpen(true)}
         onCleanTags={() => setIsTagCleanupOpen(true)}
         cleanupDisabled={isLoading || Boolean(error) || searchQuery.trim() !== debouncedSearchQuery}
         onReturnHome={handleReturnHome}
@@ -999,6 +1005,7 @@ function Dashboard() {
 
       {isPreviewMode && isHeaderEntranceComplete && hasLoadedRecords && (!error || recordsConnectionFailure) && (
         <div className="dashboard-content-piece dashboard-entrance-piece relative z-20 mx-auto -mt-6 max-w-7xl px-4 sm:px-6 lg:px-8">
+          {isSharedJournal && <RatingLegend />}
           <StatsSummary db={db} statsData={statsData} theme="memphis" />
         </div>
       )}
@@ -1196,6 +1203,11 @@ function Dashboard() {
       ) : null}
       {!isSharedJournal && (
         <>
+          {isRatingPreferencesOpen && <RatingPreferencesModal onClose={() => setIsRatingPreferencesOpen(false)} onSaved={payload => {
+            setStatsData(current => ({ ...current, rating_preferences: payload.preferences, rating_revision: payload.revision, masterpiece_count: histogramHighlight(payload.histogram, payload.preferences) }))
+            api.get('records/stats/').then(({ data }) => setStatsData(current => (current?.rating_revision ?? -1) > (data?.rating_revision ?? -1) ? current : data)).catch(() => showToast('配置已保存，其他统计暂未刷新，请稍后重试。', 'error'))
+            showToast('评分样式与统计配置已保存。')
+          }} />}
           {isTagCleanupOpen && <TagCleanupModal onClose={() => setIsTagCleanupOpen(false)}
             filteredCount={pageSize === 'all' ? filteredAnime.length : (recordsTotal ?? 0)}
             filters={{ search: searchQuery.trim(), tag: tagFilter, year: yearFilter, status: statusFilter, type_filter: typeFilter, ...(activeCustomFilterId ? { quick_filter: activeCustomFilterId } : {}) }}
@@ -1291,7 +1303,7 @@ function Dashboard() {
         theme="memphis"
       />
       <MemphisToastStack toasts={toasts} onDismiss={dismissToast} />
-    </main>
+    </main></RatingPreferencesContext.Provider>
   )
 }
 

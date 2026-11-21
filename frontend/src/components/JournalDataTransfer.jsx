@@ -180,7 +180,7 @@ function JournalDataTransfer({ onImported, showToast, theme = 'default', renderA
                 危险操作确认
               </h2>
               <p className={`relative mt-3 text-sm leading-7 ${isMemphis ? 'font-bold text-zinc-700' : 'font-medium text-slate-500'}`}>
-                导入新的 JSON 模板将会彻底覆盖您当前所有的手账数据，此操作无法撤销。是否继续？
+                导入新的 JSON 模板将会彻底覆盖您当前所有的手账记录，文件内的评分展示配置也会一并恢复；旧文件未包含配置时保留当前设置。此操作无法撤销，是否继续？
               </p>
               <div className={`relative mt-4 flex items-center gap-3 px-4 py-3 text-left ${isMemphis ? 'border-[3px] border-black bg-[#4ecdc4] shadow-[4px_4px_0_#111]' : 'rounded-2xl border border-indigo-100 bg-indigo-50/80 shadow-inner'}`}>
                 <span className={`flex h-10 w-10 shrink-0 items-center justify-center ${isMemphis ? 'border-2 border-black bg-[#ff8fab] text-black shadow-[3px_3px_0_#111]' : 'rounded-xl bg-white text-indigo-500 shadow-sm'}`}>

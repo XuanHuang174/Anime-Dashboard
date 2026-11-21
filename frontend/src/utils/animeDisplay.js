@@ -1,3 +1,4 @@
+import { ratingForScore, RATING_COLORS } from './ratingPreferences.js'
 export const tagColorOptions = [
   { value: 'pink', label: '粉色' },
   { value: 'rose', label: '玫红' },
@@ -77,7 +78,8 @@ export function getCoverSrc(item) {
   return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="120" height="160" viewBox="0 0 120 160"><rect width="100%" height="100%" fill="%23e2e8f0"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="'Noto Sans SC', sans-serif" font-weight="bold" font-size="12" fill="%2364748b">${initials}</text></svg>`
 }
 
-export function getScoreAccentColor(score) {
+export function getScoreAccentColor(score, preferences) {
+  if (preferences) return RATING_COLORS[ratingForScore(score, preferences)?.color || 'pink'].color
   const numericScore = Number(score)
   if (!Number.isFinite(numericScore)) return '#ff8fab'
   if (numericScore >= 9.9) return '#a78bfa'
