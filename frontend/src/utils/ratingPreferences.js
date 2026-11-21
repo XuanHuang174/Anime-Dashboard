@@ -14,6 +14,7 @@ export const RATING_COLORS = {
     starGradient: ['#ff2a85', '#ff7b00', '#ffd000', '#00e5ff', '#4d7cff', '#b537f2', '#ff2a85'] },
 }
 export const defaultRatingDisplay = () => ({ mobile_stars: false, detail_stars: false, poster_style: 'badge' })
+export const MAX_RATING_TIERS = 11
 export const STAT_CARDS = { completed: '追番数量', average: '平均评分', movie: '剧场版', ova: 'OVA', short: '泡面番', highlight: '自定义推荐统计' }
 export function legacyRatingPreferences() {
   return { version: 1, star_max: 5, show_stars: true, tiers: [
@@ -49,7 +50,7 @@ const label = value => typeof value === 'string' && value.trim() && [...value].l
 export function ratingPreferencesError(value) {
   if (!keys(value, ['version', 'star_max', 'show_stars', 'tiers', 'statistics', ...(Object.hasOwn(value ?? {}, 'display') ? ['display'] : [])]) || value.version !== 1 || !Number.isInteger(value.star_max) || value.star_max < 1 || value.star_max > 10 || typeof value.show_stars !== 'boolean') return '请选择 1–10 的星级上限。'
   if (Object.hasOwn(value, 'display') && (!keys(value.display, ['mobile_stars', 'detail_stars', 'poster_style']) || typeof value.display.mobile_stars !== 'boolean' || typeof value.display.detail_stars !== 'boolean' || !['badge', 'stars', 'number'].includes(value.display.poster_style))) return '请选择合法的手机列表、作品详情及海报墙显示方式。'
-  if (!Array.isArray(value.tiers) || !value.tiers.length || value.tiers.length > 10) return '评分档位需为 1–10 档。'
+  if (!Array.isArray(value.tiers) || !value.tiers.length || value.tiers.length > MAX_RATING_TIERS) return '评分档位需为 1–11 档。'
   let previous = 11
   for (const tier of value.tiers) {
     if (!keys(tier, ['min', 'label', 'stars', 'color', 'star_color', 'effect']) || !boundary(tier.min) || tier.min >= previous) return '起点需在 0–10 内，最多一位小数；档位需从高到低且不重复。'
@@ -93,9 +94,21 @@ export function histogramHighlight(histogram, preferences) {
 export function ratingPreset(name) {
   const value = defaultRatingPreferences()
   if (name === 'bangumi') {
-    value.tiers = [[9, '神作', 5, 'classic'], [8, '力荐', 4, 'red'], [7, '推荐', 3, 'orange'], [6, '还行', 2, 'teal'], [1, '其他评分', 1, 'ink'], [0, '零分', 0, 'ink']].map(([min, label, stars, color]) => ({ min, label, stars, color, star_color: color === 'classic' ? 'classic' : color === 'red' ? 'deeporange' : 'gold', effect: color === 'classic' ? 'gradient' : 'plain' }))
+    value.star_max = 10
+    value.tiers = [[10, '满分', 'rainbow'], [9, '神作', 'classic'], [8, '力荐', 'red'], [7, '推荐', 'orange'], [6, '还行', 'teal'], [5, '一般', 'ink'], [4, '较差', 'ink'], [3, '差', 'ink'], [2, '很差', 'ink'], [1, '不推荐', 'ink'], [0, '零分档', 'ink']].map(([min, label, color]) => ({ min, label, stars: min, color, star_color: ['rainbow', 'classic'].includes(color) ? color : color === 'red' ? 'deeporange' : 'gold', effect: color === 'rainbow' ? 'glow' : color === 'classic' ? 'gradient' : 'plain' }))
     value.statistics = { ...value.statistics, min: 8, label: '强烈推荐' }
   }
   if (name === 'numbers') value.show_stars = false
   return value
+}
+
+export function ratingTierRange(tiers, index) {
+  if (index === 0 && tiers[0].min === 10) return '分数 = 10'
+  return `${tiers[index].min === '' ? '…' : tiers[index].min} ≤ 分数 ${index ? `< ${tiers[index - 1].min === '' ? '…' : tiers[index - 1].min}` : '≤ 10'}`
+}
+
+// Splitting the endpoint preserves every existing interval below 10 and the user's scale.
+export function isolateFullScoreTier(config) {
+  if (ratingPreferencesError(config) || config.tiers[0].min === 10 || config.tiers.length >= MAX_RATING_TIERS) return config
+  return { ...config, tiers: [{ ...config.tiers[0], min: 10, label: '满分', stars: config.star_max }, ...config.tiers] }
 }

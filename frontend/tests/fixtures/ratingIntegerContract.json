@@ -1,0 +1,113 @@
+{
+  "version": 1,
+  "star_max": 10,
+  "show_stars": true,
+  "tiers": [
+    {
+      "min": 10,
+      "label": "满分",
+      "stars": 10,
+      "color": "rainbow",
+      "star_color": "rainbow",
+      "effect": "glow"
+    },
+    {
+      "min": 9,
+      "label": "神作",
+      "stars": 9,
+      "color": "classic",
+      "star_color": "classic",
+      "effect": "gradient"
+    },
+    {
+      "min": 8,
+      "label": "力荐",
+      "stars": 8,
+      "color": "red",
+      "star_color": "deeporange",
+      "effect": "plain"
+    },
+    {
+      "min": 7,
+      "label": "推荐",
+      "stars": 7,
+      "color": "orange",
+      "star_color": "gold",
+      "effect": "plain"
+    },
+    {
+      "min": 6,
+      "label": "还行",
+      "stars": 6,
+      "color": "teal",
+      "star_color": "gold",
+      "effect": "plain"
+    },
+    {
+      "min": 5,
+      "label": "一般",
+      "stars": 5,
+      "color": "ink",
+      "star_color": "gold",
+      "effect": "plain"
+    },
+    {
+      "min": 4,
+      "label": "较差",
+      "stars": 4,
+      "color": "ink",
+      "star_color": "gold",
+      "effect": "plain"
+    },
+    {
+      "min": 3,
+      "label": "差",
+      "stars": 3,
+      "color": "ink",
+      "star_color": "gold",
+      "effect": "plain"
+    },
+    {
+      "min": 2,
+      "label": "很差",
+      "stars": 2,
+      "color": "ink",
+      "star_color": "gold",
+      "effect": "plain"
+    },
+    {
+      "min": 1,
+      "label": "不推荐",
+      "stars": 1,
+      "color": "ink",
+      "star_color": "gold",
+      "effect": "plain"
+    },
+    {
+      "min": 0,
+      "label": "零分档",
+      "stars": 0,
+      "color": "ink",
+      "star_color": "gold",
+      "effect": "plain"
+    }
+  ],
+  "statistics": {
+    "label": "强烈推荐",
+    "min": 8,
+    "max": 10,
+    "cards": [
+      "completed",
+      "average",
+      "movie",
+      "ova",
+      "short",
+      "highlight"
+    ]
+  },
+  "display": {
+    "mobile_stars": false,
+    "detail_stars": false,
+    "poster_style": "badge"
+  }
+}

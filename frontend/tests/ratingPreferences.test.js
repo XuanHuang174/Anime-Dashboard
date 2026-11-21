@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { getScoreAccentColor } from '../src/utils/animeDisplay.js'
-import { RATING_COLORS, defaultRatingPreferences, legacyRatingPreferences, restoreClassicAppearance, ratingPreferencesError, normalizeRatingPreferences, ratingForScore, histogramHighlight, highlightRange, ratingPreset, ratingStyle } from '../src/utils/ratingPreferences.js'
+import { RATING_COLORS, defaultRatingPreferences, legacyRatingPreferences, restoreClassicAppearance, ratingPreferencesError, normalizeRatingPreferences, ratingForScore, histogramHighlight, highlightRange, ratingPreset, ratingStyle, ratingTierRange, isolateFullScoreTier, MAX_RATING_TIERS } from '../src/utils/ratingPreferences.js'
 
 test('rating defaults match the backend versioned contract and never share mutable defaults', () => {
   const fixture = JSON.parse(readFileSync(new URL('./fixtures/ratingPreferencesContract.json', import.meta.url), 'utf8'))
@@ -98,4 +98,41 @@ test('presets change presentation and count criteria only, with numeric-only and
   assert.equal(ratingForScore(9.9, config).max, 10)
   assert.equal(ratingForScore(9.9, config).stars, 10)
   assert.ok(ratingStyle(ratingForScore(9.9, config)).textShadow)
+})
+
+test('integer preset separates perfect ten and covers fractional boundaries without rounding scores', () => {
+  const config = ratingPreset('bangumi')
+  const fixture = JSON.parse(readFileSync(new URL('./fixtures/ratingIntegerContract.json', import.meta.url), 'utf8'))
+  assert.deepEqual(config, fixture)
+  assert.equal(config.tiers.length, MAX_RATING_TIERS)
+  assert.equal(config.star_max, 10)
+  assert.deepEqual(config.display, defaultRatingPreferences().display)
+  assert.equal(config.statistics.min, 8)
+  for (const score of [10, 9.9, 9, 8.9, 8, 7.9, 7, 6, 5, 4, 3, 2, 1, .9, .1, 0]) {
+    const result = ratingForScore(score, config)
+    assert.equal(result.stars, Math.floor(score)); assert.equal(result.score, score)
+  }
+  assert.equal(ratingForScore(null, config), null)
+  assert.equal(ratingTierRange(config.tiers, 0), '分数 = 10')
+  assert.equal(ratingTierRange(config.tiers, 1), '9 ≤ 分数 < 10')
+  assert.equal(ratingTierRange(config.tiers, 10), '0 ≤ 分数 < 1')
+  const overflow = structuredClone(config)
+  overflow.tiers.splice(1, 0, { ...overflow.tiers[1], min: 9.5 })
+  assert.ok(ratingPreferencesError(overflow))
+  const previous = { ...config, star_max: 5, tiers: config.tiers.filter(t => [9,8,7,6,1,0].includes(t.min)).map(t => ({ ...t, stars: Math.min(t.min, 5) })) }
+  assert.deepEqual(normalizeRatingPreferences(previous), previous, 'Saved older integer choices are not replaced by a new preset')
+})
+
+test('full-score shortcut splits only the endpoint and preserves existing choices and the scale', () => {
+  const config = defaultRatingPreferences(), before = JSON.stringify(config)
+  config.statistics.label = '私人统计'
+  const full = isolateFullScoreTier(config)
+  assert.equal(full.tiers.length, 9); assert.equal(full.tiers[0].min, 10)
+  assert.equal(full.tiers[0].stars, 5); assert.equal(full.star_max, 5)
+  assert.deepEqual(full.tiers.slice(1), config.tiers); assert.deepEqual(full.statistics, config.statistics)
+  assert.equal(isolateFullScoreTier(full), full)
+  for (const score of [9.9, 9.8, 9, 8, 0]) assert.deepEqual(ratingForScore(score, full), ratingForScore(score, config))
+  const atLimit = ratingPreset('bangumi'); atLimit.tiers[0].min = 9.9
+  assert.equal(isolateFullScoreTier(atLimit), atLimit)
+  config.statistics.label = '极高推荐'; assert.equal(JSON.stringify(config), before)
 })

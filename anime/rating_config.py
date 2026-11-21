@@ -8,6 +8,7 @@ from django.core.exceptions import ValidationError
 COLORS = ('slate', 'violet', 'red', 'amber', 'teal', 'blue', 'pink', 'green',
           'ink', 'orange', 'gold', 'deeporange', 'classic', 'rainbow')
 CARDS = ('completed', 'average', 'movie', 'ova', 'short', 'highlight')
+MAX_RATING_TIERS = 11
 
 
 def legacy_rating_preferences():
@@ -75,8 +76,8 @@ def validate_rating_preferences(value):
     if type(value['star_max']) is not int or not 1 <= value['star_max'] <= 10 or type(value['show_stars']) is not bool:
         raise ValidationError('星级上限为 1–10，星级显示需为布尔值。')
     tiers = value['tiers']
-    if not isinstance(tiers, list) or not 1 <= len(tiers) <= 10:
-        raise ValidationError('评分档位需为 1–10 档。')
+    if not isinstance(tiers, list) or not 1 <= len(tiers) <= MAX_RATING_TIERS:
+        raise ValidationError('评分档位需为 1–11 档。')
     previous = 11
     for tier in tiers:
         exact_keys(tier, ('min', 'label', 'stars', 'color', 'star_color', 'effect'))

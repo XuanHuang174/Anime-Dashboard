@@ -14,7 +14,24 @@ from .models import Anime, UserAnimeRecord, UserProfile, FeaturedSubmission
 from .rating_config import default_rating_preferences, legacy_rating_preferences, validate_rating_preferences, normalized_rating_preferences
 
 
+def integer_preferences():
+    fixture = Path(__file__).resolve().parents[1] / 'frontend/tests/fixtures/ratingIntegerContract.json'
+    return json.loads(fixture.read_text(encoding='utf-8'))
+
+
 class RatingConfigurationTests(SimpleTestCase):
+    def test_eleven_integer_tiers_validate_and_roundtrip_while_twelfth_is_rejected(self):
+        config = integer_preferences()
+        validate_rating_preferences(config)
+        self.assertEqual(normalized_rating_preferences(config), config)
+        self.assertEqual([tier['min'] for tier in config['tiers']], list(range(10, -1, -1)))
+        self.assertEqual([tier['stars'] for tier in config['tiers']], list(range(10, -1, -1)))
+        old = {**config, 'star_max': 5, 'tiers': [
+            {**tier, 'stars': min(tier['stars'], 5)} for tier in config['tiers'] if tier['min'] in (9, 8, 7, 6, 1, 0)]}
+        self.assertEqual(normalized_rating_preferences(old), old)
+        config['tiers'].insert(1, {**config['tiers'][1], 'min': 9.5})
+        with self.assertRaises(ValidationError): validate_rating_preferences(config)
+
     def test_legacy_default_visual_upgrade_is_read_only_and_preserves_personal_choices(self):
         old = legacy_rating_preferences()
         old['statistics'].update(min=8, label='私人统计')
@@ -78,7 +95,7 @@ class RatingPreferencesAPITests(APITestCase):
         return self.client.patch(self.url, {'preferences': config or default_rating_preferences(), 'revision': revision}, format='json')
 
     def custom(self):
-        config = default_rating_preferences(); config['statistics'].update(label='我的推荐', min=8.0, max=9.0)
+        config = integer_preferences(); config['statistics'].update(label='我的推荐', min=8.0, max=9.0)
         config['tiers'][0].update(label='珍藏', color='teal', star_color='teal', effect='glow')
         config['display'].update(mobile_stars=True, detail_stars=True, poster_style='stars')
         return config
