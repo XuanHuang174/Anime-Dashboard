@@ -800,9 +800,9 @@ class UserQuickFilterSerializer(serializers.ModelSerializer):
         model = UserQuickFilter
         fields = (
             "id", "name", "tags", "title_keywords", "match_mode", "exclude_tags", "exclude_title_keywords", "year_from", "year_to",
-            "score_min", "score_max", "score_state", "watch_statuses", "review_state", "created_at", "updated_at",
+            "score_min", "score_max", "score_state", "watch_statuses", "review_state", "sort_order", "created_at", "updated_at",
         )
-        read_only_fields = ("id", "created_at", "updated_at")
+        read_only_fields = ("id", "sort_order", "created_at", "updated_at")
 
     def validate_tags(self, tags):
         normalized = list(dict.fromkeys(tag.strip() for tag in tags if tag.strip()))

@@ -59,6 +59,7 @@ from .email_service import EmailDeliveryError, send_transactional_email
 from .daily_push import fetch_today_bangumi_items, send_daily_pushes
 from .rating_config import normalized_rating_preferences, validate_rating_preferences
 from .quick_filtering import scalar_filters, matches_metadata, preview_config
+from .quick_filter_ordering import QuickFilterOrderMixin
 from .models import (
     Anime,
     FeaturedQuickFilter,
@@ -1236,7 +1237,7 @@ def _build_shared_journal_filter_options(queryset, owner):
 
     options = _build_filter_options(queryset)
     options["quick_filters"] = UserQuickFilterSerializer(
-        UserQuickFilter.objects.filter(user=owner).order_by("created_at", "pk"),
+        UserQuickFilter.objects.filter(user=owner).order_by('sort_order', 'pk'),
         many=True,
     ).data
     return options
@@ -2566,7 +2567,7 @@ class UserAnimeRecordViewSet(viewsets.ModelViewSet):
         return Response(self.get_serializer(record).data)
 
 
-class UserQuickFilterViewSet(viewsets.ModelViewSet):
+class UserQuickFilterViewSet(QuickFilterOrderMixin, viewsets.ModelViewSet):
     """User-isolated CRUD for reusable tag combinations."""
 
     serializer_class = UserQuickFilterSerializer
@@ -2587,7 +2588,7 @@ class UserQuickFilterViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         try:
-            serializer.save(user=self.request.user)
+            super().perform_create(serializer)
         except IntegrityError as exc:
             # Protect against two simultaneous requests racing after serializer
             # validation and hitting the (user, name) database constraint.
@@ -2829,13 +2830,15 @@ class PublicFeaturedSubmissionViewSet(viewsets.ReadOnlyModelViewSet):
         return Response(self.get_serializer(queryset, many=True).data)
 
 
-class FeaturedQuickFilterViewSet(viewsets.ModelViewSet):
+class FeaturedQuickFilterViewSet(QuickFilterOrderMixin, viewsets.ModelViewSet):
     """Public reads with superuser-only writes for featured quick filters."""
 
     serializer_class = FeaturedQuickFilterSerializer
     queryset = FeaturedQuickFilter.objects.all()
 
     def get_permissions(self):
+        if self.action == 'order':
+            return [IsSuperUser()]
         if self.request.method in permissions.SAFE_METHODS:
             return [permissions.AllowAny()]
         return [IsSuperUser()]

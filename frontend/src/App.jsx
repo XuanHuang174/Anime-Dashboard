@@ -18,6 +18,7 @@ import {
 import StatsSummary from './components/StatsSummary.jsx'
 import animeData from './data/animeData.js'
 import { matchesCustomQuickFilter as matchesShowcaseQuickFilter } from './utils/quickFilter.js'
+import { loadCompleteQuickFilters } from './utils/quickFilterOrder.js'
 import { comparePeriod } from './utils/animeDisplay.js'
 import { mapRecordToAnimeItem } from './utils/recordMapping.js'
 
@@ -132,7 +133,7 @@ function App() {
     let active = true
     const controller = new AbortController()
     Promise.allSettled([
-      api.get('showcase-filters/', { signal: controller.signal }),
+      loadCompleteQuickFilters(api, 'showcase-filters/', controller.signal),
       api.get('showcase/stats/', { signal: controller.signal }),
       api.get('showcase/filter-options/', { signal: controller.signal }),
     ]).then(([filtersResult, statsResult, optionsResult]) => {

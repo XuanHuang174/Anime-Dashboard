@@ -23,6 +23,7 @@ import MemphisToastStack from '../components/MemphisToastStack.jsx'
 import QuickFilterEditorModal from '../components/QuickFilterEditorModal.jsx'
 import TagCleanupModal from '../components/TagCleanupModal.jsx'
 import { matchesCustomQuickFilter } from '../utils/quickFilter.js'
+import { loadCompleteQuickFilters, sortedQuickFilters } from '../utils/quickFilterOrder.js'
 import {
   PageNavigation,
   PageSizeSelector,
@@ -285,7 +286,7 @@ function Dashboard() {
           : 'records/filter-options/'
         const filtersRequest = isSharedJournal
           ? Promise.resolve(null)
-          : api.get('quick-filters/', { signal: controller.signal })
+          : loadCompleteQuickFilters(api, 'quick-filters/', controller.signal)
         const numericPageSize = Number(pageSize)
         const knownRecordsTotal = Number(recordsTotalRef.current)
         const isVirtualPlaceholderPage = isEditMode
@@ -335,7 +336,7 @@ function Dashboard() {
           ? optionsResponse?.data?.quick_filters
           : filtersResponse?.data
         if (filterData) {
-          setCustomQuickFilters(Array.isArray(filterData) ? filterData : filterData.results ?? [])
+          setCustomQuickFilters(sortedQuickFilters(Array.isArray(filterData) ? filterData : filterData.results ?? []))
         }
         if (statsResponse) setStatsData(current => !isSharedJournal && (current?.rating_revision ?? -1) > (statsResponse.data?.rating_revision ?? -1) ? current : statsResponse.data)
         if (optionsResponse) setFilterOptions(optionsResponse.data)
@@ -771,9 +772,9 @@ function Dashboard() {
   const handleQuickFilterSaved = (savedFilter, { apply = false } = {}) => {
     setCustomQuickFilters((current) => {
       const exists = current.some((filter) => filter.id === savedFilter.id)
-      return exists
+      return sortedQuickFilters(exists
         ? current.map((filter) => filter.id === savedFilter.id ? savedFilter : filter)
-        : [...current, savedFilter]
+        : [...current, savedFilter])
     })
     if (apply) { setActiveCustomFilterId(savedFilter.id); setTypeFilter('all') }
     if (apply || activeCustomFilterId === savedFilter.id) setCurrentPage(1)
@@ -1251,6 +1252,7 @@ function Dashboard() {
               availableTags={filterOptions.tags}
               filters={customQuickFilters}
               onSaved={handleQuickFilterSaved}
+              onReordered={rows => setCustomQuickFilters(sortedQuickFilters(rows))}
               onDeleted={handleQuickFilterDeleted}
               showToast={showToast}
             />

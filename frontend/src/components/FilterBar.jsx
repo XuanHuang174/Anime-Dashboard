@@ -261,7 +261,7 @@ function FilterBar({
                   onClick={() => selectCustomQuickFilter(filter.id)}
                   title={quickFilterSummary(filter)}
                 >
-                  <i className="fa-solid fa-filter mr-1.5 text-[10px]"></i>{filter.name}
+                  <i className="fa-solid fa-filter mr-1.5 text-[10px]" aria-hidden="true"></i>{filter.name}
                 </button>
               ))}
               {onOpenQuickFilterEditor && (

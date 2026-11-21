@@ -20,6 +20,7 @@ import {
   mapFeaturedSubmission,
 } from '../utils/featuredDisplay.js'
 import { matchesCustomQuickFilter } from '../utils/quickFilter.js'
+import { loadCompleteQuickFilters } from '../utils/quickFilterOrder.js'
 
 gsap.registerPlugin(useGSAP)
 
@@ -78,10 +79,7 @@ function FeaturedColumn() {
         }
 
         const [filtersResponse, submissions] = await Promise.all([
-          api.get('featured-filters/', {
-            params: { page_size: 100 },
-            signal: controller.signal,
-          }),
+          loadCompleteQuickFilters(api, 'featured-filters/', controller.signal),
           loadSubmissions(),
         ])
         const filtersPayload = filtersResponse.data

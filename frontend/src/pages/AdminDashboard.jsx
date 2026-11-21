@@ -18,6 +18,7 @@ import {
   mapFeaturedSubmission,
 } from '../utils/featuredDisplay.js'
 import { matchesCustomQuickFilter } from '../utils/quickFilter.js'
+import { loadCompleteQuickFilters, sortedQuickFilters } from '../utils/quickFilterOrder.js'
 
 gsap.registerPlugin(useGSAP)
 
@@ -180,9 +181,7 @@ function AdminDashboard() {
     setIsLoading(true)
     setError('')
     try {
-      const filtersPromise = api.get('featured-filters/', {
-        params: { page_size: 100 },
-      })
+      const filtersPromise = loadCompleteQuickFilters(api, 'featured-filters/')
       const availableTagsPromise = api.get('featured-filters/available-tags/')
       const allItems = []
       let nextUrl = 'admin/featured-submissions/?page_size=100'
@@ -334,9 +333,9 @@ function AdminDashboard() {
   function handleFeaturedQuickFilterSaved(savedFilter, { apply = false } = {}) {
     setFeaturedQuickFilters((current) => {
       const exists = current.some((filter) => filter.id === savedFilter.id)
-      return exists
+      return sortedQuickFilters(exists
         ? current.map((filter) => filter.id === savedFilter.id ? savedFilter : filter)
-        : [...current, savedFilter]
+        : [...current, savedFilter])
     })
     if (apply) { setActiveCustomFilterId(savedFilter.id); setTypeFilter('all') }
   }
@@ -714,6 +713,7 @@ function AdminDashboard() {
         availableTags={availableTags}
         filters={featuredQuickFilters}
         onSaved={handleFeaturedQuickFilterSaved}
+        onReordered={rows => setFeaturedQuickFilters(sortedQuickFilters(rows))}
         onDeleted={handleFeaturedQuickFilterDeleted}
         showToast={pushToast}
         endpoint="featured-filters"

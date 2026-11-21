@@ -47,13 +47,21 @@ export function matchesCustomQuickFilter(item, filter) {
 export function quickFilterSummary(filter) {
   if (!filter) return ''
   const included = [...(filter.tags ?? []), ...(filter.title_keywords ?? []).map(word => `标题:${word}`)]
-  return [included.length ? `${filter.match_mode === 'all' ? '全部满足' : '任意匹配'}：${included.join('、')}` : '标签/标题不限',
+  return [included.length ? `${filter.match_mode === 'all' ? '全部满足' : '任意匹配'}：${included.join('、')}` : '',
     filter.exclude_tags?.length ? `排除标签：${filter.exclude_tags.join('、')}` : '',
     filter.exclude_title_keywords?.length ? `排除标题词：${filter.exclude_title_keywords.join('、')}` : '',
     filter.year_from != null || filter.year_to != null ? `年份：${filter.year_from ?? '不限'}—${filter.year_to ?? '不限'}` : '',
     filter.score_state === 'unrated' ? '仅未评分' : filter.score_min != null || filter.score_max != null ? `个人评分：${filter.score_min ?? '不限'}—${filter.score_max ?? '不限'}（含端点）` : filter.score_state === 'rated' ? '仅已评分' : '',
     filter.watch_statuses?.length ? `观看：${filter.watch_statuses.map(value => WATCH_STATES[value]).join('、')}` : '',
-    filter.review_state === 'with' ? '有长评' : filter.review_state === 'without' ? '无长评' : ''].filter(Boolean).join('；')
+    filter.review_state === 'with' ? '有长评' : filter.review_state === 'without' ? '无长评' : ''].filter(Boolean).join('；') || '尚未设置筛选条件'
+}
+
+export function transferQuickTag(form, key, tag) {
+  if (!['tags', 'exclude_tags'].includes(key)) return form
+  if (form[key].includes(tag)) return { ...form, [key]: form[key].filter(value => value !== tag) }
+  if (form[key].length >= 8) return form
+  const opposite = key === 'tags' ? 'exclude_tags' : 'tags'
+  return { ...form, [key]: [...form[key], tag], [opposite]: form[opposite].filter(value => value !== tag) }
 }
 
 export const WATCH_STATES = { plan: '想看', watching: '在看', completed: '看过', on_hold: '搁置' }

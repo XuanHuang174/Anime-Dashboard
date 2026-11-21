@@ -699,6 +699,7 @@ class UserQuickFilter(models.Model):
         related_name="anime_quick_filters",
     )
     name = models.CharField("筛选名称", max_length=30)
+    sort_order = models.PositiveIntegerField('显示顺序', default=0)
     year_from = models.PositiveSmallIntegerField("起始年份", null=True, blank=True, validators=[MinValueValidator(1000), MaxValueValidator(9999)])
     year_to = models.PositiveSmallIntegerField("结束年份", null=True, blank=True, validators=[MinValueValidator(1000), MaxValueValidator(9999)])
     score_min = models.DecimalField("最低个人评分", max_digits=3, decimal_places=1, null=True, blank=True, validators=[MinValueValidator(0), MaxValueValidator(10)])
@@ -732,7 +733,7 @@ class UserQuickFilter(models.Model):
     class Meta:
         verbose_name = "用户快捷筛选"
         verbose_name_plural = "用户快捷筛选"
-        ordering = ("created_at",)
+        ordering = ('sort_order', 'pk')
         constraints = [
             models.UniqueConstraint(
                 fields=("user", "name"),
@@ -755,6 +756,7 @@ class FeaturedQuickFilter(models.Model):
         ALL = "all", "匹配全部标签"
 
     name = models.CharField("筛选名称", max_length=30, unique=True)
+    sort_order = models.PositiveIntegerField('显示顺序', default=0)
     year_from = models.PositiveSmallIntegerField("起始年份", null=True, blank=True, validators=[MinValueValidator(1000), MaxValueValidator(9999)])
     year_to = models.PositiveSmallIntegerField("结束年份", null=True, blank=True, validators=[MinValueValidator(1000), MaxValueValidator(9999)])
     score_min = models.DecimalField("最低个人评分", max_digits=3, decimal_places=1, null=True, blank=True, validators=[MinValueValidator(0), MaxValueValidator(10)])
@@ -788,7 +790,7 @@ class FeaturedQuickFilter(models.Model):
     class Meta:
         verbose_name = "精选专栏快捷筛选"
         verbose_name_plural = "精选专栏快捷筛选"
-        ordering = ("created_at",)
+        ordering = ('sort_order', 'pk')
         constraints = [
             models.CheckConstraint(condition=models.Q(year_from__isnull=True) | models.Q(year_to__isnull=True) | models.Q(year_from__lte=models.F('year_to')), name='featured_quick_filter_year_order'),
             models.CheckConstraint(condition=models.Q(score_min__isnull=True) | models.Q(score_max__isnull=True) | models.Q(score_min__lte=models.F('score_max')), name='featured_quick_filter_score_order'),

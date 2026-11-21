@@ -50,7 +50,7 @@ def initialize_new_user(sender, instance, created, raw=False, **kwargs):
         return
     UserProfile.objects.get_or_create(user=instance)
     UserQuickFilter.objects.bulk_create(
-        [UserQuickFilter(user=instance, **item) for item in DEFAULT_QUICK_FILTERS],
+        [UserQuickFilter(user=instance, sort_order=index, **item) for index, item in enumerate(DEFAULT_QUICK_FILTERS)],
         ignore_conflicts=True,
     )
 
