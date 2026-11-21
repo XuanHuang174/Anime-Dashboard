@@ -1209,6 +1209,7 @@ function Dashboard() {
             showToast('评分样式与统计配置已保存。')
           }} />}
           {isTagCleanupOpen && <TagCleanupModal onClose={() => setIsTagCleanupOpen(false)}
+            onReviewIdentity={recordId => { setIsTagCleanupOpen(false); setIdentityPanel({ recordId }) }}
             filteredCount={pageSize === 'all' ? filteredAnime.length : (recordsTotal ?? 0)}
             filters={{ search: searchQuery.trim(), tag: tagFilter, year: yearFilter, status: statusFilter, type_filter: typeFilter, ...(activeCustomFilterId ? { quick_filter: activeCustomFilterId } : {}) }}
             onChanged={() => { setCurrentPage(1); setRecordsRefreshKey(value => value + 1); notifyRecommendationChange() }} />}

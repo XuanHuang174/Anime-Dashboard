@@ -36,4 +36,5 @@ test('tag chips distinguish protected names, aliases, additions and removals wit
 test('historical scope always comes from the saved job, with user-facing filter names', () => {
   assert.equal(cleanupScope({ scope: 'filtered', total: 19, filters: { search: '合成', status: 'watching', type_filter: 'moe', quick_filter: 123 } }), '扫描时的筛选作品 · 19 部 · 搜索「合成」 / 在看 / 萌系 / 已保存的快捷筛选')
   assert.equal(cleanupScope({ scope: 'all', total: 99, filters: { search: '不应显示' } }), '全部私人手账 · 99 部')
+  assert.equal(cleanupScope({ scope: 'filtered', total: 3, filters: { tag: 'all' } }), '扫描时的筛选作品 · 3 部')
 })

@@ -58,7 +58,7 @@ await context.route('**/*', async route => {
     return respond(snapshot())
   }
   if (path.endsWith('/apply/')) {
-    assert.deepEqual(Object.keys(body), ['excluded_ids'])
+    assert.deepEqual(Object.keys(body), ['excluded_ids', 'revision', 'confirm_personal_removal'])
     selected = rows.filter(row => !body.excluded_ids.includes(row.record_id)).map(row => row.record_id)
     job.selected_count = selected.length; job.status = 'applying'; return respond(snapshot())
   }

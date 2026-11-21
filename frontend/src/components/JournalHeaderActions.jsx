@@ -45,8 +45,8 @@ export default function JournalHeaderActions({ isPreviewMode, onReturnHome, onTo
             {isPreviewMode && <MemphisDropdown label="🛠 更多功能" className="bg-[#ff8fab]"
               open={activeMenu === 'tools'} onOpenChange={(value) => setActiveMenu(value ? 'tools' : '')} owner={owner} inline={mobile}>
               <Link className="journal-menu-item" to="/featured" onClick={close}><i className="fa-solid fa-medal" aria-hidden="true" /> 浏览精选专栏</Link>
-              <button type="button" className="journal-menu-item" onClick={run(onReviewIdentity)}><i className="fa-solid fa-link" aria-hidden="true" /> 核对标准作品</button>
               <Link className="journal-menu-item journal-menu-item--pink" to="/universe" onClick={close}><i className="fa-solid fa-earth-asia" aria-hidden="true" /> 番剧共创宇宙</Link>
+              <button type="button" className="journal-menu-item" onClick={run(onReviewIdentity)}><i className="fa-solid fa-link" aria-hidden="true" /> 核对标准作品</button>
               {csvButton}
               {ratingButton}
               <div className="journal-menu-share" onClick={close}>{shareButton}</div>

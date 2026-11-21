@@ -17,7 +17,7 @@ const download = (value, filename) => {
 }
 const shortDate = value => new Date(value).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
 
-export default function TagCleanupModal({ filters, filteredCount, onClose, onChanged }) {
+export default function TagCleanupModal({ filters, filteredCount, onClose, onChanged, onReviewIdentity }) {
   const activeSession = useSeriesSession()
   const [scope, setScope] = useState('filtered'), [history, setHistory] = useState([]), [job, setJob] = useState(null)
   const [items, setItems] = useState([]), [page, setPage] = useState(1), [itemCount, setItemCount] = useState(0), [tab, setTab] = useState('all')
@@ -27,6 +27,8 @@ export default function TagCleanupModal({ filters, filteredCount, onClose, onCha
   const [historyOpen, setHistoryOpen] = useState(() => window.innerWidth >= 768)
   const [downloading, setDownloading] = useState(''), [closing, setClosing] = useState(false), [pauseRequested, setPauseRequested] = useState(false)
   const [activePhase, setActivePhase] = useState('scan')
+  const [mode, setMode] = useState('conservative'), [keepPersonal, setKeepPersonal] = useState(true)
+  const [confirmedApply, setConfirmedApply] = useState(false), [acknowledgedRemoval, setAcknowledgedRemoval] = useState(false)
   const live = useRef(true), session = useRef(seriesSession()), request = useRef(null), reader = useRef(null), historian = useRef(null)
   const pause = useRef(false), running = useRef(false), starting = useRef(false), modal = useRef(null), previews = useRef(null)
   const scanRequest = useRef(null), changed = useRef(onChanged), close = useRef(onClose), downloadGate = useRef(false), closeTimer = useRef(null)
@@ -43,9 +45,9 @@ export default function TagCleanupModal({ filters, filteredCount, onClose, onCha
       request.current?.abort(); reader.current?.abort(); historian.current?.abort(); close.current()
     }
   }, [activeSession])
-  const load = async (id, targetPage = 1, targetTab = null) => {
+  const load = async (id, targetPage = 1, targetTab = null, keepView = false) => {
     reader.current?.abort(); const operation = new AbortController(); reader.current = operation
-    setViewLoading(true)
+    if (!keepView) setViewLoading(true)
     try {
       const mode = targetTab || 'all'
       const response = await api.get(`tag-cleanup/${id}/`, { params: { page: targetPage, filter: mode }, signal: operation.signal })
@@ -56,8 +58,8 @@ export default function TagCleanupModal({ filters, filteredCount, onClose, onCha
         if (!current() || operation.signal.aborted) return
         data = response.data
       }
-      setJob(data); setItems(data.items); setItemCount(data.item_count); setPage(targetPage); setTab(resolvedTab); setError('')
-      if (previews.current) previews.current.scrollTop = 0
+      setJob(data); setItems(data.items); setItemCount(data.item_count); setPage(targetPage); setTab(resolvedTab); setError(''); setConfirmedApply(false); setAcknowledgedRemoval(false)
+      if (previews.current && !keepView) previews.current.scrollTop = 0
       return data
     } finally { if (current() && reader.current === operation) setViewLoading(false) }
   }
@@ -69,7 +71,7 @@ export default function TagCleanupModal({ filters, filteredCount, onClose, onCha
     return data
   }
   const readLatest = async () => {
-    setViewLoading(true)
+    setViewLoading(true); setExcluded(new Set()); setConfirmedApply(false); setAcknowledgedRemoval(false)
     try {
       const rows = await readHistory()
       if (!current() || !rows) return
@@ -106,7 +108,7 @@ export default function TagCleanupModal({ filters, filteredCount, onClose, onCha
       if (!current()) return
       const paused = latest.status === expected
       await load(latest.id, 1, paused ? tab : null); await readHistory()
-      setNotice(paused ? '已暂停，进度已保存。关闭或刷新后可从最近任务继续。' : phase === 'scan' ? '扫描完成；未知标签会保留，无需额外处理。' : '')
+      setNotice(paused ? '已暂停，进度已保存。关闭或刷新后可从最近任务继续。' : phase === 'scan' ? latest.mode === 'rebuild' ? '扫描完成。先核对标准题材与旧标签取舍，再应用选中的作品。' : '扫描完成；未知标签会保留，无需额外处理。' : '')
     } catch (reason) { reportError(reason) }
     finally {
       running.current = false
@@ -118,7 +120,7 @@ export default function TagCleanupModal({ filters, filteredCount, onClose, onCha
     starting.current = true; setBusy(true); setActivePhase('scan'); setError(''); setNotice(''); setExcluded(new Set()); setConfirmedUndo(false)
     scanRequest.current ||= crypto.randomUUID()
     try {
-      const { data } = await api.post('tag-cleanup/', { request_id: scanRequest.current, scope, filters: scope === 'filtered' ? filters : {} })
+      const { data } = await api.post('tag-cleanup/', { request_id: scanRequest.current, scope, filters: scope === 'filtered' ? filters : {}, mode, keep_personal: mode === 'rebuild' ? keepPersonal : true })
       if (!current()) return
       scanRequest.current = null; setJob(data); setItems([]); setTab('all'); setPage(1); setSetupOpen(false)
       await run(data, 'scan')
@@ -129,7 +131,8 @@ export default function TagCleanupModal({ filters, filteredCount, onClose, onCha
     if (busy || viewLoading || downloading || starting.current || running.current) return
     starting.current = true; setBusy(true); setActivePhase('apply'); setError(''); setNotice('')
     try {
-      const { data } = await api.post(`tag-cleanup/${job.id}/apply/`, { excluded_ids: [...excluded] })
+      const { data } = await api.post(`tag-cleanup/${job.id}/apply/`, { excluded_ids: [...excluded], revision: job.revision || 0, confirm_personal_removal: acknowledgedRemoval })
+      setConfirmedApply(false); setAcknowledgedRemoval(false)
       if (current()) await run(data, 'apply')
     } catch (reason) { reportError(reason) }
     finally { starting.current = false; if (current()) setBusy(false) }
@@ -140,6 +143,19 @@ export default function TagCleanupModal({ filters, filteredCount, onClose, onCha
     try {
       const { data } = await api.post(`tag-cleanup/${job.id}/undo/`, {})
       if (current()) await run(data, 'undo')
+    } catch (reason) { reportError(reason) }
+    finally { starting.current = false; if (current()) setBusy(false) }
+  }
+  const decide = async (item, name, action) => {
+    if (busy || viewLoading || downloading || starting.current || running.current) return
+    starting.current = true; setBusy(true); setActivePhase('review'); setError(''); setNotice(''); setConfirmedApply(false); setAcknowledgedRemoval(false)
+    const controller = new AbortController(); request.current = controller
+    try {
+      const { data } = await api.post(`tag-cleanup/${job.id}/decisions/`, { record_id: item.record_id, revision: job.revision, choices: [{ name, action }] }, { signal: controller.signal })
+      if (!current()) return
+      if (data.item.status !== 'proposed') setExcluded(old => { const next = new Set(old); next.delete(item.record_id); return next })
+      await load(job.id, page, tab, true); await readHistory()
+      setNotice('本次取舍已保存到预览，作品尚未修改。请核对变化后再应用。')
     } catch (reason) { reportError(reason) }
     finally { starting.current = false; if (current()) setBusy(false) }
   }
@@ -156,20 +172,22 @@ export default function TagCleanupModal({ filters, filteredCount, onClose, onCha
     setExcluded(new Set()); setConfirmedUndo(false); setNotice(''); setSetupOpen(false)
     try { await load(row.id) } catch (reason) { reportError(reason) }
   }
-  const toggleRecord = id => setExcluded(old => { const next = new Set(old); next.has(id) ? next.delete(id) : next.add(id); return next })
-  const selectPage = include => setExcluded(old => {
+  const toggleRecord = id => { setConfirmedApply(false); setAcknowledgedRemoval(false); setExcluded(old => { const next = new Set(old); next.has(id) ? next.delete(id) : next.add(id); return next }) }
+  const selectPage = include => { setConfirmedApply(false); setAcknowledgedRemoval(false); setExcluded(old => {
     const next = new Set(old)
     items.filter(item => item.status === 'proposed').forEach(item => include ? next.delete(item.record_id) : next.add(item.record_id))
     return next
-  })
+  }) }
   const totalPages = Math.max(1, Math.ceil(itemCount / 20)), selected = Math.max(0, (job?.counts.proposed || 0) - excluded.size)
-  const resumable = cleanupPhases[job?.status], counts = cleanupCounts(job), progress = cleanupProgress(job)
+  const resumable = !job?.obsolete && cleanupPhases[job?.status], counts = cleanupCounts(job), progress = cleanupProgress(job)
   const blocked = busy || viewLoading || Boolean(downloading) || closing
-  const hasActiveTask = Boolean(resumable && !job?.expired) || history.some(row => cleanupPhases[row.status] && !row.expired)
-  const canSelect = job?.status === 'ready' && !job.expired
+  const hasActiveTask = Boolean(resumable && !job?.expired) || history.some(row => cleanupPhases[row.status] && !row.expired && !row.obsolete)
+  const canSelect = job?.status === 'ready' && !job.expired && !job.obsolete
+  const rebuilding = job?.mode === 'rebuild'
+  const personalRemovals = job?.personal_removal_records ? Object.entries(job.personal_removal_records).reduce((sum, [id, count]) => sum + (excluded.has(Number(id)) ? 0 : count), 0) : job?.personal_removals || 0
   const pageProposals = items.filter(item => item.status === 'proposed')
-  const stage = job?.expired ? '已过期' : busy ? (pauseRequested ? '正在完成当前批次' : { scan: '扫描中', apply: '应用中', undo: '撤销中' }[activePhase]) : cleanupLabels[job?.status]
-  const tabs = [['all', '全部', job?.scan_cursor || 0], ['changes', '有变化', counts.changes], ['review', '未知保留', counts.review], ['protected', '已保护', counts.protected], ...(counts.conflicts ? [['conflicts', '冲突', counts.conflicts]] : [])]
+  const stage = job?.expired ? '已过期' : busy ? (pauseRequested ? '正在完成当前批次' : { scan: '扫描中', apply: '应用中', undo: '撤销中', review: '正在更新取舍' }[activePhase]) : cleanupLabels[job?.status]
+  const tabs = [['all', '全部', job?.scan_cursor || 0], ['changes', '有变化', counts.changes], ['review', rebuilding ? '待取舍' : '未知保留', counts.review], ['protected', '已保护', counts.protected], ...(rebuilding ? [['no_source', '无标准来源', job?.counts.no_source || 0]] : []), ...(counts.conflicts ? [['conflicts', '冲突', counts.conflicts]] : [])]
   return <dialog ref={modal} className={`tag-cleanup-backdrop${closing ? ' is-closing' : ''}`} aria-modal="true" aria-labelledby="tagCleanupTitle"
     onKeyDown={event => { if (event.key === 'Escape') event.stopPropagation() }} onCancel={event => { event.preventDefault(); closeModal() }}>
     <section className="tag-cleanup-modal">
@@ -180,22 +198,24 @@ export default function TagCleanupModal({ filters, filteredCount, onClose, onCha
           <button type="button" className="tag-cleanup-history-toggle" aria-expanded={historyOpen} aria-controls="tagCleanupHistory" onClick={() => setHistoryOpen(value => !value)}><strong>最近任务 <small>{history.length}</small></strong><span aria-hidden="true">{historyOpen ? '－' : '＋'}</span></button>
           <div id="tagCleanupHistory" hidden={!historyOpen}><p>最近 5 次完成记录，最长保留 30 天。重新打开预览需核对勾选。</p>
             <div className="tag-cleanup-history-list">{history.map(row => <button type="button" disabled={blocked} aria-pressed={job?.id === row.id} key={row.id} onClick={() => selectJob(row)}>
-              <strong>{job?.id === row.id ? '▸ ' : ''}{job?.id === row.id && busy ? stage : cleanupLabels[row.status] || row.status}</strong><span>{shortDate(row.created_at)}</span><small>{row.total} 部 · {row.scope === 'all' ? '全部手账' : '筛选作品'}</small>
+              <strong>{job?.id === row.id ? '▸ ' : ''}{job?.id === row.id && busy ? stage : cleanupLabels[row.status] || row.status}</strong><span>{shortDate(row.created_at)}</span><small>{row.total} 部 · {row.scope === 'all' ? '全部手账' : '筛选作品'}</small><small>{row.mode === 'rebuild' ? '标准题材重建' : '保守整理'}</small>
             </button>)}{!history.length && <p>扫描后，任务会保存在这里。</p>}</div>
           </div>
         </aside>
         <div className="tag-cleanup-main">
           <div className="tag-cleanup-controls">
-            <div className="tag-cleanup-task-scope"><div><small>{job ? '当前任务范围' : '开始前'}</small><p>{job ? cleanupScope(job) : '扫描不会修改作品。先选择范围，生成可核对的整理方案。'}</p></div>
+            <div className="tag-cleanup-task-scope"><div><small>{job ? `当前任务范围 · ${rebuilding ? '标准题材重建' : '保守整理'}` : '开始前'}</small><p>{job ? cleanupScope(job) : '扫描不会修改作品。先选择范围，生成可核对的整理方案。'}</p></div>
               <button type="button" className="tag-cleanup-subtle" disabled={blocked} aria-expanded={setupOpen} aria-controls="tagCleanupSetup" onClick={() => setSetupOpen(value => !value)}>{setupOpen ? '收起扫描设置' : '新建扫描'}</button>
               <button type="button" className="tag-cleanup-subtle" disabled={busy || Boolean(downloading)} onClick={() => file(true)}>{downloading === 'backup' ? '准备备份中…' : '下载 JSON 备份'}</button></div>
             <div id="tagCleanupSetup" className="tag-cleanup-setup" hidden={!setupOpen}><label>新扫描范围<select aria-label="标签整理范围" disabled={blocked} value={scope} onChange={event => { scanRequest.current = null; setScope(event.target.value) }}><option value="filtered">当前筛选的全部作品（{filteredCount} 部，含其他分页）</option><option value="all">全部私人手账</option></select></label>
+              <div className="tag-cleanup-modes" role="group" aria-label="标签整理模式">{[['conservative', '保守整理', '规范名称、清理明确冗余，保留未知标签。'], ['rebuild', '标准题材重建', '用已确认的标准资料重建题材，逐个取舍旧标签。']].map(([value, title, text]) => <button type="button" key={value} aria-label={title} aria-pressed={mode === value} disabled={blocked} onClick={() => { scanRequest.current = null; setMode(value) }}><strong>{title}</strong><small>{text}</small></button>)}</div>
+              {mode === 'rebuild' && <div className="tag-cleanup-policy"><label><input type="checkbox" checked={keepPersonal} disabled={blocked} onChange={event => { scanRequest.current = null; setKeepPersonal(event.target.checked) }} />默认保留个人标记、预设引用和已有配色标签</label><p>作品类型、来源与分级标记独立保留。没有确认身份或没有有效标准题材的作品会跳过。扫描后仍可逐标签调整。</p>{!keepPersonal && <p className="tag-cleanup-policy-warning">个人标记也会列入拟移除项，应用前需要单独确认。</p>}</div>}
               <button type="button" className="tag-cleanup-primary" disabled={blocked || hasActiveTask} onClick={scan}>扫描并生成预览</button>
               {job?.status === 'ready' && <p>新扫描会替换当前尚未应用的预览，请先完成核对或确认重新扫描。</p>}
               {hasActiveTask && <p>请先从最近任务继续进行中的任务；已应用部分也可以撤销。</p>}
             </div>
             <CleanupDisclosure title="整理规则" open={rulesOpen} onToggle={() => setRulesOpen(value => !value)} className="tag-cleanup-rules">
-              <p>仅修改本人的私人基础标签。自定义、常用预设、快捷筛选引用、已配色及作品格式标签默认保护；未知标签保留。</p><p>标准题材来自已确认作品的本地资料。公开手账会同步更新，已有精选投稿不变。可先下载 JSON 备份，备份不是执行前提。</p><p>扫描预览有效期 24 小时；最近 5 次完成记录最长保留至应用开始后 30 天。撤销会跳过后来编辑的标签。</p>
+              <p>保守整理保留原有保护规则。标准题材重建会列出旧标签的保留依据，可选择保留原位、转为个人标记或移除；作品类型、来源、分级与标准题材固定保留。预设和快捷筛选定义不变，标签改变后其命中结果可能变化。</p><p>仅修改本人标签及相关配色；标准题材来自已确认作品的本地资料。公开手账会同步更新，已有精选投稿不变。可先下载 JSON 备份，备份不是执行前提。</p><p>扫描预览有效期 24 小时；最近 5 次完成记录最长保留至应用开始后 30 天。撤销覆盖本次标签与配色，后来编辑的记录会跳过。</p>
             </CleanupDisclosure>
           </div>
           {job && <section className={`tag-cleanup-progress${counts.conflicts ? ' has-conflicts' : ''}${resumable || busy ? ' is-active' : ''}`} aria-label="整理进度">
@@ -205,24 +225,27 @@ export default function TagCleanupModal({ filters, filteredCount, onClose, onCha
             {job.expired ? <p role="alert">此预览或撤销记录已过期，请重新扫描。</p> : ['applied', 'applying', 'undone'].includes(job.status) && <small>本次撤销记录有效至 {shortDate(job.expires_at)}</small>}
           </section>}
           {error && <div className="tag-cleanup-error" role="alert"><p>{error}</p><button type="button" disabled={busy || viewLoading} onClick={readLatest}>重新读取任务</button></div>}
+          {job?.obsolete && <p className="tag-cleanup-notice" role="status">整理规则已更新，请新建扫描。已应用任务的撤销记录仍可使用。</p>}
+          {rebuilding && Boolean(job?.counts.no_source) && <div className="tag-cleanup-source-warning"><span>扫描时有 {job.counts.no_source} 部无可用标准题材，保持原标签；核对后请新建扫描。</span>{onReviewIdentity && <button type="button" disabled={blocked} onClick={() => onReviewIdentity(null)}>核对标准作品</button>}</div>}
           {notice && <p className="tag-cleanup-notice" role="status">{notice}</p>}
           <div className="tag-cleanup-list-tools"><nav className="tag-cleanup-tabs" aria-label="标签整理预览类别">{tabs.map(([value, label, count]) => <button type="button" key={value} disabled={blocked || !job} aria-pressed={tab === value} onClick={() => load(job.id, 1, value).catch(reportError)}>{label}<span>{count}</span></button>)}</nav>
-            <div className="tag-cleanup-selection">{canSelect ? <><span>跨页已选 <strong>{selected}</strong> 部</span><button type="button" disabled={blocked || !pageProposals.length} onClick={() => selectPage(true)}>全选本页</button><button type="button" disabled={blocked || !pageProposals.length} onClick={() => selectPage(false)}>取消本页</button></> : <span>分类可重叠；未知标签默认保留。</span>}</div>
+            <div className="tag-cleanup-selection">{canSelect ? <><span>跨页已选 <strong>{selected}</strong> 部{rebuilding ? ` · 拟移除个人标记 ${personalRemovals} 个` : ''}</span><button type="button" disabled={blocked || !pageProposals.length} onClick={() => selectPage(true)}>全选本页</button><button type="button" disabled={blocked || !pageProposals.length} onClick={() => selectPage(false)}>取消本页</button></> : <span>{rebuilding ? '分类可重叠；无标准来源的作品不作重建。' : '分类可重叠；未知标签默认保留。'}</span>}</div>
           </div>
           <div ref={previews} className="tag-cleanup-previews" tabIndex={0} aria-label="作品标签变化预览" aria-busy={viewLoading}>
-            {viewLoading ? <div className="tag-cleanup-empty" role="status"><span className="tag-cleanup-loader" aria-hidden="true" /><strong>正在读取预览…</strong><p>正在读取任务与标签变化。</p></div> : items.length ? items.map(item => <TagCleanupPreview key={`${job.id}:${item.record_id}`} item={item} checked={!excluded.has(item.record_id)} selectable={canSelect && item.status === 'proposed'} disabled={blocked} onToggle={() => toggleRecord(item.record_id)} />)
-              : <div className="tag-cleanup-empty"><span aria-hidden="true">◇</span><strong>{busy ? '正在分批处理…' : job ? '此分类暂无记录' : '从一次扫描开始'}</strong><p>{busy ? '已完成的进度会保存。' : job ? '可切换其他分类查看；未知标签会自动保留。' : '查看变化，再选择需要整理的作品。'}</p></div>}
+            {viewLoading ? <div className="tag-cleanup-empty" role="status"><span className="tag-cleanup-loader" aria-hidden="true" /><strong>正在读取预览…</strong><p>正在读取任务与标签变化。</p></div> : items.length ? items.map(item => <TagCleanupPreview key={`${job.id}:${item.record_id}`} item={item} checked={!excluded.has(item.record_id)} selectable={canSelect && item.status === 'proposed'} rebuilding={rebuilding} canReview={canSelect} disabled={blocked} onDecision={decide} onReviewIdentity={onReviewIdentity} onToggle={() => toggleRecord(item.record_id)} />)
+              : <div className="tag-cleanup-empty"><span aria-hidden="true">◇</span><strong>{busy ? '正在分批处理…' : job ? '此分类暂无记录' : '从一次扫描开始'}</strong><p>{busy ? '已完成的进度会保存。' : job ? rebuilding ? '可切换其他分类查看标准题材和旧标签取舍。' : '可切换其他分类查看；未知标签会自动保留。' : '查看变化，再选择需要整理的作品。'}</p></div>}
           </div>
           <div className="tag-cleanup-pagination"><span>{page}/{totalPages} 页 · 本分类 {itemCount} 部</span><button type="button" disabled={blocked || page <= 1} onClick={() => load(job.id, page - 1, tab).catch(reportError)}>上一页</button><button type="button" disabled={blocked || page >= totalPages} onClick={() => load(job.id, page + 1, tab).catch(reportError)}>下一页</button></div>
         </div>
       </div>
       <footer className="tag-cleanup-footer">
+        {confirmedApply && <div className="tag-cleanup-apply-confirm" role="group" aria-label="确认标准题材重建"><strong>按当前方案重建选中的 {selected} 部作品？</strong><p>将替换旧题材，保存你在预览中选择保留的标签；可通过本次记录撤销。</p>{personalRemovals > 0 && <label><input type="checkbox" checked={acknowledgedRemoval} onChange={event => setAcknowledgedRemoval(event.target.checked)} />我已核对将移除的 {personalRemovals} 个个人标记</label>}</div>}
         {confirmedUndo && <div className="tag-cleanup-undo-confirm" role="group" aria-label="确认撤销"><strong>撤销本次已整理的 {job?.counts.applied || 0} 部？</strong><p>仅恢复本次标签；后来编辑的记录会跳过，保留新修改。</p></div>}
         <div className="tag-cleanup-footer-row"><small>{busy ? '进度逐批保存' : canSelect ? `已选 ${selected} 部，含其他分页` : job ? '变更清单可供核对与留存' : '扫描只生成方案'}</small><div className="tag-cleanup-actions">
           {job && !job.expired && <button type="button" className="tag-cleanup-subtle" disabled={busy || Boolean(downloading)} onClick={() => file(false)}>{downloading === 'changes' ? '准备清单中…' : '下载变更清单'}</button>}
           {busy ? <button type="button" disabled={pauseRequested} onClick={() => { pause.current = true; setPauseRequested(true); setNotice('正在完成当前批次，随后暂停…') }}>{pauseRequested ? '正在暂停…' : '完成当前批次后暂停'}</button> : <>
             {resumable && !job?.expired && !confirmedUndo && <button type="button" className="tag-cleanup-primary" disabled={blocked} onClick={() => run(job, resumable)}>继续{resumable === 'scan' ? '扫描' : resumable === 'apply' ? '应用' : '撤销'}</button>}
-            {canSelect && <button type="button" className="tag-cleanup-primary" disabled={blocked || !selected} onClick={apply}>应用选中的 {selected} 部</button>}
+            {canSelect && (confirmedApply ? <><button type="button" className="tag-cleanup-primary" disabled={blocked || !selected || (personalRemovals > 0 && !acknowledgedRemoval)} onClick={apply}>确认应用标准题材方案</button><button type="button" disabled={blocked} onClick={() => setConfirmedApply(false)}>返回核对</button></> : <button type="button" className="tag-cleanup-primary" disabled={blocked || !selected} onClick={() => rebuilding ? setConfirmedApply(true) : apply()}>应用选中的 {selected} 部</button>)}
             {['applied', 'applying'].includes(job?.status) && !job.expired && (confirmedUndo ? <><button type="button" className="tag-cleanup-danger" disabled={blocked} onClick={undo}>确认撤销本次整理</button><button type="button" disabled={blocked} onClick={() => setConfirmedUndo(false)}>暂不撤销</button></> : <button type="button" disabled={blocked} onClick={() => setConfirmedUndo(true)}>撤销本次整理</button>)}
             <button type="button" className={['applied', 'undone'].includes(job?.status) && !confirmedUndo ? 'tag-cleanup-primary' : ''} onClick={closeModal} disabled={closing}>{['applied', 'undone'].includes(job?.status) ? '完成并关闭' : '关闭'}</button>
           </>}

@@ -1,7 +1,7 @@
 // Presentation only. Server-held plans remain the sole source of writes.
 export const cleanupPhases = { scanning: 'scan', applying: 'apply', undoing: 'undo' }
 export const cleanupLabels = { scanning: '扫描已暂停', ready: '预览待确认', applying: '应用已暂停', applied: '应用已完成', undoing: '撤销已暂停', undone: '撤销已完成', expired: '已过期', cancelled: '已取消' }
-export const cleanupItemLabels = { proposed: '拟整理', unchanged: '无需修改', missing: '已跳过', applied: '已应用', conflict: '应用冲突', undone: '已撤销', undo_conflict: '撤销冲突' }
+export const cleanupItemLabels = { proposed: '拟整理', unchanged: '无需修改', missing: '已跳过', no_source: '无标准来源', applied: '已应用', conflict: '应用冲突', undone: '已撤销', undo_conflict: '撤销冲突' }
 
 export function cleanupCounts(job) {
   const counts = job?.counts || {}
@@ -37,7 +37,7 @@ export function cleanupScope(job) {
   if (!job) return ''
   const filters = job.filters || {}, hints = []
   if (filters.search) hints.push(`搜索「${filters.search}」`)
-  if (filters.tag) hints.push(`标签「${filters.tag}」`)
+  if (filters.tag && filters.tag !== 'all') hints.push(`标签「${filters.tag}」`)
   if (filters.year && filters.year !== 'all') hints.push(`${filters.year} 年`)
   if (filters.status && filters.status !== 'all') hints.push(({ plan: '想看', watching: '在看', completed: '看过', on_hold: '搁置' })[filters.status] || '观看状态筛选')
   if (filters.type_filter && filters.type_filter !== 'all') hints.push(({ yuri: '百合', moe: '萌系', comedy: '搞笑', og: '原创', special: '特殊类型' })[filters.type_filter] || '分类筛选')

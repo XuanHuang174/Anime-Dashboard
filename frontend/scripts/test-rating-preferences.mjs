@@ -133,6 +133,7 @@ try {
   await page.getByRole('button', { name: '关闭详情', exact: true }).click()
   await page.getByRole('button', { name: /🛠 更多功能/ }).click()
   const toolsMenu = page.locator('.journal-dropdown-panel[aria-label="🛠 更多功能"]')
+  assert.ok((await toolsMenu.getByRole('link', { name: /番剧共创宇宙/ }).boundingBox()).y < (await toolsMenu.getByRole('button', { name: /核对标准作品/ }).boundingBox()).y)
   const ratingEntry = toolsMenu.getByRole('button', { name: /★ 评分样式与统计/ }), shareEntry = toolsMenu.getByRole('button', { name: '取消分享', exact: true })
   assert.ok((await shareEntry.boundingBox()).y >= (await ratingEntry.boundingBox()).y + (await ratingEntry.boundingBox()).height + 8)
   await page.screenshot({ path: '../.tools/rating-preferences-qa/preview-menu-order.png' })
