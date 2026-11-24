@@ -573,6 +573,26 @@ class PrivateAnimeMetadataSerializer(AnimeSerializer):
 class JournalAnimeImportSerializer(serializers.Serializer):
     """Portable anime metadata accepted by the journal import endpoint."""
 
+    def to_internal_value(self, data):
+        if isinstance(data, dict):
+            # Older API-shaped exports contain both the displayed persisted image
+            # and an upstream fallback. Canonical backups only use poster_url.
+            data = dict(data)
+            image = data.get('poster_image')
+            if image not in (None, ''):
+                data['poster_url'] = image
+            elif not data.get('poster_url') and data.get('cover') not in (None, ''):
+                data['poster_url'] = data['cover']
+        return super().to_internal_value(data)
+
+    def validate_poster_url(self, value):
+        from urllib.parse import urlsplit
+        if value:
+            parsed = urlsplit(value)
+            if parsed.scheme not in ('http', 'https') or parsed.username or parsed.password:
+                raise serializers.ValidationError('海报必须是可恢复的 HTTP/HTTPS 地址，不能使用临时或本地文件地址。')
+        return value
+
     chinese_title = serializers.CharField(max_length=200)
     bangumi_url = serializers.CharField(required=False, allow_blank=True, default='', max_length=1000)
 
@@ -907,6 +927,7 @@ class FeaturedSubmissionSerializer(serializers.ModelSerializer):
             "episodes",
             "description",
             "baike_url",
+            "bangumi_url",
             "watch_status",
             "watch_status_display",
             "score",
@@ -921,6 +942,7 @@ class FeaturedSubmissionSerializer(serializers.ModelSerializer):
             "updated_at",
         )
         read_only_fields = (
+            "bangumi_url",
             "rating_preferences",
             "id",
             "user",
@@ -1004,6 +1026,7 @@ class PublicFeaturedSubmissionSerializer(serializers.ModelSerializer):
             "episodes",
             "description",
             "baike_url",
+            "bangumi_url",
             "watch_status",
             "watch_status_display",
             "score",

@@ -263,6 +263,7 @@ SQLite 下的后端回归可以使用隔离配置运行；涉及 PostgreSQL 并�
 | 能力 | 相关说明 |
 | --- | --- |
 | 环境、数据库、媒体和邮件 | [.env.example](.env.example)、[Django 配置](config/settings.py) |
+| 手账备份、公开来源与精选后台 | [海报往返契约、链接快照与迁移 0032](docs/journal-portability-and-public-sources.md) |
 | 资源检索服务 | [检索代理与抽屉说明](docs/anime-resource-search.md) |
 | 推荐资料与封面准备 | [资料来源](docs/recommendation-data-sources.md)、[入库与封面验收](docs/recommendation-production-checklist.md) |
 | 系列资料与发布 | [系列模块方案](docs/recommendations-extension-12-plan.md)、[发布验收](docs/recommendations-12f.md) |

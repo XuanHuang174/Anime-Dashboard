@@ -533,6 +533,7 @@ class UserAnimeTag(models.Model):
 
 class FeaturedSubmission(models.Model):
     """A user-authored snapshot submitted to the curated featured column."""
+    bangumi_url = models.URLField('Bangumi 条目链接快照', max_length=1000, blank=True, default='')
     rating_preferences = models.JSONField('投稿评分展示快照', default=default_rating_preferences, validators=[validate_rating_preferences])
 
     class AuditStatus(models.TextChoices):

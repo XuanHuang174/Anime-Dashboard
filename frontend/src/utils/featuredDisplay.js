@@ -44,6 +44,7 @@ export function mapFeaturedSubmission(submission) {
     studio: submission.studio || '',
     episodes: submission.episodes || '',
     baikeUrl: submission.baike_url || '',
+    bangumiUrl: submission.bangumi_url || '',
     authorName,
     authorAvatar: submission.author_avatar || submission.submitter?.avatar || '',
     createdAt: submission.created_at,

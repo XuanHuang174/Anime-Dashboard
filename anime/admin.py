@@ -1,5 +1,8 @@
+from urllib.parse import urlsplit
+
 from django.conf import settings
 from django.contrib import admin
+from django.utils.html import format_html
 
 from .models import (
     Anime,
@@ -184,7 +187,7 @@ class FeaturedSubmissionAdmin(admin.ModelAdmin):
         "studio",
         "watch_status",
         "score",
-        "poster_url",
+        "poster_link",
         "audit_status",
         "created_at",
     )
@@ -196,9 +199,37 @@ class FeaturedSubmissionAdmin(admin.ModelAdmin):
         "user__email",
         "review",
     )
-    autocomplete_fields = ("user", "source_anime")
-    readonly_fields = ("created_at", "updated_at", "rating_preferences")
-    list_select_related = ("user",)
+    autocomplete_fields = ("user", "source_anime", "source_record")
+    readonly_fields = ("created_at", "updated_at", "rating_preferences", "bangumi_url")
+    list_select_related = ("user", "source_anime")
+    list_per_page = 30
+    show_full_result_count = False
+    fieldsets = (
+        ('来源与审核', {'fields': ('user', 'source_anime', 'source_record', 'audit_status')}),
+        ('作品快照', {'fields': ('chinese_title', 'japanese_title', 'year', 'airing_period', 'studio', 'episodes', 'baike_url', 'bangumi_url', 'poster', 'poster_url')}),
+        ('观看与评价', {'fields': ('watch_status', 'score', 'review')}),
+        ('标签与简介', {'fields': ('tags', 'tag_colors', 'description'), 'classes': ('collapse',)}),
+        ('评分配置与系统信息', {'fields': ('rating_preferences', 'created_at', 'updated_at'), 'classes': ('collapse',)}),
+    )
+
+    def get_readonly_fields(self, request, obj=None):
+        # Existing snapshot provenance must not enumerate all private records or
+        # be accidentally reassigned while moderating a submission.
+        return self.readonly_fields + (('user', 'source_anime', 'source_record') if obj else ())
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('user', 'source_anime', 'source_record__user', 'source_record__anime')
+
+    @admin.display(description='海报')
+    def poster_link(self, obj):
+        url = obj.poster.url if obj.poster else obj.poster_url
+        try:
+            parsed = urlsplit(url)
+        except ValueError:
+            return '未设置'
+        if not url or parsed.scheme not in ('http', 'https') or parsed.username or parsed.password:
+            return '未设置'
+        return format_html('<a href="{}" target="_blank" rel="noopener noreferrer">打开海报 ↗</a>', url)
 
 
 @admin.register(UserNotification)

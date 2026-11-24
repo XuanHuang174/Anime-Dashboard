@@ -1770,7 +1770,7 @@ class PublicJournalDetailView(generics.ListAPIView):
         profile = self.get_profile()
         return (
             UserAnimeRecord.objects.filter(user=profile.user)
-            .select_related("user", "anime")
+            .select_related("user", "anime", "recommendation_identity__catalog_anime")
             .prefetch_related("tag_preferences")
         )
 
@@ -1902,9 +1902,9 @@ class UserJournalExportView(APIView):
                 context={"request": request},
             ).data
             anime_data = dict(serialized_record["anime"])
-            poster_url = anime_data["poster_url"]
-            if not poster_url and anime_data["poster_image"]:
-                poster_url = anime_data["poster_image"]
+            # Match the display contract: persisted artwork is the actual cover,
+            # while poster_url may still contain an old upstream fallback.
+            poster_url = anime_data["poster_image"] or anime_data["poster_url"]
 
             exported_records.append(
                 {
@@ -2211,7 +2211,7 @@ class PublicShowcaseViewSet(PublicContentResponseMixin, viewsets.ReadOnlyModelVi
                 user__username=settings.PUBLIC_SHOWCASE_USERNAME,
                 anime__is_active=True,
             ), 'anime__bgm_id')
-            .select_related("user", "anime")
+            .select_related("user", "anime", "recommendation_identity__catalog_anime")
             .prefetch_related("tag_preferences")
         )
 
@@ -2690,6 +2690,7 @@ class FeaturedSubmissionViewSet(
             r"(?:19|20|21)\d{2}",
             metadata["airing_period"] or "",
         )
+        from .journal_sources import bangumi_url, confirmed_source_id
         snapshot = FeaturedSubmission(
             user=request.user,
             source_anime=anime,
@@ -2703,6 +2704,7 @@ class FeaturedSubmissionViewSet(
             episodes=metadata["episodes"],
             description=metadata["description"],
             baike_url=metadata["baike_url"],
+            bangumi_url=metadata['bangumi_url'] or bangumi_url(confirmed_source_id(record, private=True)),
             watch_status=record.watch_status,
             score=record.personal_score,
             review=record.review,
@@ -3001,7 +3003,7 @@ class AdminPublicJournalDetailView(generics.ListAPIView):
         profile = _get_admin_review_profile(self.kwargs["username"])
         queryset = (
             UserAnimeRecord.objects.filter(user=profile.user)
-            .select_related("user", "anime")
+            .select_related("user", "anime", "recommendation_identity__catalog_anime")
             .prefetch_related("tag_preferences")
         )
         queryset = _apply_record_filters(

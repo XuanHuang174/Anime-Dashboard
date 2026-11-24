@@ -44,7 +44,7 @@ def verify_source_ticket(user, ticket):
 
 def confirmed_source_id(record, *, private=False):
     direct = record.verified_bangumi_id or record.anime.bgm_id
-    if direct or not private:
+    if direct:
         return direct
     # Do not open a transaction or issue a query for each item in a prefetched
     # list. Only an individual write without the relation cached needs a lookup.
@@ -52,6 +52,8 @@ def confirmed_source_id(record, *, private=False):
     if 'recommendation_identity' in cache:
         link = cache['recommendation_identity']
     else:
+        if not private:
+            return None  # Public lists must preload aliases, never query per work.
         try:
             from recommendations.models import RecommendationRecordIdentity
             with transaction.atomic():
