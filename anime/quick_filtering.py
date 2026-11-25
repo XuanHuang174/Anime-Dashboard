@@ -36,6 +36,11 @@ def scalar_filters(queryset, config, score_field='personal_score'):
     if low is not None: queryset = queryset.filter(**{f'{score_field}__gte': low})
     if high is not None: queryset = queryset.filter(**{f'{score_field}__lte': high})
     if config.watch_statuses: queryset = queryset.filter(watch_status__in=config.watch_statuses)
+    state, priority = getattr(config, 'plan_state', 'any'), getattr(config, 'plan_priority', None)
+    if state == 'none': queryset = queryset.filter(watch_plan__isnull=True)
+    elif state == 'active': queryset = queryset.filter(watch_plan__state__in=('pending', 'ongoing'))
+    elif state != 'any': queryset = queryset.filter(watch_plan__state=state)
+    if priority is not None: queryset = queryset.filter(watch_plan__priority=priority)
     return queryset
 
 
@@ -53,5 +58,5 @@ def matches_metadata(config, *, tags, title, japanese_title, period, review):
 def preview_config(data):
     from types import SimpleNamespace
     defaults = dict(tags=[], title_keywords=[], exclude_tags=[], exclude_title_keywords=[], year_from=None, year_to=None,
-                    match_mode='any', score_min=None, score_max=None, score_state='any', watch_statuses=[], review_state='any')
+                    plan_state='any', plan_priority=None, match_mode='any', score_min=None, score_max=None, score_state='any', watch_statuses=[], review_state='any')
     return SimpleNamespace(**{**defaults, **data})

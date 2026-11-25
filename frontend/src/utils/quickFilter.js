@@ -16,6 +16,10 @@ export function matchesCustomQuickFilter(item, filter) {
   if ((filter.score_state === 'rated' || low != null || high != null) && !rated) return false
   if (rated && (low != null && Number(item.score) < Number(low) || high != null && Number(item.score) > Number(high))) return false
   if (filter.watch_statuses?.length && !filter.watch_statuses.includes(item.status)) return false
+  const plan = item.rawRecord?.watch_plan_summary ?? null
+  if (filter.plan_state === 'none' && plan || filter.plan_state === 'active' && !['pending', 'ongoing'].includes(plan?.state)
+    || !['any', 'none', 'active', undefined].includes(filter.plan_state) && plan?.state !== filter.plan_state
+    || filter.plan_priority != null && plan?.priority !== Number(filter.plan_priority)) return false
   const hasReview = Boolean(item.review?.trim())
   if (filter.review_state === 'with' && !hasReview || filter.review_state === 'without' && hasReview) return false
   if (filter.year_from != null || filter.year_to != null) {
@@ -53,6 +57,8 @@ export function quickFilterSummary(filter) {
     filter.year_from != null || filter.year_to != null ? `年份：${filter.year_from ?? '不限'}—${filter.year_to ?? '不限'}` : '',
     filter.score_state === 'unrated' ? '仅未评分' : filter.score_min != null || filter.score_max != null ? `个人评分：${filter.score_min ?? '不限'}—${filter.score_max ?? '不限'}（含端点）` : filter.score_state === 'rated' ? '仅已评分' : '',
     filter.watch_statuses?.length ? `观看：${filter.watch_statuses.map(value => WATCH_STATES[value]).join('、')}` : '',
+    filter.plan_state && filter.plan_state !== 'any' ? `计划：${PLAN_FILTER_STATES[filter.plan_state]}` : '',
+    filter.plan_priority != null ? `优先级：${{1:'优先看',2:'正常安排',3:'暂不着急'}[filter.plan_priority]}` : '',
     filter.review_state === 'with' ? '有长评' : filter.review_state === 'without' ? '无长评' : ''].filter(Boolean).join('；') || '尚未设置筛选条件'
 }
 
@@ -64,13 +70,14 @@ export function transferQuickTag(form, key, tag) {
   return { ...form, [key]: [...form[key], tag], [opposite]: form[opposite].filter(value => value !== tag) }
 }
 
+export const PLAN_FILTER_STATES = { any: '不限', none: '无安排', active: '当前计划', pending: '待开始', ongoing: '进行中', completed: '已完成', archived: '已移出' }
 export const WATCH_STATES = { plan: '想看', watching: '在看', completed: '看过', on_hold: '搁置' }
 export const quickKeywords = value => [...new Set(value.split(/[，,、\n]/).map(word => word.trim()).filter(Boolean))]
-export const emptyQuickFilter = () => ({ name: '', tags: [], title_keywords: '', exclude_tags: [], exclude_title_keywords: '', match_mode: 'any', year_from: '', year_to: '', score_min: '', score_max: '', score_state: 'any', watch_statuses: [], review_state: 'any' })
+export const emptyQuickFilter = () => ({ name: '', tags: [], title_keywords: '', exclude_tags: [], exclude_title_keywords: '', match_mode: 'any', year_from: '', year_to: '', score_min: '', score_max: '', score_state: 'any', watch_statuses: [], review_state: 'any', plan_state: 'any', plan_priority: '' })
 export function quickFilterPayload(form) {
   const number = value => value === '' || value == null ? null : Number(value)
   return { ...form, name: form.name.trim(), title_keywords: quickKeywords(form.title_keywords), exclude_title_keywords: quickKeywords(form.exclude_title_keywords),
-    year_from: number(form.year_from), year_to: number(form.year_to), score_min: number(form.score_min), score_max: number(form.score_max) }
+    plan_priority: number(form.plan_priority), year_from: number(form.year_from), year_to: number(form.year_to), score_min: number(form.score_min), score_max: number(form.score_max) }
 }
 export function quickFilterDraftError(form, requireName = true) {
   const data = quickFilterPayload(form)
@@ -80,9 +87,10 @@ export function quickFilterDraftError(form, requireName = true) {
   if ([data.score_min, data.score_max].some(value => value != null && (!Number.isFinite(value) || value < 0 || value > 10 || Math.abs(value * 10 - Math.round(value * 10)) > 1e-8))) return '评分需为 0–10，最多一位小数。'
   if (data.score_min != null && data.score_max != null && data.score_min > data.score_max) return '评分下限不能高于上限。'
   if (data.score_state === 'unrated' && (data.score_min != null || data.score_max != null)) return '仅未评分不能同时设置评分区间。'
+  if (data.plan_state === 'none' && data.plan_priority != null) return '无安排不能限定计划优先级。'
   if (data.tags.some(tag => data.exclude_tags.includes(tag))) return '标签不能同时包含与排除。'
   if (data.title_keywords.length > 4 || data.exclude_title_keywords.length > 4 || [...data.title_keywords, ...data.exclude_title_keywords].some(word => [...word].length > 30)) return '每组最多 4 个标题词，每词最多 30 字。'
   if (data.title_keywords.some(word => data.exclude_title_keywords.some(excluded => word.toUpperCase() === excluded.toUpperCase()))) return '标题词不能同时包含与排除。'
-  if (!(data.tags.length || data.exclude_tags.length || data.title_keywords.length || data.exclude_title_keywords.length || data.year_from != null || data.year_to != null || data.score_min != null || data.score_max != null || data.score_state !== 'any' || data.watch_statuses.length || data.review_state !== 'any')) return '请至少设置一项筛选条件。'
+  if (!(data.tags.length || data.exclude_tags.length || data.title_keywords.length || data.exclude_title_keywords.length || data.year_from != null || data.year_to != null || data.score_min != null || data.score_max != null || data.score_state !== 'any' || data.watch_statuses.length || data.review_state !== 'any' || data.plan_state && data.plan_state !== 'any' || data.plan_priority != null)) return '请至少设置一项筛选条件。'
   return ''
 }

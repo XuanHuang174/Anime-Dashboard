@@ -809,6 +809,9 @@ class UserAnimeRecordSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         if request is None or request.user.pk != instance.user_id:
             data.pop('watch_revision', None)
+        if self.context.get('private_plans') and request is not None and request.user.pk == instance.user_id:
+            plan = getattr(instance, 'watch_plan', None)
+            data['watch_plan_summary'] = {'state': plan.state, 'priority': plan.priority} if plan else None
         publication = getattr(instance, "_showcase_publication", None)
         if publication is not None and request is not None and request.user.pk == instance.user_id:
             data["showcase_publication"] = publication
@@ -835,9 +838,16 @@ class UserQuickFilterSerializer(serializers.ModelSerializer):
         model = UserQuickFilter
         fields = (
             "id", "name", "tags", "title_keywords", "match_mode", "exclude_tags", "exclude_title_keywords", "year_from", "year_to",
-            "score_min", "score_max", "score_state", "watch_statuses", "review_state", "sort_order", "created_at", "updated_at",
+            "score_min", "score_max", "score_state", "watch_statuses", "review_state", "plan_state", "plan_priority", "sort_order", "created_at", "updated_at",
         )
         read_only_fields = ("id", "sort_order", "created_at", "updated_at")
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get('request')
+        if not self.context.get('private_plans') or request is None or request.user.pk != getattr(instance, 'user_id', None):
+            data.pop('plan_state', None); data.pop('plan_priority', None)
+        return data
 
     def validate_tags(self, tags):
         normalized = list(dict.fromkeys(tag.strip() for tag in tags if tag.strip()))
@@ -867,8 +877,12 @@ class UserQuickFilterSerializer(serializers.ModelSerializer):
         statuses = attrs.get('watch_statuses', getattr(self.instance, 'watch_statuses', []))
         if len(set(statuses)) != len(statuses):
             raise serializers.ValidationError('观看状态不能重复。')
+        plan_state = attrs.get('plan_state', getattr(self.instance, 'plan_state', 'any'))
+        plan_priority = attrs.get('plan_priority', getattr(self.instance, 'plan_priority', None))
+        if plan_state == 'none' and plan_priority is not None:
+            raise serializers.ValidationError('无安排不能同时限定计划优先级。')
         review_state = attrs.get('review_state', getattr(self.instance, 'review_state', 'any'))
-        if not any(values.values()) and year_from is None and year_to is None and not has_score_range and score_state == 'any' and not statuses and review_state == 'any':
+        if not any(values.values()) and year_from is None and year_to is None and not has_score_range and score_state == 'any' and not statuses and review_state == 'any' and plan_state == 'any' and plan_priority is None:
             raise serializers.ValidationError("请至少设置一项筛选条件。")
         if set(values['tags']) & set(values['exclude_tags']):
             raise serializers.ValidationError("标签不能同时包含与排除。")
@@ -908,6 +922,7 @@ class FeaturedQuickFilterSerializer(UserQuickFilterSerializer):
 
     class Meta(UserQuickFilterSerializer.Meta):
         model = FeaturedQuickFilter
+        fields = tuple(field for field in UserQuickFilterSerializer.Meta.fields if field not in ('plan_state', 'plan_priority'))
 
 
 class FeaturedSubmissionSerializer(serializers.ModelSerializer):

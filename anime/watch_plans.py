@@ -273,6 +273,7 @@ def read_queue(user, params, request=None):
         query = query.filter(Q(record__private_chinese_title__icontains=search) | Q(record__private_japanese_title__icontains=search) |
             Q(record__metadata_initialized=False, record__anime__chinese_title__icontains=search) |
             Q(record__metadata_initialized=False, record__anime__japanese_title__icontains=search))
+    priority_counts = {row['priority']: row['n'] for row in query.order_by().values('priority').annotate(n=Count('pk'))}
     if order == 'planned':
         query = query.annotate(undated=Case(When(planned_for='', then=Value(1)), default=Value(0), output_field=IntegerField())).order_by('undated', 'planned_for', 'priority', 'position', 'record_id')
     elif order == 'added': query = query.order_by('-enrolled_at', 'record_id')
@@ -282,6 +283,7 @@ def read_queue(user, params, request=None):
     return {'contract_version': 'journal.watch-plans.v1', 'version': queue.revision if queue else 0,
         'count': count, 'page': page, 'page_size': size, 'sort': order, 'counts_scope': 'owner_all_plans',
         'counts': {key: counts.get(key, 0) for key in WatchPlan.State.values},
+        'priority_counts': {str(key): priority_counts.get(key, 0) for key in (1, 2, 3)}, 'priority_counts_scope': 'filtered_plans',
         'results': [{'record': record_summary(plan.record, request), 'plan': plan_data(plan)} for plan in query[(page - 1) * size:page * size]]}
 
 
@@ -323,6 +325,66 @@ def reorder(user, raw):
     bump(queue)
     WatchPlanOperation.objects.create(queue=queue, operation_id=data['operation_id'], request_hash=request_hash)
     return order_data(queue, data['priority'])
+
+
+class BatchPlanSerializer(serializers.Serializer):
+    action = serializers.ChoiceField(choices=('update', 'remove'))
+    version = serializers.IntegerField(min_value=0, max_value=9223372036854775806)
+    operation_id = serializers.UUIDField()
+    record_ids = serializers.ListField(child=serializers.IntegerField(min_value=1), allow_empty=False, max_length=100)
+    priority = serializers.IntegerField(min_value=1, max_value=3, required=False)
+    planned_for = serializers.CharField(allow_blank=True, max_length=10, required=False)
+
+    def to_internal_value(self, data):
+        if not isinstance(data, dict) or set(data) - set(self.fields) or type(data.get('version')) is not int:
+            raise serializers.ValidationError({'detail': '请提交合法的批量安排。'})
+        if not isinstance(data.get('record_ids'), list) or any(type(v) is not int for v in data['record_ids']) or 'priority' in data and type(data['priority']) is not int:
+            raise serializers.ValidationError({'detail': '作品编号和优先级须为整数。'})
+        return super().to_internal_value(data)
+
+    def validate(self, data):
+        fields = set(data) & {'priority', 'planned_for'}
+        if len(data['record_ids']) != len(set(data['record_ids'])):
+            raise serializers.ValidationError('作品不能重复。')
+        if data['action'] == 'remove' and fields or data['action'] == 'update' and not fields:
+            raise serializers.ValidationError('请明确选择批量修改内容。')
+        if data.get('planned_for'): date_bounds(data['planned_for'])
+        return data
+
+
+def batch_data(user, queue, ids, request, replayed=False):
+    plans = WatchPlan.objects.filter(record__user=user, record_id__in=ids).select_related('record__anime').order_by('record_id')
+    return {'contract_version': 'journal.watch-plan-batch.v1', 'version': queue.revision,
+            'record_ids': sorted(ids), 'replayed': replayed,
+            'results': [{'record': record_summary(plan.record, request), 'plan': plan_data(plan)} for plan in plans]}
+
+
+@transaction.atomic
+def batch(user, raw, request=None):
+    serializer = BatchPlanSerializer(data=raw); serializer.is_valid(raise_exception=True)
+    data = serializer.validated_data; ids = data['record_ids']
+    # Same lock order as single writes, history transitions and full reorders.
+    records = list(UserAnimeRecord.objects.select_for_update().filter(user=user, pk__in=ids).order_by('pk'))
+    if len(records) != len(ids):
+        raise serializers.ValidationError('选择中存在已移除或不可访问的作品，请重新核对。')
+    queue = lock_queue(user.pk, create=True)
+    hashed = digest(raw)
+    if replay(queue, data['operation_id'], hashed): return batch_data(user, queue, ids, request, True)
+    if queue.revision != data['version']: raise PlanConflict()
+    plans = list(queue.plans.filter(record_id__in=ids).order_by('priority', 'position', 'record_id'))
+    if len(plans) != len(ids) or any(plan.state not in ACTIVE for plan in plans):
+        raise PlanConflict('仅能批量调整当前活跃计划，请重新读取并选择。')
+    for plan in plans:
+        if data['action'] == 'remove': plan.state = 'archived'
+        else:
+            if 'priority' in data and plan.priority != data['priority']:
+                plan.position = next_position(queue, data['priority'])
+                plan.priority = data['priority']
+            if 'planned_for' in data: plan.planned_for = data['planned_for']
+        plan.save()
+    bump(queue)
+    WatchPlanOperation.objects.create(queue=queue, operation_id=data['operation_id'], request_hash=hashed)
+    return batch_data(user, queue, ids, request)
 
 
 class PlanBackupSerializer(serializers.Serializer):

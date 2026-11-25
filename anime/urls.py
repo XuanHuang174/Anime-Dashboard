@@ -4,7 +4,7 @@ from .resource_search import AnimeResourceSearchView
 from .rate_limit_views import RateLimitStatusView
 from .tag_cleanup import TagCleanupViewSet
 from .rating_views import RatingPreferencesView
-from .watch_plan_views import WatchPlanDetailView, WatchPlanQueueView, WatchPlanReorderView
+from .watch_plan_views import WatchPlanDetailView, WatchPlanQueueView, WatchPlanReorderView, WatchPlanBatchView
 
 from .views import (
     AdminFeaturedSubmissionViewSet,
@@ -86,6 +86,7 @@ app_name = "anime_api"
 urlpatterns = [
     path('watch-plans/', WatchPlanQueueView.as_view(), name='watch-plan-queue'),
     path('watch-plans/reorder/', WatchPlanReorderView.as_view(), name='watch-plan-reorder'),
+    path('watch-plans/batch/', WatchPlanBatchView.as_view(), name='watch-plan-batch'),
     path('records/<int:record_id>/watch-plan/', WatchPlanDetailView.as_view(), name='watch-plan-detail'),
     path('admin/rate-limit-status/', RateLimitStatusView.as_view(), name='rate-limit-status'),
     path('tag-presets/', CurrentUserTagPresetsView.as_view(), name='tag-presets'),

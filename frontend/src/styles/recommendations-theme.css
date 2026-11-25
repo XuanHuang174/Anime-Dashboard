@@ -70,6 +70,7 @@
 .memphis-rec-container .rec-card-tags { gap: 6px; }
 .memphis-rec-container .rec-card-tags span { border: 2px solid var(--rec-ink); border-radius: 999px; padding: 3px 8px; background: #e3f6f2; color: var(--rec-ink); font-size: 10px; line-height: 1.4; }
 .memphis-rec-container .rec-card-actions { padding-top: 16px; }
+.memphis-rec-container .rec-card-actions .rec-plan-entry { grid-column: 1 / -1; background: #fff8df; }
 .memphis-rec-container .rec-grid .rec-card-actions .rec-button { min-height: 42px; }
 .memphis-rec-container .rec-featured-main .rec-card--hero { border-width: 3px; box-shadow: 4px 4px 0 var(--rec-ink); }
 .memphis-rec-container .rec-featured-main .rec-card--hero > .rec-cover { padding: 8px; background: var(--rec-teal); }

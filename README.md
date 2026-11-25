@@ -265,7 +265,7 @@ SQLite 下的后端回归可以使用隔离配置运行；涉及 PostgreSQL 并�
 | 环境、数据库、媒体和邮件 | [.env.example](.env.example)、[Django 配置](config/settings.py) |
 | 手账备份、公开来源与精选后台 | [海报往返契约、链接快照与迁移 0032](docs/journal-portability-and-public-sources.md) |
 | 观看历程与重看记录 | [A1 数据、接口与迁移 0033](docs/watch-history-a1.md)、[A2 详情交互](docs/watch-history-a2.md)、[A3 管理、清空恢复与迁移 0034](docs/watch-history-a3.md) |
-| 待看计划与观看优先级 | [B1 数据与迁移 0035](docs/watch-plans-b1.md)、[B2 计划工作区、排序与观看交互](docs/watch-plans-b2.md) |
+| 待看计划与观看优先级 | [B1 数据与迁移 0035](docs/watch-plans-b1.md)、[B2 计划工作区](docs/watch-plans-b2.md)、[B3 视觉整合、私人筛选与批量安排](docs/watch-plans-b3.md) |
 | 资源检索服务 | [检索代理与抽屉说明](docs/anime-resource-search.md) |
 | 推荐资料与封面准备 | [资料来源](docs/recommendation-data-sources.md)、[入库与封面验收](docs/recommendation-production-checklist.md) |
 | 系列资料与发布 | [系列模块方案](docs/recommendations-extension-12-plan.md)、[发布验收](docs/recommendations-12f.md) |
@@ -281,10 +281,10 @@ SQLite 下的后端回归可以使用隔离配置运行；涉及 PostgreSQL 并�
   - [x] A1：观看轮次、日期精度、历程接口、原有写入衔接与备份基础。
   - [x] A2：作品详情入口、观看时间线及重看/随记交互。
   - [x] A3：查看与管理边界、紧凑时间线、清空历程、恢复确认、错误体验与完整端到端验收。
-- [ ] 待看计划与观看优先级。
+- [x] 待看计划与观看优先级。
   - [x] B1：私人计划、优先级与日期精度、稳定排序、轮次联动、并发保护与 JSON 备份基础。
   - [x] B2：编辑详情入口、计划队列、移动排序、只读预览与观看操作交互。
-  - [ ] B3：快速筛选、推荐加入入口、批量调整、恢复影响提示与完整端到端验收。
+  - [x] B3：页头与计划页视觉整合、独立观看安排入口、私人计划筛选、推荐加入、批量调整及恢复影响提示。
 - [ ] 个人月度／年度回顾。
 - [ ] 主题片单与私人策展。
 - [ ] 导入差异预览、资料整理与同步增强。

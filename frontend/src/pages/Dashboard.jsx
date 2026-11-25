@@ -714,6 +714,11 @@ function Dashboard() {
     setPlanRefreshKey(key => key + 1)
     const previous = selectedItem?.id === payload.canonical_record.id ? selectedItem.rawRecord : records.find(row => row.id === payload.canonical_record.id)
     if (command.action === 'start' || previous && previous.watch_revision !== payload.canonical_record.watch_revision) handleRecordUpdated(payload.canonical_record)
+    else {
+      setRecords(current => current.map(record => record.id === payload.canonical_record.id ? payload.canonical_record : record))
+      if (selectedItem?.id === payload.canonical_record.id) setSelectedItem(mapRecordToAnimeItem(payload.canonical_record))
+      setRecordsRefreshKey(key => key + 1)
+    }
   }
 
   const openPlanRecord = async (recordId, options = {}) => {
@@ -742,6 +747,16 @@ function Dashboard() {
     if (workspace === 'plans' && planWorkspaceGuard.current) planWorkspaceGuard.current(change, '返回手账')
     else change()
   }
+
+  useEffect(() => {
+    if (isSharedJournal || isAdminJournalReview) return
+    const params = new URLSearchParams(location.search), id = params.get('arrange')
+    if (!id || !/^[1-9]\d{0,14}$/.test(id)) return
+    params.delete('arrange')
+    navigate({pathname:location.pathname,search:params.toString()}, {replace:true})
+    setWorkspace('plans')
+    openPlanRecord(Number(id), {edit:true,plan:true})
+  }, [location.search, planSession, isSharedJournal, isAdminJournalReview])
 
   const handleProgressIncrement = async (item) => {
     if (isSharedJournal || item.status !== 'watching') return
@@ -1029,6 +1044,7 @@ function Dashboard() {
       <div className="memphis-float-zigzag pointer-events-none absolute bottom-24 right-0 z-0 h-16 w-44" aria-hidden="true" />
 
       <DashboardHeader
+        workspaceNavigation={!isSharedJournal && !isAdminJournalReview && <nav className="plan-workspace-switch" aria-label="私人手账工作区"><button type="button" aria-pressed={workspace === 'journal'} onClick={() => selectWorkspace('journal')}>手账</button><button type="button" aria-pressed={workspace === 'plans'} onClick={() => selectWorkspace('plans')}>观看计划</button></nav>}
         isPreviewMode={isPreviewMode}
         onTogglePreview={togglePreviewMode}
         onAddAnime={() => setIsAddModalOpen(true)}
@@ -1063,8 +1079,7 @@ function Dashboard() {
         returnLabel={isAdminJournalReview ? '返回通行证审批' : '返回共创大厅'}
       />
 
-      {!isSharedJournal && !isAdminJournalReview && <nav className="plan-workspace-switch" aria-label="私人手账工作区"><button type="button" aria-pressed={workspace === 'journal'} onClick={() => selectWorkspace('journal')}>手账</button><button type="button" aria-pressed={workspace === 'plans'} onClick={() => selectWorkspace('plans')}>观看计划</button></nav>}
-      <div style={workspace === 'plans' && !isSharedJournal ? { display: 'none' } : undefined}>
+      <div className="journal-workspace-content" style={workspace === 'plans' && !isSharedJournal ? { display: 'none' } : undefined}>
       {isPreviewMode && isHeaderEntranceComplete && hasLoadedRecords && (!error || recordsConnectionFailure) && (
         <div className="dashboard-content-piece dashboard-entrance-piece relative z-20 mx-auto -mt-6 max-w-7xl px-4 sm:px-6 lg:px-8">
           {isSharedJournal && <RatingLegend />}
@@ -1237,7 +1252,7 @@ function Dashboard() {
         )}
       </section>
       </div>
-      {!isSharedJournal && !isAdminJournalReview && <WatchPlanWorkspace key={planSession} active={workspace === 'plans'} editable={isEditMode} refreshKey={`${recordsRefreshKey}:${planRefreshKey}`} onOpenRecord={openPlanRecord} onEnterEdit={() => setIsPreviewMode(false)} closeGuardRef={planWorkspaceGuard} onChanged={() => setPlanRefreshKey(key => key + 1)} />}
+      {!isSharedJournal && !isAdminJournalReview && <WatchPlanWorkspace key={planSession} active={workspace === 'plans'} editable={isEditMode} refreshKey={`${recordsRefreshKey}:${planRefreshKey}`} onOpenRecord={openPlanRecord} onEnterEdit={() => setIsPreviewMode(false)} closeGuardRef={planWorkspaceGuard} onChanged={() => { setPlanRefreshKey(key => key + 1); setRecordsRefreshKey(key => key + 1) }} />}
       {planRecordLoading && <p role="status" className="relative z-10 mx-auto max-w-7xl px-6 py-3 font-bold">正在读取作品详情…</p>}
 
       {!exploringAway && (isPreviewMode || isSharedJournal) ? (

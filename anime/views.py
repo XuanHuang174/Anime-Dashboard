@@ -1023,7 +1023,7 @@ def _record_metadata_value(record, private_field, shared_field):
     return record.get(shared_field)
 
 
-def _apply_record_filters(queryset, request, filter_owner, *, draft_filter=None):
+def _apply_record_filters(queryset, request, filter_owner, *, draft_filter=None, private_plans=False):
     """Filter the complete record collection before DRF paginates it."""
 
     search = request.query_params.get("search", "").strip()
@@ -1067,6 +1067,9 @@ def _apply_record_filters(queryset, request, filter_owner, *, draft_filter=None)
         ).first()
 
     if custom_filter is not None:
+        private_plan = getattr(custom_filter, 'plan_state', 'any') != 'any' or getattr(custom_filter, 'plan_priority', None) is not None
+        if private_plan and not private_plans:
+            return queryset.none()
         queryset = scalar_filters(queryset, custom_filter)
 
     has_quick_metadata = custom_filter is not None and (
@@ -1239,7 +1242,7 @@ def _build_shared_journal_filter_options(queryset, owner):
 
     options = _build_filter_options(queryset)
     options["quick_filters"] = UserQuickFilterSerializer(
-        UserQuickFilter.objects.filter(user=owner).order_by('sort_order', 'pk'),
+        UserQuickFilter.objects.filter(user=owner, plan_state='any', plan_priority__isnull=True).order_by('sort_order', 'pk'),
         many=True,
     ).data
     return options
@@ -2327,7 +2330,7 @@ class PublicShowcaseQuickFilterViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         return UserQuickFilter.objects.filter(
-            user__username=settings.PUBLIC_SHOWCASE_USERNAME,
+            user__username=settings.PUBLIC_SHOWCASE_USERNAME, plan_state='any', plan_priority__isnull=True,
         )
 
 
@@ -2337,6 +2340,9 @@ class UserAnimeRecordViewSet(viewsets.ModelViewSet):
     serializer_class = UserAnimeRecordSerializer
     permission_classes = (permissions.IsAuthenticated,)
     pagination_class = UserAnimeRecordPagination
+
+    def get_serializer_context(self):
+        return {**super().get_serializer_context(), 'private_plans': True}
 
     @action(detail=False, methods=("get",), url_path="showcase-publication")
     def showcase_publication(self, request):
@@ -2387,14 +2393,14 @@ class UserAnimeRecordViewSet(viewsets.ModelViewSet):
         return (
             UserAnimeRecord.objects.filter(user=self.request.user)
             .select_related("user", "anime", "recommendation_identity__catalog_anime")
-            .prefetch_related("tag_preferences")
+            .prefetch_related("tag_preferences", "watch_plan")
         )
 
     def get_queryset(self):
         queryset = _apply_record_filters(
             self._base_queryset(),
             self.request,
-            filter_owner=self.request.user,
+            filter_owner=self.request.user, private_plans=True,
         )
         if self.request.method in ('PATCH', 'PUT'):
             queryset = queryset.select_for_update(of=('self',))
@@ -2670,6 +2676,9 @@ class UserQuickFilterViewSet(QuickFilterOrderMixin, viewsets.ModelViewSet):
     serializer_class = UserQuickFilterSerializer
     permission_classes = (permissions.IsAuthenticated,)
 
+    def get_serializer_context(self):
+        return {**super().get_serializer_context(), 'private_plans': True}
+
     def get_queryset(self):
         return UserQuickFilter.objects.filter(user=self.request.user)
 
@@ -2680,7 +2689,7 @@ class UserQuickFilterViewSet(QuickFilterOrderMixin, viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         records = UserAnimeRecord.objects.filter(user=request.user)
         count = _apply_record_filters(records, SimpleNamespace(query_params={}), request.user,
-                                      draft_filter=preview_config(serializer.validated_data)).count()
+                                      draft_filter=preview_config(serializer.validated_data), private_plans=True).count()
         return Response({'count': count, 'scope': '本人全手账'}, headers={'Cache-Control': 'private, no-store', 'Vary': 'Authorization, Cookie'})
 
     def perform_create(self, serializer):

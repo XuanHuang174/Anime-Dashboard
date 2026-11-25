@@ -240,6 +240,7 @@ function JournalDataTransfer({ onImported, showToast, theme = 'default', renderA
               {preview && <div className="mt-4 border-2 border-black bg-white p-3 text-left text-sm leading-7">
                 <p>恢复 {preview.incoming_count} 部作品；其中 {preview.with_history} 部包含完整历程（{preview.rounds_in_file} 个轮次、{preview.events_in_file} 条事件）。</p>
                 <p>替换已有历程：{preview.replaced_history} 部；旧格式匹配并保留历程：{preview.preserved_history} 部；其余日期未知起点：{preview.new_baselines} 部。</p>
+                {Number.isInteger(preview.plans_in_file) && <div className="my-3 border-l-4 border-[#4ecdc4] bg-[#eaf7f2] p-2" aria-label="观看计划恢复影响"><strong>观看计划</strong><p>文件内 {preview.plans_in_file} 部，其中覆盖已有安排 {preview.replaced_plans} 部；旧格式匹配保留 {preview.preserved_plans} 部。</p><p>明确清除 {preview.cleared_plans} 部；随作品移除 {preview.removed_plans} 部。计划时间保留原始精度，实际开始仍以观看历程为准。</p></div>}
                 <p className="font-black text-red-700">文件未包含的 {preview.removed_count} 部作品及其历程将移除，其中有 {preview.removed_history_events} 条事件。</p>
                 {!!preview.removed_titles?.length && <details><summary>查看将移除的作品（最多 20 部）</summary><ul>{preview.removed_titles.map((title, index) => <li key={index}>{title}</li>)}</ul></details>}
                 <p>完整历程按文件恢复，可能恢复曾清空的随记。旧文件仅在作品准确匹配时保留原历程；不能匹配的作品不猜测合并。不会用导入日期补作观看日期。</p>

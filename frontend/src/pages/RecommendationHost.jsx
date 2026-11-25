@@ -13,6 +13,7 @@ import { seriesSession } from '../hooks/useSeriesSession.js'
 import { validateCreditsCapabilities } from '../utils/recommendationCredits.js'
 import { createViewSnapshots } from '../utils/recommendationViewSnapshots.js'
 import useRecommendationScrollSnapshot from '../hooks/useRecommendationScrollSnapshot.js'
+import RecommendationPlanProvider from '../components/recommendations/RecommendationPlanProvider.jsx'
 
 export default function RecommendationHost({ client: baseClient, sessionScope, Personal }) {
   const location = useLocation()
@@ -66,7 +67,7 @@ export default function RecommendationHost({ client: baseClient, sessionScope, P
     tagsPath={mode === 'tags' ? path : snapshots.current.last('tags')}
     similarSeed={parseSimilarSeed(mode === 'similar' ? location.search : snapshots.current.last('similar')?.split('?')[1] || '').id} />
   const shared = { client, sessionScope, adult, setAdult, navigation, capabilities: capability.data, reminders }
-  return <ExplorationTopicsContext.Provider value={topics}>
+  return <RecommendationPlanProvider client={client}><ExplorationTopicsContext.Provider value={topics}>
     {mode === 'personal' ? <Personal key={path} {...shared} cache={cache} />
       : mode === 'similar' && capability.data?.navigation?.[1]?.available
         ? <SimilarRecommendations key={path} {...shared} cache={cache} />
@@ -81,5 +82,5 @@ export default function RecommendationHost({ client: baseClient, sessionScope, P
           <button type="button" className="rec-button" onClick={() => setAttempt(value => value + 1)}>重新读取服务状态</button>
         </section></div></main>}
     {notice && <div className="rec-host-notice" role="status">{notice}</div>}
-  </ExplorationTopicsContext.Provider>
+  </ExplorationTopicsContext.Provider></RecommendationPlanProvider>
 }

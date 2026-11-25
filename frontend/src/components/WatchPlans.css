@@ -1,4 +1,4 @@
-.watch-plans { color: #111; font-size: 13px; min-width: 0; }
+.watch-plans { color: #111; font-family: inherit; font-size: 14px; min-width: 0; }
 .watch-plans *, .watch-plans *::before { box-sizing: border-box; }
 .watch-plans :where(button,input,select,textarea) { color: inherit; font: inherit; min-width: 0; max-width: 100%; min-height: 44px; border: 2px solid #111; background: white; border-radius: 0; padding: 9px 12px; }
 .watch-plans button { font-weight: 800; cursor: pointer; transition: background-color 140ms ease, box-shadow 140ms ease; }
@@ -16,7 +16,22 @@
 .plan-sticker { display: inline-block; border: 2px solid #111; background: #ffe66d; padding: 4px 8px; font-size: 11px; font-weight: 900; letter-spacing: .14em; box-shadow: 3px 3px #111; }
 .plan-workspace { position: relative; z-index: 10; margin: 0 auto; max-width: 1280px; padding: 12px 24px 40px; }
 .plan-workspace[hidden] { display: none; }
-.plan-workspace-header { display: flex; gap: 20px; align-items: center; justify-content: space-between; border: 3px solid #111; background: #4ecdc4; box-shadow: 7px 7px #111; padding: 24px; margin: 6px 7px 22px 0; }
+.plan-workspace:not([hidden]),.journal-workspace-content { animation: plan-reveal 180ms ease-out; }
+.plan-workspace-header { display: flex; gap: 20px; align-items: center; justify-content: space-between; border: 3px solid #111; border-left: 9px solid #4ecdc4; background: #fff; box-shadow: 5px 5px #111; padding: 18px 22px; margin: 12px 7px 22px 0; }
+.plan-workspace-header > div { flex: 1; min-width: 0; display: grid; grid-template-columns: max-content minmax(0,1fr); column-gap: 15px; align-items: center; }
+.plan-workspace-header .plan-sticker { grid-column: 1; grid-row: 1/3; margin: 0; font-size: 10px; }
+.plan-workspace-header :is(h2,p) { grid-column: 2; }
+.plan-workspace-header h2 { margin: 0 0 4px; font-size: 23px; }
+.plan-workspace-header p { font-size: 13px; }
+.plan-private { display: inline-block; margin-left: 12px; color: #62584d; font-size: 12px; }
+.plan-controls { border: 3px solid #111; background: #fff; padding: 14px 18px; box-shadow: 4px 4px #4ecdc4; margin: 0 5px 23px 0; }
+.plan-controls .plan-tabs { margin: 0 0 14px; gap: 6px; border-bottom: 2px solid #eee7de; padding-bottom: 12px; }
+.plan-controls .plan-tabs button { box-shadow: none; border-width: 2px; }
+.plan-controls .plan-tabs button:nth-last-child(-n+2):not([aria-pressed=true]) { background: #f7f5f2; color: #62584d; }
+.plan-controls .plan-toolbar { border: 0; padding: 0; }
+.plan-help { font-size: 12px; color: #62584d; border-top: 1px solid #e4ded5; padding-top: 9px; }
+.plan-help summary { cursor: pointer; min-height: 32px; display: list-item; }
+.plan-help p { max-width: 850px; }
 .plan-workspace-header p { margin: 0; max-width: 700px; }
 .plan-workspace-header > button { flex-shrink: 0; box-shadow: 3px 3px #111; }
 .plan-tabs,.plan-actions,.plan-workspace-tools,.plan-pagination { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
@@ -27,9 +42,12 @@
 .plan-toolbar { display: grid; grid-template-columns: minmax(180px,1.5fr) minmax(150px,1fr) minmax(170px,1fr) auto auto; gap: 12px; align-items: end; border: 2px solid #111; background: #fff; padding: 16px; }
 .plan-workspace-tools { justify-content: space-between; margin: 14px 0; }
 .plan-workspace-tools p,.watch-plans .plan-hint { font-size: 12px; color: #62584d; line-height: 1.85; }
-.plan-group-heading { border-left: 7px solid #111; padding: 9px 12px; margin: 22px 0 12px !important; }
-.plan-card { display: grid; grid-template-columns: 64px minmax(0,1fr) minmax(140px,180px) auto; gap: 18px; align-items: center; border: 3px solid #111; background: #fff; box-shadow: 4px 4px #4ecdc4; margin: 0 5px 13px 0; padding: 17px; }
-.watch-plans .plan-cover { padding: 0; overflow: hidden; width: 64px; height: 88px; background: #fff0ad; }
+.plan-group-heading { display: inline-flex; gap: 7px; align-items: center; border-left: 4px solid #111; padding: 6px 10px; margin: 10px 0 12px !important; }
+.plan-group-heading small { margin-left: 4px; padding: 1px 5px; background: #fff; font-size: 12px; }
+.plan-card { display: grid; grid-template-columns: 76px minmax(0,1fr) minmax(140px,190px) 130px; gap: 22px; align-items: center; border: 3px solid #111; background: #fff; box-shadow: 4px 4px #4ecdc4; margin: 0 5px 16px 0; padding: 16px; }
+.watch-plans .plan-cover { padding: 0; overflow: hidden; width: 76px; height: 106px; background: #fff0ad; }
+.plan-card progress { width: 100%; height: 7px; accent-color: #087c72; }
+.plan-card:hover { border-color: #087c72; }
 .plan-cover img { width: 100%; height: 100%; object-fit: cover; }
 .watch-plans .plan-card-title > button { border: 0; padding: 0; text-align: left; font-size: 16px; min-height: 44px; background: transparent; }
 .plan-card-title > small { display: block; color: #718399; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 3px 0 8px; }
@@ -78,13 +96,35 @@
 .plan-error,.plan-leave { background: #fff0c9; border: 2px solid #805f21; padding: 13px; margin: 12px 0; overflow-wrap: anywhere; line-height: 1.9; }
 .plan-error { background: #ffe9e5; border-color: #963c31; }
 .plan-error button,.plan-leave button { margin: 7px 7px 0 0; }
-.plan-workspace-switch { position: relative; z-index: 20; display: flex; gap: 10px; margin: 20px auto 32px; padding: 0 24px; max-width: 1280px; }
-.plan-workspace-switch button { border: 3px solid #111; background: white; padding: 10px 20px; min-height: 46px; font-weight: 900; box-shadow: 4px 4px #111; }
+.journal-identity-navigation { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 18px; }
+.plan-workspace-switch { display: inline-flex; flex-shrink: 0; gap: 2px; margin: 0; padding: 3px; border: 2px solid #111; background: #fff5ee; box-shadow: 2px 2px #111; }
+.plan-workspace-switch button { border: 2px solid transparent; background: transparent; padding: 6px 10px; min-height: 36px; font-weight: 900; font-size: 12px; }
 .plan-workspace-switch button[aria-pressed=true] { background: #ffe66d; }
+.plan-workspace-switch button[aria-pressed=true] { border-color: #111; }
+.plan-workspace-switch button:hover { background: #eaf7f2; }
 .plan-workspace-switch button:focus-visible { outline: 3px solid #087c72; outline-offset: 3px; }
-.edit-record-workspace:has(.watch-plan-body) { overflow-y: auto; overscroll-behavior: contain; }
-.edit-record-workspace:has(.watch-plan-body) .edit-record-editor { flex: none; min-height: 20rem; }
+.plan-picker-dialog { position: fixed; inset: 0 0 0 auto; margin: 0; width: min(560px,100%); max-width: 100%; height: 100dvh; max-height: 100dvh; border: 3px solid #111; background: #fff5ee; padding: 0; }
+.plan-picker-dialog[open] { display: flex; flex-direction: column; animation: plan-reveal 170ms ease-out; }
+.plan-picker-dialog::backdrop { background: #1119; backdrop-filter: blur(3px); }
+.plan-picker-dialog > header,.plan-picker-dialog > footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px; flex-shrink: 0; }
+.plan-picker-dialog > header { background: #4ecdc4; border-bottom: 3px solid #111; }
+.plan-picker-dialog h2 { font-size: 20px; margin-bottom: 0; }
+.plan-picker-dialog > .plan-search { padding: 16px; flex-shrink: 0; }
+.plan-picker-dialog > footer { border-top: 2px solid #111; background: #ffe66d; }
+.plan-picker-content { min-height: 0; flex: 1; overflow-y: auto; padding: 0 16px; }
+.plan-picker-content ul { list-style: none; padding: 0; margin: 0; }
+.plan-picker-content li { display: flex; gap: 12px; align-items: center; background: #fff; border: 2px solid #111; margin: 0 3px 10px 0; padding: 10px; box-shadow: 2px 2px #4ecdc4; }
+.plan-picker-content img { width: 38px; height: 54px; object-fit: cover; flex-shrink: 0; }
+.plan-picker-content li > span { min-width: 0; flex: 1; overflow-wrap: anywhere; }
+.plan-picker-content small { display: block; color: #62584d; margin-top: 5px; }
+.plan-picker-content button { flex-shrink: 0; padding: 8px; }
+.plan-batch { padding: 18px; border: 3px solid #111; background: #fff8df; margin-bottom: 20px; }
+.plan-batch-list { max-height: 270px; overflow-y: auto; background: white; border: 2px solid #111; padding: 8px; margin: 12px 0; }
+.plan-batch-list label,.watch-plans .plan-check { display: flex; gap: 10px; align-items: center; min-height: 44px; }
+.plan-batch input[type=checkbox] { width: 20px; min-height: 20px; height: 20px; flex-shrink: 0; margin: 0; accent-color: #087c72; }
+.plan-batch-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; margin: 12px 0; }
 @keyframes plan-reveal { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
 @media(max-width:1000px) { .plan-toolbar { grid-template-columns: repeat(2,minmax(0,1fr)); } .plan-toolbar label:first-child { grid-column: 1/-1; } .plan-card { grid-template-columns: 56px minmax(0,1fr) auto; gap: 12px; } .plan-card-time { grid-column: 2; } .plan-card-actions { grid-column: 3; grid-row: 1/3; } .watch-plans .plan-cover { width: 56px; height: 80px; } }
 @media(max-width:600px) { .plan-workspace { padding: 10px 16px 24px; } .plan-workspace-header { flex-direction: column; align-items: stretch; padding: 18px; } .plan-card { grid-template-columns: 48px minmax(0,1fr); padding: 12px; gap: 10px; } .watch-plans .plan-cover { width: 48px; height: 70px; } .plan-card-actions { grid-column: 1/-1; grid-row: auto; flex-direction: row; flex-wrap: wrap; justify-content: flex-end; } .plan-card-time { grid-column: 2; } .plan-tabs { gap: 8px; } .plan-tabs button { flex: 1 1 auto; padding: 8px; } .plan-picker,.plan-order { padding: 12px; } .plan-order-list li { flex-wrap: wrap; } .plan-order-list li > div { width: 100%; justify-content: flex-end; } .plan-picker li { flex-wrap: wrap; } .plan-picker li button { margin-left: auto; } .plan-workspace-switch { padding: 0 16px; } }
-@media(prefers-reduced-motion:reduce) { .watch-plan-body,.plan-picker,.plan-order,.plan-form { animation: none; } .watch-plans button { transition: none; } }
+@media(max-width:600px) { .plan-workspace-switch { padding: 3px; } .plan-workspace-switch button { min-height: 44px; } .plan-workspace-header > div { display: block; } .plan-workspace-header .plan-sticker { margin: 0 0 9px; } .plan-private { display: block; margin: 5px 0 0; } .plan-controls { padding: 12px; } .plan-controls .plan-toolbar { grid-template-columns: minmax(0,1fr) minmax(0,1fr); } .plan-batch-fields { grid-template-columns: minmax(0,1fr); } .plan-picker-content img { display:none; } }
+@media(prefers-reduced-motion:reduce) { .watch-plan-body,.plan-picker,.plan-order,.plan-form,.plan-picker-dialog[open],.plan-workspace:not([hidden]),.journal-workspace-content { animation: none; } .watch-plans button { transition: none; } }

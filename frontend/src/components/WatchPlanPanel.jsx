@@ -22,7 +22,7 @@ export default function WatchPlanPanel(props) {
   const session = useSeriesSession()
   return <PlanPanel key={`${session}:${props.item.id}`} {...props} />
 }
-function PlanPanel({ item, editable = false, initiallyOpen = false, initialAction = '', disabled = false, closeGuardRef, onLockChange, onCommitted, onManage, onHistory }) {
+function PlanPanel({ item, editable = false, initiallyOpen = false, initialAction = '', management = false, disabled = false, closeGuardRef, onLockChange, onCommitted, onManage, onHistory }) {
   const [open, setOpen] = useState(initiallyOpen), [form, setForm] = useState(null), [baseline, setBaseline] = useState(''), [confirm, setConfirm] = useState(null), [localError, setLocalError] = useState(''), [notice, setNotice] = useState('')
   const root = useRef(null), focusOrigin = useRef(null), autoOpened = useRef(false)
   const { engine, snapshot } = useWatchPlan({ recordId: item.id, enabled: open || !editable, onCommitted })
@@ -80,15 +80,15 @@ function PlanPanel({ item, editable = false, initiallyOpen = false, initialActio
   }, [initialAction, data, snapshot.status, editable, canStart])
   if (!editable && !plan && snapshot.status !== 'error') return null
   return <section ref={root} className="watch-plans watch-plan-panel" aria-label="观看安排">
-    {editable ? <button type="button" className="plan-panel-toggle" aria-expanded={open} onClick={() => open ? guard(() => setOpen(false), '收起安排') : setOpen(true)}><span><i className="fa-solid fa-flag" aria-hidden="true" /> 观看安排</span><span>{open ? '收起' : '展开'}</span></button> : <h3>观看安排 · 仅本人可见</h3>}
+    {editable && !management ? <button type="button" className="plan-panel-toggle" aria-expanded={open} onClick={() => open ? guard(() => setOpen(false), '收起安排') : setOpen(true)}><span><i className="fa-solid fa-flag" aria-hidden="true" /> 观看安排</span><span>{open ? '收起' : '展开'}</span></button> : <h3>观看安排 · 仅本人可见</h3>}
     {(open || !editable) && <div className="watch-plan-body">
       {confirm && <div className="plan-leave" role="group" aria-label="确认离开计划草稿"><p>{snapshot.pending ? '操作可能已经保存。离开后请先检查计划，不要重复创建或开始。' : '有未保存的观看安排，是否放弃填写？'}</p><button type="button" onClick={() => setConfirm(null)}>继续编辑安排</button><button type="button" onClick={() => { const task = confirm.run; setForm(null); setBaseline(''); setConfirm(null); task() }}>{snapshot.pending ? '离开并稍后核对' : `放弃安排草稿并${confirm.label}`}</button></div>}
       {disabled && <p className="plan-hint">请先保存当前作品修改，再操作观看安排；两者分别保存。</p>}
       {(loading || busy) && <p role="status">{busy ? '正在保存安排…' : '正在读取安排…'}</p>}
-      <PlanError snapshot={snapshot} engine={engine} onRetry={retry} localError={localError} />
+      <PlanError snapshot={snapshot} engine={engine} onRetry={editable ? retry : undefined} localError={localError} />
       {notice && <p role="status" className="plan-hint">{notice}</p>}
       {data && <>
-        <div className="plan-summary" tabIndex={-1}>{plan ? <><span className={`plan-priority priority-${plan.priority}`}><i className="fa-solid fa-flag" aria-hidden="true" /> {PLAN_PRIORITIES[plan.priority]}</span><strong>{PLAN_PURPOSES[plan.purpose]} · {PLAN_STATES[plan.state]}</strong><p>计划开始：{planDateLabel(plan.planned_for)}{plannedTimePassed(plan.planned_for) && <small> · 可重新安排</small>}</p>{plan.note && <p className="plan-note">{plan.note}</p>}</> : <p>还没有观看安排。不设日期，也可以先排好优先级。</p>}</div>
+        <div className="plan-summary" tabIndex={-1}>{plan ? <><span className={`plan-priority priority-${plan.priority}`}><i className="fa-solid fa-flag" aria-hidden="true" /> {PLAN_PRIORITIES[plan.priority]}</span><strong>{PLAN_PURPOSES[plan.purpose]} · {PLAN_STATES[plan.state]}</strong><p>计划开始：{planDateLabel(plan.planned_for)}{plan.state === 'pending' && plannedTimePassed(plan.planned_for) && <small> · 可调整时间</small>}</p>{plan.note && <p className="plan-note">{plan.note}</p>}</> : <p>还没有观看安排。不设日期，也可以先排好优先级。</p>}</div>
         {editable ? <div className="plan-actions"><button type="button" disabled={blocked} onClick={() => startForm('metadata')}>{isActive ? '调整安排' : '加入观看计划'}</button>
           {canStart && <button type="button" className="plan-primary" disabled={blocked} onClick={() => startForm('start')}>{startLabel}</button>}
           {plan?.state === 'ongoing' && onHistory && <button type="button" disabled={blocked} onClick={() => guard(onHistory, '前往观看历程')}>记录观看进度</button>}

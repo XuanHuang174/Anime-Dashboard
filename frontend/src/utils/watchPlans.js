@@ -55,6 +55,12 @@ export function validPlanOrder(data) {
   return Boolean(data?.contract_version === 'journal.watch-plan-order.v1' && natural(data.version) && Number.isInteger(data.priority) && Object.hasOwn(PLAN_PRIORITIES, data.priority)
     && Array.isArray(data.record_ids) && data.record_ids.every(id => Number.isSafeInteger(id) && id > 0) && new Set(data.record_ids).size === data.record_ids.length)
 }
+export function validPlanBatch(data, ids) {
+  return Boolean(data?.contract_version === 'journal.watch-plan-batch.v1' && natural(data.version)
+    && Array.isArray(data.record_ids) && JSON.stringify([...ids].sort((a,b) => a-b)) === JSON.stringify(data.record_ids)
+    && Array.isArray(data.results) && data.results.length === ids.length && new Set(data.results.map(row => row.record?.id)).size === data.results.length
+    && data.results.every(row => ids.includes(row.record?.id) && validPlanRecord(row.record) && row.plan !== null && validPlan(row.plan)))
+}
 export function movePlan(ids, source, target) {
   const from = ids.indexOf(source), to = ids.indexOf(target)
   if (from < 0 || to < 0 || from === to) return [...ids]
@@ -106,13 +112,13 @@ export function createPlanController({ client, recordId = null, getSession, onCo
     async submit(command, retry = false) {
       if (!current() || gate || snapshot.status === 'loading' || snapshot.conflict || !snapshot.data) return false
       if (!retry && (snapshot.pending || snapshot.status !== 'ready' || snapshot.needsRead)) return false
-      const pending = retry ? snapshot.pending : { path: recordId ? `records/${recordId}/watch-plan/` : 'watch-plans/reorder/', body: { ...command, operation_id: uuid() } }
+      const pending = retry ? snapshot.pending : { path: recordId ? `records/${recordId}/watch-plan/` : command.action ? 'watch-plans/batch/' : 'watch-plans/reorder/', body: { ...command, operation_id: uuid() } }
       if (!pending) return false
       gate = true; const run = ++serial; abort?.abort(); abort = new AbortController()
       emit({ status: 'saving', error: '', pending })
       try {
         const { data } = await client.post(pending.path, pending.body, { signal: abort.signal })
-        if (data?.version < minimumVersion || data?.version <= pending.body.version || (recordId ? !validPlanAcknowledgement(data, recordId) : !validPlanOrder(data) || data.priority !== pending.body.priority)) throw new Error('操作结果尚未完整读取，请重试原操作确认结果。')
+        if (data?.version < minimumVersion || data?.version <= pending.body.version || (recordId ? !validPlanAcknowledgement(data, recordId) : pending.body.action ? !validPlanBatch(data, pending.body.record_ids) : !validPlanOrder(data) || data.priority !== pending.body.priority)) throw new Error('操作结果尚未完整读取，请重试原操作确认结果。')
         if (!current() || run !== serial) return false
         minimumVersion = data.version
         emit({ ...(recordId ? { data } : {}), status: 'ready', error: '', pending: null, conflict: false, needsRead: !recordId })

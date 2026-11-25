@@ -824,6 +824,8 @@ class UserQuickFilter(models.Model):
         on_delete=models.CASCADE,
         related_name="anime_quick_filters",
     )
+    plan_state = models.CharField('私人计划阶段', max_length=12, default='any', choices=[(v, v) for v in ('any', 'none', 'active', 'pending', 'ongoing', 'completed', 'archived')])
+    plan_priority = models.PositiveSmallIntegerField('私人计划优先级', null=True, blank=True, validators=[MinValueValidator(1), MaxValueValidator(3)])
     name = models.CharField("筛选名称", max_length=30)
     sort_order = models.PositiveIntegerField('显示顺序', default=0)
     year_from = models.PositiveSmallIntegerField("起始年份", null=True, blank=True, validators=[MinValueValidator(1000), MaxValueValidator(9999)])

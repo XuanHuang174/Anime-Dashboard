@@ -2,13 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import api from '../api/api.js'
 import useSeriesSession, { seriesSession } from '../hooks/useSeriesSession.js'
 import { lockDialogBody } from '../utils/dialogBodyLock.js'
-import { emptyQuickFilter, quickFilterPayload, quickFilterDraftError, quickFilterSummary, transferQuickTag, WATCH_STATES } from '../utils/quickFilter.js'
+import { emptyQuickFilter, quickFilterPayload, quickFilterDraftError, quickFilterSummary, transferQuickTag, PLAN_FILTER_STATES, WATCH_STATES } from '../utils/quickFilter.js'
 import QuickFilterOrderPanel from './QuickFilterOrderPanel.jsx'
 import QuickFilterTagPicker from './QuickFilterTagPicker.jsx'
 import './QuickFilterEditorModal.css'
 
 const errorText = error => error?.response?.status === 429 ? '操作较频繁，请稍后重试，不会自动重复保存。' : (typeof error?.response?.data === 'object' && error.response.data ? Object.values(error.response.data).flat().join('；') : '') || error.message || '连接暂时中断，请重试。'
-const editForm = filter => ({ ...emptyQuickFilter(), ...filter, title_keywords: (filter.title_keywords || []).join('，'), exclude_title_keywords: (filter.exclude_title_keywords || []).join('，'), year_from: filter.year_from ?? '', year_to: filter.year_to ?? '', score_min: filter.score_min ?? '', score_max: filter.score_max ?? '' })
+const editForm = filter => ({ ...emptyQuickFilter(), ...filter, title_keywords: (filter.title_keywords || []).join('，'), exclude_title_keywords: (filter.exclude_title_keywords || []).join('，'), year_from: filter.year_from ?? '', year_to: filter.year_to ?? '', score_min: filter.score_min ?? '', score_max: filter.score_max ?? '', plan_priority: filter.plan_priority ?? '' })
 // Only editable fields go to the API, including when opening an older saved combination.
 const fieldsOnly = form => Object.fromEntries(Object.keys(emptyQuickFilter()).map(key => [key, form[key]]))
 
@@ -23,7 +23,8 @@ export default function QuickFilterEditorModal({ isOpen, onClose, availableTags,
   const reportOrder = useCallback(value => { orderRef.current = value; setOrderInfo(value) }, [])
   const dirty = JSON.stringify(form) !== baseline
   const validDraft = quickFilterDraftError(form, false)
-  const payload = quickFilterPayload(form), payloadKey = JSON.stringify({ ...payload, name: payload.name || '未命名预览' })
+  const payload = quickFilterPayload(form); if (endpoint !== 'quick-filters') { delete payload.plan_state; delete payload.plan_priority }
+  const payloadKey = JSON.stringify({ ...payload, name: payload.name || '未命名预览' })
   const current = () => live.current && owner.current === seriesSession()
   const disabled = busy || closing || orderInfo.busy
   const reset = filter => {
@@ -124,6 +125,7 @@ export default function QuickFilterEditorModal({ isOpen, onClose, availableTags,
             <p>{form.score_state === 'unrated' ? '仅匹配没有个人评分的作品；评分区间已清空。' : '可只填单侧边界；设置区间会切换为仅已评分。0 分属于已评分，星级和配色不影响筛选。'}</p>
           </fieldset>
           <fieldset><legend>观看状态（多选，命中其中任意一种）</legend><div className="quick-workshop-statuses">{Object.entries(WATCH_STATES).map(([key,label]) => <label key={key}><input type="checkbox" checked={form.watch_statuses.includes(key)} onChange={() => toggle('watch_statuses', key, 4)} />{label}</label>)}</div><p>不选择时不限观看状态。</p></fieldset>
+          {endpoint === 'quick-filters' && <fieldset><legend>私人观看计划</legend><div className="quick-workshop-pair"><label>计划阶段<select aria-label="组合计划阶段" value={form.plan_state} onChange={event => setForm(old => ({...old, plan_state:event.target.value, ...(event.target.value === 'none' ? {plan_priority:''} : {})}))}>{Object.entries(PLAN_FILTER_STATES).map(([v,label]) => <option key={v} value={v}>{label}</option>)}</select></label><label>计划优先级<select aria-label="组合计划优先级" value={form.plan_priority} disabled={form.plan_state === 'none'} onChange={event => change('plan_priority',event.target.value)}><option value="">不限</option><option value="1">优先看</option><option value="2">正常安排</option><option value="3">暂不着急</option></select></label></div><p>仅本人可用；此类组合不展示在公开手账。无安排指从未加入或已清除，已移出单独匹配。</p></fieldset>}
           <label>长评状态<select aria-label="组合长评状态" value={form.review_state} onChange={event => change('review_state', event.target.value)}><option value="any">不限</option><option value="with">有长评</option><option value="without">无长评</option></select><small>仅含空格或换行视为无长评。</small></label>
         </fieldset>
         <fieldset disabled={disabled} hidden={tab !== 'tags'} className="quick-workshop-tag-fields"><legend className="quick-workshop-sr">标签与标题</legend><label>包含条件匹配方式<select value={form.match_mode} onChange={event => change('match_mode', event.target.value)}><option value="any">包含条件命中任意一项</option><option value="all">包含条件必须全部满足</option></select></label>{tagUndo && <div className="quick-tag-move-notice" role="status">已将“{tagUndo.tag}”移到{tagUndo.to}。<button type="button" disabled={disabled} onClick={() => { setForm(old => ({ ...old, ...tagUndo.before })); setTagUndo(null); setError('') }}>撤销标签移动</button></div>}<div className="quick-workshop-pair">{['tags', 'exclude_tags'].map(key => <QuickFilterTagPicker key={key} field={key} form={form} availableTags={availableTags} query={search[key]} onSearch={value => setSearch(old => ({ ...old, [key]: value }))} onToggle={toggleTag} onClear={() => { setTagUndo(null); change(key, []) }} onTitleChange={change} disabled={disabled} />)}</div><p>排除项命中任意一项即移除；不改变年份、评分或状态条件。OVA 等标题词不等于完整的作品类型识别。</p></fieldset>

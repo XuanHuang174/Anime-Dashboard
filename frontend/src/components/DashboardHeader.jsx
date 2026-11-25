@@ -34,6 +34,7 @@ function DashboardHeader({
   onExportSharedJournal,
   isSharedExporting = false,
   returnLabel = '返回共创大厅',
+  workspaceNavigation,
 }) {
   const menuRef = useRef(null)
   const previousPreviewModeRef = useRef(isPreviewMode)
@@ -251,10 +252,10 @@ function DashboardHeader({
           <div className="relative z-10 mx-auto max-w-7xl px-4 pb-12 pt-9 sm:px-6 lg:px-8">
             <div className={`flex flex-col gap-7 md:flex-row md:items-center md:justify-between ${!isSharedJournal ? 'journal-personal-preview-layout' : ''}`}>
               <div className={isSharedJournal ? 'max-w-3xl' : 'journal-preview-identity'}>
-                <span className="inline-flex -rotate-1 items-center border-[3px] border-black bg-[#ffe66d] px-3 py-1.5 text-xs font-black uppercase tracking-[0.16em] shadow-[4px_4px_0_#111]">
+                <div className="journal-identity-navigation"><span className="inline-flex -rotate-1 items-center border-[3px] border-black bg-[#ffe66d] px-3 py-1.5 text-xs font-black uppercase tracking-[0.16em] shadow-[4px_4px_0_#111]">
                   <i className="fa-solid fa-heart mr-2"></i>
-                  个人手账 / 追番记录
-                </span>
+                  个人手账<span className="hidden sm:inline"> / 追番记录</span>
+                </span>{workspaceNavigation}</div>
 
                 <h1
                   className="mt-5 flex items-center gap-4 text-3xl font-black tracking-[-0.04em] sm:text-5xl"
@@ -299,10 +300,10 @@ function DashboardHeader({
 
           <div className="journal-personal-edit-layout relative z-10 flex flex-col justify-between gap-5 px-4 py-5 sm:px-6 lg:flex-row lg:items-center">
             <div className="min-w-0">
-              <span className="inline-flex -rotate-1 items-center border-2 border-black bg-[#ffe66d] px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] shadow-[3px_3px_0_#111]">
+              <div className="journal-identity-navigation"><span className="inline-flex -rotate-1 items-center border-2 border-black bg-[#ffe66d] px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] shadow-[3px_3px_0_#111]">
                 <i className="fa-solid fa-bolt mr-2" />
-                PRIVATE JOURNAL / 私人手账
-              </span>
+                <span className="hidden sm:inline">PRIVATE JOURNAL / </span>私人手账
+              </span>{workspaceNavigation}</div>
 
               <div className="mt-3 flex items-center gap-3">
                 <div ref={menuRef} className="relative shrink-0">
