@@ -109,6 +109,7 @@ function Dashboard() {
   const recordsRecovery = useReadRecovery()
   const featuredRecovery = useReadRecovery()
   const [selectedItem, setSelectedItem] = useState(null)
+  const [historyDetailId, setHistoryDetailId] = useState(null)
   const [identityPanel, setIdentityPanel] = useState(null)
   const [identityRevision, setIdentityRevision] = useState(0)
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
@@ -181,6 +182,12 @@ function Dashboard() {
   const dismissToast = useCallback((toastId) => {
     setToasts((current) => current.filter((toast) => toast.id !== toastId))
   }, [])
+
+  useEffect(() => {
+    if (historyDetailId !== null && selectedItem?.id !== historyDetailId) {
+      setHistoryDetailId(null)
+    }
+  }, [historyDetailId, selectedItem?.id])
 
   useEffect(() => {
     if (!isSharedJournal) return
@@ -1179,10 +1186,12 @@ function Dashboard() {
         )}
       </section>
 
-      {!exploringAway && (isPreviewMode || isSharedJournal) ? (
+      {!exploringAway && (isPreviewMode || isSharedJournal || historyDetailId === selectedItem?.id) ? (
         <DetailModal
           selectedItem={selectedItem}
-          closeModal={() => setSelectedItem(null)}
+          closeModal={() => { setSelectedItem(null); setHistoryDetailId(null) }}
+          onRecordUpdated={!isSharedJournal ? handleRecordUpdated : undefined}
+          initialHistoryOpen={!isSharedJournal && historyDetailId === selectedItem?.id}
           isPrivateJournal={!isSharedJournal}
           explorationTags={explorationTags}
           identityRevision={identityRevision}
@@ -1202,6 +1211,7 @@ function Dashboard() {
           closeModal={() => setSelectedItem(null)}
           onRecordUpdated={handleRecordUpdated}
           onRecordDeleted={handleRecordDeleted}
+          onOpenHistory={item => setHistoryDetailId(item.id)}
           showToast={showToast}
         />
       ) : null}

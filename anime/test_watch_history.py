@@ -121,6 +121,18 @@ class WatchHistoryTests(APITestCase):
         self.assertEqual(self.client.post(self.url, {**body, 'watch_status': 'completed'}, format='json').status_code, 409)
         self.assertEqual(self.client.post(self.url, {**body, 'operation_id': str(uuid4())}, format='json').status_code, 409)
 
+    def test_command_acknowledgement_contains_current_owner_record_even_on_replay(self):
+        body = {'action': 'transition', 'watch_status': 'watching', 'version': 0, 'operation_id': str(uuid4())}
+        first = self.client.post(self.url, body, format='json')
+        self.assertEqual(first.data['record']['watch_revision'], first.data['version'])
+        self.assertEqual(first.data['record']['watch_status'], 'watching')
+        self.command('transition', watched_eps=2)
+        replayed = self.client.post(self.url, body, format='json')
+        self.assertTrue(replayed.data['replayed'])
+        self.assertEqual(replayed.data['record']['watched_eps'], 2)
+        self.assertEqual(replayed.data['record']['watch_revision'], 2)
+        self.assertEqual(replayed.data['record']['id'], self.record.pk)
+
     def test_undo_only_latest_does_not_overwrite_new_rating(self):
         self.command('transition', watch_status='completed', watched_eps=12)
         self.command('start-rewatch')

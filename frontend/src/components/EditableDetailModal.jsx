@@ -63,6 +63,7 @@ function EditableDetailModal({
   closeModal,
   onRecordUpdated,
   onRecordDeleted,
+  onOpenHistory,
   showToast,
 }) {
   const overlayRef = useRef(null)
@@ -210,7 +211,8 @@ function EditableDetailModal({
   }, [renderedItem])
 
   if (!renderedItem) return null
-  const hasUnsavedChanges = Boolean(posterFile) || JSON.stringify(formData) !== JSON.stringify(createForm(renderedItem))
+  const comparableForm = form => ({ ...form, score: String(form.score), watchedEps: String(form.watchedEps), totalEps: String(form.totalEps) })
+  const hasUnsavedChanges = Boolean(posterFile) || JSON.stringify(comparableForm(formData)) !== JSON.stringify(comparableForm(createForm(renderedItem)))
 
   const updateField = (event) => {
     const { name, value } = event.target
@@ -661,12 +663,14 @@ function EditableDetailModal({
           <button type="button" onClick={handleDelete} disabled={busy} className={`${arcadeButton} bg-red-500`}>
             <i className={`fa-solid ${isDeleting ? 'fa-spinner animate-spin' : 'fa-trash-can'} mr-2`}></i>{isDeleting ? '删除中...' : '删除私人记录'}
           </button>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
+            {onOpenHistory && <button type="button" disabled={busy || hasUnsavedChanges} aria-describedby={hasUnsavedChanges ? 'edit-history-hint' : undefined} title={hasUnsavedChanges ? '请先保存当前作品修改后再查看历程' : '查看观看历程与重看记录'} onClick={() => onOpenHistory(renderedItem)} className={`${arcadeButton} bg-[#4ecdc4]`}>观看历程</button>}
             <button type="button" onClick={handleSave} disabled={busy} className={`${arcadeButton} bg-[#ff4f9a]`}>
               <i className={`fa-solid ${isSaving ? 'fa-spinner animate-spin' : 'fa-floppy-disk'} mr-2`}></i>{isSaving ? '保存中...' : '保存全部修改'}
             </button>
             <button type="button" onClick={handleClose} disabled={busy} className={`${arcadeButton} bg-white`}>关闭</button>
           </div>
+          {onOpenHistory && hasUnsavedChanges && <p id="edit-history-hint" className="w-full text-xs font-bold">请先保存当前作品修改，再打开观看历程；历程操作会单独保存。</p>}
         </footer>
       </section>
     </div>

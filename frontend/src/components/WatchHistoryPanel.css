@@ -1,0 +1,57 @@
+.watch-workshop { flex-shrink: 0; min-width: 0; border: 3px solid #111; color: #111; background: #fff9f1; box-shadow: 4px 4px #4ecdc4; margin: 2px 4px 7px 0; font-size: 12px; }
+.watch-workshop *, .watch-workshop *::before { box-sizing: border-box; }
+.watch-workshop :where(button,input,select,textarea) { font: inherit; color: #111; min-width: 0; max-width: 100%; border: 2px solid #111; border-radius: 0; padding: 8px 9px; background: #fff; min-height: 40px; }
+.watch-workshop button { font-weight: 800; cursor: pointer; transition: background-color 140ms ease, box-shadow 140ms ease; }
+.watch-workshop button:not(:disabled):hover { background-color: #e0f6f0; }
+.watch-workshop button:not(:disabled):active { box-shadow: none; }
+.watch-workshop :disabled { opacity: .5; cursor: default; }
+.watch-workshop :is(button,input,select,textarea):focus-visible { outline: 3px solid #087c72; outline-offset: 2px; }
+.watch-workshop .watch-toggle { width: 100%; display: flex; align-items: center; justify-content: space-between; text-align: left; gap: 9px; border: 0; background: #4ecdc4; padding: 12px; }
+.watch-toggle strong { display: block; font-size: 15px; }
+.watch-toggle small { display: block; margin-top: 5px; font-size: 10px; font-weight: 600; }
+.watch-body { padding: 11px; animation: watch-reveal 160ms ease-out; }
+.watch-read-tools,.watch-quick-actions,.watch-form-actions,.watch-timeline-heading,.watch-pagination { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.watch-read-tools { justify-content: space-between; margin-bottom: 10px; }
+.watch-read-tools > span { font-size: 11px; color: #5d554d; }
+.watch-workshop .watch-read-tools button { font-size: 11px; min-height: 34px; padding: 5px 7px; }
+.watch-current { display: grid; gap: 7px; background: #fff0ad; padding: 11px; border: 2px solid #111; margin-bottom: 12px; }
+.watch-badge { font-weight: 900; font-size: 11px; }
+.watch-current > strong { font-size: 17px; }
+.watch-current > span:last-child { line-height: 1.8; font-size: 11px; }
+.watch-quick-actions { margin-bottom: 12px; }
+.watch-workshop .watch-primary { background: #ffe66d; box-shadow: 2px 2px #111; }
+.watch-form { padding: 11px; margin: 12px 0 15px; border: 2px solid #111; background: #fff; box-shadow: 3px 3px #ff8fab; animation: watch-reveal 140ms ease-out; }
+.watch-workshop h4 { font-size: 14px; font-weight: 900; margin: 0 0 7px; }
+.watch-workshop .watch-help { font-size: 11px; color: #61584e; line-height: 1.8; margin: 0 0 9px; }
+.watch-workshop fieldset { min-width: 0; border: 0; padding: 0; margin: 0; }
+.watch-workshop label { display: block; font-weight: 700; min-width: 0; margin: 9px 0; }
+.watch-workshop label :is(input,textarea,select) { display: block; width: 100%; margin-top: 5px; }
+.watch-workshop textarea { resize: vertical; min-height: 96px; }
+.watch-workshop label small { font-size: 10px; display: block; text-align: right; margin-top: 4px; color: #61584e; }
+.watch-workshop .watch-date { margin: 10px 0; }
+.watch-date legend { font-weight: 700; font-size: 12px; margin-bottom: 5px; }
+.watch-workshop .watch-date :is(select,input) { display: block; width: 100%; margin-bottom: 6px; }
+.watch-pair { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+.watch-form-actions { margin-top: 12px; }
+.watch-round-view { background: #eaf7f2; padding: 11px; border: 1px solid #749d91; margin: 14px 0; }
+.watch-round-view p { font-size: 11px; line-height: 1.9; margin: 7px 0; }
+.watch-note { white-space: pre-wrap; overflow-wrap: anywhere; }
+.watch-timeline-heading { justify-content: space-between; padding-top: 8px; }
+.watch-empty { background: #f4efe5; padding: 12px; font-size: 11px; line-height: 1.9; margin-top: 8px; }
+.watch-timeline { list-style: none; padding: 0 0 0 12px; margin: 14px 0; border-left: 3px solid #4ecdc4; }
+.watch-timeline li { position: relative; background: #fff; border: 1px solid #c8bfb3; margin: 0 0 10px; padding: 10px; overflow-wrap: anywhere; }
+.watch-timeline li::before { content: ''; width: 9px; height: 9px; position: absolute; left: -19px; top: 14px; border: 2px solid #111; background: #ffe66d; }
+.watch-timeline li > strong { font-weight: 900; display: block; }
+.watch-date-label { display: block; font-size: 11px; color: #32685b; font-weight: 700; margin-top: 6px; }
+.watch-timeline p { font-size: 11px; line-height: 1.9; margin: 6px 0; }
+.watch-timeline small { font-size: 10px; color: #6c6257; }
+.watch-timeline .is-undo { background: #f4f1eb; border-style: dashed; }
+.watch-pagination { justify-content: space-between; font-size: 10px; }
+.watch-status { font-size: 11px; line-height: 1.8; margin: 8px 0; color: #32685b; }
+.watch-error,.watch-warning,.watch-confirm { padding: 10px; margin: 10px 0; line-height: 1.9; font-size: 11px; border: 1px solid #9b3434; background: #ffe6e4; overflow-wrap: anywhere; }
+.watch-error p,.watch-confirm p { margin: 4px 0 9px; }
+.watch-warning,.watch-confirm { background: #fff2bf; border-color: #9d803f; }
+.watch-confirm button { margin: 4px 6px 4px 0; }
+@keyframes watch-reveal { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@media(max-width:520px) { .watch-pair { grid-template-columns: minmax(0,1fr); gap: 0; } .watch-workshop :where(button,input,select,textarea) { min-height: 44px; } .watch-workshop .watch-read-tools button { min-height: 44px; } .watch-body { padding: 9px; } .watch-form { padding: 9px; } .watch-pagination > span { order: -1; width: 100%; text-align: center; } }
+@media(prefers-reduced-motion:reduce) { .watch-body,.watch-form { animation: none; } .watch-workshop button { transition: none; } }

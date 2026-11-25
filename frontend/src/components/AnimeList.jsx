@@ -204,7 +204,7 @@ function AnimeList({
                         type="button"
                         className={`memphis-detail-button inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold transition-all duration-300 ${editable ? 'memphis-edit-action' : 'border border-indigo-100 bg-white text-indigo-500 shadow-sm hover:-translate-y-0.5 hover:bg-indigo-500 hover:text-white hover:shadow-md hover:shadow-indigo-200/50 active:translate-y-0 active:shadow-sm'}`}
                       >
-                        <i className={`fa-solid ${editable ? 'fa-pen-to-square' : 'fa-layer-group'}`}></i>
+                        <i className={`fa-solid ${editable ? 'fa-pen-to-square' : 'fa-layer-group'}`} aria-hidden="true"></i>
                         {editable ? '修改' : '详情'}
                       </button>
                       {onFindResources && <button type="button" className="journal-row-resource-button"

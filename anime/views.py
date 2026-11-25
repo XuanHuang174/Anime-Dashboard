@@ -2381,7 +2381,10 @@ class UserAnimeRecordViewSet(viewsets.ModelViewSet):
         from .watch_history import execute, read_history
         record = generics.get_object_or_404(self._base_queryset().select_for_update(of=('self',)), pk=pk)
         if request.method == 'POST':
-            return Response(execute(record.pk, request.user, request.data), headers={'Cache-Control': 'private, no-store', 'Vary': 'Authorization, Cookie'})
+            history = execute(record.pk, request.user, request.data)
+            record.refresh_from_db()
+            history['record'] = self.get_serializer(record).data
+            return Response(history, headers={'Cache-Control': 'private, no-store', 'Vary': 'Authorization, Cookie'})
         try:
             page = int(request.query_params.get('page', 1))
             size = int(request.query_params.get('page_size', 20))

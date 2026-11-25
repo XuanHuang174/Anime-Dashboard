@@ -264,7 +264,7 @@ SQLite 下的后端回归可以使用隔离配置运行；涉及 PostgreSQL 并�
 | --- | --- |
 | 环境、数据库、媒体和邮件 | [.env.example](.env.example)、[Django 配置](config/settings.py) |
 | 手账备份、公开来源与精选后台 | [海报往返契约、链接快照与迁移 0032](docs/journal-portability-and-public-sources.md) |
-| 观看历程 A1 基础 | [轮次、日期、私有接口与迁移 0033](docs/watch-history-a1.md)；时间线界面尚未上线 |
+| 观看历程与重看记录 | [A1 数据、接口与迁移 0033](docs/watch-history-a1.md)、[A2 详情时间线与操作交互](docs/watch-history-a2.md) |
 | 资源检索服务 | [检索代理与抽屉说明](docs/anime-resource-search.md) |
 | 推荐资料与封面准备 | [资料来源](docs/recommendation-data-sources.md)、[入库与封面验收](docs/recommendation-production-checklist.md) |
 | 系列资料与发布 | [系列模块方案](docs/recommendations-extension-12-plan.md)、[发布验收](docs/recommendations-12f.md) |
@@ -278,7 +278,7 @@ SQLite 下的后端回归可以使用隔离配置运行；涉及 PostgreSQL 并�
 
 - [ ] 观看历程与重看记录。
   - [x] A1：观看轮次、日期精度、历程接口、原有写入衔接与备份基础。
-  - [ ] A2：作品详情入口、观看时间线及重看/随记交互。
+  - [x] A2：作品详情入口、观看时间线及重看/随记交互。
   - [ ] A3：界面层恢复确认、错误体验与完整端到端验收。
 - [ ] 待看计划与观看优先级。
 - [ ] 个人月度／年度回顾。

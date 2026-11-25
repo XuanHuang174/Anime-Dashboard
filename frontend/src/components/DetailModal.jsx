@@ -12,6 +12,7 @@ import SeriesSummary from './recommendations/SeriesSummary.jsx'
 import CreditsSummary from './recommendations/CreditsSummary.jsx'
 import { lockDialogBody } from '../utils/dialogBodyLock.js'
 import { safeExternalUrl, normalizeBangumiLink } from '../utils/journalSourceLinks.js'
+import WatchHistoryPanel from './WatchHistoryPanel.jsx'
 
 gsap.registerPlugin(useGSAP)
 
@@ -76,6 +77,7 @@ function DetailModal({
   explorationTags = [],
   onReviewIdentity,
   identityRevision = 0,
+  initialHistoryOpen = false,
 }) {
   const [selectedItem, setSelectedItem] = useState(activeItem)
   const [formData, setFormData] = useState({
@@ -93,6 +95,7 @@ function DetailModal({
   const modalPanelRef = useRef(null)
   const closingRef = useRef(false)
   const previousRecordId = useRef(null)
+  const historyGuardRef = useRef(null)
 
   useEffect(() => { setResourceOpen(false) }, [activeItem?.id])
 
@@ -198,7 +201,7 @@ function DetailModal({
     revertOnUpdate: true,
   })
 
-  const handleClose = contextSafe(() => {
+  const performClose = contextSafe(() => {
     if (!selectedItem || closingRef.current) return
 
     closingRef.current = true
@@ -238,6 +241,11 @@ function DetailModal({
         },
         0.1,
       )
+  })
+
+  const handleClose = contextSafe(() => {
+    if (historyGuardRef.current) historyGuardRef.current(performClose)
+    else performClose()
   })
 
   useEffect(() => {
@@ -593,6 +601,8 @@ function DetailModal({
                 ))}
               </div>
 
+              {isPrivateJournal && <WatchHistoryPanel key={`history:${selectedItem.id}`} item={selectedItem} onRecordUpdated={onRecordUpdated} closeGuardRef={historyGuardRef} initiallyOpen={initialHistoryOpen} />}
+
               <div className="memphis-modal-piece">
                 <span className="mb-1.5 block text-[10px] font-black uppercase tracking-[0.18em] text-black">
                   标签分类 / TAGS
@@ -746,7 +756,7 @@ function DetailModal({
               🧲 寻找资源
             </button>
             {isPrivateJournal && onSimilar && <button type="button" disabled={isClosing || isSaving || isDeleting}
-              className={`${arcadeButtonClass} bg-[#ffe66d] hover:bg-[#ff8fab]`} onClick={() => onSimilar(selectedItem)}>
+              className={`${arcadeButtonClass} bg-[#ffe66d] hover:bg-[#ff8fab]`} onClick={() => historyGuardRef.current ? historyGuardRef.current(() => onSimilar(selectedItem), '前往相似推荐') : onSimilar(selectedItem)}>
               <i className="fa-solid fa-magnifying-glass mr-2" aria-hidden="true"></i>找相似
             </button>}
           </div>
