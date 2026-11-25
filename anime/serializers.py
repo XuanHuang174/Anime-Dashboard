@@ -675,12 +675,16 @@ class JournalRecordImportSerializer(serializers.Serializer):
 
     anime = JournalAnimeImportSerializer()
     watch_history = serializers.DictField(required=False)
+    watch_plan = serializers.DictField(required=False, allow_null=True)
 
     def validate(self, attrs):
         if 'watch_history' in attrs:
             from .watch_history import validate_backup
             attrs['watch_history'] = validate_backup(attrs['watch_history'], {
                 'watch_status': attrs['watch_status'], 'watched_eps': attrs['watched_eps'], 'total_eps': attrs['total_eps']})
+        if 'watch_plan' in attrs:
+            from .watch_plans import validate_plan_backup
+            attrs['watch_plan'] = validate_plan_backup(attrs['watch_plan'], attrs.get('watch_history'), attrs['watch_status'])
         return attrs
     personal_score = serializers.DecimalField(
         max_digits=3,

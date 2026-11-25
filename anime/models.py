@@ -510,6 +510,62 @@ class UserAnimeRecord(models.Model):
             return result
 
 
+class WatchPlanQueue(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='watch_plan_queue')
+    revision = models.PositiveBigIntegerField(default=0)
+
+
+class WatchPlan(models.Model):
+    class Purpose(models.TextChoices):
+        FIRST = 'first', '首次观看'
+        CONTINUE = 'continue', '继续观看'
+        RESUME = 'resume', '恢复观看'
+        REWATCH = 'rewatch', '准备重看'
+
+    class State(models.TextChoices):
+        PENDING = 'pending', '待开始'
+        ONGOING = 'ongoing', '进行中'
+        COMPLETED = 'completed', '已完成'
+        ARCHIVED = 'archived', '已移出'
+
+    record = models.OneToOneField(UserAnimeRecord, on_delete=models.CASCADE, related_name='watch_plan')
+    queue = models.ForeignKey(WatchPlanQueue, on_delete=models.CASCADE, related_name='plans')
+    priority = models.PositiveSmallIntegerField(default=2, choices=((1, '优先看'), (2, '正常安排'), (3, '暂不着急')))
+    position = models.PositiveIntegerField(default=0)
+    planned_for = models.CharField(max_length=10, blank=True, default='')
+    note = models.CharField(max_length=500, blank=True, default='')
+    purpose = models.CharField(max_length=16, choices=Purpose.choices)
+    state = models.CharField(max_length=16, choices=State.choices, default=State.PENDING)
+    # Round numbers are local to the record and portable. No fake WatchRound is
+    # created just to store a plan; a virtual baseline uses number 1.
+    target_round_number = models.PositiveIntegerField(null=True)
+    anchor_round_number = models.PositiveIntegerField(default=1)
+    history_base = models.PositiveIntegerField(default=0)
+    enrolled_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('priority', 'position', 'record_id')
+        constraints = [
+            models.CheckConstraint(condition=models.Q(priority__in=(1, 2, 3)), name='watch_plan_priority'),
+            models.CheckConstraint(condition=models.Q(anchor_round_number__gte=1), name='watch_plan_anchor'),
+            models.CheckConstraint(condition=models.Q(target_round_number__isnull=True) | models.Q(target_round_number__gte=1), name='watch_plan_target'),
+            models.CheckConstraint(condition=models.Q(state__in=('pending', 'ongoing', 'completed', 'archived')), name='watch_plan_state'),
+            models.CheckConstraint(condition=models.Q(purpose__in=('first', 'continue', 'resume', 'rewatch')), name='watch_plan_purpose'),
+        ]
+        indexes = [models.Index(fields=('queue', 'priority', 'position'), name='watch_plan_queue_order')]
+
+
+class WatchPlanOperation(models.Model):
+    queue = models.ForeignKey(WatchPlanQueue, on_delete=models.CASCADE, related_name='operations')
+    operation_id = models.UUIDField()
+    request_hash = models.CharField(max_length=64)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=('queue', 'operation_id'), name='watch_plan_operation')]
+
+
 class WatchRound(models.Model):
     record = models.ForeignKey(UserAnimeRecord, on_delete=models.CASCADE, related_name='watch_rounds')
     number = models.PositiveIntegerField()

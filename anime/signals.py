@@ -12,7 +12,19 @@ from .models import (
     UserNotification,
     UserProfile,
     UserQuickFilter,
+    WatchPlan,
 )
+
+
+@receiver(post_delete, sender=WatchPlan)
+def invalidate_removed_watch_plan(sender, instance, **kwargs):
+    # A deleted private work also changes its owner's queue. Cascade deletion
+    # already runs atomically; never recreate a queue while deleting an account.
+    from .watch_plans import bump
+    from .models import WatchPlanQueue
+    queue = WatchPlanQueue.objects.select_for_update().filter(pk=instance.queue_id).first()
+    if queue is not None:
+        bump(queue)
 
 
 DEFAULT_QUICK_FILTERS = (

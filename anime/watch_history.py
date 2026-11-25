@@ -82,8 +82,11 @@ def state(record, row):
 def append_event(record, kind, before, after, **extra):
     record.watch_revision += 1
     UserAnimeRecord.objects.filter(pk=record.pk).update(watch_revision=record.watch_revision)
-    return WatchEvent.objects.create(record=record, revision=record.watch_revision, kind=kind,
-                                    before=before, after=after, **extra)
+    event = WatchEvent.objects.create(record=record, revision=record.watch_revision, kind=kind,
+                                     before=before, after=after, **extra)
+    from .watch_plans import sync_plan
+    sync_plan(record, event)
+    return event
 
 
 def observe_change(previous, record):
@@ -220,6 +223,8 @@ def execute(record_id, user, raw):
         UserAnimeRecord.objects.filter(pk=record.pk).update(watch_revision=record.watch_revision,
             watch_history_base=record.watch_history_base, watch_clear_operation=data['operation_id'], watch_clear_hash=digest)
         ensure_round(record)
+        from .watch_plans import sync_plan
+        sync_plan(record)
         return {**read_history(record), 'replayed': False}
     row = ensure_round(record)
     before = state(record, row)

@@ -1888,7 +1888,7 @@ class UserJournalExportView(APIView):
             UserAnimeRecord.objects.filter(user=request.user)
             .select_for_update(of=('self',))
             .select_related("anime", "recommendation_identity__catalog_anime")
-            .prefetch_related("tag_preferences", "watch_rounds", "watch_events")
+            .prefetch_related("tag_preferences", "watch_rounds", "watch_events", "watch_plan")
             .order_by("pk")
         )
         exported_records = []
@@ -1902,6 +1902,7 @@ class UserJournalExportView(APIView):
             identity_rows = {}
         for record in records:
             from .watch_history import export_history
+            from .watch_plans import plan_data
             serialized_record = UserAnimeRecordSerializer(
                 record,
                 context={"request": request},
@@ -1938,6 +1939,7 @@ class UserJournalExportView(APIView):
                     "review": record.review,
                     "custom_tags": record.custom_tags,
                     "watch_history": export_history(record),
+                    "watch_plan": plan_data(getattr(record, 'watch_plan', None)),
                 }
             )
 
@@ -2045,6 +2047,8 @@ class UserJournalImportView(APIView):
                 from .journal_restore import restore_preview, valid_restore_token
                 list(UserAnimeRecord.objects.select_for_update().filter(user=request.user).order_by('pk').values_list('pk', flat=True))
                 list(UserProfile.objects.select_for_update().filter(user=request.user).values_list('pk', flat=True))
+                from .watch_plans import lock_queue, plan_data, restore_plan, bump
+                plan_queue = lock_queue(request.user.pk)
                 if request.query_params.get('preview') == 'true':
                     return Response(restore_preview(request.user, validated_records, imported_rating), headers={'Cache-Control': 'private, no-store'})
                 confirmation = request.data.get('confirmation_token') if hasattr(request.data, 'get') else None
@@ -2055,12 +2059,17 @@ class UserJournalImportView(APIView):
                 from .watch_history import export_history, restore_history, observe_change, record_state
                 previous_history = {}
                 previous_by_key = {}
-                for previous in UserAnimeRecord.objects.select_for_update(of=('self',)).filter(user=request.user).order_by('pk').select_related('anime').prefetch_related('watch_rounds', 'watch_events'):
+                previous_plans = {}
+                plans_by_key = {}
+                for previous in UserAnimeRecord.objects.select_for_update(of=('self',)).filter(user=request.user).order_by('pk').select_related('anime').prefetch_related('watch_rounds', 'watch_events', 'watch_plan'):
                     saved = (export_history(previous), record_state(previous))
                     previous_history[previous.anime_id] = saved
                     metadata = previous.effective_anime_metadata()
                     key = tuple(metadata[field] for field in ('chinese_title', 'japanese_title', 'airing_period'))
                     previous_by_key[key] = None if key in previous_by_key else saved
+                    previous_plan = plan_data(getattr(previous, 'watch_plan', None))
+                    previous_plans[previous.anime_id] = previous_plan
+                    plans_by_key[key] = None if key in plans_by_key else (previous_plan,)
                 if imported_rating is not None:
                     profile, _ = UserProfile.objects.select_for_update().get_or_create(user=request.user)
                     profile.rating_preferences = imported_rating
@@ -2070,6 +2079,7 @@ class UserJournalImportView(APIView):
                 identity_references = []
                 private_colors_by_anime_id = {}
                 histories_by_anime_id = {}
+                plans_by_anime_id = {}
                 for item in validated_records:
                     anime_data = dict(item["anime"])
                     identity_references.append(anime_data.pop('identity_reference', None))
@@ -2089,6 +2099,13 @@ class UserJournalImportView(APIView):
                     if 'watch_history' not in item and key in previous_by_key and previous_by_key[key] is None:
                         raise DRFValidationError('旧备份中的作品对应多个私人记录，无法明确保留历程，请先使用完整新版备份。')
                     histories_by_anime_id[anime.pk] = (item.get('watch_history'), previous_by_key.get(key) or previous_history.get(anime.pk))
+                    if 'watch_plan' in item:
+                        plans_by_anime_id[anime.pk] = item['watch_plan']
+                    else:
+                        if key in plans_by_key and plans_by_key[key] is None:
+                            raise DRFValidationError('旧备份中的作品对应多个私人记录，无法明确保留观看计划。')
+                        saved_plan = plans_by_key.get(key)
+                        plans_by_anime_id[anime.pk] = saved_plan[0] if saved_plan else previous_plans.get(anime.pk)
                     replacement_records.append(
                         UserAnimeRecord(
                             user=request.user,
@@ -2140,6 +2157,11 @@ class UserJournalImportView(APIView):
                                 before = SimpleNamespace(pk=restored.pk, watch_rounds=restored.watch_rounds, **old_state)
                                 observe_change(before, restored)
                                 restored.watch_events.filter(revision=restored.watch_revision).update(source='backup_restore')
+                    if plan_queue is not None or any(value is not None for value in plans_by_anime_id.values()):
+                        plan_queue = plan_queue or lock_queue(request.user.pk, create=True)
+                        for restored in replacement_records:
+                            restore_plan(restored, plan_queue, plans_by_anime_id[restored.anime_id])
+                        bump(plan_queue)
                     # Validate signed references, otherwise use conservative local matching.
                     # No arbitrary client-provided ID is copied into the public library.
                     from recommendations.binding import import_links_best_effort
