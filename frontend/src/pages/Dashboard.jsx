@@ -45,6 +45,8 @@ import JournalIdentityReview from '../components/JournalIdentityReview.jsx'
 import { createVisiblePoller } from '../utils/visiblePoller.js'
 import useReadRecovery from '../hooks/useReadRecovery.js'
 import { connectionRecovery, isConnectionFailure } from '../api/connectionRecovery.js'
+import WatchPlanWorkspace from '../components/WatchPlanWorkspace.jsx'
+import useSeriesSession, { seriesSession } from '../hooks/useSeriesSession.js'
 
 gsap.registerPlugin(useGSAP)
 
@@ -110,6 +112,13 @@ function Dashboard() {
   const featuredRecovery = useReadRecovery()
   const [selectedItem, setSelectedItem] = useState(null)
   const [historyDetailId, setHistoryDetailId] = useState(null)
+  const planSession = useSeriesSession()
+  const [workspace, setWorkspace] = useState('journal'), [planRequest, setPlanRequest] = useState(null), [planRefreshKey, setPlanRefreshKey] = useState(0), [planRecordLoading, setPlanRecordLoading] = useState(false)
+  const planWorkspaceGuard = useRef(null), workspaceScroll = useRef({ journal: 0, plans: 0 }), planRecordRead = useRef(null)
+  useEffect(() => {
+    setWorkspace('journal'); setPlanRequest(null); workspaceScroll.current = { journal: 0, plans: 0 }
+    return () => planRecordRead.current?.abort()
+  }, [planSession])
   const [identityPanel, setIdentityPanel] = useState(null)
   const [identityRevision, setIdentityRevision] = useState(0)
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
@@ -188,6 +197,7 @@ function Dashboard() {
       setHistoryDetailId(null)
     }
   }, [historyDetailId, selectedItem?.id])
+  useEffect(() => { if (planRequest && planRequest.id !== selectedItem?.id) setPlanRequest(null) }, [planRequest, selectedItem?.id])
 
   useEffect(() => {
     if (!isSharedJournal) return
@@ -614,13 +624,15 @@ function Dashboard() {
   }
 
   const handleLogout = () => {
-    setLogoutDestination('login')
-    setIsLogoutConfirmOpen(true)
+    const run = () => { setLogoutDestination('login'); setIsLogoutConfirmOpen(true) }
+    if (workspace === 'plans' && planWorkspaceGuard.current) planWorkspaceGuard.current(run, '退出登录')
+    else run()
   }
 
   const handleReturnHome = () => {
-    setLogoutDestination('home')
-    setIsLogoutConfirmOpen(true)
+    const run = () => { setLogoutDestination('home'); setIsLogoutConfirmOpen(true) }
+    if (workspace === 'plans' && planWorkspaceGuard.current) planWorkspaceGuard.current(run, '返回主界面')
+    else run()
   }
 
   const handleSharedJournalExport = async () => {
@@ -696,6 +708,39 @@ function Dashboard() {
     )))
     setSelectedItem(mapRecordToAnimeItem(updatedRecord))
     setRecordsRefreshKey((key) => key + 1)
+  }
+
+  const handlePlanCommitted = (payload, command) => {
+    setPlanRefreshKey(key => key + 1)
+    const previous = selectedItem?.id === payload.canonical_record.id ? selectedItem.rawRecord : records.find(row => row.id === payload.canonical_record.id)
+    if (command.action === 'start' || previous && previous.watch_revision !== payload.canonical_record.watch_revision) handleRecordUpdated(payload.canonical_record)
+  }
+
+  const openPlanRecord = async (recordId, options = {}) => {
+    planRecordRead.current?.abort()
+    const controller = new AbortController(), owner = seriesSession()
+    planRecordRead.current = controller; setPlanRecordLoading(true)
+    try {
+      const { data } = await api.get(`records/${recordId}/`, { signal: controller.signal })
+      if (controller.signal.aborted || owner !== seriesSession()) return
+      if (options.edit) setIsPreviewMode(false)
+      setHistoryDetailId(options.history ? recordId : null)
+      setPlanRequest(options.plan ? { id: recordId, action: options.start ? 'start' : '' } : null)
+      setSelectedItem(mapRecordToAnimeItem(data))
+    } catch (problem) {
+      if (!controller.signal.aborted && owner === seriesSession()) showToast(problem.response?.data?.detail || '作品详情暂未读取，请重试。', 'error')
+    } finally { if (planRecordRead.current === controller) setPlanRecordLoading(false) }
+  }
+
+  const selectWorkspace = next => {
+    if (next === workspace) return
+    const change = () => {
+      workspaceScroll.current[workspace] = window.scrollY
+      setWorkspace(next)
+      requestAnimationFrame(() => window.scrollTo({ top: workspaceScroll.current[next] || 0, behavior: 'instant' }))
+    }
+    if (workspace === 'plans' && planWorkspaceGuard.current) planWorkspaceGuard.current(change, '返回手账')
+    else change()
   }
 
   const handleProgressIncrement = async (item) => {
@@ -859,7 +904,7 @@ function Dashboard() {
     }
   }
 
-  const togglePreviewMode = () => {
+  const performTogglePreviewMode = () => {
     if (isSharedJournal) return
     setSelectedItem(null)
     setIsQuickFilterEditorOpen(false)
@@ -873,6 +918,10 @@ function Dashboard() {
       setRecordsRefreshKey((key) => key + 1)
     }
     setIsPreviewMode(!isPreviewMode)
+  }
+  const togglePreviewMode = () => {
+    if (workspace === 'plans' && planWorkspaceGuard.current) planWorkspaceGuard.current(performTogglePreviewMode, '切换查看模式')
+    else performTogglePreviewMode()
   }
 
   useGSAP(() => {
@@ -1014,6 +1063,8 @@ function Dashboard() {
         returnLabel={isAdminJournalReview ? '返回通行证审批' : '返回共创大厅'}
       />
 
+      {!isSharedJournal && !isAdminJournalReview && <nav className="plan-workspace-switch" aria-label="私人手账工作区"><button type="button" aria-pressed={workspace === 'journal'} onClick={() => selectWorkspace('journal')}>手账</button><button type="button" aria-pressed={workspace === 'plans'} onClick={() => selectWorkspace('plans')}>观看计划</button></nav>}
+      <div style={workspace === 'plans' && !isSharedJournal ? { display: 'none' } : undefined}>
       {isPreviewMode && isHeaderEntranceComplete && hasLoadedRecords && (!error || recordsConnectionFailure) && (
         <div className="dashboard-content-piece dashboard-entrance-piece relative z-20 mx-auto -mt-6 max-w-7xl px-4 sm:px-6 lg:px-8">
           {isSharedJournal && <RatingLegend />}
@@ -1185,6 +1236,9 @@ function Dashboard() {
           </>
         )}
       </section>
+      </div>
+      {!isSharedJournal && !isAdminJournalReview && <WatchPlanWorkspace key={planSession} active={workspace === 'plans'} editable={isEditMode} refreshKey={`${recordsRefreshKey}:${planRefreshKey}`} onOpenRecord={openPlanRecord} onEnterEdit={() => setIsPreviewMode(false)} closeGuardRef={planWorkspaceGuard} onChanged={() => setPlanRefreshKey(key => key + 1)} />}
+      {planRecordLoading && <p role="status" className="relative z-10 mx-auto max-w-7xl px-6 py-3 font-bold">正在读取作品详情…</p>}
 
       {!exploringAway && (isPreviewMode || isSharedJournal) ? (
         <DetailModal
@@ -1192,6 +1246,7 @@ function Dashboard() {
           closeModal={() => { setSelectedItem(null); setHistoryDetailId(null) }}
           onRecordUpdated={!isSharedJournal ? handleRecordUpdated : undefined}
           onManageHistory={!isSharedJournal ? () => { setHistoryDetailId(selectedItem.id); setIsPreviewMode(false) } : undefined}
+          onManagePlan={!isSharedJournal ? () => { setPlanRequest({ id: selectedItem.id, action: '' }); setIsPreviewMode(false) } : undefined}
           isPrivateJournal={!isSharedJournal}
           explorationTags={explorationTags}
           identityRevision={identityRevision}
@@ -1212,6 +1267,9 @@ function Dashboard() {
           onRecordUpdated={handleRecordUpdated}
           onRecordDeleted={handleRecordDeleted}
           initialHistoryOpen={historyDetailId === selectedItem?.id}
+          initialPlanOpen={Boolean(planRequest && planRequest.id === selectedItem?.id)}
+          initialPlanAction={planRequest && planRequest.id === selectedItem?.id ? planRequest.action : ''}
+          onPlanCommitted={handlePlanCommitted}
           showToast={showToast}
         />
       ) : null}

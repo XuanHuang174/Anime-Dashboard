@@ -165,6 +165,20 @@ class WatchPlanTests(APITestCase):
         self.assertEqual(WatchEvent.objects.count(), 1)
         self.assertEqual(self.plan('start', watch_version=1).status_code, 409)
 
+    def test_mutation_ack_contains_latest_canonical_record_including_on_replay(self):
+        self.plan('enroll')
+        url = f'/api/records/{self.record.pk}/watch-plan/'
+        body = {'action': 'start', 'version': 1, 'watch_version': 0, 'operation_id': str(uuid4())}
+        response = self.client.post(url, body, format='json')
+        self.assertEqual(response.data['canonical_record']['id'], self.record.pk)
+        self.assertEqual(response.data['canonical_record']['watch_revision'], response.data['record']['watch_revision'])
+        self.assertEqual(response.data['canonical_record']['watch_status'], 'watching')
+        self.history('transition', watched_eps=3)
+        replay = self.client.post(url, body, format='json')
+        self.assertTrue(replay.data['replayed'])
+        self.assertEqual(replay.data['canonical_record']['watched_eps'], 3)
+        self.assertEqual(replay.data['canonical_record']['personal_score'], '9.1')
+
     def test_old_edit_progress_completion_and_undo_reconcile_plan(self):
         self.plan('enroll')
         self.assertEqual(self.client.patch(f'/api/records/{self.record.pk}/', {'watch_status': 'watching'}, format='json').status_code, 200)

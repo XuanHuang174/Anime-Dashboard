@@ -1,6 +1,9 @@
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from django.db import transaction
+from .models import UserAnimeRecord
+from .serializers import UserAnimeRecordSerializer
 
 from . import watch_plans
 
@@ -13,8 +16,12 @@ class WatchPlanDetailView(APIView):
     def get(self, request, record_id):
         return Response(watch_plans.read_detail(request.user, record_id, request), headers=CACHE_HEADERS)
 
+    @transaction.atomic
     def post(self, request, record_id):
-        return Response(watch_plans.command(request.user, record_id, request.data, request), headers=CACHE_HEADERS)
+        payload = watch_plans.command(request.user, record_id, request.data, request)
+        record = UserAnimeRecord.objects.select_related('anime').prefetch_related('tag_preferences').get(pk=record_id, user=request.user)
+        payload['canonical_record'] = UserAnimeRecordSerializer(record, context={'request': request}).data
+        return Response(payload, headers=CACHE_HEADERS)
 
 
 class WatchPlanQueueView(APIView):

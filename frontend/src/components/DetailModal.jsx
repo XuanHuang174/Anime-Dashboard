@@ -13,6 +13,7 @@ import CreditsSummary from './recommendations/CreditsSummary.jsx'
 import { lockDialogBody } from '../utils/dialogBodyLock.js'
 import { safeExternalUrl, normalizeBangumiLink } from '../utils/journalSourceLinks.js'
 import WatchHistoryPanel from './WatchHistoryPanel.jsx'
+import WatchPlanPanel from './WatchPlanPanel.jsx'
 
 gsap.registerPlugin(useGSAP)
 
@@ -78,6 +79,7 @@ function DetailModal({
   onReviewIdentity,
   identityRevision = 0,
   onManageHistory,
+  onManagePlan,
 }) {
   const [selectedItem, setSelectedItem] = useState(activeItem)
   const [formData, setFormData] = useState({
@@ -602,6 +604,7 @@ function DetailModal({
               </div>
 
               {isPrivateJournal && <div className="memphis-modal-piece shrink-0"><WatchHistoryPanel key={`history:${selectedItem.id}`} item={selectedItem} onManage={onManageHistory} /></div>}
+              {isPrivateJournal && <div className="memphis-modal-piece plan-preview-slot shrink-0"><WatchPlanPanel item={selectedItem} onManage={onManagePlan} /></div>}
 
               <div className="memphis-modal-piece">
                 <span className="mb-1.5 block text-[10px] font-black uppercase tracking-[0.18em] text-black">

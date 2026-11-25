@@ -14,6 +14,7 @@ import { getImageFileError, IMAGE_FILE_ACCEPT } from '../utils/imageUpload.js'
 import { mapRecordToAnimeItem } from '../utils/recordMapping.js'
 import './EditableDetailModal.css'
 import WatchHistoryPanel from './WatchHistoryPanel.jsx'
+import WatchPlanPanel from './WatchPlanPanel.jsx'
 import useTagPresets from '../hooks/useTagPresets.js'
 import { bangumiSubjectUrl, moegirlTitleUrl } from '../utils/journalSourceLinks.js'
 
@@ -65,12 +66,17 @@ function EditableDetailModal({
   onRecordUpdated,
   onRecordDeleted,
   initialHistoryOpen = false,
+  initialPlanOpen = false,
+  initialPlanAction = '',
+  onPlanCommitted,
   showToast,
 }) {
   const overlayRef = useRef(null)
   const modalRef = useRef(null)
   const closeHandlerRef = useRef(null)
   const historyGuardRef = useRef(null)
+  const planGuardRef = useRef(null)
+  const [planLocked, setPlanLocked] = useState(false)
   const editorScrollRef = useRef(null)
   const editorPositions = useRef([]), historyEntryRef = useRef(null)
   const [historyOpen, setHistoryOpen] = useState(initialHistoryOpen)
@@ -198,6 +204,7 @@ function EditableDetailModal({
     if (!busy) {
       const close = () => playExit(closeModal)
       if (historyOpen && historyGuardRef.current) historyGuardRef.current(close)
+      else if (planGuardRef.current) planGuardRef.current(close, '关闭详情')
       else close()
     }
   }
@@ -216,6 +223,12 @@ function EditableDetailModal({
 
     const onKeyDown = (event) => {
       if (event.key === 'Escape') closeHandlerRef.current?.()
+      if (event.key === 'Tab') {
+        const nodes = [...(modalRef.current?.querySelectorAll('button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),a[href]') || [])].filter(node => !node.closest('[inert]') && node.getClientRects().length)
+        const first = nodes[0], last = nodes.at(-1)
+        if (first && event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
+        else if (last && !event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
+      }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => {
@@ -228,6 +241,10 @@ function EditableDetailModal({
   if (!renderedItem) return null
   const comparableForm = form => ({ ...form, score: String(form.score), watchedEps: String(form.watchedEps), totalEps: String(form.totalEps) })
   const hasUnsavedChanges = Boolean(posterFile) || JSON.stringify(comparableForm(formData)) !== JSON.stringify(comparableForm(createForm(renderedItem)))
+  const openHistory = () => {
+    editorPositions.current = [editorScrollRef.current, ...editorScrollRef.current.querySelectorAll('*')].filter(element => element.scrollTop || element.scrollLeft).map(element => [element, element.scrollTop, element.scrollLeft])
+    setHistoryOpen(true)
+  }
 
   const updateField = (event) => {
     const { name, value } = event.target
@@ -451,7 +468,7 @@ function EditableDetailModal({
       ref={overlayRef}
       role="dialog"
       aria-modal="true"
-      aria-label={historyOpen ? '观看历程管理' : '编辑私人作品'}
+      aria-label={historyOpen ? '观看历程管理' : planLocked ? '编辑观看安排' : '编辑私人作品'}
       className="fixed inset-0 z-[110] flex items-center justify-center overflow-y-auto bg-zinc-950/80 p-2 backdrop-blur-sm sm:p-4"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) handleClose()
@@ -464,9 +481,9 @@ function EditableDetailModal({
       >
         <header className="edit-modal-piece flex shrink-0 items-start justify-between gap-4 border-b-4 border-black bg-[#4ecdc4] px-4 py-3 sm:px-6">
           <div className="min-w-0 flex-1">
-            <span className="inline-block border-2 border-black bg-[#ffe66d] px-2 py-1 text-[10px] font-black uppercase tracking-[0.16em] shadow-[3px_3px_0_#111]">{historyOpen ? '观看历程管理 · 仅本人可见' : 'Edit Record'}</span>
-            {historyOpen && <h2 className="mt-3 text-lg font-black">{renderedItem.title}</h2>}
-            <div style={historyOpen ? { display: 'none' } : undefined} className="mt-3 grid gap-3 sm:grid-cols-2">
+            <span className="inline-block border-2 border-black bg-[#ffe66d] px-2 py-1 text-[10px] font-black uppercase tracking-[0.16em] shadow-[3px_3px_0_#111]">{historyOpen ? '观看历程管理 · 仅本人可见' : planLocked ? '观看安排 · 独立保存' : 'Edit Record'}</span>
+            {(historyOpen || planLocked) && <h2 className="mt-3 text-lg font-black">{renderedItem.title}</h2>}
+            <div inert={planLocked} style={historyOpen || planLocked ? { display: 'none' } : undefined} className="mt-3 grid gap-3 sm:grid-cols-2">
               <label className="block text-xs font-black" htmlFor="editAnimeTitle">
                 番剧名称（中文）
                 <input id="editAnimeTitle" name="title" value={formData.title} onChange={updateField} className={`${fieldClass} mt-1 text-lg font-black`} />
@@ -485,7 +502,7 @@ function EditableDetailModal({
         {historyOpen && <div className="min-h-0 flex-1 overflow-y-auto p-3 custom-scrollbar sm:p-4"><WatchHistoryPanel item={renderedItem} onRecordUpdated={onRecordUpdated} closeGuardRef={historyGuardRef} initiallyOpen management /></div>}
         <div ref={editorScrollRef} style={historyOpen ? { display: 'none' } : undefined} className="edit-record-body min-h-0 flex-1 overflow-y-auto p-3 custom-scrollbar sm:p-4">
           <div className="edit-record-layout grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
-            <aside className="edit-record-sources edit-modal-piece mx-auto w-full max-w-[240px] lg:mx-0 lg:flex lg:max-w-[220px] lg:flex-col custom-scrollbar">
+            <aside inert={planLocked} className="edit-record-sources edit-modal-piece mx-auto w-full max-w-[240px] lg:mx-0 lg:flex lg:max-w-[220px] lg:flex-col custom-scrollbar">
               <div className="aspect-[3/4] shrink-0 overflow-hidden border-4 border-black bg-[#ff8fab] shadow-[7px_7px_0_#4ecdc4]">
                 <img src={coverPreview} alt={`${formData.title} 海报`} className="h-full w-full object-cover" />
               </div>
@@ -519,7 +536,7 @@ function EditableDetailModal({
             </aside>
 
             <div className="edit-record-workspace flex min-h-0 min-w-0 flex-col gap-3">
-              <div className="edit-modal-piece grid shrink-0 gap-2.5 border-[3px] border-black bg-white p-3 shadow-[6px_6px_0_#ffe66d] sm:grid-cols-2 lg:grid-cols-12">
+              <div inert={planLocked} className="edit-modal-piece grid shrink-0 gap-2.5 border-[3px] border-black bg-white p-3 shadow-[6px_6px_0_#ffe66d] sm:grid-cols-2 lg:grid-cols-12">
                 {[
                   ['period', '放送季度', 'text', '2026-1', 'lg:col-span-4'],
                   ['studio', '制作公司', 'text', '', 'lg:col-span-4'],
@@ -563,10 +580,12 @@ function EditableDetailModal({
                 )}
               </div>
 
-              <div className="edit-record-panel-switcher edit-modal-piece shrink-0 bg-[#fff5ee] pb-1">
+              <div className="edit-modal-piece shrink-0"><WatchPlanPanel item={renderedItem} editable initiallyOpen={initialPlanOpen} initialAction={initialPlanAction} disabled={busy || hasUnsavedChanges} closeGuardRef={planGuardRef} onLockChange={setPlanLocked} onCommitted={onPlanCommitted} onHistory={openHistory} /></div>
+              {planLocked && <p className="text-xs font-bold">请先保存或取消观看安排，再继续编辑作品。</p>}
+              <div inert={planLocked} className="edit-record-panel-switcher edit-modal-piece shrink-0 bg-[#fff5ee] pb-1">
                 {editorPanelSwitcher}
               </div>
-              <section className="edit-record-editor edit-modal-piece min-h-0 flex-1">
+              <section inert={planLocked} className="edit-record-editor edit-modal-piece min-h-0 flex-1">
                 {activeEditorPanel === 'tags' ? (
                   <div className="grid h-full min-h-0 gap-3 lg:grid-cols-2">
                     <div className="edit-record-tags-panel flex min-h-0 flex-col border-[3px] border-black bg-white p-2.5 shadow-[6px_6px_0_#4ecdc4]">
@@ -677,15 +696,15 @@ function EditableDetailModal({
         </div>
 
         <footer className="edit-modal-piece flex shrink-0 flex-wrap justify-between gap-3 border-t-4 border-black bg-[#ffe66d] px-4 py-3 sm:px-6">
-          {historyOpen ? <><button type="button" className={`${arcadeButton} bg-white`} onClick={() => historyGuardRef.current?.(() => setHistoryOpen(false), '返回作品编辑')}>返回作品编辑</button><button type="button" onClick={handleClose} className={`${arcadeButton} bg-white`}>关闭</button></> : <>
+          {historyOpen ? <><button type="button" className={`${arcadeButton} bg-white`} onClick={() => historyGuardRef.current?.(() => setHistoryOpen(false), '返回作品编辑')}>返回作品编辑</button><button type="button" onClick={handleClose} className={`${arcadeButton} bg-white`}>关闭</button></> : planLocked ? <><p className="self-center text-xs font-bold">请在安排区域保存或取消，本次操作单独保存。</p><button type="button" onClick={handleClose} className={`${arcadeButton} bg-white`}>关闭</button></> : <>
           <div className="flex flex-wrap gap-4">
-          <button type="button" onClick={handleDelete} disabled={busy} className={`${arcadeButton} bg-red-500`}>
+          <button type="button" onClick={handleDelete} disabled={busy || planLocked} className={`${arcadeButton} bg-red-500`}>
             <i className={`fa-solid ${isDeleting ? 'fa-spinner animate-spin' : 'fa-trash-can'} mr-2`}></i>{isDeleting ? '删除中...' : '删除私人记录'}
           </button>
-          <button ref={historyEntryRef} type="button" disabled={busy || hasUnsavedChanges} aria-describedby={hasUnsavedChanges ? 'edit-history-hint' : undefined} title={hasUnsavedChanges ? '请先保存当前作品修改后再查看历程' : '查看观看历程与重看记录'} onClick={() => { editorPositions.current = [editorScrollRef.current, ...editorScrollRef.current.querySelectorAll('*')].filter(element => element.scrollTop || element.scrollLeft).map(element => [element, element.scrollTop, element.scrollLeft]); setHistoryOpen(true) }} className={`${arcadeButton} bg-white`}>观看历程</button>
+          <button ref={historyEntryRef} type="button" disabled={busy || hasUnsavedChanges || planLocked} aria-describedby={hasUnsavedChanges ? 'edit-history-hint' : undefined} title={hasUnsavedChanges ? '请先保存当前作品修改后再查看历程' : '查看观看历程与重看记录'} onClick={openHistory} className={`${arcadeButton} bg-white`}>观看历程</button>
           </div>
           <div className="flex flex-wrap gap-3">
-            <button type="button" onClick={handleSave} disabled={busy} className={`${arcadeButton} bg-[#ff4f9a]`}>
+            <button type="button" onClick={handleSave} disabled={busy || planLocked} className={`${arcadeButton} bg-[#ff4f9a]`}>
               <i className={`fa-solid ${isSaving ? 'fa-spinner animate-spin' : 'fa-floppy-disk'} mr-2`}></i>{isSaving ? '保存中...' : '保存全部修改'}
             </button>
             <button type="button" onClick={handleClose} disabled={busy} className={`${arcadeButton} bg-white`}>关闭</button>
