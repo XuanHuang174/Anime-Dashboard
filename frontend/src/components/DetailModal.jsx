@@ -77,7 +77,7 @@ function DetailModal({
   explorationTags = [],
   onReviewIdentity,
   identityRevision = 0,
-  initialHistoryOpen = false,
+  onManageHistory,
 }) {
   const [selectedItem, setSelectedItem] = useState(activeItem)
   const [formData, setFormData] = useState({
@@ -601,7 +601,7 @@ function DetailModal({
                 ))}
               </div>
 
-              {isPrivateJournal && <WatchHistoryPanel key={`history:${selectedItem.id}`} item={selectedItem} onRecordUpdated={onRecordUpdated} closeGuardRef={historyGuardRef} initiallyOpen={initialHistoryOpen} />}
+              {isPrivateJournal && <div className="memphis-modal-piece shrink-0"><WatchHistoryPanel key={`history:${selectedItem.id}`} item={selectedItem} onManage={onManageHistory} /></div>}
 
               <div className="memphis-modal-piece">
                 <span className="mb-1.5 block text-[10px] font-black uppercase tracking-[0.18em] text-black">
@@ -619,7 +619,7 @@ function DetailModal({
                 </div>
               </div>
 
-              {isPrivateJournal && !editable && <div className="memphis-modal-piece shrink-0"><SeriesSummary key={`series:${selectedItem.id}:${identityRevision}`} compact recordId={selectedItem.id} onReviewIdentity={onReviewIdentity} /></div>}
+              {isPrivateJournal && !editable && <div className="memphis-modal-piece shrink-0"><SeriesSummary key={`series:${selectedItem.id}:${identityRevision}`} compact recordId={selectedItem.id} onReviewIdentity={onReviewIdentity} reviewLabel="前往编辑核对标准作品 ↗" /></div>}
               {isPrivateJournal && !editable && <div className="memphis-modal-piece shrink-0"><CreditsSummary key={`credits:${selectedItem.id}:${identityRevision}`} recordId={selectedItem.id} /></div>}
 
               {editable && (

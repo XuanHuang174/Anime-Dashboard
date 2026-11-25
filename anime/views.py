@@ -2042,6 +2042,16 @@ class UserJournalImportView(APIView):
         try:
             with transaction.atomic():
                 get_user_model().objects.select_for_update().get(pk=request.user.pk)
+                from .journal_restore import restore_preview, valid_restore_token
+                list(UserAnimeRecord.objects.select_for_update().filter(user=request.user).order_by('pk').values_list('pk', flat=True))
+                list(UserProfile.objects.select_for_update().filter(user=request.user).values_list('pk', flat=True))
+                if request.query_params.get('preview') == 'true':
+                    return Response(restore_preview(request.user, validated_records, imported_rating), headers={'Cache-Control': 'private, no-store'})
+                confirmation = request.data.get('confirmation_token') if hasattr(request.data, 'get') else None
+                if request.query_params.get('confirm') == 'true' and not confirmation:
+                    raise DRFValidationError('请先预览恢复影响并确认。')
+                if confirmation and not valid_restore_token(confirmation, request.user, validated_records, imported_rating):
+                    return Response({'detail': '手账或文件已变化，或确认已过期。请重新预览后再恢复。'}, status=409)
                 from .watch_history import export_history, restore_history, observe_change, record_state
                 previous_history = {}
                 previous_by_key = {}
@@ -2378,7 +2388,7 @@ class UserAnimeRecordViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=('get', 'post'), url_path='watch-history')
     @transaction.atomic
     def watch_history(self, request, pk=None):
-        from .watch_history import execute, read_history
+        from .watch_history import EVENT_GROUPS, execute, read_history
         record = generics.get_object_or_404(self._base_queryset().select_for_update(of=('self',)), pk=pk)
         if request.method == 'POST':
             history = execute(record.pk, request.user, request.data)
@@ -2391,7 +2401,11 @@ class UserAnimeRecordViewSet(viewsets.ModelViewSet):
             if page < 1 or not 1 <= size <= 100: raise ValueError()
         except (ValueError, TypeError):
             raise DRFValidationError('历程分页参数无效。')
-        return Response(read_history(record, page, size), headers={'Cache-Control': 'private, no-store', 'Vary': 'Authorization, Cookie'})
+        category = request.query_params.get('category', 'all')
+        compact = request.query_params.get('compact', 'false')
+        if category not in EVENT_GROUPS or compact not in ('true', 'false'):
+            raise DRFValidationError('历程筛选参数无效。')
+        return Response(read_history(record, page, size, category, compact == 'true'), headers={'Cache-Control': 'private, no-store', 'Vary': 'Authorization, Cookie'})
 
     @action(detail=False, methods=("get",), url_path="stats")
     def stats(self, request):

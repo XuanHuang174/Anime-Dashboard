@@ -8,7 +8,7 @@ from contextvars import ContextVar
 from datetime import date
 
 from django.db import transaction
-from django.db.models import Max
+from django.db.models import F, Max, Q
 from rest_framework import serializers
 from rest_framework.exceptions import APIException
 
@@ -100,7 +100,16 @@ def observe_change(previous, record):
     append_event(record, 'change', before, state(record, row), source=_observation_source.get())
 
 
-def read_history(record, page=1, page_size=20):
+EVENT_GROUPS = {'all': None, 'progress': ('change', 'transition'), 'rewatch': ('start-rewatch',),
+                'notes': ('note', 'memory'), 'corrections': ('update-round', 'undo')}
+
+
+def event_payload(e):
+    return {'revision': e.revision, 'kind': e.kind, 'source': e.source, 'occurred_on': e.occurred_on,
+            'note': e.note, 'before': e.before, 'after': e.after, 'recorded_at': e.recorded_at.isoformat()}
+
+
+def read_history(record, page=1, page_size=20, category='all', compact=False):
     rounds = list(record.watch_rounds.all())
     rows = [round_state(row) for row in rounds]
     if not rows:
@@ -109,20 +118,39 @@ def read_history(record, page=1, page_size=20):
             watched_eps=record.watched_eps, total_eps=record.total_eps, started_on='', completed_on='',
             rating=None, rating_origin='', note='')]
     events = record.watch_events.order_by('-revision')
+    total_count = events.count()
+    if compact:
+        targets = record.watch_events.filter(kind='undo').annotate(target=F('revision') - 1).values('target')
+        events = events.exclude(revision__in=targets)
+    if EVENT_GROUPS[category]:
+        match = Q(kind__in=EVENT_GROUPS[category])
+        if compact:
+            originals = record.watch_events.filter(kind__in=EVENT_GROUPS[category]).annotate(undo_revision=F('revision') + 1).values('undo_revision')
+            match |= Q(kind='undo', revision__in=originals)
+        events = events.filter(match)
     count = events.count()
-    selected = events[(page - 1) * page_size:page * page_size]
+    page = min(page, max(1, (count + page_size - 1) // page_size))
+    selected = list(events[(page - 1) * page_size:page * page_size])
+    originals = {e.revision: e for e in record.watch_events.filter(revision__in=[e.revision - 1 for e in selected if compact and e.kind == 'undo'])}
+    payload = []
+    for event in selected:
+        item = event_payload(event)
+        if event.revision - 1 in originals:
+            item['undone_event'] = event_payload(originals[event.revision - 1])
+        payload.append(item)
     return {'contract_version': 'journal.watch-history.v1', 'version': record.watch_revision, 'rounds': rows,
+        'base_revision': record.watch_history_base, 'total_count': total_count, 'category': category, 'compact': compact,
         'completed_rounds': sum(row['status'] == 'completed' and not row['voided'] for row in rows),
         'rewatch_count': max(0, sum(not row['voided'] for row in rows) - 1),
         'count': count, 'page': page, 'page_size': page_size,
-        'events': [{'revision': e.revision, 'kind': e.kind, 'source': e.source, 'occurred_on': e.occurred_on,
-                    'note': e.note, 'before': e.before, 'after': e.after, 'recorded_at': e.recorded_at.isoformat()} for e in selected]}
+        'events': payload}
 
 
 class CommandSerializer(serializers.Serializer):
     version = serializers.IntegerField(min_value=0, max_value=2147483647)
     operation_id = serializers.UUIDField()
-    action = serializers.ChoiceField(choices=('transition', 'start-rewatch', 'update-round', 'note', 'memory', 'undo'))
+    action = serializers.ChoiceField(choices=('transition', 'start-rewatch', 'update-round', 'note', 'memory', 'undo', 'clear'))
+    confirm_clear = serializers.BooleanField(required=False)
     watch_status = serializers.ChoiceField(choices=UserAnimeRecord.WatchStatus.values, required=False)
     watched_eps = serializers.IntegerField(min_value=0, required=False)
     total_eps = serializers.IntegerField(min_value=0, required=False)
@@ -145,6 +173,7 @@ class CommandSerializer(serializers.Serializer):
             'start-rewatch': {'started_on', 'note'},
             'update-round': {'round_number', 'started_on', 'completed_on', 'rating', 'note'},
             'note': {'note', 'occurred_on'}, 'memory': {'note', 'occurred_on'}, 'undo': {'target_revision'},
+            'clear': {'confirm_clear'},
         }[data['action']]
         if set(data) - {'action', 'operation_id', 'version'} - allowed:
             raise serializers.ValidationError('此操作包含不适用的字段。')
@@ -156,6 +185,8 @@ class CommandSerializer(serializers.Serializer):
             raise serializers.ValidationError('补录往事请填写实际日期或大致年月。')
         if data['action'] == 'undo' and 'target_revision' not in data:
             raise serializers.ValidationError('请选择需要撤销的操作。')
+        if data['action'] == 'clear' and data.get('confirm_clear') is not True:
+            raise serializers.ValidationError('请明确确认清空本作品的观看历程。')
         if data['action'] == 'update-round' and ('round_number' not in data or not set(data).intersection(('started_on', 'completed_on', 'rating', 'note'))):
             raise serializers.ValidationError('请选择轮次及至少一项更正内容。')
         if data['action'] == 'transition' and not set(data).intersection(TRACKED):
@@ -170,11 +201,26 @@ def execute(record_id, user, raw):
     from django.shortcuts import get_object_or_404
     record = get_object_or_404(UserAnimeRecord.objects.select_for_update(), pk=record_id, user=user)
     digest = hashlib.sha256(json.dumps(raw, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+    if record.watch_clear_operation == data['operation_id']:
+        if record.watch_clear_hash != digest: raise HistoryConflict('同一操作编号不能用于不同内容。')
+        return {**read_history(record), 'replayed': True}
     existing = record.watch_events.filter(operation_id=data['operation_id']).first()
     if existing:
         if existing.request_hash != digest: raise HistoryConflict('同一操作编号不能用于不同内容。')
         return {**read_history(record), 'replayed': True}
     if data['version'] != record.watch_revision: raise HistoryConflict()
+    if data['action'] == 'clear':
+        # Remove private content, retaining only a content-free receipt. Never
+        # rewind the concurrency version or replay a pre-clear operation.
+        record.watch_events.all().delete()
+        record.watch_rounds.all().delete()
+        record.watch_revision += 1
+        record.watch_history_base = record.watch_revision
+        record.watch_clear_operation, record.watch_clear_hash = data['operation_id'], digest
+        UserAnimeRecord.objects.filter(pk=record.pk).update(watch_revision=record.watch_revision,
+            watch_history_base=record.watch_history_base, watch_clear_operation=data['operation_id'], watch_clear_hash=digest)
+        ensure_round(record)
+        return {**read_history(record), 'replayed': False}
     row = ensure_round(record)
     before = state(record, row)
     action = data['action']
@@ -289,7 +335,8 @@ class EventBackupSerializer(serializers.Serializer):
 
 class HistoryBackupSerializer(serializers.Serializer):
     version = serializers.IntegerField(min_value=1, max_value=1)
-    revision = serializers.IntegerField(min_value=0)
+    revision = serializers.IntegerField(min_value=0, max_value=2147483646)
+    base_revision = serializers.IntegerField(min_value=0, max_value=2147483646, default=0)
     rounds = RoundBackupSerializer(many=True, max_length=1000)
     events = EventBackupSerializer(many=True, max_length=10000)
 
@@ -298,7 +345,7 @@ class HistoryBackupSerializer(serializers.Serializer):
         numbers = {row['number'] for row in rounds}
         if len(numbers) != len(rounds) or (rounds and sum(row['is_current'] for row in rounds) != 1):
             raise serializers.ValidationError('轮次重复或当前轮次不唯一。')
-        if len(events) != data['revision'] or any(event['revision'] != index for index, event in enumerate(events, 1)):
+        if data['base_revision'] > data['revision'] or len(events) != data['revision'] - data['base_revision'] or any(event['revision'] != index for index, event in enumerate(events, data['base_revision'] + 1)):
             raise serializers.ValidationError('历程版本不连续或事件不完整。')
         operations = [e['operation_id'] for e in events if e['operation_id']]
         if len(set(operations)) != len(operations):
@@ -323,7 +370,7 @@ def validate_backup(value, expected):
 
 
 def export_history(record):
-    return {'version': 1, 'revision': record.watch_revision,
+    return {'version': 1, 'revision': record.watch_revision, 'base_revision': record.watch_history_base,
         'rounds': [round_state(row) for row in record.watch_rounds.all()],
         'events': [{'revision': e.revision, 'kind': e.kind, 'source': e.source, 'occurred_on': e.occurred_on,
             'note': e.note, 'before': e.before, 'after': e.after, 'recorded_at': e.recorded_at.isoformat(),
@@ -337,4 +384,5 @@ def restore_history(record, data):
     WatchRound.objects.bulk_create([WatchRound(record=record, **row) for row in data['rounds']])
     WatchEvent.objects.bulk_create([WatchEvent(record=record, **row) for row in data['events']])
     record.watch_revision = data['revision']
-    UserAnimeRecord.objects.filter(pk=record.pk).update(watch_revision=record.watch_revision)
+    record.watch_history_base = data.get('base_revision', 0)
+    UserAnimeRecord.objects.filter(pk=record.pk).update(watch_revision=record.watch_revision, watch_history_base=record.watch_history_base)

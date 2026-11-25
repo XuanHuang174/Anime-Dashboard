@@ -984,7 +984,7 @@ function Dashboard() {
         onTogglePreview={togglePreviewMode}
         onAddAnime={() => setIsAddModalOpen(true)}
         onImportBangumi={() => setIsBangumiImportOpen(true)}
-        onReviewIdentity={() => setIdentityPanel({ recordId: null })}
+        onReviewIdentity={() => { setIsPreviewMode(false); setIdentityPanel({ recordId: null }) }}
         onRatingPreferences={() => setIsRatingPreferencesOpen(true)}
         onCleanTags={() => setIsTagCleanupOpen(true)}
         cleanupDisabled={isLoading || Boolean(error) || searchQuery.trim() !== debouncedSearchQuery}
@@ -1186,16 +1186,16 @@ function Dashboard() {
         )}
       </section>
 
-      {!exploringAway && (isPreviewMode || isSharedJournal || historyDetailId === selectedItem?.id) ? (
+      {!exploringAway && (isPreviewMode || isSharedJournal) ? (
         <DetailModal
           selectedItem={selectedItem}
           closeModal={() => { setSelectedItem(null); setHistoryDetailId(null) }}
           onRecordUpdated={!isSharedJournal ? handleRecordUpdated : undefined}
-          initialHistoryOpen={!isSharedJournal && historyDetailId === selectedItem?.id}
+          onManageHistory={!isSharedJournal ? () => { setHistoryDetailId(selectedItem.id); setIsPreviewMode(false) } : undefined}
           isPrivateJournal={!isSharedJournal}
           explorationTags={explorationTags}
           identityRevision={identityRevision}
-          onReviewIdentity={!isSharedJournal ? recordId => setIdentityPanel({ recordId }) : undefined}
+          onReviewIdentity={!isSharedJournal ? recordId => { setIsPreviewMode(false); setIdentityPanel({ recordId }) } : undefined}
           onSimilar={!isSharedJournal ? item => navigate('/recommendations/similar', { state: { journalRecord: item.id } }) : undefined}
           showToast={showToast}
           featuredAction={featuredAction ? {
@@ -1211,7 +1211,7 @@ function Dashboard() {
           closeModal={() => setSelectedItem(null)}
           onRecordUpdated={handleRecordUpdated}
           onRecordDeleted={handleRecordDeleted}
-          onOpenHistory={item => setHistoryDetailId(item.id)}
+          initialHistoryOpen={historyDetailId === selectedItem?.id}
           showToast={showToast}
         />
       ) : null}

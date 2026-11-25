@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import api from '../api/api.js'
+import useSeriesSession, { seriesSession } from '../hooks/useSeriesSession.js'
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024
 
@@ -16,6 +17,20 @@ function JournalDataTransfer({ onImported, showToast, theme = 'default', renderA
   const [isConfirmOpen, setIsConfirmOpen] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
+  const [preview, setPreview] = useState(null), [previewError, setPreviewError] = useState(''), [isPreviewing, setIsPreviewing] = useState(false), [acknowledged, setAcknowledged] = useState(false)
+  const session = useSeriesSession(), requestRef = useRef(0), importGate = useRef(false), dialogRef = useRef(null)
+  useEffect(() => {
+    if (!previewError) return
+    const alert = dialogRef.current?.querySelector('[role="alert"]')
+    alert?.scrollIntoView({ block: 'nearest' }); alert?.focus({ preventScroll: true })
+  }, [previewError])
+  useEffect(() => { requestRef.current++; setIsConfirmOpen(false); setSelectedFile(null); setPreview(null); setIsImporting(false); setIsPreviewing(false); importGate.current = false }, [session])
+  useEffect(() => {
+    if (!isImporting) return
+    const warn = event => { event.preventDefault(); event.returnValue = '' }
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [isImporting])
 
   useEffect(() => {
     if (!isConfirmOpen) return undefined
@@ -33,12 +48,21 @@ function JournalDataTransfer({ onImported, showToast, theme = 'default', renderA
 
     const closeOnEscape = (event) => {
       if (event.key === 'Escape' && !isImporting) cancelImport()
+      if (event.key === 'Tab') {
+        const nodes = [...(dialogRef.current?.querySelectorAll('button:not(:disabled),input:not(:disabled),[tabindex="0"]') || [])]
+        const first = nodes[0], last = nodes.at(-1)
+        if (first && event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
+        else if (last && !event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
+      }
     }
+    const priorFocus = document.activeElement
+    dialogRef.current?.focus()
     window.addEventListener('keydown', closeOnEscape)
     return () => {
       document.body.style.overflow = previousOverflow
       document.body.style.paddingRight = previousPaddingRight
       window.removeEventListener('keydown', closeOnEscape)
+      if (!isImporting) priorFocus?.focus?.()
     }
   }, [isConfirmOpen, isImporting])
 
@@ -50,14 +74,17 @@ function JournalDataTransfer({ onImported, showToast, theme = 'default', renderA
   const cancelImport = () => {
     if (isImporting) return
     setIsConfirmOpen(false)
+    requestRef.current++
     clearFileSelection()
   }
 
   const handleExport = async () => {
     if (isExporting) return
     setIsExporting(true)
+    const owner = seriesSession()
     try {
       const response = await api.get('export/', { responseType: 'blob' })
+      if (owner !== seriesSession()) return
       const blobUrl = window.URL.createObjectURL(response.data)
       const downloadLink = document.createElement('a')
       downloadLink.href = blobUrl
@@ -76,6 +103,21 @@ function JournalDataTransfer({ onImported, showToast, theme = 'default', renderA
     }
   }
 
+  const previewFile = async file => {
+    const run = ++requestRef.current, owner = seriesSession()
+    setPreview(null); setAcknowledged(false); setPreviewError(''); setIsPreviewing(true)
+    const form = new FormData(); form.append('file', file)
+    try {
+      const { data } = await api.post('import/?preview=true', form)
+      if (run === requestRef.current && owner === seriesSession()) {
+        if (!data.token || !Number.isInteger(data.incoming_count)) throw new Error('恢复预览返回不完整，请重新预览。')
+        setPreview(data)
+      }
+    } catch (error) {
+      if (run === requestRef.current && owner === seriesSession()) setPreviewError(error.response?.data?.detail || error.message || '恢复预览失败，请重试；尚未导入。')
+    } finally { if (run === requestRef.current) setIsPreviewing(false) }
+  }
+
   const handleFileChange = (event) => {
     const file = event.target.files?.[0]
     if (!file) return
@@ -91,16 +133,21 @@ function JournalDataTransfer({ onImported, showToast, theme = 'default', renderA
     }
     setSelectedFile(file)
     setIsConfirmOpen(true)
+    previewFile(file)
   }
 
   const confirmImport = async () => {
-    if (!selectedFile || isImporting) return
+    if (!selectedFile || isImporting || importGate.current || !preview || !acknowledged) return
+    importGate.current = true
+    const owner = seriesSession(), run = requestRef.current
     setIsImporting(true)
     const formData = new FormData()
     formData.append('file', selectedFile)
+    formData.append('confirmation_token', preview.token)
 
     try {
-      const response = await api.post('import/', formData)
+      const response = await api.post('import/?confirm=true', formData)
+      if (owner !== seriesSession() || run !== requestRef.current) return
       setIsConfirmOpen(false)
       clearFileSelection()
       showToast?.(
@@ -109,11 +156,15 @@ function JournalDataTransfer({ onImported, showToast, theme = 'default', renderA
       )
       onImported?.()
     } catch (error) {
-      const message = error.response?.data?.detail
-        || '数据导入失败，原有手账数据未发生改变。'
-      showToast?.(message, 'error')
+      if (owner !== seriesSession() || run !== requestRef.current) return
+      const uncertain = !error.response?.status || error.response.status >= 500
+      setPreview(null); setAcknowledged(false)
+      const message = uncertain ? '恢复结果尚未确认，可能已经完成。请先检查手账，再重新预览；不会自动重复导入。' : error.response?.data?.detail || '恢复被拒绝，请重新预览并核对文件。'
+      setPreviewError(typeof message === 'string' ? message : JSON.stringify(message))
+      showToast?.(typeof message === 'string' ? message : '恢复被拒绝，请核对文件。', 'error')
+      if (uncertain) onImported?.()
     } finally {
-      setIsImporting(false)
+      if (owner === seriesSession() && run === requestRef.current) { setIsImporting(false); importGate.current = false }
     }
   }
 
@@ -165,9 +216,11 @@ function JournalDataTransfer({ onImported, showToast, theme = 'default', renderA
           }}
         >
           <section
+            ref={dialogRef}
+            tabIndex={-1}
             className={isMemphis
-              ? 'w-full max-w-md overflow-hidden border-4 border-black bg-[#fff5ee] text-black shadow-[10px_10px_0_#111]'
-              : 'w-full max-w-md overflow-hidden rounded-[2rem] border border-white/70 bg-white/95 text-slate-700 shadow-2xl shadow-slate-950/30 ring-1 ring-slate-900/5'}
+              ? 'max-h-[90dvh] w-full max-w-lg overflow-y-auto border-4 border-black bg-[#fff5ee] text-black shadow-[10px_10px_0_#111]'
+              : 'max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-[2rem] border border-white/70 bg-white/95 text-slate-700 shadow-2xl shadow-slate-950/30 ring-1 ring-slate-900/5'}
             onMouseDown={(event) => event.stopPropagation()}
           >
             <div className={isMemphis ? 'h-3 border-b-4 border-black bg-[#ff6b6b]' : 'h-2 bg-gradient-to-r from-rose-400 via-pink-500 to-indigo-500'} />
@@ -177,11 +230,22 @@ function JournalDataTransfer({ onImported, showToast, theme = 'default', renderA
                 <i className="fa-solid fa-triangle-exclamation" />
               </span>
               <h2 id="importConfirmTitle" className={`relative mt-5 text-2xl font-black ${isMemphis ? 'text-black' : 'text-slate-800'}`}>
-                危险操作确认
+                确认 JSON 恢复影响
               </h2>
               <p className={`relative mt-3 text-sm leading-7 ${isMemphis ? 'font-bold text-zinc-700' : 'font-medium text-slate-500'}`}>
-                导入新的 JSON 模板将会彻底覆盖您当前所有的手账记录，文件内的评分展示配置也会一并恢复；旧文件未包含配置时保留当前设置。此操作无法撤销，是否继续？
+                本次整体替换手账。文件内的评分展示配置一并恢复，旧文件未包含配置时保留当前设置。请先核对观看历程的处理方式。
               </p>
+              {isPreviewing && <p role="status" className="mt-4">正在读取文件并核对当前手账，尚未导入…</p>}
+              {previewError && <p role="alert" tabIndex={-1} className="mt-4 break-words text-left text-sm font-bold text-red-700">{previewError}</p>}
+              {preview && <div className="mt-4 border-2 border-black bg-white p-3 text-left text-sm leading-7">
+                <p>恢复 {preview.incoming_count} 部作品；其中 {preview.with_history} 部包含完整历程（{preview.rounds_in_file} 个轮次、{preview.events_in_file} 条事件）。</p>
+                <p>替换已有历程：{preview.replaced_history} 部；旧格式匹配并保留历程：{preview.preserved_history} 部；其余日期未知起点：{preview.new_baselines} 部。</p>
+                <p className="font-black text-red-700">文件未包含的 {preview.removed_count} 部作品及其历程将移除，其中有 {preview.removed_history_events} 条事件。</p>
+                {!!preview.removed_titles?.length && <details><summary>查看将移除的作品（最多 20 部）</summary><ul>{preview.removed_titles.map((title, index) => <li key={index}>{title}</li>)}</ul></details>}
+                <p>完整历程按文件恢复，可能恢复曾清空的随记。旧文件仅在作品准确匹配时保留原历程；不能匹配的作品不猜测合并。不会用导入日期补作观看日期。</p>
+              </div>}
+              <div className="mt-4 text-left text-sm"><button type="button" disabled={isExporting || isImporting} onClick={handleExport} className="border-2 border-black bg-white px-3 py-2 font-bold">{isExporting ? '正在导出…' : '先导出当前 JSON 备份'}</button><label className="mt-3 flex items-start gap-2"><input type="checkbox" checked={acknowledged} disabled={!preview || isImporting} onChange={event => setAcknowledged(event.target.checked)} /><span>我已核对影响，了解整体替换无法通过历程撤销恢复。</span></label></div>
+              {!preview && !isPreviewing && <button type="button" disabled={isImporting} className="mt-3 border-2 border-black bg-white p-2 font-bold" onClick={() => previewFile(selectedFile)}>重新预览恢复影响</button>}
               <div className={`relative mt-4 flex items-center gap-3 px-4 py-3 text-left ${isMemphis ? 'border-[3px] border-black bg-[#4ecdc4] shadow-[4px_4px_0_#111]' : 'rounded-2xl border border-indigo-100 bg-indigo-50/80 shadow-inner'}`}>
                 <span className={`flex h-10 w-10 shrink-0 items-center justify-center ${isMemphis ? 'border-2 border-black bg-[#ff8fab] text-black shadow-[3px_3px_0_#111]' : 'rounded-xl bg-white text-indigo-500 shadow-sm'}`}>
                   <i className="fa-solid fa-file-code" />
@@ -205,7 +269,7 @@ function JournalDataTransfer({ onImported, showToast, theme = 'default', renderA
                 <button
                   type="button"
                   onClick={confirmImport}
-                  disabled={isImporting}
+                  disabled={isImporting || !preview || !acknowledged || isPreviewing}
                   className={isMemphis
                     ? 'dashboard-arcade-button bg-[#ff6b6b] disabled:cursor-wait disabled:opacity-70'
                     : 'rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 px-4 py-3 text-sm font-black text-white shadow-lg shadow-rose-200 transition hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0 active:scale-95 disabled:cursor-wait disabled:opacity-70'}

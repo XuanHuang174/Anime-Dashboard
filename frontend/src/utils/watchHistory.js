@@ -72,13 +72,14 @@ export function validWatchHistory(data) {
   const validState = row => row && Object.hasOwn(WATCH_LABELS, row.watch_status) && Number.isSafeInteger(row.watched_eps) && row.watched_eps >= 0 && Number.isSafeInteger(row.total_eps) && row.total_eps >= 0
   const validRound = row => row && Number.isInteger(row.number) && row.number > 0 && validState({ ...row, watch_status: row.status }) && typeof row.is_current === 'boolean' && typeof row.voided === 'boolean'
     && ['started_on', 'completed_on'].every(key => typeof row[key] === 'string' && (!row[key] || validWatchDate(row[key]))) && typeof row.note === 'string'
+  const validEvent = e => e && Number.isInteger(e.revision) && e.revision > 0 && e.revision <= data.version && validState(e.before?.record) && validState(e.after?.record) && validRound(e.before?.round) && validRound(e.after?.round)
+    && Object.hasOwn(ACTION_LABELS, e.kind) && typeof e.note === 'string' && typeof e.occurred_on === 'string' && (!e.occurred_on || validWatchDate(e.occurred_on)) && Number.isFinite(Date.parse(e.recorded_at))
   return data?.contract_version === 'journal.watch-history.v1' && Number.isSafeInteger(data.version) && data.version >= 0
     && Number.isSafeInteger(data.count) && data.count >= 0 && Number.isInteger(data.page) && data.page > 0
     && Number.isInteger(data.page_size) && data.page_size > 0 && Array.isArray(data.rounds) && data.rounds.length > 0
     && data.rounds.filter(row => row.is_current && !row.voided).length === 1
     && data.rounds.every(validRound) && new Set(data.rounds.map(row => row.number)).size === data.rounds.length
-    && Array.isArray(data.events) && data.events.length <= data.count && data.events.every(e => Number.isInteger(e.revision) && e.revision <= data.version && validState(e.before?.record) && validState(e.after?.record) && validRound(e.before?.round) && validRound(e.after?.round)
-      && Object.hasOwn(ACTION_LABELS, e.kind) && typeof e.note === 'string' && typeof e.occurred_on === 'string' && (!e.occurred_on || validWatchDate(e.occurred_on)) && Number.isFinite(Date.parse(e.recorded_at)))
+    && Array.isArray(data.events) && data.events.length <= data.count && data.events.every(e => validEvent(e) && (!e.undone_event || e.kind === 'undo' && validEvent(e.undone_event) && e.undone_event.revision === e.revision - 1 && !e.undone_event.undone_event))
 }
 
 const errorText = error => {
@@ -88,6 +89,7 @@ const errorText = error => {
 export function createWatchHistoryController({ client, recordId, getSession, onCommitted, uuid = () => globalThis.crypto.randomUUID() }) {
   const owner = getSession(), listeners = new Set()
   let alive = true, serial = 0, controller = null, gate = false
+  let view = { page: 1, page_size: 5, category: 'all', compact: 'true' }
   let snapshot = { data: null, status: 'idle', error: '', pending: null, conflict: false }
   const current = () => alive && owner === getSession()
   const emit = patch => { if (current()) { snapshot = { ...snapshot, ...patch }; listeners.forEach(fn => fn()) } }
@@ -96,12 +98,13 @@ export function createWatchHistoryController({ client, recordId, getSession, onC
     subscribe: fn => { listeners.add(fn); return () => listeners.delete(fn) },
     activate() { if (!alive) { alive = true; gate = false; snapshot = { data: null, status: 'idle', error: '', pending: null, conflict: false } } },
     dispose() { alive = false; serial++; controller?.abort(); gate = false },
-    async read(page = 1) {
+    async read(page = view.page, options = {}) {
       if (!current() || gate) return
+      view = { ...view, ...options, page }
       const run = ++serial; controller?.abort(); controller = new AbortController()
       emit({ status: 'loading', error: '' })
       try {
-        const { data } = await client.get(`records/${recordId}/watch-history/`, { params: { page, page_size: 10 }, signal: controller.signal })
+        const { data } = await client.get(`records/${recordId}/watch-history/`, { params: { ...view }, signal: controller.signal })
         if (!validWatchHistory(data)) throw new Error('历程返回不完整，请重新读取。')
         if (current() && run === serial) emit({ data, status: 'ready', error: '', conflict: false })
       } catch (error) { if (current() && run === serial) emit({ status: 'error', error: errorText(error) }) }

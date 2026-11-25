@@ -390,6 +390,9 @@ class UserAnimeRecord(models.Model):
     watched_eps = models.PositiveIntegerField("已观看集数", default=0)
     total_eps = models.PositiveIntegerField("总集数", default=0)
     watch_revision = models.PositiveIntegerField('观看历程版本', default=0, editable=False)
+    watch_history_base = models.PositiveIntegerField(default=0, editable=False)
+    watch_clear_operation = models.UUIDField(null=True, editable=False)
+    watch_clear_hash = models.CharField(max_length=64, default='', editable=False)
     review = models.TextField("个人长评", blank=True)
     custom_tags = models.JSONField(
         "自定义标签",
@@ -496,6 +499,9 @@ class UserAnimeRecord(models.Model):
         with transaction.atomic(using=kwargs.get('using') or self._state.db or 'default'):
             before = type(self).objects.select_for_update().get(pk=self.pk)
             self.watch_revision = before.watch_revision
+            self.watch_history_base = before.watch_history_base
+            self.watch_clear_operation = before.watch_clear_operation
+            self.watch_clear_hash = before.watch_clear_hash
             result = super().save(*args, **kwargs)
             from .watch_history import observe_change
             persisted = type(self).objects.get(pk=self.pk)

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 import api from '../api/api.js'
@@ -13,6 +13,7 @@ import {
 import { getImageFileError, IMAGE_FILE_ACCEPT } from '../utils/imageUpload.js'
 import { mapRecordToAnimeItem } from '../utils/recordMapping.js'
 import './EditableDetailModal.css'
+import WatchHistoryPanel from './WatchHistoryPanel.jsx'
 import useTagPresets from '../hooks/useTagPresets.js'
 import { bangumiSubjectUrl, moegirlTitleUrl } from '../utils/journalSourceLinks.js'
 
@@ -63,12 +64,22 @@ function EditableDetailModal({
   closeModal,
   onRecordUpdated,
   onRecordDeleted,
-  onOpenHistory,
+  initialHistoryOpen = false,
   showToast,
 }) {
   const overlayRef = useRef(null)
   const modalRef = useRef(null)
   const closeHandlerRef = useRef(null)
+  const historyGuardRef = useRef(null)
+  const editorScrollRef = useRef(null)
+  const editorPositions = useRef([]), historyEntryRef = useRef(null)
+  const [historyOpen, setHistoryOpen] = useState(initialHistoryOpen)
+  useLayoutEffect(() => {
+    if (!historyOpen && editorPositions.current.length) {
+      for (const [element, top, left] of editorPositions.current) { element.scrollTop = top; element.scrollLeft = left }
+      historyEntryRef.current?.focus({ preventScroll: true })
+    }
+  }, [historyOpen])
   const posterInputRef = useRef(null)
   const [renderedItem, setRenderedItem] = useState(selectedItem)
   const [formData, setFormData] = useState(() => createForm(selectedItem ?? {}))
@@ -107,7 +118,7 @@ function EditableDetailModal({
     setIsSaving(false)
     setIsDeleting(false)
     setError('')
-    setActiveEditorPanel('tags')
+    // Preserve the editor tab and scroll when a history command updates this work.
     if (posterInputRef.current) posterInputRef.current.value = ''
   }, [selectedItem])
 
@@ -184,7 +195,11 @@ function EditableDetailModal({
 
   const busy = isSaving || isDeleting
   const handleClose = () => {
-    if (!busy) playExit(closeModal)
+    if (!busy) {
+      const close = () => playExit(closeModal)
+      if (historyOpen && historyGuardRef.current) historyGuardRef.current(close)
+      else close()
+    }
   }
   closeHandlerRef.current = handleClose
 
@@ -424,7 +439,7 @@ function EditableDetailModal({
               : 'bg-[#f4f1ea] hover:bg-white'
           }`}
         >
-          <i className={`fa-solid ${option.icon} mr-1.5`}></i>
+          <i className={`fa-solid ${option.icon} mr-1.5`} aria-hidden="true"></i>
           {option.label}
         </button>
       ))}
@@ -436,7 +451,7 @@ function EditableDetailModal({
       ref={overlayRef}
       role="dialog"
       aria-modal="true"
-      aria-labelledby="editAnimeTitle"
+      aria-label={historyOpen ? '观看历程管理' : '编辑私人作品'}
       className="fixed inset-0 z-[110] flex items-center justify-center overflow-y-auto bg-zinc-950/80 p-2 backdrop-blur-sm sm:p-4"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) handleClose()
@@ -449,8 +464,9 @@ function EditableDetailModal({
       >
         <header className="edit-modal-piece flex shrink-0 items-start justify-between gap-4 border-b-4 border-black bg-[#4ecdc4] px-4 py-3 sm:px-6">
           <div className="min-w-0 flex-1">
-            <span className="inline-block border-2 border-black bg-[#ffe66d] px-2 py-1 text-[10px] font-black uppercase tracking-[0.16em] shadow-[3px_3px_0_#111]">Edit Record</span>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <span className="inline-block border-2 border-black bg-[#ffe66d] px-2 py-1 text-[10px] font-black uppercase tracking-[0.16em] shadow-[3px_3px_0_#111]">{historyOpen ? '观看历程管理 · 仅本人可见' : 'Edit Record'}</span>
+            {historyOpen && <h2 className="mt-3 text-lg font-black">{renderedItem.title}</h2>}
+            <div style={historyOpen ? { display: 'none' } : undefined} className="mt-3 grid gap-3 sm:grid-cols-2">
               <label className="block text-xs font-black" htmlFor="editAnimeTitle">
                 番剧名称（中文）
                 <input id="editAnimeTitle" name="title" value={formData.title} onChange={updateField} className={`${fieldClass} mt-1 text-lg font-black`} />
@@ -466,7 +482,8 @@ function EditableDetailModal({
           </button>
         </header>
 
-        <div className="edit-record-body min-h-0 flex-1 overflow-y-auto p-3 custom-scrollbar sm:p-4">
+        {historyOpen && <div className="min-h-0 flex-1 overflow-y-auto p-3 custom-scrollbar sm:p-4"><WatchHistoryPanel item={renderedItem} onRecordUpdated={onRecordUpdated} closeGuardRef={historyGuardRef} initiallyOpen management /></div>}
+        <div ref={editorScrollRef} style={historyOpen ? { display: 'none' } : undefined} className="edit-record-body min-h-0 flex-1 overflow-y-auto p-3 custom-scrollbar sm:p-4">
           <div className="edit-record-layout grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
             <aside className="edit-record-sources edit-modal-piece mx-auto w-full max-w-[240px] lg:mx-0 lg:flex lg:max-w-[220px] lg:flex-col custom-scrollbar">
               <div className="aspect-[3/4] shrink-0 overflow-hidden border-4 border-black bg-[#ff8fab] shadow-[7px_7px_0_#4ecdc4]">
@@ -493,7 +510,7 @@ function EditableDetailModal({
                 <button type="button" className="border-2 border-black bg-[#4ecdc4] px-2 py-1 text-[11px] font-black hover:bg-[#ffe66d] disabled:opacity-50" disabled={!bangumiSubjectUrl(renderedItem.confirmedBangumiId)} onClick={() => setFormData(current => ({ ...current, bangumiUrl: bangumiSubjectUrl(renderedItem.confirmedBangumiId) }))}><i className="fa-solid fa-link mr-1" aria-hidden="true" />填入链接</button>
               </div>
               <input id="editBangumiUrl" name="bangumiUrl" type="url" value={formData.bangumiUrl} onChange={updateField} placeholder="https://bgm.tv/subject/..." className={fieldClass} />
-              {!bangumiSubjectUrl(renderedItem.confirmedBangumiId) && <p className="mt-2 text-[11px] font-bold leading-relaxed">尚未确认标准作品，可在预览中核对身份。</p>}
+              {!bangumiSubjectUrl(renderedItem.confirmedBangumiId) && <p className="mt-2 text-[11px] font-bold leading-relaxed">尚未确认标准作品，可在“数据管理 → 核对标准作品”中核对身份。</p>}
               <details className="mt-3 shrink-0 text-[11px] font-bold leading-relaxed">
                 <summary className="cursor-pointer py-1 underline underline-offset-2">链接填写说明</summary>
                 <p className="mt-1">Bangumi 根据已确认身份填写。萌百按标题生成，可能需要修正消歧义页面。修改名称不会自动覆盖链接。</p>
@@ -660,17 +677,21 @@ function EditableDetailModal({
         </div>
 
         <footer className="edit-modal-piece flex shrink-0 flex-wrap justify-between gap-3 border-t-4 border-black bg-[#ffe66d] px-4 py-3 sm:px-6">
+          {historyOpen ? <><button type="button" className={`${arcadeButton} bg-white`} onClick={() => historyGuardRef.current?.(() => setHistoryOpen(false), '返回作品编辑')}>返回作品编辑</button><button type="button" onClick={handleClose} className={`${arcadeButton} bg-white`}>关闭</button></> : <>
+          <div className="flex flex-wrap gap-4">
           <button type="button" onClick={handleDelete} disabled={busy} className={`${arcadeButton} bg-red-500`}>
             <i className={`fa-solid ${isDeleting ? 'fa-spinner animate-spin' : 'fa-trash-can'} mr-2`}></i>{isDeleting ? '删除中...' : '删除私人记录'}
           </button>
+          <button ref={historyEntryRef} type="button" disabled={busy || hasUnsavedChanges} aria-describedby={hasUnsavedChanges ? 'edit-history-hint' : undefined} title={hasUnsavedChanges ? '请先保存当前作品修改后再查看历程' : '查看观看历程与重看记录'} onClick={() => { editorPositions.current = [editorScrollRef.current, ...editorScrollRef.current.querySelectorAll('*')].filter(element => element.scrollTop || element.scrollLeft).map(element => [element, element.scrollTop, element.scrollLeft]); setHistoryOpen(true) }} className={`${arcadeButton} bg-white`}>观看历程</button>
+          </div>
           <div className="flex flex-wrap gap-3">
-            {onOpenHistory && <button type="button" disabled={busy || hasUnsavedChanges} aria-describedby={hasUnsavedChanges ? 'edit-history-hint' : undefined} title={hasUnsavedChanges ? '请先保存当前作品修改后再查看历程' : '查看观看历程与重看记录'} onClick={() => onOpenHistory(renderedItem)} className={`${arcadeButton} bg-[#4ecdc4]`}>观看历程</button>}
             <button type="button" onClick={handleSave} disabled={busy} className={`${arcadeButton} bg-[#ff4f9a]`}>
               <i className={`fa-solid ${isSaving ? 'fa-spinner animate-spin' : 'fa-floppy-disk'} mr-2`}></i>{isSaving ? '保存中...' : '保存全部修改'}
             </button>
             <button type="button" onClick={handleClose} disabled={busy} className={`${arcadeButton} bg-white`}>关闭</button>
           </div>
-          {onOpenHistory && hasUnsavedChanges && <p id="edit-history-hint" className="w-full text-xs font-bold">请先保存当前作品修改，再打开观看历程；历程操作会单独保存。</p>}
+          {hasUnsavedChanges && <p id="edit-history-hint" className="w-full text-xs font-bold">请先保存当前作品修改，再打开观看历程；历程操作会单独保存。</p>}
+          </>}
         </footer>
       </section>
     </div>

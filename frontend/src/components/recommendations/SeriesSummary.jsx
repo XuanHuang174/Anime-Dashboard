@@ -11,7 +11,7 @@ export default function SeriesSummary(props) {
   const session = useSeriesSession()
   return <Summary key={`${session}:${props.bangumiId || props.recordId}`} {...props} session={session} />
 }
-function Summary({ client: baseClient = defaultClient, bangumiId, recordId, session, compact = false, onReviewIdentity }) {
+function Summary({ client: baseClient = defaultClient, bangumiId, recordId, session, compact = false, onReviewIdentity, reviewLabel = '核对标准作品 ↗' }) {
   const [state, setState] = useState({ status: 'loading' }), [attempt, retry] = useState(0)
   const [adult, setAdult] = useState(false)
   const client = useMemo(() => recordId && adult ? baseClient.forScope('include_adult') : baseClient, [baseClient, recordId, adult])
@@ -60,7 +60,7 @@ function Summary({ client: baseClient = defaultClient, bangumiId, recordId, sess
     <h3><span aria-hidden="true">⌘</span> 系列与关联</h3>
     {state.status === 'loading' ? <p role="status">正在读取关联资料…</p> : state.status === 'unlinked'
       ? <><p>{journalIdentityMessage(state.identityState)}</p>
-        {onReviewIdentity && canReviewJournalIdentity(state.identityState) && <button type="button" className="rec-button" onClick={() => onReviewIdentity(recordId)}>核对标准作品 ↗</button>}
+        {onReviewIdentity && canReviewJournalIdentity(state.identityState) && <button type="button" className="rec-button" onClick={() => onReviewIdentity(recordId)}>{reviewLabel}</button>}
         {!adult && recordId && state.identityState === 'unsafe_or_unknown' && <button type="button" className="series-link" onClick={() => setAdult(true)}>以包含已审核 NSFW 的范围重新读取（仅本次）</button>}</>
       : state.status === 'error' ? <p role="status">{state.message} <button type="button" className="series-link" onClick={() => retry(n => n + 1)}>重试</button></p>
         : <><p>{COVERAGE[state.data.coverage]}{state.data.last_attempt_status === 'failed' && state.data.coverage !== 'failed' ? ' · 最近更新失败，保留上次资料' : ''}</p>

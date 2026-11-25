@@ -104,3 +104,37 @@ test('incomplete write acknowledgements retain the original operation for safe v
   await e.engine.read(); await e.engine.submit({ action: 'note', note: '待确认', version: 0 })
   assert.equal(e.engine.getSnapshot().pending.note, '待确认'); assert.deepEqual(e.committed, [])
 })
+
+test('display requests retain server-side category and page size through refresh and paging', async () => {
+  const calls = []
+  const e = env({ get: async (_path, options) => { calls.push(options.params); return { data: history() } } })
+  await e.engine.read()
+  await e.engine.read(1, { category: 'notes', page_size: 20 })
+  await e.engine.read(2)
+  await e.engine.read()
+  assert.deepEqual(calls[0], { page: 1, page_size: 5, category: 'all', compact: 'true' })
+  assert.deepEqual(calls[3], { page: 2, page_size: 20, category: 'notes', compact: 'true' })
+})
+
+test('combined undo validates its embedded event and cleared versions need no fake events', () => {
+  const data = history(2)
+  data.events = [{ ...data.events[0], kind: 'undo', undone_event: data.events[1] }]; data.count = 1
+  assert.equal(validWatchHistory(data), true)
+  assert.equal(Boolean(validWatchHistory({ ...data, events: [{ ...data.events[0], undone_event: {} }] })), false)
+  assert.equal(validWatchHistory({ ...history(4), base_revision: 4, count: 0, events: [] }), true)
+})
+
+test('an unconfirmed clear retains exact receipt identity even after a read sees empty history', async () => {
+  const posts = []; let version = 0
+  const empty = () => ({ ...history(), version, base_revision: version, record: { ...history().record, watch_revision: version } })
+  const e = env({ get: async () => ({ data: empty() }), post: async (_path, body) => {
+    posts.push(body)
+    if (posts.length === 1) { version = 1; throw { response: { status: 500 } } }
+    return { data: { ...empty(), replayed: true } }
+  } })
+  await e.engine.read(); await e.engine.submit({ action: 'clear', confirm_clear: true, version: 0 })
+  await e.engine.read(); assert.equal(e.engine.getSnapshot().data.count, 0)
+  assert.equal(await e.engine.submit({ action: 'note', note: 'blocked', version: 1 }), false)
+  assert.equal(await e.engine.submit(null, true), true)
+  assert.deepEqual(posts[0], posts[1]); assert.equal(e.committed[0].watch_revision, 1)
+})

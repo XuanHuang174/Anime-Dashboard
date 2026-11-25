@@ -6,7 +6,7 @@
 .watch-workshop button:not(:disabled):active { box-shadow: none; }
 .watch-workshop :disabled { opacity: .5; cursor: default; }
 .watch-workshop :is(button,input,select,textarea):focus-visible { outline: 3px solid #087c72; outline-offset: 2px; }
-.watch-workshop .watch-toggle { width: 100%; display: flex; align-items: center; justify-content: space-between; text-align: left; gap: 9px; border: 0; background: #4ecdc4; padding: 12px; }
+.watch-workshop .watch-toggle { width: 100%; display: flex; align-items: center; justify-content: space-between; text-align: left; gap: 9px; border: 0; background: #fff; padding: 12px; }
 .watch-toggle strong { display: block; font-size: 15px; }
 .watch-toggle small { display: block; margin-top: 5px; font-size: 10px; font-weight: 600; }
 .watch-body { padding: 11px; animation: watch-reveal 160ms ease-out; }
@@ -45,6 +45,13 @@
 .watch-date-label { display: block; font-size: 11px; color: #32685b; font-weight: 700; margin-top: 6px; }
 .watch-timeline p { font-size: 11px; line-height: 1.9; margin: 6px 0; }
 .watch-timeline small { font-size: 10px; color: #6c6257; }
+.watch-workshop summary { cursor: pointer; font-weight: 800; padding: 10px 0; }
+.watch-note-preview { max-height: 3.8em; overflow: hidden; }
+.watch-maintenance { border-top: 2px solid #c8bfb3; margin-top: 16px; padding-top: 6px; }
+.watch-maintenance p,.watch-clear-confirm p { line-height: 1.9; margin: 8px 0; }
+.watch-workshop .watch-danger { background: #ffdad7; color: #802424; }
+.watch-workshop .watch-check { display: flex; align-items: flex-start; gap: 9px; line-height: 1.8; }
+.watch-workshop .watch-check input { width: 20px; min-width: 20px; min-height: 20px; height: 20px; margin-top: 2px; }
 .watch-timeline .is-undo { background: #f4f1eb; border-style: dashed; }
 .watch-pagination { justify-content: space-between; font-size: 10px; }
 .watch-status { font-size: 11px; line-height: 1.8; margin: 8px 0; color: #32685b; }
