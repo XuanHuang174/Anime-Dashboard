@@ -674,6 +674,14 @@ class JournalRecordImportSerializer(serializers.Serializer):
     """Validate one portable record without accepting user or database IDs."""
 
     anime = JournalAnimeImportSerializer()
+    watch_history = serializers.DictField(required=False)
+
+    def validate(self, attrs):
+        if 'watch_history' in attrs:
+            from .watch_history import validate_backup
+            attrs['watch_history'] = validate_backup(attrs['watch_history'], {
+                'watch_status': attrs['watch_status'], 'watched_eps': attrs['watched_eps'], 'total_eps': attrs['total_eps']})
+        return attrs
     personal_score = serializers.DecimalField(
         max_digits=3,
         decimal_places=1,
@@ -726,12 +734,13 @@ class UserAnimeRecordSerializer(serializers.ModelSerializer):
             "watch_status_display",
             "watched_eps",
             "total_eps",
+            "watch_revision",
             "review",
             "custom_tags",
             "created_at",
             "updated_at",
         )
-        read_only_fields = ("id", "user", "anime", "created_at", "updated_at")
+        read_only_fields = ("id", "user", "anime", "created_at", "updated_at", "watch_revision")
 
     def validate(self, attrs):
         watched_eps = attrs.get(
@@ -794,6 +803,8 @@ class UserAnimeRecordSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         data = super().to_representation(instance)
         request = self.context.get("request")
+        if request is None or request.user.pk != instance.user_id:
+            data.pop('watch_revision', None)
         publication = getattr(instance, "_showcase_publication", None)
         if publication is not None and request is not None and request.user.pk == instance.user_id:
             data["showcase_publication"] = publication

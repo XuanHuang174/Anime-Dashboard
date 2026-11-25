@@ -908,11 +908,13 @@ class BangumiCollectionBatchImportView(ExternalMetadataAPIView):
                         "private_baike_url": defaults["baike_url"],
                         "private_base_tags": editable_tags,
                     }
-                    record, record_created = UserAnimeRecord.objects.update_or_create(
-                        user=request.user,
-                        anime=anime,
-                        defaults=record_defaults,
-                    )
+                    from .watch_history import watch_observation
+                    with watch_observation('collection_import'):
+                        record, record_created = UserAnimeRecord.objects.update_or_create(
+                            user=request.user,
+                            anime=anime,
+                            defaults=record_defaults,
+                        )
                     initialize_record_tag_colors(record=record, user=request.user)
                     publication = publish_new_showcase_record(record=record, created=record_created)
                     if publication and publication["status"] == "review_required":
@@ -1880,11 +1882,13 @@ class UserJournalExportView(APIView):
 
     permission_classes = (permissions.IsAuthenticated,)
 
+    @transaction.atomic
     def get(self, request):
         records = (
             UserAnimeRecord.objects.filter(user=request.user)
+            .select_for_update(of=('self',))
             .select_related("anime", "recommendation_identity__catalog_anime")
-            .prefetch_related("tag_preferences")
+            .prefetch_related("tag_preferences", "watch_rounds", "watch_events")
             .order_by("pk")
         )
         exported_records = []
@@ -1897,6 +1901,7 @@ class UserJournalExportView(APIView):
             logger.warning('Optional identity references unavailable during export')
             identity_rows = {}
         for record in records:
+            from .watch_history import export_history
             serialized_record = UserAnimeRecordSerializer(
                 record,
                 context={"request": request},
@@ -1932,6 +1937,7 @@ class UserJournalExportView(APIView):
                     "total_eps": record.total_eps,
                     "review": record.review,
                     "custom_tags": record.custom_tags,
+                    "watch_history": export_history(record),
                 }
             )
 
@@ -2036,6 +2042,15 @@ class UserJournalImportView(APIView):
         try:
             with transaction.atomic():
                 get_user_model().objects.select_for_update().get(pk=request.user.pk)
+                from .watch_history import export_history, restore_history, observe_change, record_state
+                previous_history = {}
+                previous_by_key = {}
+                for previous in UserAnimeRecord.objects.select_for_update(of=('self',)).filter(user=request.user).order_by('pk').select_related('anime').prefetch_related('watch_rounds', 'watch_events'):
+                    saved = (export_history(previous), record_state(previous))
+                    previous_history[previous.anime_id] = saved
+                    metadata = previous.effective_anime_metadata()
+                    key = tuple(metadata[field] for field in ('chinese_title', 'japanese_title', 'airing_period'))
+                    previous_by_key[key] = None if key in previous_by_key else saved
                 if imported_rating is not None:
                     profile, _ = UserProfile.objects.select_for_update().get_or_create(user=request.user)
                     profile.rating_preferences = imported_rating
@@ -2044,6 +2059,7 @@ class UserJournalImportView(APIView):
                 replacement_records = []
                 identity_references = []
                 private_colors_by_anime_id = {}
+                histories_by_anime_id = {}
                 for item in validated_records:
                     anime_data = dict(item["anime"])
                     identity_references.append(anime_data.pop('identity_reference', None))
@@ -2059,6 +2075,10 @@ class UserJournalImportView(APIView):
                         **lookup,
                         defaults=anime_data,
                     )
+                    key = tuple(lookup[field] for field in ('chinese_title', 'japanese_title', 'airing_period'))
+                    if 'watch_history' not in item and key in previous_by_key and previous_by_key[key] is None:
+                        raise DRFValidationError('旧备份中的作品对应多个私人记录，无法明确保留历程，请先使用完整新版备份。')
+                    histories_by_anime_id[anime.pk] = (item.get('watch_history'), previous_by_key.get(key) or previous_history.get(anime.pk))
                     replacement_records.append(
                         UserAnimeRecord(
                             user=request.user,
@@ -2098,6 +2118,18 @@ class UserJournalImportView(APIView):
                     ).delete()
                     UserAnimeRecord.objects.filter(user=request.user).delete()
                     UserAnimeRecord.objects.bulk_create(replacement_records)
+                    for restored in replacement_records:
+                        supplied, previous = histories_by_anime_id[restored.anime_id]
+                        if supplied is not None:
+                            restore_history(restored, supplied)
+                        elif previous is not None:
+                            history, old_state = previous
+                            restore_history(restored, history)
+                            if history['rounds'] and old_state != record_state(restored):
+                                from types import SimpleNamespace
+                                before = SimpleNamespace(pk=restored.pk, watch_rounds=restored.watch_rounds, **old_state)
+                                observe_change(before, restored)
+                                restored.watch_events.filter(revision=restored.watch_revision).update(source='backup_restore')
                     # Validate signed references, otherwise use conservative local matching.
                     # No arbitrary client-provided ID is copied into the public library.
                     from recommendations.binding import import_links_best_effort
@@ -2115,6 +2147,8 @@ class UserJournalImportView(APIView):
                         ].items()
                     ]
                 )
+        except DRFValidationError:
+            raise
         except Exception:
             logger.exception(
                 "Journal import failed for user %s; transaction rolled back.",
@@ -2330,10 +2364,31 @@ class UserAnimeRecordViewSet(viewsets.ModelViewSet):
             self.request,
             filter_owner=self.request.user,
         )
+        if self.request.method in ('PATCH', 'PUT'):
+            queryset = queryset.select_for_update(of=('self',))
         return _order_record_queryset(
             queryset,
             self.request.query_params.get("sort", "date-desc"),
         )
+
+    @transaction.atomic
+    def update(self, request, *args, **kwargs):
+        return super().update(request, *args, **kwargs)
+
+    @action(detail=True, methods=('get', 'post'), url_path='watch-history')
+    @transaction.atomic
+    def watch_history(self, request, pk=None):
+        from .watch_history import execute, read_history
+        record = generics.get_object_or_404(self._base_queryset().select_for_update(of=('self',)), pk=pk)
+        if request.method == 'POST':
+            return Response(execute(record.pk, request.user, request.data), headers={'Cache-Control': 'private, no-store', 'Vary': 'Authorization, Cookie'})
+        try:
+            page = int(request.query_params.get('page', 1))
+            size = int(request.query_params.get('page_size', 20))
+            if page < 1 or not 1 <= size <= 100: raise ValueError()
+        except (ValueError, TypeError):
+            raise DRFValidationError('历程分页参数无效。')
+        return Response(read_history(record, page, size), headers={'Cache-Control': 'private, no-store', 'Vary': 'Authorization, Cookie'})
 
     @action(detail=False, methods=("get",), url_path="stats")
     def stats(self, request):
@@ -2452,6 +2507,9 @@ class UserAnimeRecordViewSet(viewsets.ModelViewSet):
     def update_details(self, request, pk=None):
         """Update only this user's isolated metadata snapshot and private record."""
 
+        # Identity binding later in this transaction uses owner -> record locks.
+        # Keep that order compatible with import and recommendation want.
+        get_user_model().objects.select_for_update().get(pk=request.user.pk)
         record = self.get_object()
         anime_payload = request.data.get("anime", {})
         if isinstance(anime_payload, str):

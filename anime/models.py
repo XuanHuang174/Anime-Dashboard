@@ -5,7 +5,8 @@ from .rating_config import default_rating_preferences, validate_rating_preferenc
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
-from django.db import models
+from django.db import models, transaction
+from django.utils import timezone
 
 
 def validate_tag_list(value):
@@ -388,6 +389,7 @@ class UserAnimeRecord(models.Model):
     )
     watched_eps = models.PositiveIntegerField("已观看集数", default=0)
     total_eps = models.PositiveIntegerField("总集数", default=0)
+    watch_revision = models.PositiveIntegerField('观看历程版本', default=0, editable=False)
     review = models.TextField("个人长评", blank=True)
     custom_tags = models.JSONField(
         "自定义标签",
@@ -486,7 +488,68 @@ class UserAnimeRecord(models.Model):
     def save(self, *args, **kwargs):
         if self._state.adding and not self.metadata_initialized and self.anime_id:
             self.initialize_private_metadata()
-        return super().save(*args, **kwargs)
+        fields = kwargs.get('update_fields')
+        if self._state.adding or fields is not None and not set(fields).intersection(('watch_status', 'watched_eps', 'total_eps')):
+            return super().save(*args, **kwargs)
+        # All ordinary saves (API, progress, administration, collection import)
+        # commit the current values and their historical event together.
+        with transaction.atomic(using=kwargs.get('using') or self._state.db or 'default'):
+            before = type(self).objects.select_for_update().get(pk=self.pk)
+            self.watch_revision = before.watch_revision
+            result = super().save(*args, **kwargs)
+            from .watch_history import observe_change
+            persisted = type(self).objects.get(pk=self.pk)
+            observe_change(before, persisted)
+            self.watch_revision = persisted.watch_revision
+            return result
+
+
+class WatchRound(models.Model):
+    record = models.ForeignKey(UserAnimeRecord, on_delete=models.CASCADE, related_name='watch_rounds')
+    number = models.PositiveIntegerField()
+    is_current = models.BooleanField(default=True)
+    voided = models.BooleanField(default=False)
+    origin = models.CharField(max_length=16, default='baseline')
+    status = models.CharField(max_length=16, choices=UserAnimeRecord.WatchStatus.choices)
+    watched_eps = models.PositiveIntegerField(default=0)
+    total_eps = models.PositiveIntegerField(default=0)
+    started_on = models.CharField(max_length=10, blank=True, default='')
+    completed_on = models.CharField(max_length=10, blank=True, default='')
+    rating = models.DecimalField(max_digits=3, decimal_places=1, null=True, blank=True,
+        validators=[MinValueValidator(0), MaxValueValidator(10)])
+    rating_origin = models.CharField(max_length=24, blank=True, default='')
+    note = models.TextField(blank=True, default='')
+
+    class Meta:
+        ordering = ('number',)
+        constraints = [
+            models.UniqueConstraint(fields=('record', 'number'), name='watch_round_number'),
+            models.UniqueConstraint(fields=('record',), condition=models.Q(is_current=True), name='watch_round_current'),
+            models.CheckConstraint(condition=models.Q(number__gte=1), name='watch_round_positive_number'),
+            models.CheckConstraint(condition=models.Q(total_eps=0) | models.Q(watched_eps__lte=models.F('total_eps')), name='watch_round_progress_bound'),
+            models.CheckConstraint(condition=models.Q(rating__isnull=True) | models.Q(rating__gte=0, rating__lte=10), name='watch_round_rating_bound'),
+        ]
+
+
+class WatchEvent(models.Model):
+    record = models.ForeignKey(UserAnimeRecord, on_delete=models.CASCADE, related_name='watch_events')
+    revision = models.PositiveIntegerField()
+    kind = models.CharField(max_length=24)
+    source = models.CharField(max_length=24, default='record_update')
+    occurred_on = models.CharField(max_length=10, blank=True, default='')
+    note = models.TextField(blank=True, default='')
+    before = models.JSONField(default=dict)
+    after = models.JSONField(default=dict)
+    recorded_at = models.DateTimeField(default=timezone.now, editable=False)
+    operation_id = models.UUIDField(null=True, blank=True)
+    request_hash = models.CharField(max_length=64, blank=True, default='')
+
+    class Meta:
+        ordering = ('revision',)
+        constraints = [
+            models.UniqueConstraint(fields=('record', 'revision'), name='watch_event_revision'),
+            models.UniqueConstraint(fields=('record', 'operation_id'), name='watch_event_operation'),
+        ]
 
 
 class UserAnimeTag(models.Model):
