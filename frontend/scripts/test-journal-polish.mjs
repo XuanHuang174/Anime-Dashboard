@@ -31,6 +31,8 @@ try {
      const title=entry==='plan'?'B2 正常安排':'B2 首次观看'
      if(view==='列表') await page.locator('tbody tr').filter({hasText:title}).getByRole('button',{name:/详情|查看/}).first().click()
      else await page.locator('.memphis-anime-grid').getByText(title,{exact:false}).first().click()
+     await page.getByRole('region',{name:'系列与关联',exact:true}).waitFor()
+     assert.equal(await page.getByRole('button',{name:/管理标准作品关联|前往编辑核对标准作品/}).count(),0)
      const region=page.getByRole('region',{name:entry==='history'?'私人观看历程':'观看安排',exact:true})
      if(entry==='history') await region.getByRole('button').first().click()
      await region.getByRole('button',{name:entry==='history'?'前往编辑模式管理':'前往编辑安排',exact:true}).click()

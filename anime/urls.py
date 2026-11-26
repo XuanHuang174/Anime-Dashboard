@@ -5,6 +5,7 @@ from .rate_limit_views import RateLimitStatusView
 from .tag_cleanup import TagCleanupViewSet
 from .rating_views import RatingPreferencesView
 from .watch_plan_views import WatchPlanDetailView, WatchPlanQueueView, WatchPlanReorderView, WatchPlanBatchView
+from .watch_review_views import WatchReviewView, WatchReviewEntriesView
 
 from .views import (
     AdminFeaturedSubmissionViewSet,
@@ -84,6 +85,8 @@ router.register(
 
 app_name = "anime_api"
 urlpatterns = [
+    path('watch-review/', WatchReviewView.as_view(), name='watch-review'),
+    path('watch-review/entries/', WatchReviewEntriesView.as_view(), name='watch-review-entries'),
     path('watch-plans/', WatchPlanQueueView.as_view(), name='watch-plan-queue'),
     path('watch-plans/reorder/', WatchPlanReorderView.as_view(), name='watch-plan-reorder'),
     path('watch-plans/batch/', WatchPlanBatchView.as_view(), name='watch-plan-batch'),

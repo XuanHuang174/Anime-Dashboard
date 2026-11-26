@@ -1271,7 +1271,6 @@ function Dashboard() {
           isPrivateJournal={!isSharedJournal}
           explorationTags={explorationTags}
           identityRevision={identityRevision}
-          onReviewIdentity={!isSharedJournal ? recordId => { enterEditMode(); setIdentityPanel({ recordId }) } : undefined}
           onSimilar={!isSharedJournal ? item => navigate('/recommendations/similar', { state: { journalRecord: item.id } }) : undefined}
           showToast={showToast}
           featuredAction={featuredAction ? {

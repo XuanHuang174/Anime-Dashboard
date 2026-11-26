@@ -76,7 +76,6 @@ function DetailModal({
   isPrivateJournal = false,
   onSimilar,
   explorationTags = [],
-  onReviewIdentity,
   identityRevision = 0,
   onManageHistory,
   onManagePlan,
@@ -622,7 +621,7 @@ function DetailModal({
                 </div>
               </div>
 
-              {isPrivateJournal && !editable && <div className="memphis-modal-piece shrink-0"><SeriesSummary key={`series:${selectedItem.id}:${identityRevision}`} compact recordId={selectedItem.id} onReviewIdentity={onReviewIdentity} reviewLabel="前往编辑核对标准作品 ↗" /></div>}
+              {isPrivateJournal && !editable && <div className="memphis-modal-piece shrink-0"><SeriesSummary key={`series:${selectedItem.id}:${identityRevision}`} compact recordId={selectedItem.id} /></div>}
               {isPrivateJournal && !editable && <div className="memphis-modal-piece shrink-0"><CreditsSummary key={`credits:${selectedItem.id}:${identityRevision}`} recordId={selectedItem.id} /></div>}
 
               {editable && (
