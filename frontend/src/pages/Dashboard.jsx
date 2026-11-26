@@ -145,6 +145,10 @@ function Dashboard() {
   const [logoutDestination, setLogoutDestination] = useState('login')
   const [isPreviewMode, setIsPreviewMode] = useJournalDisplayMode(isSharedJournal)
   const isEditMode = !isSharedJournal && !isPreviewMode
+  const enterEditMode = () => {
+    if (isPreviewMode) setRecordsRefreshKey(key => key + 1)
+    setIsPreviewMode(false)
+  }
   const [sharedProfile, setSharedProfile] = useState(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [recordsTotal, setRecordsTotal] = useState(null)
@@ -610,7 +614,7 @@ function Dashboard() {
     && !isLoading
     && Number(recordsTotal) > 0
     && (pageSize === 'all' ? filteredAnime.length > 0 : currentPage === placeholderPage)
-  const hasCompactResult = filteredAnime.length <= 1
+  const hasCompactResult = workspace === 'journal' && filteredAnime.length <= 1
 
   const handlePageSizeChange = (nextPageSize) => {
     setPageSize(nextPageSize)
@@ -728,7 +732,7 @@ function Dashboard() {
     try {
       const { data } = await api.get(`records/${recordId}/`, { signal: controller.signal })
       if (controller.signal.aborted || owner !== seriesSession()) return
-      if (options.edit) setIsPreviewMode(false)
+      if (options.edit) enterEditMode()
       setHistoryDetailId(options.history ? recordId : null)
       setPlanRequest(options.plan ? { id: recordId, action: options.start ? 'start' : '' } : null)
       setSelectedItem(mapRecordToAnimeItem(data))
@@ -1033,6 +1037,7 @@ function Dashboard() {
       ref={dashboardRef}
       className={`memphis-public memphis-dashboard ${isPreviewMode ? 'dashboard-preview-mode' : 'dashboard-edit-mode'} relative min-h-screen overflow-x-clip bg-[#fff5ee] text-black ${hasCompactResult ? 'pb-0' : 'pb-8'}`}
     >
+      <div className="dashboard-decoration-layer pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
       <div className="memphis-grid-texture pointer-events-none absolute inset-0" aria-hidden="true" />
       <div className="memphis-float-ring pointer-events-none absolute right-[-64px] top-[30rem] z-0 h-32 w-32 rounded-full border-[18px] border-black bg-[#4ecdc4]" aria-hidden="true" />
       <div
@@ -1042,6 +1047,7 @@ function Dashboard() {
         aria-hidden="true"
       />
       <div className="memphis-float-zigzag pointer-events-none absolute bottom-24 right-0 z-0 h-16 w-44" aria-hidden="true" />
+      </div>
 
       <DashboardHeader
         workspaceNavigation={!isSharedJournal && !isAdminJournalReview && <nav className="plan-workspace-switch" aria-label="私人手账工作区"><button type="button" aria-pressed={workspace === 'journal'} onClick={() => selectWorkspace('journal')}>手账</button><button type="button" aria-pressed={workspace === 'plans'} onClick={() => selectWorkspace('plans')}>观看计划</button></nav>}
@@ -1049,7 +1055,7 @@ function Dashboard() {
         onTogglePreview={togglePreviewMode}
         onAddAnime={() => setIsAddModalOpen(true)}
         onImportBangumi={() => setIsBangumiImportOpen(true)}
-        onReviewIdentity={() => { setIsPreviewMode(false); setIdentityPanel({ recordId: null }) }}
+        onReviewIdentity={() => { enterEditMode(); setIdentityPanel({ recordId: null }) }}
         onRatingPreferences={() => setIsRatingPreferencesOpen(true)}
         onCleanTags={() => setIsTagCleanupOpen(true)}
         cleanupDisabled={isLoading || Boolean(error) || searchQuery.trim() !== debouncedSearchQuery}
@@ -1252,7 +1258,7 @@ function Dashboard() {
         )}
       </section>
       </div>
-      {!isSharedJournal && !isAdminJournalReview && <WatchPlanWorkspace key={planSession} active={workspace === 'plans'} editable={isEditMode} refreshKey={`${recordsRefreshKey}:${planRefreshKey}`} onOpenRecord={openPlanRecord} onEnterEdit={() => setIsPreviewMode(false)} closeGuardRef={planWorkspaceGuard} onChanged={() => { setPlanRefreshKey(key => key + 1); setRecordsRefreshKey(key => key + 1) }} />}
+      {!isSharedJournal && !isAdminJournalReview && <WatchPlanWorkspace key={planSession} active={workspace === 'plans'} editable={isEditMode} refreshKey={`${recordsRefreshKey}:${planRefreshKey}`} onOpenRecord={openPlanRecord} onEnterEdit={() => enterEditMode()} closeGuardRef={planWorkspaceGuard} onChanged={() => { setPlanRefreshKey(key => key + 1); setRecordsRefreshKey(key => key + 1) }} />}
       {planRecordLoading && <p role="status" className="relative z-10 mx-auto max-w-7xl px-6 py-3 font-bold">正在读取作品详情…</p>}
 
       {!exploringAway && (isPreviewMode || isSharedJournal) ? (
@@ -1260,12 +1266,12 @@ function Dashboard() {
           selectedItem={selectedItem}
           closeModal={() => { setSelectedItem(null); setHistoryDetailId(null) }}
           onRecordUpdated={!isSharedJournal ? handleRecordUpdated : undefined}
-          onManageHistory={!isSharedJournal ? () => { setHistoryDetailId(selectedItem.id); setIsPreviewMode(false) } : undefined}
-          onManagePlan={!isSharedJournal ? () => { setPlanRequest({ id: selectedItem.id, action: '' }); setIsPreviewMode(false) } : undefined}
+          onManageHistory={!isSharedJournal ? () => { setHistoryDetailId(selectedItem.id); enterEditMode() } : undefined}
+          onManagePlan={!isSharedJournal ? () => { setPlanRequest({ id: selectedItem.id, action: '' }); enterEditMode() } : undefined}
           isPrivateJournal={!isSharedJournal}
           explorationTags={explorationTags}
           identityRevision={identityRevision}
-          onReviewIdentity={!isSharedJournal ? recordId => { setIsPreviewMode(false); setIdentityPanel({ recordId }) } : undefined}
+          onReviewIdentity={!isSharedJournal ? recordId => { enterEditMode(); setIdentityPanel({ recordId }) } : undefined}
           onSimilar={!isSharedJournal ? item => navigate('/recommendations/similar', { state: { journalRecord: item.id } }) : undefined}
           showToast={showToast}
           featuredAction={featuredAction ? {
@@ -1281,6 +1287,7 @@ function Dashboard() {
           closeModal={() => setSelectedItem(null)}
           onRecordUpdated={handleRecordUpdated}
           onRecordDeleted={handleRecordDeleted}
+          onReviewIdentity={recordId => setIdentityPanel({ recordId })}
           initialHistoryOpen={historyDetailId === selectedItem?.id}
           initialPlanOpen={Boolean(planRequest && planRequest.id === selectedItem?.id)}
           initialPlanAction={planRequest && planRequest.id === selectedItem?.id ? planRequest.action : ''}
@@ -1300,7 +1307,7 @@ function Dashboard() {
             filteredCount={pageSize === 'all' ? filteredAnime.length : (recordsTotal ?? 0)}
             filters={{ search: searchQuery.trim(), tag: tagFilter, year: yearFilter, status: statusFilter, type_filter: typeFilter, ...(activeCustomFilterId ? { quick_filter: activeCustomFilterId } : {}) }}
             onChanged={() => { setCurrentPage(1); setRecordsRefreshKey(value => value + 1); notifyRecommendationChange() }} />}
-          {identityPanel && <JournalIdentityReview recordId={identityPanel.recordId} onClose={() => setIdentityPanel(null)}
+          {identityPanel && <JournalIdentityReview key={planSession} recordId={identityPanel.recordId} onClose={() => setIdentityPanel(null)}
             onChanged={() => {
               setIdentityRevision(value => value + 1)
               setRecordsRefreshKey(value => value + 1)

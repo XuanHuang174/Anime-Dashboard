@@ -6,7 +6,7 @@ from rest_framework.exceptions import NotFound
 from .content_scope import catalog_for_scope, ensure_scope
 from .engine import RecommendationUnavailable
 from .quality_readonly import readonly_snapshot
-from .resolution import resolved_records
+from .resolution import resolved_records, identity_candidates
 from .serializers import RecommendationPublicAnimeSerializer
 from .series_models import SeriesState, SeriesNode
 from .series_read import read_relations, verify_response, require_enabled
@@ -28,8 +28,7 @@ def own_states(user, ids, scope):
     for identity in ids:
         linked = [row for row in records if row['resolved_bangumi_id'] == identity]
         owned = max(linked, key=lambda row: (PRIORITY.get(row['watch_status'], 0), -row['pk']), default=None)
-        ambiguous = any(row['resolved_bangumi_id'] is None and identity in (
-            row.get('verified_bangumi_id'), row['anime__bgm_id'], row['recommendation_identity__catalog_anime__bangumi_id']) for row in records)
+        ambiguous = any(row['resolved_bangumi_id'] is None and identity in identity_candidates(row) for row in records)
         result[identity] = {'watch_status': owned['watch_status'] if owned else None,
                             'record_state': 'linked' if owned else 'needs_review' if ambiguous else 'no_confirmed_record'}
     return result

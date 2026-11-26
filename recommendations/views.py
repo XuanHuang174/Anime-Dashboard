@@ -328,6 +328,25 @@ class RecommendationIdentityReviewView(OwnRecommendationAPIView):
         return Response(result)
 
 
+class RecommendationIdentityManagementView(OwnRecommendationAPIView):
+    scoped = True
+    throttle_classes = (UserRateThrottle, ScopedRateThrottle)
+    throttle_scope = 'recommendation_identity'
+
+    def get(self, request):
+        from .identity_management import ManagementQuery, management_contract
+        serializer = ManagementQuery(data=self.query_params(request))
+        serializer.is_valid(raise_exception=True)
+        return Response(management_contract(request.user, serializer.validated_data, request.content_scope))
+
+    def post(self, request):
+        from .identity_management import CorrectionRequest, correct_identity
+        self.check_query_contract(request)
+        serializer = CorrectionRequest(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(correct_identity(request.user, serializer.validated_data, request.content_scope))
+
+
 class BoundedIdentityBatchParser(JSONParser):
     def parse(self, stream, media_type=None, parser_context=None):
         data = stream.read(64 * 1024 + 1)

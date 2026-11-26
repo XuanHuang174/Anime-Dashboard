@@ -71,5 +71,6 @@ function Summary({ client: baseClient = defaultClient, bangumiId, recordId, sess
             state: { seriesBackground: seriesBackground(location), seriesScope: scope },
           })}>查看全部关联 <span aria-hidden="true">↗</span></button></>}
     {adult && <p>本次包含已审核 NSFW 关联。 <button type="button" className="series-link" onClick={() => setAdult(false)}>恢复默认范围</button></p>}
+    {onReviewIdentity && recordId && state.status !== 'unlinked' && <button type="button" className="series-link" onClick={() => onReviewIdentity(recordId)}>管理标准作品关联 ↗</button>}
   </section>
 }

@@ -3,6 +3,7 @@ from .views import RecommendationDetailView, RecommendationListView, Recommendat
 from .views import RecommendationFeedbackView, RecommendationFeedbackUndoView, RecommendationHiddenFeedbackView
 from .views import RecommendationCapabilitiesView
 from .views import RecommendationIdentityBatchView
+from .views import RecommendationIdentityManagementView
 from .views import RecommendationProfilePreviewView
 from .views import RecommendationContextView
 from .eligibility_views import RecommendationEligibilityView, RecommendationEligibilityRevokeView, RecommendationEligibilityApplyView
@@ -20,6 +21,7 @@ from .credits_views import (CreditsSearchView, CreditsSummaryView, CreditsRecord
                            CreditsWorksView, CreditsDetailView, CreditsWantView)
 
 urlpatterns = [
+    path('identities/manage/', RecommendationIdentityManagementView.as_view(), name='identity-management'),
     path('credits/search/', CreditsSearchView.as_view(), name='credits-search'),
     path('credits/subjects/<int:bangumi_id>/', CreditsSummaryView.as_view(), name='credits-summary'),
     path('credits/record/<int:record_id>/', CreditsRecordView.as_view(), name='credits-record'),

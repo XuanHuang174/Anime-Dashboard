@@ -20,7 +20,7 @@ def review_contract(user, options, *, scope_context=None):
         rows = [row for row in rows if row['pk'] == options['record_id']]
         if not rows or rows[0]['identity_state'] in ('unsafe_or_unknown', 'not_in_catalog'):
             raise NotFound('该记录无法进行推荐身份关联。')
-    pending = [row for row in rows if row['identity_state'] in ('unlinked', 'stale_link', 'identity_conflict')
+    pending = [row for row in rows if not row.get('identity_override__enabled') and row['identity_state'] in ('unlinked', 'stale_link', 'identity_conflict')
                and (options.get('scope') == 'all' or
                     (row['watch_status'] == 'completed' and row['personal_score'] is not None
                      and row['personal_score'] >= threshold))]

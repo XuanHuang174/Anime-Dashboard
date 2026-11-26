@@ -44,6 +44,8 @@ def bind_record(*, record_id, user_id, target_id, source, expected_version=None,
     record = UserAnimeRecord.objects.select_for_update().filter(pk=record_id, user_id=user_id).first()
     if record is None:
         raise NotFound('记录不存在。')
+    if getattr(getattr(record, 'identity_override', None), 'enabled', False):
+        raise IdentityConflict('此记录已有私人更正，请在关联管理中核对。')
     row = record_row(record)
     from .content_scope import ensure_scope, lock_scope, catalog_for_scope
     owner = get_user_model().objects.get(pk=user_id)
@@ -112,11 +114,15 @@ def bind_record(*, record_id, user_id, target_id, source, expected_version=None,
 
 def auto_link(record, *, matcher=None, batch_id=None):
     """For explicit create/import/worker operations only, never GET or general save signals."""
+    if getattr(getattr(record, 'identity_override', None), 'enabled', False):
+        return {'status': 'user_override'}
     if record.anime.bgm_id or record.verified_bangumi_id:
         return {'status': 'authoritative'}
     with transaction.atomic():
         get_user_model().objects.select_for_update().get(pk=record.user_id)
         locked = UserAnimeRecord.objects.select_for_update().get(pk=record.pk)
+        if getattr(getattr(locked, 'identity_override', None), 'enabled', False):
+            return {'status': 'user_override'}
         if RecommendationRecordIdentity.objects.filter(record=locked).exists():
             return {'status': 'existing_link'}  # Never rebind stale, revoked or user-confirmed aliases.
         row = record_row(locked)

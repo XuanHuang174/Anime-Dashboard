@@ -123,6 +123,38 @@ class RecommendationIdentityEvent(models.Model):
         verbose_name_plural = verbose_name
 
 
+class RecommendationIdentityOverride(models.Model):
+    """Explicit private correction; null target intentionally masks the source."""
+    record = models.OneToOneField('anime.UserAnimeRecord', on_delete=models.CASCADE, related_name='identity_override')
+    target = models.ForeignKey(RecommendationAnime, on_delete=models.PROTECT, null=True, blank=True)
+    enabled = models.BooleanField(default=True)
+    version = models.PositiveIntegerField(default=1)
+    record_fingerprint = models.CharField(max_length=64)
+    catalog_fingerprint = models.CharField(max_length=64, blank=True, default='')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = '私人标准作品更正'
+        verbose_name_plural = verbose_name
+
+
+class RecommendationIdentityCorrection(models.Model):
+    override = models.ForeignKey(RecommendationIdentityOverride, on_delete=models.CASCADE, related_name='operations')
+    operation_id = models.UUIDField()
+    request_hash = models.CharField(max_length=64)
+    action = models.CharField(max_length=8, choices=(('replace', '更换'), ('unlink', '解除'), ('undo', '撤销')))
+    previous = models.JSONField(default=dict)
+    applied_version = models.PositiveIntegerField()
+    target = models.ForeignKey(RecommendationAnime, on_delete=models.PROTECT, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=('override','operation_id'), name='rec_identity_correction_op')]
+        ordering = ('-pk',)
+        verbose_name = '私人标准作品更正记录'
+        verbose_name_plural = verbose_name
+
+
 class UserRecommendationFeedbackState(models.Model):
     """Independent, monotonic per-user feedback revision (not preference version)."""
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,

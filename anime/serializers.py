@@ -600,6 +600,14 @@ class JournalAnimeImportSerializer(serializers.Serializer):
         from .journal_sources import normalize_bangumi_url
         return normalize_bangumi_url(value)
     identity_reference = serializers.DictField(required=False, allow_null=True, default=None)
+    identity_correction = serializers.DictField(required=False, allow_null=True)
+
+    def validate_identity_correction(self, value):
+        if value is not None and (set(value) != {'bangumi_id', 'proof'}
+                or value['bangumi_id'] is not None and (type(value['bangumi_id']) is not int or not 1 <= value['bangumi_id'] <= 2147483647)
+                or not isinstance(value['proof'], str) or not 1 <= len(value['proof']) <= 4096):
+            raise serializers.ValidationError('私人关联更正格式不合法。')
+        return value
 
     def validate_identity_reference(self, value):
         if value is None:
@@ -788,9 +796,12 @@ class UserAnimeRecordSerializer(serializers.ModelSerializer):
         private_image = metadata.pop("poster_image")
         data.update(metadata)
         from .journal_sources import confirmed_source_id, bangumi_url
-        identity = confirmed_source_id(record, private=bool(request and request.user.pk == record.user_id))
+        private_source = bool(request and request.user.pk == record.user_id and not self.context.get('public_sources'))
+        identity = confirmed_source_id(record, private=private_source)
         data['confirmed_bangumi_id'] = identity
         data['bangumi_url'] = metadata['bangumi_url'] or bangumi_url(identity)
+        if private_source and getattr(getattr(record, 'identity_override', None), 'enabled', False):
+            data['bangumi_url'] = bangumi_url(identity)
         if private_image:
             data["poster_image"] = (
                 request.build_absolute_uri(private_image.url)

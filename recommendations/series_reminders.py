@@ -14,7 +14,7 @@ from .engine import RecommendationUnavailable
 from .exploration_contract import enabled as exploration_enabled
 from .feedback import feedback_snapshot
 from .quality_readonly import readonly_snapshot
-from .resolution import resolved_records
+from .resolution import resolved_records, identity_candidates
 from .series_exploration import graph, enabled as graph_enabled, fact_payload
 from .series_models import SeriesReminderState, SeriesReminderDismissal, SeriesState
 from .series_source import digest
@@ -45,7 +45,7 @@ def snapshot(user, scope):
         raise RecommendationUnavailable('手账身份服务尚未就绪。')
     completed = {row['resolved_bangumi_id'] for row in records if row['resolved_bangumi_id'] and row['watch_status'] == 'completed'}
     # Also exclude stale/conflicting aliases: absence of a confirmed link is not unseen.
-    owned = {identity for row in records for identity in (row.get('verified_bangumi_id'), row['anime__bgm_id'], row['recommendation_identity__catalog_anime__bangumi_id']) if identity}
+    owned = {identity for row in records for identity in identity_candidates(row) if identity}
     feedback = feedback_snapshot(user)
     hidden = set(feedback['hidden_ids'])
     data = graph(completed, scope)

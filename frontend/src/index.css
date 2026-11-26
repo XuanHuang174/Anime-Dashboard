@@ -39,11 +39,10 @@ body {
 }
 
 .animate-item {
-  opacity: 0;
-  transform: translateY(20px);
-  will-change: opacity, transform;
   backface-visibility: hidden;
 }
+
+.animate-item.is-reveal-pending:not(.is-revealed) { opacity: 0; transform: translateY(20px); will-change: opacity, transform; }
 
 .animate-item.is-revealed {
   animation: parallaxReveal 0.4s ease-out forwards;
@@ -178,7 +177,10 @@ select {
 /* Keep header spacing inside the painted page, without collapsing top margins. */
 .memphis-dashboard {
   display: flow-root;
+  min-height: 100dvh;
 }
+
+.dashboard-decoration-layer { z-index: 0; }
 
 .memphis-dashboard.dashboard-edit-mode {
   padding-top: 16px;

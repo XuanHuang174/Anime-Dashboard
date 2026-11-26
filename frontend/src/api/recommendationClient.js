@@ -35,8 +35,9 @@ export function createRecommendationClient(transport, scope = 'safe', onLost = (
       const creditsWriteConflict = path.startsWith('recommendations/credits/') && (
         error.response?.status === 409 && ['identity_confirmation_required', 'public_identity_conflict', 'journal_field_conflict', 'identity_changed'].includes(error.response?.data?.code)
         || error.response?.status === 403 && error.response?.data?.code === 'capacity_exceeded')
+      const identityWriteConflict = path.startsWith('recommendations/identities/') && error.response?.status === 409 && error.response?.data?.code === 'identity_changed'
       if (controlled && scope === 'include_adult' && !config.signal?.aborted
-        && (error.scopeLost || !creditsWriteConflict && (error.response?.status === 403 || error.response?.status === 409 && !explorationChanged && !seriesChanged && !creditsChanged))) onLost()
+        && (error.scopeLost || !creditsWriteConflict && !identityWriteConflict && (error.response?.status === 403 || error.response?.status === 409 && !explorationChanged && !seriesChanged && !creditsChanged))) onLost()
       throw error
     })
   }
@@ -94,6 +95,8 @@ export function createRecommendationClient(transport, scope = 'safe', onLost = (
       params: { profile_min_score: profileMinScore }, signal }).then(r => r.data),
     preferences: (signal) => client.get('recommendations/preferences/', { signal }).then((r) => r.data),
     savePreferences: (changes, signal) => client.patch('recommendations/preferences/', changes, { signal }).then((r) => r.data),
+    identityManagement: (params, signal) => client.get('recommendations/identities/manage/', { params, signal }).then(r => r.data),
+    correctIdentity: (changes, signal) => client.post('recommendations/identities/manage/', changes, { signal }).then(r => r.data),
     identities: (params, signal) => client.get('recommendations/identities/', { params, signal }).then((r) => r.data),
     confirmIdentity: (changes, signal) => client.patch('recommendations/identities/', changes, { signal }).then((r) => r.data),
     confirmIdentities: (changes, signal) => client.post('recommendations/identities/batch/', changes, { signal }).then(r => r.data),

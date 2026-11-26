@@ -3,7 +3,7 @@ import RecommendationDialog from './RecommendationDialog.jsx'
 import { createIdentityReviewController, MAX_IDENTITY_BATCH, identitySeasonDiffers } from '../../utils/recommendationIdentityBatch.js'
 import '../../styles/recommendations-identity.css'
 
-export default function RecommendationIdentityReview({ client, onClose, onChanged, scope = 'high-score', recordId = null, title = '核对旧作品身份', scopeControl }) {
+export default function RecommendationIdentityReview({ client, onClose, onChanged, onManageLinked, scope = 'high-score', recordId = null, title = '核对旧作品身份', scopeControl }) {
   const controller = useMemo(() => createIdentityReviewController(client, scope), [client, scope])
   const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot)
   const [discard, setDiscard] = useState(false)
@@ -21,6 +21,7 @@ export default function RecommendationIdentityReview({ client, onClose, onChange
       <p className="rec-identity-intro">核对你自己的{scope === 'all' ? '旧记录（全部观看状态）' : '评分达到当前取样门槛的旧记录'}，逐条选择并勾选后统一提交。请留意不同季、OVA 和剧场版；评分、长评、状态和私人标签不修改。</p>
       {scopeControl && <fieldset className="rec-identity-scope" disabled={locked || drafts.length > 0 || searching}>{typeof scopeControl === 'function' ? scopeControl(state) : scopeControl}{drafts.length > 0 && <p className="rec-muted">请先提交或移除暂存选择，再切换内容范围。</p>}</fieldset>}
       <div className="rec-identity-content">
+        {onManageLinked && <p><button className="rec-button" disabled={locked || drafts.length > 0 || searching} onClick={() => { if (state.mayHaveChanged) onChanged(); onManageLinked() }}>关联管理（更换、解除与撤销）</button>{drafts.length > 0 && <span className="rec-muted"> 请先提交或移除暂存选择。</span>}</p>}
         <div className="rec-identity-pagination"><span>{state.focusedId ? '正在核对清单中的单条记录' : state.data ? `${state.data.count} 条记录待核对 · 第 ${state.page} 页` : '待核对列表'}</span>
           {state.focusedId && <button type="button" className="rec-button" disabled={locked} onClick={() => controller.loadPage(1)}>返回待核对列表</button>}
           <button type="button" className="rec-text-button" disabled={locked || searching || state.status === 'loading'} onClick={() => controller.loadPage(state.page, state.focusedId)}>刷新候选</button>
@@ -34,7 +35,7 @@ export default function RecommendationIdentityReview({ client, onClose, onChange
               return <section className="rec-identity-row" key={id} aria-label={`核对记录 ${id}`}>
                 <div className="rec-identity-heading"><div><h3>{item.title}</h3><p className="rec-muted">原名：{item.original_title || '未填写'} · 原记录季度：{item.season || '未知'}</p></div>
                   {draft && <span className="rec-identity-badge">{draft.confirmed && !draft.error ? '已核对，待提交' : '待确认'}</span>}</div>
-                {item.status === 'needs_admin_review' ? <p>已有权威身份发生冲突，请联系管理员核对。</p> : <>
+                {item.status === 'needs_admin_review' ? <p>{onManageLinked ? '已有来源与身份关联冲突，请到“关联管理”中逐条更正。' : '已有权威身份发生冲突，请联系管理员核对。'}</p> : <>
                   <form className="rec-identity-search" onSubmit={event => { event.preventDefault(); controller.search(item) }}>
                     <label className="rec-field">查找标准作品<input maxLength={100} minLength={2} required disabled={locked || local?.busy}
                       value={state.keywords[id] ?? item.title.slice(0, 100)} onChange={event => controller.setKeyword(id, event.target.value)} /></label>

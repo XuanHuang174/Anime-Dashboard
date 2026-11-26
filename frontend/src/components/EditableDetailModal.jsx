@@ -65,6 +65,7 @@ function EditableDetailModal({
   closeModal,
   onRecordUpdated,
   onRecordDeleted,
+  onReviewIdentity,
   initialHistoryOpen = false,
   initialPlanOpen = false,
   initialPlanAction = '',
@@ -536,6 +537,7 @@ function EditableDetailModal({
                 <button type="button" className="border-2 border-black bg-[#4ecdc4] px-2 py-1 text-[11px] font-black hover:bg-[#ffe66d] disabled:opacity-50" disabled={!bangumiSubjectUrl(renderedItem.confirmedBangumiId)} onClick={() => setFormData(current => ({ ...current, bangumiUrl: bangumiSubjectUrl(renderedItem.confirmedBangumiId) }))}><i className="fa-solid fa-link mr-1" aria-hidden="true" />填入链接</button>
               </div>
               <input id="editBangumiUrl" name="bangumiUrl" type="url" value={formData.bangumiUrl} onChange={updateField} placeholder="https://bgm.tv/subject/..." className={fieldClass} />
+              {onReviewIdentity && <button type="button" disabled={busy || hasUnsavedChanges || planLocked} onClick={() => onReviewIdentity(renderedItem.id)} className="mt-3 border-2 border-black bg-white px-2 py-1 text-[11px] font-black shadow-[3px_3px_0_#4ecdc4] disabled:opacity-50" title={hasUnsavedChanges ? '请先保存作品修改，再管理关联' : '更换、解除或撤销私人标准作品关联'}>管理标准作品关联</button>}
               {!bangumiSubjectUrl(renderedItem.confirmedBangumiId) && <p className="mt-2 text-[11px] font-bold leading-relaxed">尚未确认标准作品，可在“数据管理 → 核对标准作品”中核对身份。</p>}
               <details className="mt-3 shrink-0 text-[11px] font-bold leading-relaxed">
                 <summary className="cursor-pointer py-1 underline underline-offset-2">链接填写说明</summary>
@@ -703,7 +705,7 @@ function EditableDetailModal({
         </div>
 
         <footer className="edit-modal-piece flex shrink-0 flex-wrap justify-between gap-3 border-t-4 border-black bg-[#ffe66d] px-4 py-3 sm:px-6">
-          {historyOpen ? <><button type="button" className={`${arcadeButton} bg-white`} onClick={() => historyGuardRef.current?.(() => setHistoryOpen(false), '返回作品编辑')}>返回作品编辑</button><button type="button" onClick={handleClose} className={`${arcadeButton} bg-white`}>关闭</button></> : planOpen ? <><button type="button" className={`${arcadeButton} bg-white`} onClick={() => planGuardRef.current?.(() => setPlanOpen(false), '返回作品编辑')}>返回作品编辑</button><p className="self-center text-xs font-bold">观看安排单独保存</p><button type="button" onClick={handleClose} className={`${arcadeButton} bg-white`}>关闭</button></> : <>
+          {historyOpen ? <><button type="button" className={`${arcadeButton} bg-white`} onClick={() => historyGuardRef.current?.(() => setHistoryOpen(false), '返回作品编辑')}>返回作品编辑</button><button type="button" onClick={handleClose} className={`${arcadeButton} bg-white`}>关闭</button></> : planOpen ? <><button type="button" className={`${arcadeButton} bg-white`} onClick={() => planGuardRef.current?.(() => setPlanOpen(false), '返回作品编辑')}>返回作品编辑</button><button type="button" onClick={handleClose} className={`${arcadeButton} bg-white`}>关闭</button></> : <>
           <div className="flex flex-wrap gap-4">
           <button type="button" onClick={handleDelete} disabled={busy || planLocked} className={`${arcadeButton} bg-red-500`}>
             <i className={`fa-solid ${isDeleting ? 'fa-spinner animate-spin' : 'fa-trash-can'} mr-2`}></i>{isDeleting ? '删除中...' : '删除私人记录'}

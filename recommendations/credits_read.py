@@ -24,7 +24,7 @@ from .score_filters import matches_score
 from .type_filters import matches_type
 from .evidence import _token
 from .feedback import feedback_snapshot
-from .resolution import resolved_records, LINK_FIELDS
+from .resolution import resolved_records, LINK_FIELDS, identity_candidates
 from .serializers import RecommendationListAnimeSerializer
 from .quality_readonly import readonly_snapshot
 
@@ -204,7 +204,7 @@ def live_revision(user, scope, session):
             if priority.get(row['watch_status'], 0) > priority.get(states.get(identity), 0):
                 states[identity] = row['watch_status']
         else:
-            blocked.update(v for v in (row.get('verified_bangumi_id'), row['anime__bgm_id'], row[LINK_FIELDS[0]]) if v)
+            blocked.update(v for v in identity_candidates(row) if v)
     feedback = feedback_snapshot(user)
     # Includes identity fingerprints/metadata and status, but never scores/reviews/tags.
     owned_revision = digest(rows)

@@ -1761,6 +1761,9 @@ class PublicJournalDetailView(generics.ListAPIView):
     authentication_classes = ()
     pagination_class = UserAnimeRecordPagination
 
+    def get_serializer_context(self):
+        return {**super().get_serializer_context(), 'public_sources': True}
+
     def get_profile(self):
         if not hasattr(self, "_public_profile"):
             self._public_profile = generics.get_object_or_404(
@@ -1775,7 +1778,7 @@ class PublicJournalDetailView(generics.ListAPIView):
         profile = self.get_profile()
         return (
             UserAnimeRecord.objects.filter(user=profile.user)
-            .select_related("user", "anime", "recommendation_identity__catalog_anime")
+            .select_related("user", "anime", "recommendation_identity__catalog_anime", "identity_override__target")
             .prefetch_related("tag_preferences")
         )
 
@@ -1890,13 +1893,14 @@ class UserJournalExportView(APIView):
         records = (
             UserAnimeRecord.objects.filter(user=request.user)
             .select_for_update(of=('self',))
-            .select_related("anime", "recommendation_identity__catalog_anime")
+            .select_related("anime", "recommendation_identity__catalog_anime", "identity_override__target")
             .prefetch_related("tag_preferences", "watch_rounds", "watch_events", "watch_plan")
             .order_by("pk")
         )
         exported_records = []
         from recommendations.resolution import resolved_records
         from recommendations.binding import export_reference
+        from recommendations.identity_management import export_correction
         try:
             with transaction.atomic():
                 identity_rows = {row['pk']: row for row in resolved_records(request.user)}
@@ -1918,7 +1922,8 @@ class UserJournalExportView(APIView):
             exported_records.append(
                 {
                     "anime": {
-                        "identity_reference": export_reference(request.user, identity_rows.get(record.pk)),
+                        "identity_reference": None if getattr(getattr(record, "identity_override", None), "enabled", False) else export_reference(request.user, identity_rows.get(record.pk)),
+                        "identity_correction": export_correction(request.user, record),
                         "chinese_title": anime_data["chinese_title"],
                         "japanese_title": anime_data["japanese_title"],
                         "airing_period": anime_data["airing_period"],
@@ -2063,13 +2068,16 @@ class UserJournalImportView(APIView):
                 previous_history = {}
                 previous_by_key = {}
                 previous_plans = {}
+                from recommendations.identity_management import export_correction, restore_correction
+                corrections_by_key = {}
                 plans_by_key = {}
-                for previous in UserAnimeRecord.objects.select_for_update(of=('self',)).filter(user=request.user).order_by('pk').select_related('anime').prefetch_related('watch_rounds', 'watch_events', 'watch_plan'):
+                for previous in UserAnimeRecord.objects.select_for_update(of=('self',)).filter(user=request.user).order_by('pk').select_related('anime', 'identity_override__target').prefetch_related('watch_rounds', 'watch_events', 'watch_plan'):
                     saved = (export_history(previous), record_state(previous))
                     previous_history[previous.anime_id] = saved
                     metadata = previous.effective_anime_metadata()
                     key = tuple(metadata[field] for field in ('chinese_title', 'japanese_title', 'airing_period'))
                     previous_by_key[key] = None if key in previous_by_key else saved
+                    corrections_by_key[key] = None if key in corrections_by_key else (export_correction(request.user, previous),)
                     previous_plan = plan_data(getattr(previous, 'watch_plan', None))
                     previous_plans[previous.anime_id] = previous_plan
                     plans_by_key[key] = None if key in plans_by_key else (previous_plan,)
@@ -2080,12 +2088,15 @@ class UserJournalImportView(APIView):
                     profile.save(update_fields=['rating_preferences', 'rating_revision'])
                 replacement_records = []
                 identity_references = []
+                identity_corrections = []
                 private_colors_by_anime_id = {}
                 histories_by_anime_id = {}
                 plans_by_anime_id = {}
                 for item in validated_records:
                     anime_data = dict(item["anime"])
                     identity_references.append(anime_data.pop('identity_reference', None))
+                    correction_supplied = 'identity_correction' in anime_data
+                    correction = anime_data.pop('identity_correction', None)
                     source_url = anime_data.pop('bangumi_url', '')
                     private_tag_colors = anime_data.pop("tag_colors", {})
                     lookup = {
@@ -2099,6 +2110,12 @@ class UserJournalImportView(APIView):
                         defaults=anime_data,
                     )
                     key = tuple(lookup[field] for field in ('chinese_title', 'japanese_title', 'airing_period'))
+                    if not correction_supplied:
+                        if key in corrections_by_key and corrections_by_key[key] is None:
+                            raise DRFValidationError('旧备份对应多个私人记录，无法明确保留关联更正。')
+                        saved_correction = corrections_by_key.get(key)
+                        correction = saved_correction[0] if saved_correction else None
+                    identity_corrections.append(correction)
                     if 'watch_history' not in item and key in previous_by_key and previous_by_key[key] is None:
                         raise DRFValidationError('旧备份中的作品对应多个私人记录，无法明确保留历程，请先使用完整新版备份。')
                     histories_by_anime_id[anime.pk] = (item.get('watch_history'), previous_by_key.get(key) or previous_history.get(anime.pk))
@@ -2168,7 +2185,9 @@ class UserJournalImportView(APIView):
                     # Validate signed references, otherwise use conservative local matching.
                     # No arbitrary client-provided ID is copied into the public library.
                     from recommendations.binding import import_links_best_effort
-                    import_links_best_effort(request.user, replacement_records, identity_references)
+                    for restored, correction in zip(replacement_records, identity_corrections):
+                        restore_correction(request.user, restored, correction)
+                    import_links_best_effort(request.user, replacement_records, [None if correction else reference for correction, reference in zip(identity_corrections, identity_references)])
                 created_records = UserAnimeRecord.objects.filter(
                     user=request.user,
                     anime_id__in=private_colors_by_anime_id,
@@ -2274,13 +2293,16 @@ class PublicShowcaseViewSet(PublicContentResponseMixin, viewsets.ReadOnlyModelVi
     permission_classes = (permissions.AllowAny,)
     pagination_class = UserAnimeRecordPagination
 
+    def get_serializer_context(self):
+        return {**super().get_serializer_context(), 'public_sources': True}
+
     def _base_queryset(self):
         return (
             filter_publication_content(UserAnimeRecord.objects.filter(
                 user__username=settings.PUBLIC_SHOWCASE_USERNAME,
                 anime__is_active=True,
             ), 'anime__bgm_id')
-            .select_related("user", "anime", "recommendation_identity__catalog_anime")
+            .select_related("user", "anime", "recommendation_identity__catalog_anime", "identity_override__target")
             .prefetch_related("tag_preferences")
         )
 
@@ -2392,7 +2414,7 @@ class UserAnimeRecordViewSet(viewsets.ModelViewSet):
 
         return (
             UserAnimeRecord.objects.filter(user=self.request.user)
-            .select_related("user", "anime", "recommendation_identity__catalog_anime")
+            .select_related("user", "anime", "recommendation_identity__catalog_anime", "identity_override__target")
             .prefetch_related("tag_preferences", "watch_plan")
         )
 
@@ -3102,6 +3124,9 @@ class AdminPublicJournalDetailView(generics.ListAPIView):
     """Superuser-only live record view for pending and approved journals."""
 
     serializer_class = UserAnimeRecordSerializer
+
+    def get_serializer_context(self):
+        return {**super().get_serializer_context(), 'public_sources': True}
     permission_classes = (IsSuperUser,)
     pagination_class = UserAnimeRecordPagination
 
@@ -3109,7 +3134,7 @@ class AdminPublicJournalDetailView(generics.ListAPIView):
         profile = _get_admin_review_profile(self.kwargs["username"])
         queryset = (
             UserAnimeRecord.objects.filter(user=profile.user)
-            .select_related("user", "anime", "recommendation_identity__catalog_anime")
+            .select_related("user", "anime", "recommendation_identity__catalog_anime", "identity_override__target")
             .prefetch_related("tag_preferences")
         )
         queryset = _apply_record_filters(

@@ -9,7 +9,9 @@ RECORD_FIELDS = ('pk', 'user_id', 'anime_id', 'watch_status', 'personal_score', 
                  'private_chinese_title', 'private_japanese_title', 'private_airing_period', 'private_base_tags',
                  'anime__chinese_title', 'anime__japanese_title', 'anime__airing_period', 'anime__base_tags', 'anime__bgm_id', 'verified_bangumi_id')
 LINK_FIELDS = ('recommendation_identity__catalog_anime__bangumi_id', 'recommendation_identity__record_fingerprint',
-               'recommendation_identity__catalog_fingerprint', 'recommendation_identity__active', 'recommendation_identity__version')
+               'recommendation_identity__catalog_fingerprint', 'recommendation_identity__active', 'recommendation_identity__version',
+               'identity_override__enabled', 'identity_override__target__bangumi_id', 'identity_override__version',
+               'identity_override__record_fingerprint', 'identity_override__catalog_fingerprint')
 
 
 class ResolvedRecords(list):
@@ -21,13 +23,20 @@ def record_row(record):
 
 
 def authoritative_id(row):
+    if row.get('identity_override__enabled'): return None
     return row.get('verified_bangumi_id') or row['anime__bgm_id']
+
+
+def identity_candidates(row):
+    if row.get('identity_override__enabled'):
+        return (row.get('identity_override__target__bangumi_id'),) if row.get('identity_override__target__bangumi_id') else ()
+    return (row.get('verified_bangumi_id'), row['anime__bgm_id'], row.get(LINK_FIELDS[0]))
 
 
 def resolved_records(user, *, allowed_adult_ids=(), include_profile=True, max_rows=None, record_id=None, bangumi_ids=None, record_ids=None):
     query = UserAnimeRecord.objects.filter(user=user).order_by('pk')
     if bangumi_ids is not None:
-        query = query.filter(Q(anime__bgm_id__in=bangumi_ids) | Q(verified_bangumi_id__in=bangumi_ids) | Q(recommendation_identity__catalog_anime__bangumi_id__in=bangumi_ids))
+        query = query.filter(Q(anime__bgm_id__in=bangumi_ids) | Q(verified_bangumi_id__in=bangumi_ids) | Q(recommendation_identity__catalog_anime__bangumi_id__in=bangumi_ids) | Q(identity_override__target__bangumi_id__in=bangumi_ids))
     if record_id is not None:
         query = query.filter(pk=record_id)
     if record_ids is not None:
@@ -57,7 +66,7 @@ def resolved_records(user, *, allowed_adult_ids=(), include_profile=True, max_ro
         for row in rows:
             # Identity fingerprints use titles/quarter only, never these tags.
             row.update(private_base_tags=[], anime__base_tags=[])
-    ids = {value for row in rows for value in (authoritative_id(row), row[LINK_FIELDS[0]]) if value}
+    ids = {value for row in rows for value in identity_candidates(row) if value}
     catalog = {row['bangumi_id']: row for row in RecommendationAnime.objects.filter(bangumi_id__in=ids)
                .values('pk', 'bangumi_id', 'title_zh', 'title_jp', 'season', 'status_type', 'nsfw')}
     for row in rows:
@@ -66,6 +75,21 @@ def resolved_records(user, *, allowed_adult_ids=(), include_profile=True, max_ro
         row['metadata'] = effective_metadata(row)
         row['identity_version'] = row['recommendation_identity__version'] or 0
         row['identity_state'], row['catalog'], row['resolved_bangumi_id'] = 'unlinked', None, None
+        if row.get('identity_override__enabled'):
+            chosen = row.get('identity_override__target__bangumi_id')
+            row['identity_version'] = row['identity_override__version']
+            if chosen is None:
+                row['identity_state'] = 'unlinked'
+                continue
+            target = catalog.get(chosen)
+            if (row['identity_override__record_fingerprint'] != record_fingerprint(row) or target is None
+                    or row['identity_override__catalog_fingerprint'] != catalog_fingerprint(target)):
+                row['identity_state'] = 'stale_link'
+            elif target['nsfw'] is not False and not (target['nsfw'] is True and chosen in allowed_adult_ids):
+                row['identity_state'] = 'unsafe_or_unknown'
+            else:
+                row.update(identity_state='linked', catalog=target, resolved_bangumi_id=chosen)
+            continue
         target_id = direct or alias
         if direct and alias and active and direct != alias:
             row['identity_state'] = 'identity_conflict'

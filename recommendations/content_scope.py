@@ -163,6 +163,8 @@ def verify_response_catalog(data, scope):
         if row.get('bangumi_id'):
             candidates.add(row['bangumi_id'])
         candidates.update(c['bangumi_id'] for c in row.get('candidates', []))
+        if isinstance(row.get('current'), dict) and row['current'].get('bangumi_id'):
+            candidates.add(row['current']['bangumi_id'])
         evidence = row.get('evidence') or {}
         if evidence.get('kind') == 'rated_work' and evidence.get('source', {}).get('bangumi_id'):
             sources.add(evidence['source']['bangumi_id'])

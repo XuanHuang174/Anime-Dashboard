@@ -25,7 +25,9 @@ export default function WatchPlanPicker({ onOpenRecord, onClose }) {
     }).catch(problem => { if (!controller.signal.aborted) setError(planError(problem)) }).finally(() => { if (!controller.signal.aborted) setLoading(false) })
     return () => controller.abort()
   }, [query,page,retry])
-  return <dialog ref={dialog} className="watch-plans plan-picker-dialog" aria-labelledby="planPickerTitle" onCancel={event => {event.preventDefault();event.stopPropagation();onClose()}}>
+  return <dialog ref={dialog} className="watch-plans plan-picker-dialog" aria-labelledby="planPickerTitle" onCancel={event => {event.preventDefault();event.stopPropagation();onClose()}}
+    onPointerDown={event => { const box=event.currentTarget.getBoundingClientRect(); dialog.current.dataset.backdropDown=String(event.target===event.currentTarget && (event.clientX<box.left || event.clientX>box.right || event.clientY<box.top || event.clientY>box.bottom)) }}
+    onClick={event => { const box=event.currentTarget.getBoundingClientRect(); if(dialog.current.dataset.backdropDown==='true' && event.target===event.currentTarget && (event.clientX<box.left || event.clientX>box.right || event.clientY<box.top || event.clientY>box.bottom)) onClose(); delete dialog.current.dataset.backdropDown }}>
     <header><div><span className="plan-sticker">WATCH NEXT</span><h2 id="planPickerTitle">从私人手账添加计划</h2></div><button type="button" aria-label="关闭作品选择" onClick={onClose}>×</button></header>
     <form className="plan-search" onSubmit={event => {event.preventDefault();setPage(1);setQuery(search.trim());setRetry(n=>n+1)}}><input aria-label="搜索可安排作品" maxLength={100} value={search} onChange={event=>setSearch(event.target.value)} placeholder="搜索中文或日文名称"/><button type="submit">搜索作品</button></form>
     <div className="plan-picker-content">{loading && <p role="status">正在读取作品…</p>}{error && <p role="alert" className="plan-error">{error}<button type="button" onClick={()=>setRetry(n=>n+1)}>重试作品列表</button></p>}

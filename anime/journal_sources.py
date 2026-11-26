@@ -43,6 +43,19 @@ def verify_source_ticket(user, ticket):
 
 
 def confirmed_source_id(record, *, private=False):
+    if private:
+        correction = getattr(record, 'identity_override', None)
+        if correction and correction.enabled:
+            if correction.target_id is None: return None
+            from recommendations.matching import record_fingerprint, catalog_fingerprint
+            metadata = record.effective_anime_metadata()
+            row = {'anime_id': record.anime_id, 'metadata_initialized': True,
+                   'private_chinese_title': metadata['chinese_title'], 'private_japanese_title': metadata['japanese_title'],
+                   'private_airing_period': metadata['airing_period'], 'private_base_tags': []}
+            if (correction.record_fingerprint != record_fingerprint(row)
+                    or correction.catalog_fingerprint != catalog_fingerprint(correction.target)):
+                return None
+            return correction.target.bangumi_id
     direct = record.verified_bangumi_id or record.anime.bgm_id
     if direct:
         return direct
