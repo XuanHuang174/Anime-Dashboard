@@ -103,6 +103,11 @@
 .plan-workspace-switch button[aria-pressed=true] { border-color: #111; }
 .plan-workspace-switch button:hover { background: #eaf7f2; }
 .plan-workspace-switch button:focus-visible { outline: 3px solid #087c72; outline-offset: 3px; }
+@media(max-width:767px) {
+  .journal-identity-navigation > span { max-width:calc(100% - 105px); }
+  .journal-identity-navigation .plan-workspace-switch { flex-basis:100%; flex-shrink:1; max-width:100%; }
+  .journal-identity-navigation .plan-workspace-switch button { flex:1; min-width:0; }
+}
 .plan-picker-dialog { position: fixed; inset: 0 0 0 auto; margin: 0; width: min(560px,100%); max-width: 100%; height: 100dvh; max-height: 100dvh; border: 3px solid #111; background: #fff5ee; padding: 0; }
 .plan-picker-dialog[open] { display: flex; flex-direction: column; animation: plan-reveal 170ms ease-out; }
 .plan-picker-dialog::backdrop { background: #1119; backdrop-filter: blur(3px); }

@@ -17,6 +17,7 @@ import JournalResourceSearch from '../components/JournalResourceSearch.jsx'
 import { downloadJournalCsv } from '../utils/journalCsv.js'
 import DetailModal from '../components/DetailModal.jsx'
 import EditableDetailModal from '../components/EditableDetailModal.jsx'
+import WatchReviewWorkspace from '../components/WatchReviewWorkspace.jsx'
 import FeaturedActionConfirmModal from '../components/FeaturedActionConfirmModal.jsx'
 import FilterBar from '../components/FilterBar.jsx'
 import MemphisToastStack from '../components/MemphisToastStack.jsx'
@@ -111,12 +112,13 @@ function Dashboard() {
   const recordsRecovery = useReadRecovery()
   const featuredRecovery = useReadRecovery()
   const [selectedItem, setSelectedItem] = useState(null)
+  const [detailReadOnly, setDetailReadOnly] = useState(false)
   const [historyDetailId, setHistoryDetailId] = useState(null)
   const planSession = useSeriesSession()
   const [workspace, setWorkspace] = useState('journal'), [planRequest, setPlanRequest] = useState(null), [planRefreshKey, setPlanRefreshKey] = useState(0), [planRecordLoading, setPlanRecordLoading] = useState(false)
-  const planWorkspaceGuard = useRef(null), workspaceScroll = useRef({ journal: 0, plans: 0 }), planRecordRead = useRef(null)
+  const planWorkspaceGuard = useRef(null), workspaceScroll = useRef({ journal: 0, plans: 0, review: 0 }), planRecordRead = useRef(null)
   useEffect(() => {
-    setWorkspace('journal'); setPlanRequest(null); workspaceScroll.current = { journal: 0, plans: 0 }
+    setWorkspace('journal'); setPlanRequest(null); setSelectedItem(null); setDetailReadOnly(false); workspaceScroll.current = { journal: 0, plans: 0, review: 0 }
     return () => planRecordRead.current?.abort()
   }, [planSession])
   const [identityPanel, setIdentityPanel] = useState(null)
@@ -733,6 +735,7 @@ function Dashboard() {
       const { data } = await api.get(`records/${recordId}/`, { signal: controller.signal })
       if (controller.signal.aborted || owner !== seriesSession()) return
       if (options.edit) enterEditMode()
+      setDetailReadOnly(options.readOnly === true && !options.edit)
       setHistoryDetailId(options.history ? recordId : null)
       setPlanRequest(options.plan ? { id: recordId, action: options.start ? 'start' : '' } : null)
       setSelectedItem(mapRecordToAnimeItem(data))
@@ -748,7 +751,7 @@ function Dashboard() {
       setWorkspace(next)
       requestAnimationFrame(() => window.scrollTo({ top: workspaceScroll.current[next] || 0, behavior: 'instant' }))
     }
-    if (workspace === 'plans' && planWorkspaceGuard.current) planWorkspaceGuard.current(change, '返回手账')
+    if (workspace === 'plans' && planWorkspaceGuard.current) planWorkspaceGuard.current(change, next === 'journal' ? '返回手账' : '查看回顾')
     else change()
   }
 
@@ -1050,7 +1053,7 @@ function Dashboard() {
       </div>
 
       <DashboardHeader
-        workspaceNavigation={!isSharedJournal && !isAdminJournalReview && <nav className="plan-workspace-switch" aria-label="私人手账工作区"><button type="button" aria-pressed={workspace === 'journal'} onClick={() => selectWorkspace('journal')}>手账</button><button type="button" aria-pressed={workspace === 'plans'} onClick={() => selectWorkspace('plans')}>观看计划</button></nav>}
+        workspaceNavigation={!isSharedJournal && !isAdminJournalReview && <nav className="plan-workspace-switch" aria-label="私人手账工作区"><button type="button" aria-pressed={workspace === 'journal'} onClick={() => selectWorkspace('journal')}>手账</button><button type="button" aria-pressed={workspace === 'plans'} onClick={() => selectWorkspace('plans')}>观看计划</button><button type="button" aria-pressed={workspace === 'review'} onClick={() => selectWorkspace('review')}>回顾</button></nav>}
         isPreviewMode={isPreviewMode}
         onTogglePreview={togglePreviewMode}
         onAddAnime={() => setIsAddModalOpen(true)}
@@ -1085,7 +1088,7 @@ function Dashboard() {
         returnLabel={isAdminJournalReview ? '返回通行证审批' : '返回共创大厅'}
       />
 
-      <div className="journal-workspace-content" style={workspace === 'plans' && !isSharedJournal ? { display: 'none' } : undefined}>
+      <div className="journal-workspace-content" style={workspace !== 'journal' && !isSharedJournal ? { display: 'none' } : undefined}>
       {isPreviewMode && isHeaderEntranceComplete && hasLoadedRecords && (!error || recordsConnectionFailure) && (
         <div className="dashboard-content-piece dashboard-entrance-piece relative z-20 mx-auto -mt-6 max-w-7xl px-4 sm:px-6 lg:px-8">
           {isSharedJournal && <RatingLegend />}
@@ -1259,15 +1262,16 @@ function Dashboard() {
       </section>
       </div>
       {!isSharedJournal && !isAdminJournalReview && <WatchPlanWorkspace key={planSession} active={workspace === 'plans'} editable={isEditMode} refreshKey={`${recordsRefreshKey}:${planRefreshKey}`} onOpenRecord={openPlanRecord} onEnterEdit={() => enterEditMode()} closeGuardRef={planWorkspaceGuard} onChanged={() => { setPlanRefreshKey(key => key + 1); setRecordsRefreshKey(key => key + 1) }} />}
+      {!isSharedJournal && !isAdminJournalReview && <WatchReviewWorkspace key={`review:${planSession}`} active={workspace === 'review' && !exploringAway} refreshKey={recordsRefreshKey} onOpenRecord={openPlanRecord} />}
       {planRecordLoading && <p role="status" className="relative z-10 mx-auto max-w-7xl px-6 py-3 font-bold">正在读取作品详情…</p>}
 
-      {!exploringAway && (isPreviewMode || isSharedJournal) ? (
+      {!exploringAway && (isPreviewMode || isSharedJournal || detailReadOnly) ? (
         <DetailModal
           selectedItem={selectedItem}
-          closeModal={() => { setSelectedItem(null); setHistoryDetailId(null) }}
+          closeModal={() => { setSelectedItem(null); setHistoryDetailId(null); setDetailReadOnly(false) }}
           onRecordUpdated={!isSharedJournal ? handleRecordUpdated : undefined}
-          onManageHistory={!isSharedJournal ? () => { setHistoryDetailId(selectedItem.id); enterEditMode() } : undefined}
-          onManagePlan={!isSharedJournal ? () => { setPlanRequest({ id: selectedItem.id, action: '' }); enterEditMode() } : undefined}
+          onManageHistory={!isSharedJournal ? () => { setDetailReadOnly(false); setHistoryDetailId(selectedItem.id); enterEditMode() } : undefined}
+          onManagePlan={!isSharedJournal ? () => { setDetailReadOnly(false); setPlanRequest({ id: selectedItem.id, action: '' }); enterEditMode() } : undefined}
           isPrivateJournal={!isSharedJournal}
           explorationTags={explorationTags}
           identityRevision={identityRevision}
