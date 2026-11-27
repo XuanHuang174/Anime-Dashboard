@@ -19,7 +19,7 @@ from recommendations.quality_readonly import readonly_snapshot
 VERSION = 'journal.watch-review.v1'
 POLICY = 'actual-date-contained.v1'
 SALT = 'journal.watch-review.snapshot.v1'
-SECTIONS = ('works', 'started', 'completed', 'rewatch', 'activity', 'notes', 'uncertain', 'undated')
+SECTIONS = ('works', 'started', 'completed', 'rewatch', 'activity', 'notes', 'uncertain', 'undated', 'month_unknown')
 LIMITS = {'records': 10000, 'rounds': 50000, 'events': 100000}
 
 
@@ -34,6 +34,7 @@ class ReviewUnavailable(APIException):
 
 
 class ReviewQuery(serializers.Serializer):
+    year = serializers.RegexField(r'^[1-9]\d{3}$', required=False)
     month = serializers.RegexField(r'^[1-9]\d{3}-\d{2}$', required=False)
     start = serializers.RegexField(r'^[1-9]\d{3}-\d{2}-\d{2}$', required=False)
     end = serializers.RegexField(r'^[1-9]\d{3}-\d{2}-\d{2}$', required=False)
@@ -45,14 +46,21 @@ class ReviewQuery(serializers.Serializer):
     def to_internal_value(self, data):
         if (set(data) - set(self.fields) or hasattr(data, 'getlist') and any(len(data.getlist(k)) != 1 for k in data)):
             raise serializers.ValidationError({'non_field_errors': ['查询参数未知或重复；回顾不继承手账筛选。']})
+        if sum(('year' in data, 'month' in data, 'start' in data or 'end' in data)) > 1:
+            raise serializers.ValidationError({'non_field_errors': ['年份、月份和自选区间不能同时填写。']})
+        # DRF treats an optional empty HTML query value as omitted. An explicit
+        # year must not silently fall back to the current monthly review.
+        if data.get('year') == '':
+            raise serializers.ValidationError({'year': ['请填写有效的四位年份。']})
         return super().to_internal_value(data)
 
     def validate(self, data):
-        if 'month' in data and ('start' in data or 'end' in data):
-            raise serializers.ValidationError('月份和自选区间不能同时填写。')
         if ('start' in data) != ('end' in data):
             raise serializers.ValidationError('自选区间需要同时填写起止日期。')
-        if 'start' in data:
+        if 'year' in data:
+            start, end = date_bounds(data['year'])
+            mode = 'year'
+        elif 'start' in data:
             start, end = date_bounds(data['start'])[0], date_bounds(data['end'])[0]
             if start > end:
                 raise serializers.ValidationError('结束日期不能早于开始日期。')
@@ -64,6 +72,8 @@ class ReviewQuery(serializers.Serializer):
             start, end = date_bounds(month)
             data['month'] = month
             mode = 'month'
+        if data['section'] == 'month_unknown' and mode != 'year':
+            raise serializers.ValidationError('月份待补充明细仅适用于年度回顾。')
         if data['page'] > 1 and not data.get('snapshot'):
             raise serializers.ValidationError('翻页需要沿用首次读取的回顾凭据。')
         data['period'] = {'mode': mode, 'start': start.isoformat(), 'end': end.isoformat(),
@@ -217,6 +227,34 @@ def aggregate(facts):
     return summary, coverage
 
 
+def annual_distribution(facts, year):
+    """Partition definite annual facts once; year precision never invents a month.
+
+    Annual work counts and rating averages still come from aggregate(facts),
+    not sums/means of the monthly summaries. All buckets share that source read.
+    """
+    months = defaultdict(list)
+    unknown = []
+    for fact in facts:
+        if fact['attribution'] != 'definite':
+            continue
+        if fact['date_precision'] == 'year':
+            unknown.append(fact)
+        else:
+            months[fact['actual_date'][:7]].append(fact)
+    unknown_summary, _ = aggregate(unknown)
+    return {
+        'year': year,
+        'basis': 'effective_facts_by_actual_month',
+        'months': [
+            {'month': month, 'facts': len(months[month]), 'summary': aggregate(months[month])[0]}
+            for month in (f'{year}-{number:02d}' for number in range(1, 13))
+        ],
+        'month_unknown': {'facts': len(unknown), 'works': len({f['record_id'] for f in unknown}),
+                          'summary': unknown_summary},
+    }
+
+
 def select_entries(facts, works, section):
     if section == 'works':
         grouped = defaultdict(list)
@@ -225,7 +263,9 @@ def select_entries(facts, works, section):
         return [{'entry_type': 'work', 'work': works[rid], 'matched_fact_count': len(rows),
             'matched_kinds': dict(Counter(f['kind'] for f in rows)),
             'latest_actual_date': max(rows, key=fact_sort)['actual_date']} for rid, rows in grouped.items()]
-    if section in ('uncertain', 'undated'):
+    if section == 'month_unknown':
+        selected = [f for f in facts if f['attribution'] == 'definite' and f['date_precision'] == 'year']
+    elif section in ('uncertain', 'undated'):
         selected = [f for f in facts if f['attribution'] == section]
     else:
         selected = [f for f in facts if f['attribution'] == 'definite' and (
@@ -276,6 +316,8 @@ def read_review(user, params, request=None, *, entries=False):
             payload = {'contract_version': VERSION, 'policy_version': POLICY, 'period': options['period'],
                 'generated_at': timezone.now().isoformat(), 'snapshot': token, 'summary': summary, 'coverage': coverage,
                 'counts_scope': 'owner_all_records_selected_period', 'live': True, 'metadata_basis': 'current_journal'}
+            if options['period']['mode'] == 'year':
+                payload['annual'] = annual_distribution(facts, options['year'])
             if entries:
                 works = {r.pk: {'record_id': r.pk} for r in records}
                 selected = select_entries(facts, works, options['section'])
