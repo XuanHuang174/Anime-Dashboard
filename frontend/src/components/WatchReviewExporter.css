@@ -17,3 +17,16 @@
 .review-export-cover { float:left; width:65px; height:92px; margin:0 16px 8px 0; border:2px solid #111; background:#ffe66d; font-size:12px; }
 .review-export-cover img { width:100%; height:100%; object-fit:cover; }
 @media(max-width:600px){.rec-dialog--review-export{width:100%;max-height:96dvh;margin:0;inset:auto 0 0}.review-export-actions .rec-button{width:100%}.review-export-options fieldset{display:grid;grid-template-columns:minmax(0,1fr)}}
+
+.memphis-rec-container .rec-dialog.rec-dialog--review-export { width:min(1000px,calc(100% - 24px)); max-height:94dvh; overflow:hidden; }
+.memphis-rec-container .rec-dialog--review-export[open] { display:flex; flex-direction:column; }
+.rec-dialog--review-export > .rec-dialog-header { flex-shrink:0; }
+.memphis-rec-container .rec-dialog--review-export > .rec-dialog-body { overflow-y:auto; min-height:0; }
+.rec-dialog--review-export .review-export-actions { margin:0; }
+.review-export-zoom { display:flex; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px; }
+.review-export-zoom button[aria-pressed=true] { background:#ffe66d; }
+.review-export-preview { overflow-x:hidden; overflow-y:auto; scrollbar-gutter:stable; }
+.review-export-preview.is-original { overflow-x:auto; }
+.review-export-preview-page { position:relative; overflow:hidden; }
+.review-export-preview-paper { position:absolute; top:0; left:0; width:900px; transform-origin:top left; }
+@media(max-width:600px) { .memphis-rec-container .rec-dialog.rec-dialog--review-export { width:100%; max-height:96dvh; } }

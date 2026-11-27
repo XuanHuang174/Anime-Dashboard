@@ -371,3 +371,13 @@
   .memphis-rec-container .rec-filter-scroll { padding: 12px 14px; }
   .memphis-rec-container .rec-filter-footer { padding-inline: 14px; }
 }
+
+/* Arrangement is mounted beside route content, so it owns a theme scope. */
+.memphis-rec-container.rec-plan-dialog-scope { min-height:0; height:0; padding:0; }
+.memphis-rec-container .rec-dialog.rec-dialog--plan { width:min(620px,calc(100% - 24px)); overflow:hidden; }
+.memphis-rec-container .rec-dialog--plan[open] { display:flex; flex-direction:column; }
+.memphis-rec-container .rec-dialog--plan > .rec-dialog-header { background:#4ecdc4; flex-shrink:0; }
+.memphis-rec-container .rec-dialog--plan > .rec-dialog-body { overflow-y:auto; min-height:0; font-size:14px; line-height:1.8; }
+.memphis-rec-container .rec-dialog--plan .rec-plan-title { font-size:21px; font-weight:900; margin:0 0 12px; overflow-wrap:anywhere; }
+.memphis-rec-container .rec-dialog--plan .rec-dialog-body p + p { margin-top:12px; }
+.memphis-rec-container .rec-dialog--plan > .rec-detail-footer { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:12px; background:#ffe66d; }

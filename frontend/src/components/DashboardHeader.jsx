@@ -302,7 +302,7 @@ function DashboardHeader({
             <div className="min-w-0">
               <div className="journal-identity-navigation"><span className="inline-flex -rotate-1 items-center border-2 border-black bg-[#ffe66d] px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] shadow-[3px_3px_0_#111]">
                 <i className="fa-solid fa-bolt mr-2" />
-                <span className="hidden sm:inline">PRIVATE JOURNAL / </span>私人手账
+                个人手账<span className="hidden sm:inline"> / 追番管理</span>
               </span>{workspaceNavigation}</div>
 
               <div className="mt-3 flex items-center gap-3">

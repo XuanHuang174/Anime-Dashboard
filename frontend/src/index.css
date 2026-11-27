@@ -42,22 +42,14 @@ body {
   backface-visibility: hidden;
 }
 
-.animate-item.is-reveal-pending:not(.is-revealed) { opacity: 0; transform: translateY(20px); will-change: opacity, transform; }
-
-.animate-item.is-revealed {
-  animation: parallaxReveal 0.4s ease-out forwards;
+/* Only the reveal owns opacity/transform until it finishes. Hover resumes after
+   settlement; transition-all must never fade a pending element into hiding. */
+.animate-item[data-reveal-state="pending"],
+.animate-item[data-reveal-state="entering"] {
+  transition: none !important;
+  will-change: opacity, transform;
 }
-
-@keyframes parallaxReveal {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
+.animate-item[data-reveal-state="pending"] { opacity: 0; transform: translateY(20px); }
 
 @keyframes sway {
   0%,

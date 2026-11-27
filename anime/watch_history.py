@@ -174,7 +174,7 @@ class CommandSerializer(serializers.Serializer):
         allowed = {
             'transition': {'watch_status', 'watched_eps', 'total_eps', 'occurred_on', 'note'},
             'start-rewatch': {'started_on', 'note'},
-            'update-round': {'round_number', 'started_on', 'completed_on', 'rating', 'note'},
+            'update-round': {'round_number', 'started_on', 'completed_on', 'rating', 'note', 'watched_eps', 'total_eps'},
             'note': {'note', 'occurred_on'}, 'memory': {'note', 'occurred_on'}, 'undo': {'target_revision'},
             'clear': {'confirm_clear'},
         }[data['action']]
@@ -190,7 +190,7 @@ class CommandSerializer(serializers.Serializer):
             raise serializers.ValidationError('请选择需要撤销的操作。')
         if data['action'] == 'clear' and data.get('confirm_clear') is not True:
             raise serializers.ValidationError('请明确确认清空本作品的观看历程。')
-        if data['action'] == 'update-round' and ('round_number' not in data or not set(data).intersection(('started_on', 'completed_on', 'rating', 'note'))):
+        if data['action'] == 'update-round' and ('round_number' not in data or not set(data).intersection(('started_on', 'completed_on', 'rating', 'note', 'watched_eps', 'total_eps'))):
             raise serializers.ValidationError('请选择轮次及至少一项更正内容。')
         if data['action'] == 'transition' and not set(data).intersection(TRACKED):
             raise serializers.ValidationError('请填写状态或进度变化。')
@@ -253,9 +253,16 @@ def execute(record_id, user, raw):
     elif action == 'update-round':
         row = get_object_or_404(record.watch_rounds, number=data['round_number'], voided=False)
         before = state(record, row)
-        for key in ('started_on', 'completed_on', 'rating', 'note'):
+        if 'rating' in data and data['rating'] != row.rating:
+            row.rating_origin = 'manual' if data['rating'] is not None else ''
+        for key in ('started_on', 'completed_on', 'rating', 'note', 'watched_eps', 'total_eps'):
             if key in data: setattr(row, key, data[key])
-        if 'rating' in data: row.rating_origin = 'manual' if data['rating'] is not None else ''
+        if row.total_eps and row.watched_eps > row.total_eps:
+            raise serializers.ValidationError('已观看集数不能超过总集数。')
+        # A correction is not a viewing transition. Preserve status, dates and
+        # completion score; only the current round shares the journal progress.
+        if row.is_current:
+            record.watched_eps, record.total_eps = row.watched_eps, row.total_eps
     elif action == 'undo':
         target = record.watch_events.filter(revision=data['target_revision']).first()
         if not target or target.revision != record.watch_revision or target.kind == 'undo':

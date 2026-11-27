@@ -24,6 +24,10 @@ export function watchEventSummary(event) {
   if (before.watch_status !== after.watch_status) parts.push(`${WATCH_LABELS[before.watch_status]} → ${WATCH_LABELS[after.watch_status]}`)
   if (before.watched_eps !== after.watched_eps || before.total_eps !== after.total_eps) parts.push(`进度 ${watchProgress(before)} → ${watchProgress(after)}`)
   if (event.kind === 'update-round') {
+    if ((event.before.round.watched_eps !== event.after.round.watched_eps || event.before.round.total_eps !== event.after.round.total_eps)
+      && before.watched_eps === after.watched_eps && before.total_eps === after.total_eps) {
+      parts.push(`第 ${event.after.round.number} 轮进度 ${watchProgress(event.before.round)} → ${watchProgress(event.after.round)}`)
+    }
     for (const [key, label] of [['started_on', '开始日期'], ['completed_on', '完成日期']]) {
       if (event.before.round[key] !== event.after.round[key]) parts.push(`${label}：${formatWatchDate(event.before.round[key])} → ${formatWatchDate(event.after.round[key])}`)
     }
@@ -52,13 +56,13 @@ export function buildWatchCommand(form) {
   const body = { action: form.action, version: form.version, note: form.note.trim(), ...dates }
   if (['note', 'memory'].includes(form.action) && !body.note) throw new Error('请先写下随记内容。')
   if (form.action === 'memory' && !dates.occurred_on) throw new Error('补录往事需要填写实际日期或大致年月。')
-  if (form.action === 'transition') {
+  if (['transition', 'update-round'].includes(form.action)) {
     for (const key of ['watched_eps', 'total_eps']) {
       if (!/^\d+$/.test(form[key]) || !Number.isSafeInteger(Number(form[key]))) throw new Error('观看集数请填写非负整数。')
       body[key] = Number(form[key])
     }
     if (body.total_eps && body.watched_eps > body.total_eps) throw new Error('已看集数不能超过总集数。')
-    body.watch_status = form.watch_status
+    if (form.action === 'transition') body.watch_status = form.watch_status
   }
   if (form.action === 'update-round') {
     body.round_number = form.round_number

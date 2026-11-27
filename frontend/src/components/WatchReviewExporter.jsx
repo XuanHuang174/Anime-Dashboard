@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import api from '../api/api.js'
 import { seriesSession } from '../hooks/useSeriesSession.js'
@@ -14,6 +14,31 @@ function Sheet({ report, blocks, index, count, covers }) {
   return <article className="review-export-sheet"><header><span>WATCH REVIEW · 私人观看回顾</span><h1>{reviewTitle(report.source.period)}</h1><p>依据当前有效历程 · {report.source.period.start} 至 {report.source.period.end}（含首尾）</p></header>
     {blocks.map((block,i)=><section key={i}>{block.cover && <div className="review-export-cover">{covers[block.cover] ? <img src={covers[block.cover]} alt=""/> : <span>海报未载入</span>}</div>}<h2>{block.title}</h2><p>{block.text}</p></section>)}
     <footer>部分相交 {c.uncertain.facts} 条、日期未知 {c.undated.facts} 条均未计入确定统计。未知日期来自本人全部历程。<br/>名称与海报为当前手账资料；轮次评分不以当前综合评分补缺。<br/>本页为本次所选内容 · {index+1} / {count} 页 · 读取依据时间 {new Date(report.source.generated_at).toLocaleString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false})}</footer></article>
+}
+// Preview scales only its own sheet. The independent export stage stays 900px.
+function ReviewPreview(props) {
+  const viewport = useRef(null), paper = useRef(null)
+  const [original, setOriginal] = useState(false), [size, setSize] = useState({ width: 0, height: 0 })
+  useLayoutEffect(() => {
+    const measure = () => setSize(old => {
+      const next = { width: viewport.current.clientWidth, height: paper.current.scrollHeight }
+      return old.width === next.width && old.height === next.height ? old : next
+    })
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(viewport.current); observer.observe(paper.current)
+    return () => observer.disconnect()
+  }, [])
+  const scale = original ? 1 : Math.min(1, size.width / 900 || 1)
+  return <><div className="review-export-zoom" role="group" aria-label="预览缩放">
+    <button type="button" className="rec-button" aria-pressed={!original} onClick={() => setOriginal(false)}>适应宽度</button>
+    <button type="button" className="rec-button" aria-pressed={original} onClick={() => setOriginal(true)}>原尺寸查看</button>
+    <small>预览缩放不影响导出清晰度。</small>
+  </div><div ref={viewport} className={`review-export-preview${original ? ' is-original' : ''}`}>
+    <div className="review-export-preview-page" style={{ width: original ? 900 : '100%', height: size.height * scale }}>
+      <div ref={paper} className="review-export-preview-paper" style={{ transform: `scale(${scale})` }}><Sheet {...props}/></div>
+    </div>
+  </div></>
 }
 export default function WatchReviewExporter({ source, onClose }) {
   const [selection,setSelection]=useState({summary:true,works:true,completed:false,notes:false,covers:false})
@@ -87,13 +112,13 @@ export default function WatchReviewExporter({ source, onClose }) {
     }catch(e){if(live())setError(e.response?.status===409?'回顾资料已变化，未下载旧报告。请关闭面板并刷新后重新预览。':e.message||'导出失败，请重试。')}
     finally{gate.current=false;if(live())setBusy(false)}
   }
-  return <div className="memphis-rec-container"><RecommendationDialog title="导出观看回顾" onClose={close} kind="review-export">
+  return <div className="memphis-rec-container"><RecommendationDialog title="导出观看回顾" onClose={close} kind="review-export" footer={<div className="review-export-actions"><button className="rec-button" disabled={busy||!['summary','works','completed','notes'].some(k=>selection[k])} onClick={prepare}>读取并预览完整内容</button>{report&&<button className="rec-button rec-button--primary" disabled={busy} onClick={download}>下载回顾长图</button>}{busy&&<button className="rec-button" onClick={close}>取消并关闭</button>}</div>}>
     <div className="review-export-options"><p>导出当前已应用区间的完整所选内容，不限当前页。图片不会自动发布；随记与轮次备注默认不导出。</p>
       <fieldset disabled={busy}><legend>选择导出内容</legend>{[['summary','统计摘要'],['works','完整作品清单'],['completed','完成轮次'],['notes','随记与补录／轮次备注'],['covers','包含海报（最多24张，失败或超限显示占位）']].map(([key,label])=><label key={key}><input type="checkbox" checked={selection[key]} onChange={e=>change(key,e.target.checked)}/>{label}</label>)}</fieldset>
       {selection.notes&&<p className="review-export-private">所选文件将包含私人文字，下载后请自行决定是否分享。</p>}
-      <div className="review-export-actions"><button className="rec-button" disabled={busy||!['summary','works','completed','notes'].some(k=>selection[k])} onClick={prepare}>读取并预览完整内容</button>{report&&<button className="rec-button rec-button--primary" disabled={busy} onClick={download}>下载回顾长图</button>}{busy&&<button className="rec-button" onClick={close}>取消并关闭</button>}</div>
+
       {message&&<p role="status">{message}</p>}{error&&<p role="alert">{error}</p>}
-      {report&&<><div className="review-export-pagination"><button className="rec-button" disabled={busy||page===0} onClick={()=>setPage(n=>n-1)}>上一张预览</button><span>{page+1} / {pages.length}</span><button className="rec-button" disabled={busy||page>=pages.length-1} onClick={()=>setPage(n=>n+1)}>下一张预览</button></div><div className="review-export-preview"><Sheet report={report} blocks={pages[Math.min(page,pages.length-1)]} index={page} count={pages.length} covers={covers}/></div></>}
+      {report&&<><div className="review-export-pagination"><button className="rec-button" disabled={busy||page===0} onClick={()=>setPage(n=>n-1)}>上一张预览</button><span>{page+1} / {pages.length}</span><button className="rec-button" disabled={busy||page>=pages.length-1} onClick={()=>setPage(n=>n+1)}>下一张预览</button></div><ReviewPreview report={report} blocks={pages[Math.min(page,pages.length-1)]} index={page} count={pages.length} covers={covers}/></>}
     </div>
     {report&&createPortal(<div className="review-export-stage" aria-hidden="true" ref={stage}>{pages.map((blocks,index)=><Sheet key={index} report={report} blocks={blocks} index={index} count={pages.length} covers={covers}/>)}</div>,document.body)}
   </RecommendationDialog></div>

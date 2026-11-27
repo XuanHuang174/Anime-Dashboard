@@ -88,7 +88,7 @@ export default function WatchReviewWorkspace({ active, refreshKey, onOpenRecord 
     <button type="button" disabled={loading || !data.next_page} onClick={() => page(data.next_page)}>下一页回顾</button>
   </nav>
   return <section className="watch-review-workspace" hidden={!active} aria-label="私人观看回顾工作区">
-    <header className="review-header"><div><span className="review-sticker">WATCH REVIEW</span><h2>观看回顾</h2><p>回到那些与动画相遇的日子 <span>仅本人可见 · 只读查看</span></p></div>
+    <header className="review-header"><div><span className="review-sticker">WATCH REVIEW</span><h2><i className="fa-solid fa-clock-rotate-left" aria-hidden="true" /> 观看回顾</h2><p>回到那些与动画相遇的日子 <span><i className="fa-solid fa-lock" aria-hidden="true" /> 仅本人可见 · 只读查看</span></p></div>
       <div className="review-entry-actions"><button type="button" disabled={loading||!data} onClick={()=>setExportSource(data)}>导出回顾长图</button><button type="button" disabled={loading} onClick={() => engine.refresh()}>刷新回顾</button></div></header>
     <div className="review-controls"><div className="review-period-modes" role="group" aria-label="回顾时间类型">
       <button type="button" aria-pressed={draft.mode === 'month'} onClick={() => { setDraft(d => ({ ...d, mode: 'month' })); setFormError('') }}>按月份</button>

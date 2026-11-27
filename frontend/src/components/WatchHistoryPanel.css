@@ -62,3 +62,10 @@
 @keyframes watch-reveal { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 @media(max-width:520px) { .watch-pair { grid-template-columns: minmax(0,1fr); gap: 0; } .watch-workshop :where(button,input,select,textarea) { min-height: 44px; } .watch-workshop .watch-read-tools button { min-height: 44px; } .watch-body { padding: 9px; } .watch-form { padding: 9px; } .watch-pagination > span { order: -1; width: 100%; text-align: center; } }
 @media(prefers-reduced-motion:reduce) { .watch-body,.watch-form { animation: none; } .watch-workshop button { transition: none; } }
+
+.watch-progress-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)) minmax(150px,.8fr); gap:14px; align-items:start; }
+.watch-episode-reference { min-width:0; display:grid; gap:7px; padding:10px 12px; border:2px solid #111; background:#fff2b3; overflow-wrap:anywhere; }
+.watch-episode-reference > span { font-size:12px; font-weight:800; }
+.watch-episode-reference small { font-size:11px; line-height:1.6; color:#62584d; }
+@media(max-width:800px) { .watch-progress-fields { grid-template-columns:repeat(2,minmax(0,1fr)); } .watch-episode-reference { grid-column:1/-1; } }
+@media(max-width:480px) { .watch-progress-fields { grid-template-columns:minmax(0,1fr); } }

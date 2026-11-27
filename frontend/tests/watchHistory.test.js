@@ -138,3 +138,15 @@ test('an unconfirmed clear retains exact receipt identity even after a read sees
   assert.equal(await e.engine.submit(null, true), true)
   assert.deepEqual(posts[0], posts[1]); assert.equal(e.committed[0].watch_revision, 1)
 })
+
+test('round progress corrections include counts without status or an invented viewing date', () => {
+  const form = initialWatchForm('update-round', round({ status: 'completed', watched_eps: 0, total_eps: 0 }), 3)
+  const body = buildWatchCommand({ ...form, watched_eps: '8', total_eps: '12' })
+  assert.equal(body.watched_eps, 8); assert.equal(body.total_eps, 12)
+  assert.equal(Object.hasOwn(body, 'watch_status'), false)
+  assert.equal(Object.hasOwn(body, 'occurred_on'), false)
+  assert.throws(() => buildWatchCommand({ ...form, watched_eps: '13', total_eps: '12' }), /总集数/)
+  const before = state(round({ number: 1, is_current: false, watched_eps: 12 }))
+  const after = { ...before, round: { ...before.round, watched_eps: 8 } }
+  assert.match(watchEventSummary({ kind: 'update-round', before, after }), /第 1 轮进度 12 \/ 12 集 → 8 \/ 12 集/)
+})

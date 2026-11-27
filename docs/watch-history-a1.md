@@ -29,7 +29,7 @@ A1 提供私有观看轮次、日期精度、历程接口及现有写入衔接�
 | --- | --- | --- |
 | `transition` | `watch_status` / `watched_eps` / `total_eps` 至少一项；可选 `occurred_on`、`note` | 同步当前轮次与主记录。无变化或进度越界返回 400。明确提供日期时，想看→在看填开始日期，未完成→完成填完成日期 |
 | `start-rewatch` | 可选 `started_on`、`note` | 当前轮次须已完成；保留旧轮，创建新的在看轮次，进度归零，总集数沿用。没有提供日期则保持未知 |
-| `update-round` | `round_number`；起止日期、`rating`、`note` 至少一项 | 更正指定非作废轮次；不改变主记录的当前状态、进度或总评分 |
+| `update-round` | `round_number`；起止日期、`rating`、`note`、`watched_eps`、`total_eps` 至少一项 | 更正指定非作废轮次；当前轮集数同步手账，历史轮集数只影响该轮；不改变状态、总评分或推定观看日期 |
 | `note` | 非空 `note`；可选 `occurred_on` | 保存随记，不改变当前进度 |
 | `memory` | 非空 `note` 与 `occurred_on` | 补录往事，可填大致年月；不重放历史去改写当前状态 |
 | `undo` | `target_revision` | 只允许撤销最近一次非撤销操作；校验当前状态与轮次快照，较早操作需通过更正处理 |

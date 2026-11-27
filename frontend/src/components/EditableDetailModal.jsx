@@ -558,11 +558,11 @@ function EditableDetailModal({
                     <input name={name} type={type} value={formData[name]} onChange={updateField} className={`${fieldClass} mt-1`} placeholder={placeholder} />
                   </label>
                 ))}
-                <label className={`${formData.status === 'watching' ? 'lg:col-span-3' : 'lg:col-span-6'} block text-xs font-black`}>
+                <label className={`${['watching', 'completed', 'on_hold'].includes(formData.status) ? 'lg:col-span-3' : 'lg:col-span-6'} block text-xs font-black`}>
                   主观评分
                   <input name="score" type="number" min="0" max="10" step="0.1" value={formData.score} onChange={updateField} className={`${fieldClass} mt-1 !text-red-600`} placeholder="0.0 - 10.0" />
                 </label>
-                <div className={`${formData.status === 'watching' ? 'lg:col-span-3' : 'lg:col-span-6'} edit-watch-status-select min-w-0 text-xs font-black`}>
+                <div className={`${['watching', 'completed', 'on_hold'].includes(formData.status) ? 'lg:col-span-3' : 'lg:col-span-6'} edit-watch-status-select min-w-0 text-xs font-black`}>
                   <span className="block">观看状态</span>
                   <SearchableSelect
                     id="editWatchStatus"
@@ -577,7 +577,7 @@ function EditableDetailModal({
                     searchable={false}
                   />
                 </div>
-                {formData.status === 'watching' && (
+                {['watching', 'completed', 'on_hold'].includes(formData.status) && (
                   <>
                     <label className="block text-xs font-black lg:col-span-3">
                       已观看集数

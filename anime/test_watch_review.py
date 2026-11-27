@@ -56,6 +56,19 @@ class WatchReviewTests(APITransactionTestCase):
         self.assertEqual(response.status_code, 200, response.data)
         return response.data
 
+    def test_round_progress_correction_does_not_invent_review_activity_or_milestones(self):
+        self.finish()
+        before = self.get()
+        self.send('update-round', round_number=1, watched_eps=8, total_eps=13)
+        after = self.get()
+        self.assertEqual(before['summary'], after['summary'])
+        self.assertNotEqual(before['snapshot'], after['snapshot'])
+        self.send('start-rewatch', started_on='2026-10-15')
+        before = self.get()
+        self.send('update-round', round_number=1, watched_eps=7, total_eps=14)
+        self.assertEqual(before['summary'], self.get()['summary'])
+        self.record.refresh_from_db(); self.assertEqual(self.record.watched_eps, 0)
+
     def test_empty_read_is_private_readonly_and_does_not_materialize_virtual_round(self):
         before = list(UserAnimeRecord.objects.values())
         response = self.client.get(self.url, {'month': '2026-10'})

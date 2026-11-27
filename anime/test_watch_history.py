@@ -263,6 +263,67 @@ class WatchHistoryTests(APITestCase):
         self.assertEqual(WatchRound.objects.count(), 0)
 
 
+    def test_current_round_progress_correction_preserves_status_dates_score_and_plan(self):
+        from .models import WatchPlan
+        from .watch_plans import command, read_detail
+        from .watch_history import export_history, validate_backup
+        for status in ('completed', 'on_hold', 'watching'):
+            with self.subTest(status=status):
+                self.assertEqual(self.command('transition', watch_status=status, watched_eps=0, total_eps=0).status_code, 200)
+                if not WatchPlan.objects.filter(record=self.record).exists():
+                    command(self.user, self.record.pk, {'action': 'enroll', 'version': read_detail(self.user, self.record.pk)['version'], 'operation_id': str(uuid4())})
+                plan = WatchPlan.objects.get(record=self.record)
+                self.record.refresh_from_db()
+                self.command('update-round', round_number=1, completed_on='2020' if status == 'completed' else '')
+                plan.refresh_from_db(); plan_before = (plan.state, plan.target_round_number, plan.purpose)
+                origin = self.record.watch_rounds.get(number=1).rating_origin
+                result = self.command('update-round', round_number=1, watched_eps=8, total_eps=12, rating='9.0')
+                self.assertEqual(result.status_code, 200, result.data)
+                self.record.refresh_from_db(); plan.refresh_from_db()
+                row = result.data['rounds'][0]
+                self.assertEqual((self.record.watch_status, self.record.watched_eps, self.record.total_eps), (status, 8, 12))
+                self.assertEqual((row['status'], row['watched_eps'], row['total_eps']), (status, 8, 12))
+                self.assertEqual(row['completed_on'], '2020' if status == 'completed' else '')
+                self.assertEqual(self.record.personal_score, Decimal('9.0'))
+                self.assertEqual(row['rating_origin'], origin)
+                self.assertEqual((plan.state, plan.target_round_number, plan.purpose), plan_before)
+                self.assertEqual(result.data['events'][0]['kind'], 'update-round')
+                self.assertEqual(result.data['events'][0]['occurred_on'], '')
+                validate_backup(export_history(self.record), {'watch_status': status, 'watched_eps': 8, 'total_eps': 12})
+
+    def test_historical_progress_correction_is_separate_and_can_be_undone(self):
+        self.command('transition', watch_status='completed', watched_eps=12)
+        self.command('start-rewatch', started_on='2026-10')
+        self.command('transition', watched_eps=3)
+        response = self.command('update-round', round_number=1, watched_eps=8, total_eps=13)
+        self.assertEqual(response.status_code, 200, response.data)
+        self.record.refresh_from_db()
+        self.assertEqual((self.record.watch_status, self.record.watched_eps, self.record.total_eps), ('watching', 3, 12))
+        self.assertEqual(self.record.watch_rounds.get(number=1).watched_eps, 8)
+        result = self.command('undo', target_revision=response.data['version'])
+        self.assertEqual(result.status_code, 200, result.data)
+        self.assertEqual(self.record.watch_rounds.get(number=1).watched_eps, 12)
+        self.record.refresh_from_db(); self.assertEqual(self.record.watched_eps, 3)
+
+    def test_progress_correction_validation_atomicity_idempotency_and_conflict(self):
+        before = self.read()['version']
+        response = self.command('update-round', round_number=1, watched_eps=13)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(self.read()['version'], before)
+        self.assertFalse(self.record.watch_rounds.exists())
+        for fields in ({'watched_eps': -1}, {'total_eps': -1}, {'watch_status': 'completed'}, {'occurred_on': '2026-11-01'}):
+            self.assertEqual(self.command('update-round', round_number=1, **fields).status_code, 400)
+        body = {'action': 'update-round', 'version': before, 'operation_id': str(uuid4()), 'round_number': 1, 'watched_eps': 8, 'total_eps': 0}
+        response = self.client.post(self.url, body, format='json')
+        self.assertEqual(response.status_code, 200, response.data)
+        replay = self.client.post(self.url, body, format='json')
+        self.assertEqual(replay.status_code, 200); self.assertTrue(replay.data['replayed'])
+        stale = self.client.post(self.url, {**body, 'operation_id': str(uuid4())}, format='json')
+        self.assertEqual(stale.status_code, 409)
+        self.assertEqual(self.command('undo', target_revision=response.data['version']).status_code, 200)
+        self.record.refresh_from_db(); self.assertEqual((self.record.watched_eps, self.record.total_eps), (0, 12))
+
+
 class WatchHistoryConcurrencyTests(TransactionTestCase):
     def test_legacy_progress_increments_keep_both_values_and_events(self):
         if connection.vendor != 'postgresql': self.skipTest('PostgreSQL row locks required')
