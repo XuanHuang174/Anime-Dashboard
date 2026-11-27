@@ -30,3 +30,15 @@
 .review-export-preview-page { position:relative; overflow:hidden; }
 .review-export-preview-paper { position:absolute; top:0; left:0; width:900px; transform-origin:top left; }
 @media(max-width:600px) { .memphis-rec-container .rec-dialog.rec-dialog--review-export { width:100%; max-height:96dvh; } }
+
+.review-export-ongoing { display:block; font-size:16px; margin:0 0 16px; }
+.review-export-months h3 { font-size:17px; font-weight:900; margin:16px 0 12px; }
+.review-export-month-chart { display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); gap:6px; margin:12px 0 20px; }
+.review-export-month { display:flex; flex-direction:column; align-items:stretch; gap:7px; text-align:center; font-size:14px; font-weight:800; }
+.review-export-month-track { display:flex; align-items:end; height:100px; background:#edf3f1; border-bottom:2px solid #111; }
+.review-export-month-track > span { display:block; width:100%; background:#4ecdc4; }
+.review-export-month-table { width:100%; border-collapse:collapse; table-layout:fixed; font-size:15px; margin-top:16px; }
+.review-export-month-table caption { text-align:left; font-weight:900; margin-bottom:8px; }
+.review-export-month-table :is(th,td) { padding:8px 5px; border:1px solid #111; text-align:center; line-height:1.5; overflow-wrap:anywhere; }
+.review-export-month-table thead { background:#ffe66d; }
+.review-export-month-table tbody th { background:#f7f5ef; }

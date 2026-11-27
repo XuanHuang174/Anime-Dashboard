@@ -51,6 +51,8 @@ const canonical = value => Array.isArray(value) ? value.map(canonical) : value &
   ? Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])])) : value
 const equal = (a, b) => JSON.stringify(canonical(a)) === JSON.stringify(canonical(b))
 const samePeriod = (a, b) => ['mode', 'start', 'end', 'timezone', 'end_inclusive'].every(k => a?.[k] === b?.[k])
+export const sameReviewCohort = (a, b) => a.snapshot === b.snapshot && samePeriod(a.period, b.period)
+  && equal(a.summary, b.summary) && equal(a.coverage, b.coverage) && equal(a.annual, b.annual)
 
 const COUNT_KEYS = ['started_works', 'started_rounds', 'completed_works', 'completed_rounds', 'first_completed_rounds', 'rewatch_started_rounds', 'rewatch_completed_rounds', 'notes', 'memories', 'viewed_works', 'related_works', 'activity_facts']
 function validCounts(s) {
@@ -129,7 +131,7 @@ export function validReviewEntries(data, { params, section, page, pageSize, snap
     || !natural(data.count) || !Array.isArray(data.results) || data.count_unit !== (section === 'works' ? 'works' : 'facts')
     || data.next_page !== (page * pageSize < data.count ? page + 1 : null)
     || data.results.length !== Math.min(pageSize, Math.max(0, data.count - (page - 1) * pageSize))) return false
-  if (snapshot && (snapshot !== data.snapshot || baseline && (!equal(data.summary, baseline.summary) || !equal(data.coverage, baseline.coverage) || !equal(data.annual, baseline.annual)))) return false
+  if (snapshot && (snapshot !== data.snapshot || baseline && !sameReviewCohort(data, baseline))) return false
   const count = { works: data.summary.related_works, completed: data.summary.completed_rounds, started: data.summary.started_rounds,
     rewatch: data.summary.rewatch_completed_rounds, activity: data.summary.activity_facts, notes: data.summary.notes,
     uncertain: data.coverage.uncertain.facts, undated: data.coverage.undated.facts, month_unknown: data.annual?.month_unknown.facts }[section]

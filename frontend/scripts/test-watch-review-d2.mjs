@@ -30,7 +30,7 @@ try {
   await review().getByRole('heading', { name: '2026年观看回顾', exact: true }).waitFor()
   assert.equal(await review().locator('.review-month-chart button').count(), 12)
   assert.match(await review().locator('.review-stat--completed strong').innerText(), new RegExp(`^${f.annual_expected.summary.completed_works}部作品$`))
-  assert.equal(await btn('导出回顾长图').count(), 0)
+  assert.equal(await btn('导出回顾长图').count(), 1)
   assert.equal(await review().locator('.review-month-unknown').getByText(/已计入年度总览/).count(), 1)
   const monthCounts = await review().locator('.review-month-value').allTextContents()
   assert.deepEqual(monthCounts, f.annual_expected.annual.months.map(row => `${row.summary.completed_rounds}轮`))

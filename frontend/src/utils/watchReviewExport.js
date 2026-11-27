@@ -1,9 +1,11 @@
-import { validReviewEntries, validReviewSummary, reviewTitle, REVIEW_KINDS } from './watchReview.js'
+import { validReviewEntries, validReviewSummary, sameReviewCohort, reviewTitle, REVIEW_KINDS } from './watchReview.js'
 import { formatWatchDate } from './watchHistory.js'
 
 export const EXPORT_LIMIT = 500
 export async function loadReviewExport(client, source, selection, signal, current = () => true) {
-  const params = source.period.mode === 'month' ? { month: source.period.start.slice(0, 7) } : { start: source.period.start, end: source.period.end }
+  const params = source.period.mode === 'year' ? { year: source.period.start.slice(0, 4) }
+    : source.period.mode === 'month' ? { month: source.period.start.slice(0, 7) } : { start: source.period.start, end: source.period.end }
+  if (!validReviewSummary(source, params)) throw new Error('导出依据不完整，请刷新回顾后重新预览。')
   const result = { source, params, sections: {} }
   let total = 0
   for (const section of ['works', 'completed', 'notes'].filter(key => selection[key])) {
@@ -31,13 +33,19 @@ export async function verifyReviewExport(client, report, signal, current) {
   if (signal.aborted || !current()) throw new Error('导出已取消。')
   const { data } = await client.get('watch-review/', { params: { ...report.params, snapshot: report.source.snapshot }, signal })
   if (signal.aborted || !current()) throw new Error('导出已取消。')
-  if (!validReviewSummary(data, report.params) || data.snapshot !== report.source.snapshot) throw new Error('回顾资料已变化，请刷新后重新预览。')
+  if (!validReviewSummary(data, report.params) || !sameReviewCohort(data, report.source)) throw new Error('回顾资料已变化，请刷新后重新预览。')
 }
 export function reviewExportBlocks(report, selection) {
   const blocks = []
   if (selection.summary) {
     const s = report.source.summary
-    blocks.push({ title: '这段时间的观看记录', text: `开始 ${s.started_works} 部／${s.started_rounds} 轮；完成 ${s.completed_works} 部／${s.completed_rounds} 轮；重看完成 ${s.rewatch_completed_rounds} 轮；随记与补录 ${s.notes} 条。\n完成轮次评分：${s.completed_round_rating.average ?? '未记录'}，${s.completed_round_rating.count} 轮已评分，${s.completed_round_rating.missing_count} 轮缺失。` })
+    blocks.push({ title: report.source.period.mode === 'year' ? '这一年的观看记录' : '这段时间的观看记录', text: `开始 ${s.started_works} 部／${s.started_rounds} 轮；完成 ${s.completed_works} 部／${s.completed_rounds} 轮；重看完成 ${s.rewatch_completed_rounds} 轮；随记与补录 ${s.notes} 条。\n完成轮次评分：${s.completed_round_rating.average ?? '未记录'}，${s.completed_round_rating.count} 轮已评分，${s.completed_round_rating.missing_count} 轮缺失。` })
+  }
+  if (report.source.period.mode === 'year' && selection.months) {
+    const a = report.source.annual, u = a.month_unknown
+    blocks.push({ kind: 'months', title: '十二个月的观看记录', months: a.months,
+      text: '按明确的实际月份归属。0 表示没有可归属的已记录资料，不代表当月没有观看；同一作品可出现在多个月，年度作品数不按各月相加。' })
+    blocks.push({ title: '属于本年，月份待补充', text: `${u.facts} 条记录，涉及 ${u.works} 部作品。已计入年度总览，未分配到具体月份。\n开始 ${u.summary.started_rounds} 轮；完成 ${u.summary.completed_rounds} 轮；重看完成 ${u.summary.rewatch_completed_rounds} 轮；随记与补录 ${u.summary.notes} 条。\n完全没有日期的资料来自本人全部手账，不能视为本年度遗漏。` })
   }
   for (const [section, title] of [['works','本期作品清单'],['completed','完成轮次'],['notes','随记与补录']]) {
     if (!selection[section]) continue
@@ -55,7 +63,7 @@ export function reviewExportBlocks(report, selection) {
   }
   return blocks
 }
-export const exportFilename = report => `${reviewTitle(report.source.period).replace(/[<>:"/\\|?*\u0000-\u001f]/g,'_')}${report.source.period.mode==='month'?'':'_观看回顾'}`
+export const exportFilename = report => `${reviewTitle(report.source.period).replace(/[<>:"/\\|?*\u0000-\u001f]/g,'_')}${report.source.period.mode==='custom'?'_观看回顾':''}`
 
 // ZIP STORE: one user download for multi-image reports, with no extra dependency.
 export function crc32(bytes) {

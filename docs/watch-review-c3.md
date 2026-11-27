@@ -1,6 +1,6 @@
 # C3：回顾长图导出、内容选择与完整验收
 
-C3 接在 [C1 统计基础](watch-review-c1.md) 和 [C2 私人工作区](watch-review-c2.md) 后交付。月度／自选时间段回顾已完成，年度展示仍待后续开发。
+C3 接在 [C1 统计基础](watch-review-c1.md) 和 [C2 私人工作区](watch-review-c2.md) 后交付月度／自选时间段回顾。年度展示现由 [D2](watch-review-d2.md) 提供，年度长图和完整验收见 [D3](watch-review-d3.md)。
 
 ## 导出入口与内容
 

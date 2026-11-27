@@ -41,6 +41,17 @@ try{
  await dialog().getByRole('button',{name:'关闭面板',exact:true}).click();await review().getByRole('button',{name:'刷新回顾',exact:true}).click();await ready()
  await review().getByRole('button',{name:'导出回顾长图',exact:true}).click();await dialog().getByRole('button',{name:'读取并预览完整内容',exact:true}).click();await dialog().getByRole('button',{name:'下载回顾长图',exact:true}).waitFor()
  await dialog().getByRole('button',{name:'下载回顾长图',exact:true}).click();await dialog().getByRole('button',{name:'取消并关闭',exact:true}).click();await dialog().waitFor({state:'detached'});await page.waitForTimeout(1000);assert.equal(downloads.length,before)
+ // Custom periods retain their own API mode, title and PNG export after annual support.
+ await review().getByRole('button',{name:'自选时间段',exact:true}).click()
+ await review().getByLabel('开始日期',{exact:true}).fill('2026-09-01');await review().getByLabel('结束日期',{exact:true}).fill('2026-10-31')
+ await review().getByRole('button',{name:'查看回顾',exact:true}).click();await ready()
+ await review().getByRole('button',{name:'导出回顾长图',exact:true}).click();await dialog().getByLabel('完整作品清单',{exact:true}).uncheck()
+ assert.equal(await dialog().getByLabel('十二个月分布／月份待补充说明',{exact:true}).count(),0)
+ await dialog().getByRole('button',{name:'读取并预览完整内容',exact:true}).click();await dialog().getByRole('button',{name:'下载回顾长图',exact:true}).waitFor()
+ assert.equal(await page.locator('.review-export-stage .review-export-sheet').count(),1)
+ assert.match(await page.locator('.review-export-stage').innerText(),/2026-09-01 至 2026-10-31/)
+ const customDownload=page.waitForEvent('download');await dialog().getByRole('button',{name:'下载回顾长图',exact:true}).click();const custom=await customDownload
+ assert.match(custom.suggestedFilename(),/_观看回顾_01\.png$/);await custom.saveAs('../.tools/review-c3-qa/custom-summary.png')
  assert.deepEqual(errors,[]);assert.deepEqual(writes,[])
- console.log(JSON.stringify({result:'passed',checks:['all pages ZIP','single PNG','private text opt-in','long notes','responsive preview','real mutation blocks download','cancel blocks download','no writes'],downloads:downloads.length}))
+ console.log(JSON.stringify({result:'passed',checks:['all pages ZIP','single PNG','custom-period PNG','private text opt-in','long notes','responsive preview','real mutation blocks download','cancel blocks download','no writes'],downloads:downloads.length}))
 }catch(e){console.log((await page.locator('body').innerText()).slice(-3500));await page.screenshot({path:'../.tools/review-c3-qa/failure.png'});throw e}finally{await context.close();await browser.close()}
