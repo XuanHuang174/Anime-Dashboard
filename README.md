@@ -266,7 +266,7 @@ SQLite 下的后端回归可以使用隔离配置运行；涉及 PostgreSQL 并�
 | 手账备份、公开来源与精选后台 | [海报往返契约、链接快照与迁移 0032](docs/journal-portability-and-public-sources.md) |
 | 观看历程与重看记录 | [A1 数据、接口与迁移 0033](docs/watch-history-a1.md)、[A2 详情交互](docs/watch-history-a2.md)、[A3 管理、清空恢复与迁移 0034](docs/watch-history-a3.md) |
 | 待看计划与观看优先级 | [B1 数据与迁移 0035](docs/watch-plans-b1.md)、[B2 计划工作区](docs/watch-plans-b2.md)、[B3 视觉整合、私人筛选与批量安排](docs/watch-plans-b3.md) |
-| 私人观看回顾 | [C1 日期口径、统计与只读接口](docs/watch-review-c1.md)、[C2 回顾工作区与日期／感想浏览](docs/watch-review-c2.md)、[C3 长图导出与完整验收](docs/watch-review-c3.md)、[D1 年度统计与月份归属接口](docs/watch-review-d1.md) |
+| 私人观看回顾 | [C1 日期口径、统计与只读接口](docs/watch-review-c1.md)、[C2 回顾工作区与日期／感想浏览](docs/watch-review-c2.md)、[C3 长图导出与完整验收](docs/watch-review-c3.md)、[D1 年度统计与月份归属接口](docs/watch-review-d1.md)、[D2 年度页面与月份往返](docs/watch-review-d2.md) |
 | 资源检索服务 | [检索代理与抽屉说明](docs/anime-resource-search.md) |
 | 推荐资料与封面准备 | [资料来源](docs/recommendation-data-sources.md)、[入库与封面验收](docs/recommendation-production-checklist.md) |
 | 系列资料与发布 | [系列模块方案](docs/recommendations-extension-12-plan.md)、[发布验收](docs/recommendations-12f.md) |
@@ -293,7 +293,7 @@ SQLite 下的后端回归可以使用隔离配置运行；涉及 PostgreSQL 并�
   - [x] C3：[回顾长图导出、内容选择、数据变化保护与完整端到端验收](docs/watch-review-c3.md)。
 - [ ] 年度回顾与月份分布展示。
   - [x] D1：[年度统计、十二个月分布与月份待补充接口](docs/watch-review-d1.md)。
-  - [ ] D2：年度页面、月份往返与推荐批次操作区留白。
+  - [x] D2：[年度页面、月份往返与推荐批次操作区留白](docs/watch-review-d2.md)。
   - [ ] D3：年度长图导出与完整验收。
 - [ ] 主题片单与私人策展。
 - [ ] 导入差异预览、资料整理与同步增强。

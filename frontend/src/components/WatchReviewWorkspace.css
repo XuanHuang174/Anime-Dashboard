@@ -102,3 +102,46 @@
 @media(max-width:800px) { .review-header { flex-wrap:wrap; } .review-header > .review-entry-actions { width:100%; } }
 @media(max-width:600px) { .review-header { padding:18px; flex-direction:column; align-items:stretch; } .review-header > div:first-child { display:block; } .review-header .review-sticker { margin-bottom:9px; } .review-header p span { display:block; margin:5px 0 0; } }
 @media(prefers-reduced-motion:reduce) { .watch-review-workspace:not([hidden]) { animation:none; } }
+
+.review-annual { background:#fff; border:3px solid #111; box-shadow:4px 4px #4ecdc4; padding:20px; margin:0 5px 26px 0; }
+.review-annual-heading { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px; }
+.review-annual h3 { font-size:20px; font-weight:900; margin:0; }
+.review-annual-heading p,.review-annual-note { font-size:12px; color:#62584d; line-height:1.8; margin:6px 0; }
+.review-annual-metrics { display:flex; flex-wrap:wrap; gap:8px; }
+.review-annual-metrics button { font-size:12px; }
+.review-annual-metrics button[aria-pressed=true] { background:#ffe66d; }
+.review-month-chart { display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); gap:8px; margin:22px 3px 16px 0; }
+.watch-review-workspace .review-month-column { display:flex; flex-direction:column; gap:10px; align-items:stretch; min-width:0; padding:9px 5px; box-shadow:2px 2px #111; }
+.review-month-track { display:flex; align-items:end; height:150px; background:#f1f5f3; overflow:hidden; }
+.review-month-bar { display:block; width:100%; height:var(--review-month-size); background:#4ecdc4; transition:height 180ms ease,width 180ms ease; }
+.review-month-value { font-size:17px; font-weight:900; }
+.review-month-value small { font-size:10px; margin-left:4px; }
+.review-month-label { font-size:12px; font-weight:800; }
+.review-month-unknown { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; padding:15px; border:2px solid #111; background:#fff2b3; margin:18px 3px 18px 0; }
+.review-month-unknown strong { font-size:14px; }
+.review-month-unknown p { font-size:12px; line-height:1.8; margin:6px 0 0; }
+.review-month-unknown button { font-size:12px; }
+.review-month-details > summary { font-size:13px; font-weight:900; cursor:pointer; padding:12px 0; }
+.review-month-details ul { list-style:none; padding:0; margin:0; }
+.review-month-details li { display:grid; grid-template-columns:80px minmax(0,1fr); gap:16px; align-items:center; padding:14px 3px; border-top:1px solid #d9d4ca; }
+.review-month-details dl { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin:0; }
+.review-month-details dt { font-size:11px; color:#62584d; }
+.review-month-details dd { font-size:12px; font-weight:800; margin:6px 0 0; }
+.review-year-state { display:inline-block; border:2px solid #111; padding:4px 9px; background:#fff2b3; font-size:12px; font-weight:800; margin:8px 0; }
+.review-return-year { margin-bottom:18px; }
+@media(max-width:650px) {
+  .review-period-modes { flex-wrap:wrap; } .review-period-modes button { flex:1 1 auto; }
+  .review-annual { padding:14px; } .review-annual h3 { font-size:18px; }
+  .review-annual-metrics { width:100%; } .review-annual-metrics button { flex:1 1 80px; font-size:11px; padding:8px 4px; }
+  .review-month-chart { grid-template-columns:minmax(0,1fr); gap:9px; }
+  .watch-review-workspace .review-month-column { display:grid; grid-template-columns:34px minmax(0,1fr) 48px; align-items:center; padding:8px 10px; }
+  .review-month-label { grid-column:1; grid-row:1; text-align:left; }
+  .review-month-track { grid-column:2; grid-row:1; height:14px; }
+  .review-month-bar { height:100%; width:var(--review-month-size); }
+  .review-month-value { grid-column:3; grid-row:1; font-size:14px; text-align:right; }
+  .review-month-unknown { padding:12px; } .review-month-unknown button { width:100%; }
+  .review-month-details li { grid-template-columns:minmax(0,1fr); gap:12px; }
+  .review-month-details li > button { justify-self:start; }
+  .review-month-details dl { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+@media(prefers-reduced-motion:reduce) { .review-month-bar { transition:none; } }

@@ -45,7 +45,7 @@
 .memphis-rec-container .rec-profile-guide .rec-cold-guide { margin-top: 10px; }
 .memphis-rec-container .rec-more-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 26px 0 14px; }
 .memphis-rec-container .rec-more-heading h2 { margin: 0; font-size: 20px; font-weight: 900; }
-.memphis-rec-container .rec-batch-actions { margin-top: 24px; padding: 16px 0; border-top: 2px solid var(--rec-ink); }
+.memphis-rec-container .rec-batch-actions { margin-top: 24px; padding: 16px 24px; border-top: 2px solid var(--rec-ink); }
 .memphis-rec-container .rec-pagination { padding: 0; justify-content: space-between; gap: 12px; }
 .memphis-rec-container .rec-pagination-buttons { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 12px; }
 .memphis-rec-container .rec-batch-progress { font-variant-numeric: tabular-nums; }
@@ -95,7 +95,9 @@
   .memphis-rec-container .rec-featured-main > .rec-empty { min-height: 280px; padding: 20px 16px; }
   .memphis-rec-container .rec-more-heading { margin-top: 22px; }
   .memphis-rec-container .rec-more-heading > span { display: block; }
+  .memphis-rec-container .rec-batch-actions { padding: 14px 16px; }
   .memphis-rec-container .rec-pagination-buttons { width: 100%; justify-content: flex-start; }
+  .memphis-rec-container .rec-pagination-buttons .rec-button { flex: 1 1 160px; min-width: 0; max-width: 100%; white-space: normal; }
 }
 @media (max-width: 359px) {
   .memphis-rec-container { padding-right: 12px; padding-left: 12px; }

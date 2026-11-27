@@ -1,10 +1,11 @@
 import { validWatchDate, formatWatchDate } from './watchHistory.js'
 
-export const REVIEW_SECTIONS = { works: '全部作品', completed: '完成轮次', started: '开始观看', rewatch: '重看完成', activity: '观看足迹', notes: '随记与补录', uncertain: '可能相关', undated: '日期待补充' }
+export const REVIEW_SECTIONS = { works: '全部作品', completed: '完成轮次', started: '开始观看', rewatch: '重看完成', activity: '观看足迹', notes: '随记与补录', uncertain: '可能相关', undated: '日期待补充', month_unknown: '本年月份待补充' }
 export const REVIEW_KINDS = { started: '开始观看', completed: '完成观看', progress: '记录进度', pause: '暂停观看', resume: '恢复观看', note: '随记', memory: '补录往事' }
 const natural = n => Number.isSafeInteger(n) && n >= 0
 const score = n => typeof n === 'string' && n.trim() !== '' && Number.isFinite(Number(n)) && Number(n) >= 0 && Number(n) <= 10
 const day = value => typeof value === 'string' && value.length === 10 && validWatchDate(value)
+const year = value => typeof value === 'string' && value.length === 4 && validWatchDate(value)
 const month = value => typeof value === 'string' && value.length === 7 && validWatchDate(value)
 const monthDays = (year, m) => new Date(Date.UTC(year, m, 0)).getUTCDate()
 
@@ -19,7 +20,15 @@ export function shiftReviewMonth(value, amount) {
   if (nextYear < 1000 || nextYear > 9999) throw new Error('月份超出可选择范围。')
   return `${nextYear}-${String(index % 12 + 1).padStart(2, '0')}`
 }
+export function shiftReviewYear(value, amount) {
+  if (!year(value) || !Number.isInteger(amount) || !year(String(Number(value) + amount))) throw new Error('年份超出可选择范围。')
+  return String(Number(value) + amount)
+}
 export function reviewParams(draft) {
+  if (draft.mode === 'year') {
+    if (!year(draft.year)) throw new Error('请选择 1000 至 9999 之间的四位年份。')
+    return { year: draft.year }
+  }
   if (draft.mode === 'month') {
     if (!month(draft.month)) throw new Error('请选择有效的回顾月份。')
     return { month: draft.month }
@@ -30,32 +39,51 @@ export function reviewParams(draft) {
   return { start: draft.start, end: draft.end }
 }
 export function reviewPeriod(params) {
+  if (params.year) return { mode: 'year', start: `${params.year}-01-01`, end: `${params.year}-12-31`, timezone: 'Asia/Shanghai', end_inclusive: true }
   if (params.month) {
     const [year, m] = params.month.split('-').map(Number)
     return { mode: 'month', start: `${params.month}-01`, end: `${params.month}-${monthDays(year, m)}`, timezone: 'Asia/Shanghai', end_inclusive: true }
   }
   return { mode: 'custom', start: params.start, end: params.end, timezone: 'Asia/Shanghai', end_inclusive: true }
 }
-export const reviewTitle = period => period.mode === 'month' ? `${formatWatchDate(period.start.slice(0, 7))}观看回顾` : `${formatWatchDate(period.start)} — ${formatWatchDate(period.end)}`
+export const reviewTitle = period => period.mode === 'year' ? `${period.start.slice(0, 4)}年观看回顾` : period.mode === 'month' ? `${formatWatchDate(period.start.slice(0, 7))}观看回顾` : `${formatWatchDate(period.start)} — ${formatWatchDate(period.end)}`
 const canonical = value => Array.isArray(value) ? value.map(canonical) : value && typeof value === 'object'
   ? Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])])) : value
 const equal = (a, b) => JSON.stringify(canonical(a)) === JSON.stringify(canonical(b))
 const samePeriod = (a, b) => ['mode', 'start', 'end', 'timezone', 'end_inclusive'].every(k => a?.[k] === b?.[k])
 
-export function validReviewSummary(data, params) {
-  const s = data?.summary, c = data?.coverage, p = data?.period
-  const counts = ['started_works', 'started_rounds', 'completed_works', 'completed_rounds', 'first_completed_rounds', 'rewatch_started_rounds', 'rewatch_completed_rounds', 'notes', 'memories', 'viewed_works', 'related_works', 'activity_facts']
-  return Boolean(data?.contract_version === 'journal.watch-review.v1' && data.policy_version === 'actual-date-contained.v1'
-    && data.counts_scope === 'owner_all_records_selected_period' && data.live === true && data.metadata_basis === 'current_journal'
-    && samePeriod(p, reviewPeriod(params)) && day(p.start) && day(p.end) && p.start <= p.end
-    && typeof data.snapshot === 'string' && data.snapshot.length > 0 && data.snapshot.length <= 2048 && Number.isFinite(Date.parse(data.generated_at))
-    && counts.every(k => natural(s?.[k])) && s.started_works <= s.started_rounds && s.completed_works <= s.completed_rounds
+const COUNT_KEYS = ['started_works', 'started_rounds', 'completed_works', 'completed_rounds', 'first_completed_rounds', 'rewatch_started_rounds', 'rewatch_completed_rounds', 'notes', 'memories', 'viewed_works', 'related_works', 'activity_facts']
+function validCounts(s) {
+  return Boolean(COUNT_KEYS.every(k => natural(s?.[k])) && s.started_works <= s.started_rounds && s.completed_works <= s.completed_rounds
     && s.first_completed_rounds + s.rewatch_completed_rounds === s.completed_rounds && s.rewatch_started_rounds <= s.started_rounds
     && s.memories <= s.notes && s.viewed_works <= s.related_works
     && natural(s.completed_round_rating?.count) && natural(s.completed_round_rating?.missing_count)
     && s.completed_round_rating.count + s.completed_round_rating.missing_count === s.completed_rounds
     && s.completed_round_rating.basis === 'effective_completed_round'
-    && (s.completed_round_rating.count === 0 ? s.completed_round_rating.average === null : score(s.completed_round_rating.average))
+    && (s.completed_round_rating.count === 0 ? s.completed_round_rating.average === null : score(s.completed_round_rating.average)))
+}
+function validAnnual(a, summary, selectedYear) {
+  if (!year(selectedYear) || a?.year !== selectedYear || a.basis !== 'effective_facts_by_actual_month'
+    || !Array.isArray(a.months) || a.months.length !== 12
+    || !a.months.every((row, i) => row?.month === `${selectedYear}-${String(i + 1).padStart(2, '0')}`)) return false
+  const unknown = a.month_unknown, buckets = [...a.months, unknown]
+  if (!buckets.every(row => natural(row?.facts) && validCounts(row.summary) && row.facts === row.summary.activity_facts + row.summary.notes)
+    || !natural(unknown.works) || unknown.works !== unknown.summary.related_works) return false
+  const sums = key => buckets.reduce((total, row) => total + row.summary[key], 0)
+  const additive = ['started_rounds', 'completed_rounds', 'first_completed_rounds', 'rewatch_started_rounds', 'rewatch_completed_rounds', 'notes', 'memories', 'activity_facts']
+  if (!additive.every(key => sums(key) === summary[key])) return false
+  if (!['started_works', 'completed_works', 'viewed_works', 'related_works'].every(key =>
+    summary[key] >= Math.max(...buckets.map(row => row.summary[key])) && summary[key] <= sums(key))) return false
+  // Rounded bucket averages cannot reconstruct the unrounded annual average.
+  return ['count', 'missing_count'].every(key => buckets.reduce((total, row) => total + row.summary.completed_round_rating[key], 0) === summary.completed_round_rating[key])
+}
+export function validReviewSummary(data, params) {
+  const s = data?.summary, c = data?.coverage, p = data?.period
+  return Boolean(data?.contract_version === 'journal.watch-review.v1' && data.policy_version === 'actual-date-contained.v1'
+    && data.counts_scope === 'owner_all_records_selected_period' && data.live === true && data.metadata_basis === 'current_journal'
+    && samePeriod(p, reviewPeriod(params)) && day(p.start) && day(p.end) && p.start <= p.end
+    && typeof data.snapshot === 'string' && data.snapshot.length > 0 && data.snapshot.length <= 2048 && Number.isFinite(Date.parse(data.generated_at))
+    && validCounts(s) && (p.mode === 'year' ? validAnnual(data.annual, s, params.year) : data.annual === undefined)
     && ['uncertain', 'undated'].every(k => natural(c?.[k]?.facts) && natural(c?.[k]?.works) && c[k].works <= c[k].facts)
     && c.undated_scope === 'owner_all_history' && c.uncertain_scope === 'overlaps_selected_period'
     && c.includes_undated_in_summary === false && c.includes_uncertain_in_summary === false)
@@ -92,6 +120,7 @@ function validEntry(row, section, period) {
     || row.date_precision !== ({ 4: 'year', 7: 'month', 10: 'day' })[row.actual_date.length]) return false
   const contained = period.start <= b.start && b.end <= period.end
   if (section === 'uncertain') return row.attribution === 'uncertain' && !contained && b.start <= period.end && b.end >= period.start
+  if (section === 'month_unknown') return period.mode === 'year' && row.attribution === 'definite' && contained && row.date_precision === 'year'
   return row.attribution === 'definite' && contained && (section === 'activity' ? !['note', 'memory'].includes(row.kind)
     : section === 'notes' ? ['note', 'memory'].includes(row.kind) : section === 'rewatch' ? row.kind === 'completed' && row.is_rewatch : row.kind === section)
 }
@@ -100,10 +129,10 @@ export function validReviewEntries(data, { params, section, page, pageSize, snap
     || !natural(data.count) || !Array.isArray(data.results) || data.count_unit !== (section === 'works' ? 'works' : 'facts')
     || data.next_page !== (page * pageSize < data.count ? page + 1 : null)
     || data.results.length !== Math.min(pageSize, Math.max(0, data.count - (page - 1) * pageSize))) return false
-  if (snapshot && (snapshot !== data.snapshot || baseline && (!equal(data.summary, baseline.summary) || !equal(data.coverage, baseline.coverage)))) return false
+  if (snapshot && (snapshot !== data.snapshot || baseline && (!equal(data.summary, baseline.summary) || !equal(data.coverage, baseline.coverage) || !equal(data.annual, baseline.annual)))) return false
   const count = { works: data.summary.related_works, completed: data.summary.completed_rounds, started: data.summary.started_rounds,
     rewatch: data.summary.rewatch_completed_rounds, activity: data.summary.activity_facts, notes: data.summary.notes,
-    uncertain: data.coverage.uncertain.facts, undated: data.coverage.undated.facts }[section]
+    uncertain: data.coverage.uncertain.facts, undated: data.coverage.undated.facts, month_unknown: data.annual?.month_unknown.facts }[section]
   return data.count === count && data.results.every(row => validEntry(row, section, data.period))
     && new Set(data.results.map(row => section === 'works' ? row.work.record_id : row.id)).size === data.results.length
 }
@@ -125,17 +154,21 @@ export function createReviewController({ client, getSession, initialParams = { m
     if (!active || owner !== getSession()) return false
     abort?.abort(); abort = new AbortController()
     const signal = abort.signal, run = ++serial
-    const params = changes.params || state.params, section = changes.section || state.section
+    const params = changes.params || state.params
+    let section = changes.section || state.section
+    if (section === 'month_unknown' && !params.year) section = 'works'
     const pageSize = changes.pageSize || state.pageSize
     let page = changes.page ?? 1
-    let token = !changes.fresh && baseline && equal(params, baseline.params) ? baseline.data.snapshot : null
+    const checkpoint = changes.checkpoint
+    const cohort = checkpoint && equal(params, checkpoint.params) && validReviewSummary(checkpoint.data, params) ? checkpoint : baseline
+    let token = !changes.fresh && cohort && equal(params, cohort.params) ? cohort.data.snapshot : null
     if (!token) page = 1
     emit({ status: 'loading', data: null, params, section, page, pageSize, error: '', message: '' })
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const { data } = await client.get('watch-review/entries/', { params: { ...params, section, page, page_size: pageSize, ...(token ? { snapshot: token } : {}) }, signal })
         if (!live(run)) return false
-        if (!validReviewEntries(data, { params, section, page, pageSize, snapshot: token, baseline: token ? baseline?.data : null })) throw new Error('incomplete review contract')
+        if (!validReviewEntries(data, { params, section, page, pageSize, snapshot: token, baseline: token ? cohort?.data : null })) throw new Error('incomplete review contract')
         baseline = { params, data }
         emit({ status: 'ready', data, page, message: attempt ? '资料已更新，已重新读取本区第一页。' : '' })
         return true
