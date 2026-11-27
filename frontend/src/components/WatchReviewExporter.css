@@ -1,0 +1,19 @@
+.rec-dialog--review-export { width:min(1000px,calc(100% - 24px)); max-height:94dvh; }
+.review-export-options { min-width:0; font-size:13px; line-height:1.8; }
+.review-export-options fieldset { border:2px solid #111; padding:12px; display:flex; flex-wrap:wrap; gap:12px 20px; }
+.review-export-options label { display:flex; align-items:center; gap:8px; min-height:44px; }
+.review-export-actions,.review-export-pagination { display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin:16px 0; }
+.review-export-private { background:#fff0b2; border-left:4px solid #b0862f; padding:10px; }
+.review-export-preview { overflow:auto; max-height:50dvh; border:2px solid #111; background:#eee; }
+.review-export-stage { position:fixed; left:-14000px; top:0; width:900px; pointer-events:none; z-index:-1; }
+.review-export-sheet { box-sizing:border-box; width:900px; padding:38px; background:#fff5ee; color:#111; font-family:Arial,'Microsoft YaHei',sans-serif; }
+.review-export-sheet header { border:4px solid #111; background:#4ecdc4; padding:24px; margin-bottom:24px; }
+.review-export-sheet header span { font-size:16px; font-weight:900; letter-spacing:2px; }
+.review-export-sheet h1 { font-size:32px; font-weight:900; margin:16px 0; overflow-wrap:anywhere; }
+.review-export-sheet section { border:3px solid #111; box-shadow:5px 5px #ffe66d; background:#fff; padding:20px; margin-bottom:20px; overflow-wrap:anywhere; display:flow-root; }
+.review-export-sheet h2 { font-size:23px; font-weight:900; margin:0 0 10px; word-break:break-all; }
+.review-export-sheet p { font-size:19px; line-height:1.8; white-space:pre-wrap; margin:0; }
+.review-export-sheet footer { font-size:15px; line-height:1.8; border-top:3px solid #111; padding-top:16px; }
+.review-export-cover { float:left; width:65px; height:92px; margin:0 16px 8px 0; border:2px solid #111; background:#ffe66d; font-size:12px; }
+.review-export-cover img { width:100%; height:100%; object-fit:cover; }
+@media(max-width:600px){.rec-dialog--review-export{width:100%;max-height:96dvh;margin:0;inset:auto 0 0}.review-export-actions .rec-button{width:100%}.review-export-options fieldset{display:grid;grid-template-columns:minmax(0,1fr)}}

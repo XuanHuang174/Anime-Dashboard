@@ -266,7 +266,7 @@ SQLite 下的后端回归可以使用隔离配置运行；涉及 PostgreSQL 并�
 | 手账备份、公开来源与精选后台 | [海报往返契约、链接快照与迁移 0032](docs/journal-portability-and-public-sources.md) |
 | 观看历程与重看记录 | [A1 数据、接口与迁移 0033](docs/watch-history-a1.md)、[A2 详情交互](docs/watch-history-a2.md)、[A3 管理、清空恢复与迁移 0034](docs/watch-history-a3.md) |
 | 待看计划与观看优先级 | [B1 数据与迁移 0035](docs/watch-plans-b1.md)、[B2 计划工作区](docs/watch-plans-b2.md)、[B3 视觉整合、私人筛选与批量安排](docs/watch-plans-b3.md) |
-| 私人观看回顾 | [C1 日期口径、统计与只读接口](docs/watch-review-c1.md)、[C2 回顾工作区与日期／感想浏览](docs/watch-review-c2.md) |
+| 私人观看回顾 | [C1 日期口径、统计与只读接口](docs/watch-review-c1.md)、[C2 回顾工作区与日期／感想浏览](docs/watch-review-c2.md)、[C3 长图导出与完整验收](docs/watch-review-c3.md) |
 | 资源检索服务 | [检索代理与抽屉说明](docs/anime-resource-search.md) |
 | 推荐资料与封面准备 | [资料来源](docs/recommendation-data-sources.md)、[入库与封面验收](docs/recommendation-production-checklist.md) |
 | 系列资料与发布 | [系列模块方案](docs/recommendations-extension-12-plan.md)、[发布验收](docs/recommendations-12f.md) |
@@ -287,11 +287,11 @@ SQLite 下的后端回归可以使用隔离配置运行；涉及 PostgreSQL 并�
   - [x] B2：编辑详情入口、计划队列、移动排序、只读预览与观看操作交互。
   - [x] B3：页头与计划页视觉整合、独立观看安排入口、私人计划筛选、推荐加入、批量调整及恢复影响提示。
   - [x] B3 后续优化：[直接编辑显示修复、计划页背景与抽屉关闭、标准作品关联管理及迁移 0017](docs/journal-polish-and-identity-management.md)。
-- [ ] 个人月度／自选时间段回顾，再扩展年度回顾。
+- [x] 个人月度／自选时间段回顾。
   - [x] C1：[实际日期归属、轮次统计、私人只读接口、一致性分页与预览入口精简](docs/watch-review-c1.md)。
   - [x] C2：[回顾工作区、时间选择、摘要卡、作品与感想列表、日期说明及移动端布局](docs/watch-review-c2.md)。
-  - [ ] C3：回顾长图导出、内容选择、数据变化刷新与完整端到端验收。
-  - [ ] 后续：年度回顾与月份分布展示。
+  - [x] C3：[回顾长图导出、内容选择、数据变化保护与完整端到端验收](docs/watch-review-c3.md)。
+- [ ] 后续：年度回顾与月份分布展示。
 - [ ] 主题片单与私人策展。
 - [ ] 导入差异预览、资料整理与同步增强。
   - [x] 标签整理、标准题材重建、身份核对及海报备份往返修复。

@@ -6,6 +6,7 @@ import { formatWatchDate, WATCH_LABELS } from '../utils/watchHistory.js'
 import { safeExternalUrl } from '../utils/journalSourceLinks.js'
 import PersonalScore from './PersonalScore.jsx'
 import './WatchReviewWorkspace.css'
+import WatchReviewExporter from './WatchReviewExporter.jsx'
 
 function Cover({ work }) {
   const [broken, setBroken] = useState(false)
@@ -44,6 +45,7 @@ export default function WatchReviewWorkspace({ active, refreshKey, onOpenRecord 
   const state = useSyncExternalStore(engine.subscribe, engine.getSnapshot, engine.getSnapshot)
   const [draft, setDraft] = useState(() => ({ mode: 'month', month: currentReviewMonth(), start: '', end: '' }))
   const [formError, setFormError] = useState(''), [dateInfoOpen, setDateInfoOpen] = useState(false)
+  const [exportSource,setExportSource] = useState(null)
   const resultsRef = useRef(null), moveFocus = useRef(false)
   const data = state.data, loading = state.status === 'loading'
   useEffect(() => { engine.activate(); return () => engine.dispose() }, [engine])
@@ -52,12 +54,12 @@ export default function WatchReviewWorkspace({ active, refreshKey, onOpenRecord 
     return () => engine.cancel()
   }, [active, refreshKey, engine])
   useEffect(() => {
-    if (!active) return undefined
+    if (!active || exportSource) return undefined
     let timer
     const refresh = () => { if (document.visibilityState !== 'hidden') { clearTimeout(timer); timer = setTimeout(() => engine.refresh(), 120) } }
     window.addEventListener('focus', refresh); document.addEventListener('visibilitychange', refresh)
     return () => { clearTimeout(timer); window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', refresh) }
-  }, [active, engine])
+  }, [active, engine, exportSource])
   useEffect(() => {
     if (state.status === 'ready' && moveFocus.current && active) {
       moveFocus.current = false; resultsRef.current?.focus({ preventScroll: true })
@@ -87,7 +89,7 @@ export default function WatchReviewWorkspace({ active, refreshKey, onOpenRecord 
   </nav>
   return <section className="watch-review-workspace" hidden={!active} aria-label="私人观看回顾工作区">
     <header className="review-header"><div><span className="review-sticker">WATCH REVIEW</span><h2>观看回顾</h2><p>回到那些与动画相遇的日子 <span>仅本人可见 · 只读查看</span></p></div>
-      <button type="button" disabled={loading} onClick={() => engine.refresh()}>刷新回顾</button></header>
+      <div className="review-entry-actions"><button type="button" disabled={loading||!data} onClick={()=>setExportSource(data)}>导出回顾长图</button><button type="button" disabled={loading} onClick={() => engine.refresh()}>刷新回顾</button></div></header>
     <div className="review-controls"><div className="review-period-modes" role="group" aria-label="回顾时间类型">
       <button type="button" aria-pressed={draft.mode === 'month'} onClick={() => { setDraft(d => ({ ...d, mode: 'month' })); setFormError('') }}>按月份</button>
       <button type="button" aria-pressed={draft.mode === 'custom'} onClick={() => { setDraft(d => ({ ...d, mode: 'custom' })); setFormError('') }}>自选时间段</button></div>
@@ -123,5 +125,6 @@ export default function WatchReviewWorkspace({ active, refreshKey, onOpenRecord 
       {!data.count && <div className="review-empty"><span aria-hidden="true">▤</span><h4>{state.section === 'undated' ? '暂无日期待补充记录' : state.section === 'uncertain' ? '没有需要判断日期范围的记录' : state.section === 'notes' ? '这段时间暂无可归属的感想' : '这段时间暂无可归属的记录'}</h4>
         <p>{['uncertain', 'undated'].includes(state.section) ? '可以查看其他回顾内容。' : '未记录实际日期的旧数据不会被当作本期观看，也不代表这段时间没有观看。可调整区间，或在日期说明中查看待补充记录。'}</p></div>}
       {pagination('底部')}<p className="review-footer-note">作品名称、海报与综合评分显示当前手账资料。回顾随日期更正、撤销、清空和备份恢复更新。</p></>}
+    {exportSource&&<WatchReviewExporter source={exportSource} onClose={()=>setExportSource(null)}/>}
   </section>
 }
