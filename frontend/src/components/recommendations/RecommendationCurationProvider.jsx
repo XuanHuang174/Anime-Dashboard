@@ -26,7 +26,7 @@ export default function RecommendationCurationProvider({client,children}) {
   }
   const close=()=>{if(!gate.current){setItem(null);setRecord(null)}}
   return <RecommendationCurationContext.Provider value={client?.want?{open:item=>{setItem(item);setRecord(null);setError('')}}:null}>{children}
-    {item&&!record&&<CurationDialog title="从推荐收录到片单" busy={busy} onClose={close} footer={<div className="plan-actions"><button type="button" disabled={busy} onClick={close}>取消</button><button type="button" className="plan-primary" disabled={busy} onClick={prepare}>{item.watchStatus?'核对私人记录并选片单':'加入想看并选片单'}</button></div>}><h3>{item.title}</h3><p>先明确加入或核对私人手账，再选择目标片单，两个步骤分别保存。已有评分、状态和长评保留；取消后续收录会保留已加入的手账作品。</p><p>此入口不开始观看、不创建计划。作品身份冲突须先核对。</p>{error&&<p className="plan-error" role="alert">{error}</p>}</CurationDialog>}
+    {item&&!record&&<CurationDialog title="从推荐收录到片单" busy={busy} onClose={close} footer={<div className="plan-actions curation-confirm-actions"><button type="button" className="plan-primary" disabled={busy} onClick={prepare}>{item.watchStatus?'核对私人记录并选片单':'加入想看并选片单'}</button><button type="button" disabled={busy} onClick={close}>取消</button></div>}><h3>{item.title}</h3><p>先明确加入或核对私人手账，再选择目标片单，两个步骤分别保存。已有评分、状态和长评保留；取消后续收录会保留已加入的手账作品。</p><p>此入口不开始观看、不创建计划。作品身份冲突须先核对。</p>{error&&<p className="plan-error" role="alert">{error}</p>}</CurationDialog>}
     {record&&<CurationCollectDialog records={[record]} onClose={close} onViewList={id=>{close();navigate(`/dashboard?curation=${id}`)}}/>}
   </RecommendationCurationContext.Provider>
 }

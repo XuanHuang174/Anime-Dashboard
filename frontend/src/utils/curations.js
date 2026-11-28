@@ -21,7 +21,9 @@ export function validCurationPage(data, { listId = null, page = 1, page_size: si
     && data.page === page && data.page_size === size && natural(data.count) && data.count <= (listId ? 500 : 100)
     && data.next_page === (page * size < data.count ? page + 1 : null) && Array.isArray(data.results)
     && data.results.length === Math.min(size, Math.max(0, data.count - (page-1)*size))
-    && (listId ? validCuration(data.collection) && data.collection.id === listId && data.collection.entry_count === data.count && data.results.every(validCurationEntry)
+    && (listId ? validCuration(data.collection) && data.collection.id === listId
+      && (data.total_count === undefined ? data.collection.entry_count === data.count : natural(data.total_count) && data.collection.entry_count === data.total_count && data.count <= data.total_count)
+      && data.results.every(validCurationEntry)
       : data.collection === undefined && data.results.every(validCuration))
     && new Set(data.results.map(row => row.id)).size === data.results.length
     && (!listId || new Set(data.results.filter(row => row.record).map(row => row.record.id)).size === data.results.filter(row => row.record).length))
@@ -46,6 +48,7 @@ export async function loadCompleteCuration(client, listId, version, signal, curr
     const { data } = await client.get(`curations/${listId}/`, { params: { page, page_size: 100, version }, signal })
     if (signal.aborted || !current()) throw new Error('片单读取已取消。')
     if (!validCurationPage(data, { listId, page, page_size: 100, version })) throw new Error('片单返回不完整，请重新读取。')
+    if (data.collection.entry_count !== data.count) throw new Error('完整片单读取不能只包含筛选结果。')
     if (!collection) { collection = data.collection; count = data.count }
     if (JSON.stringify(collection) !== JSON.stringify(data.collection) || data.count !== count) throw new Error('读取过程中片单已变化，请重新读取。')
     rows.push(...data.results)
@@ -68,7 +71,7 @@ export function createCurationController({ client, getSession, uuid = () => cryp
     async read(options = {}) {
       if (!current() || gate || state.pending) return false
       params = { ...params, ...options }
-      if (params.listId) params = { listId: params.listId, page: params.page, page_size: params.page_size, version: params.version }
+      if (params.listId) params = Object.fromEntries(['listId','page','page_size','version','search','status','tag','year','availability'].map(key=>[key,params[key]]))
       const run = ++serial; abort?.abort(); const controller = new AbortController(); abort = controller
       emit({ status: 'loading', error: '', notice: '' })
       let query = { ...params }, notice = ''

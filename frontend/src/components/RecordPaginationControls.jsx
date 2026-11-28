@@ -8,7 +8,7 @@ const PAGE_SIZE_OPTIONS = [
   { value: '96', label: '96 条/页' },
 ]
 
-export function PageSizeSelector({ pageSize, onChange, totalCount, isLoading, theme = 'default' }) {
+export function PageSizeSelector({ pageSize, onChange, totalCount, isLoading, theme = 'default', batchAction }) {
   return (
     <div className={`${theme === 'memphis' ? 'memphis-page-size' : ''} flex h-full flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/80 bg-white/80 px-4 py-3 shadow-[0_8px_24px_rgba(15,23,42,0.05)] backdrop-blur-xl`}>
       <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
@@ -39,6 +39,7 @@ export function PageSizeSelector({ pageSize, onChange, totalCount, isLoading, th
         </select>
         <i className="fa-solid fa-chevron-down pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-indigo-400"></i>
       </div>
+      {batchAction&&<div className="journal-batch-tools"><button type="button" disabled={batchAction.disabled||!batchAction.count||batchAction.count>100} onClick={batchAction.onCollect}><i className="fa-solid fa-layer-group" aria-hidden="true"/> {pageSize==='all'?'收录当前结果':'收录本页作品'}到片单</button><small aria-live="polite">{batchAction.disabled?'正在更新当前结果，请稍候。':batchAction.count>100?`当前 ${batchAction.count} 部，请先选择分页数量，单次最多 100 部。`:`${pageSize==='all'?'当前结果':'本页'} ${batchAction.count} 部 · 打开后明确勾选，单次最多 100 部。`}</small></div>}
     </div>
   )
 }

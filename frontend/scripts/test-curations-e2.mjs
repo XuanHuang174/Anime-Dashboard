@@ -30,7 +30,7 @@ try {
   assert.equal(await btn('打开片单E2 片单 12').evaluate(el => el === document.activeElement), true)
   await ws().getByLabel('搜索主题片单', { exact: true }).fill(''); await btn('搜索片单').click(); await ready()
   await btn('E2 跨页主题').click(); await ready(); assert.equal(await ws().locator('.curation-entry').count(), 12)
-  await btn('下一页成员').click(); await ready()
+  await btn('下一页').click(); await ready()
   // Browsing details from edit mode remains read-only and returns to the same member page.
   await ws().getByRole('button', { name: '查看作品详情', exact: true }).first().click()
   await page.getByRole('dialog').waitFor(); assert.equal(await page.getByRole('button', { name: /保存全部修改/ }).count(), 0)
@@ -86,6 +86,7 @@ try {
   await modal('编辑入选理由').getByRole('button', { name: '关闭片单面板', exact: true }).click(); await btn('放弃草稿并关闭面板').click()
   await btn('刷新当前片单').click(); await ready(); assert.equal((await detail()).results[0].reason, '外部已保存理由')
   // Explicit relinking retains the original entry id/position; removing it leaves the work intact.
+  if ((await ws().locator('.curation-number').first().innerText())!=='1') { await btn('上一页').click(); await ready() }
   const placeholder = ws().locator(`[data-entry-id="${f.placeholder_id}"]`)
   await placeholder.getByRole('button', { name: '重新关联作品', exact: true }).click(); await modal('重新关联片单作品').waitFor()
   await searchCandidate('重新关联片单作品', 'E2 合成作品 105'); await modal('重新关联片单作品').getByRole('radio', { name: '选择E2 合成作品 105', exact: true }).check()

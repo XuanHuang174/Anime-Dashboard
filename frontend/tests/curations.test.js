@@ -14,6 +14,24 @@ function page(params = {}, version = 1, total = 1) {
 const ack = body => ({ contract_version: 'journal.curations.v1', version: body.version+1, replayed: false, list_id: body.list_id || id(1), collection: body.action === 'delete' ? null : collection() })
 const deferred = () => { let resolve; return { promise: new Promise(r => { resolve = r }), resolve: v => resolve(v) } }
 
+test('filtered pages distinguish complete membership from matches and never satisfy full-order reads', async()=>{
+  const query={listId:id(1),page:1,page_size:12},data=page(query)
+  data.collection.entry_count=105;data.total_count=105;data.results[0].position=100
+  assert.equal(validCurationPage(data,query),true)
+  for(const value of [0,104,501]){const bad=structuredClone(data);bad.total_count=value;assert.equal(validCurationPage(bad,query),false)}
+  const small={...data,page_size:100}
+  await assert.rejects(loadCompleteCuration({get:async()=>({data:small})},id(1),1,new AbortController().signal),/完整片单/)
+})
+
+test('detail controller carries original filters through pagination and clears them for home',async()=>{
+  const calls=[],engine=createCurationController({client:{get:async(path,{params})=>{calls.push({path,params});return {data:page({...params,listId:path==='curations/'?null:id(1)},1,25)}}},getSession:()=>1})
+  await engine.read({listId:id(1),search:'遠い星',status:'on_hold',tag:'夜间',year:'2001',availability:'available',page:1})
+  await engine.read({page:2})
+  for(const key of ['search','status','tag','year','availability'])assert.equal(calls[1].params[key],calls[0].params[key])
+  await engine.read({listId:null,page:1,search:'',state:'active',pinned:'any',status:undefined,tag:undefined,year:undefined,availability:undefined})
+  assert.equal(calls[2].path,'curations/');assert.equal(calls[2].params.tag,undefined)
+})
+
 test('curation pages require complete counts, scoped ids, current records and placeholder semantics', () => {
   const query = { listId: id(1), page: 1, page_size: 12 }, good = page(query)
   assert.equal(validCurationPage(good, query), true)

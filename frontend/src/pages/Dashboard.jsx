@@ -1187,12 +1187,12 @@ function Dashboard() {
                 totalCount={recordsTotal}
                 isLoading={isLoading}
                 theme="memphis"
+                batchAction={isEditMode?{count:filteredAnime.length,disabled:isLoading||searchQuery.trim()!==debouncedSearchQuery||(pageSize!=='all'&&lastLoadedPage!==currentPage),onCollect:()=>setCollectRequest({records:filteredAnime.map(item=>({id:item.id,title:item.title}))})}:undefined}
               />
               <PriorityNotice unratedCount={visibleUnratedCount} theme="memphis" />
             </div>
 
             <div className="dashboard-content-piece dashboard-entrance-piece mb-5 h-2 w-full border-2 border-black bg-[repeating-linear-gradient(135deg,#111_0,#111_8px,#ffe66d_8px,#ffe66d_16px)]" />
-            {isEditMode&&filteredAnime.length>0&&<div className="curation-journal-batch"><button type="button" disabled={isLoading||filteredAnime.length>100} title={filteredAnime.length>100?'请将每页数量调整到 100 部以内后明确勾选':''} onClick={()=>setCollectRequest({records:filteredAnime.map(item=>({id:item.id,title:item.title}))})}>收录本页作品到片单</button><small>打开后明确勾选，仅处理本页；单次最多 100 部。</small></div>}
 
             {isContentEntranceComplete && (filteredAnime.length > 0 || showAddPlaceholder) && view === 'list' && (
               <div className="dashboard-content-piece">

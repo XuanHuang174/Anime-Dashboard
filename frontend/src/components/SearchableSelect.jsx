@@ -9,12 +9,17 @@ function SearchableSelect({
   searchPlaceholder,
   emptyText = '没有匹配选项',
   searchable = true,
+  disabled = false,
+  label,
+  contained = false,
 }) {
   const rootRef = useRef(null)
   const searchRef = useRef(null)
   const [isOpen, setIsOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [activeIndex, setActiveIndex] = useState(0)
+  const [placement, setPlacement] = useState({ up: false, height: 280 })
+  const triggerRef = useRef(null)
 
   const normalizedOptions = useMemo(() => [
     allOption,
@@ -61,14 +66,35 @@ function SearchableSelect({
     setActiveIndex(0)
   }, [query])
 
+  useEffect(() => {
+    if (!isOpen || !contained) return
+    const measure = () => {
+      const box = triggerRef.current.getBoundingClientRect()
+      const boundary = rootRef.current.closest('.curation-dialog-body')?.getBoundingClientRect()
+      const below = Math.min(window.innerHeight, boundary?.bottom ?? window.innerHeight) - box.bottom - 12
+      const above = box.top - Math.max(0, boundary?.top ?? 0) - 12
+      const up = below < 220 && above > below
+      setPlacement({ up, height: Math.max(80, Math.min(280, up ? above : below)) })
+    }
+    measure(); window.addEventListener('resize', measure); window.addEventListener('scroll', measure, true)
+    return () => { window.removeEventListener('resize', measure); window.removeEventListener('scroll', measure, true) }
+  }, [isOpen, contained])
+  useEffect(() => {
+    if (isOpen) rootRef.current?.querySelector(`[id="${id}-option-${activeIndex}"]`)?.scrollIntoView({ block: 'nearest' })
+  }, [activeIndex, isOpen, id])
+  useEffect(() => { if (disabled) setIsOpen(false) }, [disabled])
+
   const chooseOption = (option) => {
     onChange(option.value)
     setIsOpen(false)
+    triggerRef.current?.focus({ preventScroll: true })
   }
 
   const handleSearchKeyDown = (event) => {
     if (event.key === 'Escape') {
+      event.preventDefault(); event.stopPropagation()
       setIsOpen(false)
+      triggerRef.current?.focus({ preventScroll: true })
       return
     }
     if (!filteredOptions.length) return
@@ -85,12 +111,16 @@ function SearchableSelect({
   }
 
   return (
-    <div ref={rootRef} className="searchable-select">
+    <div ref={rootRef} className="searchable-select" onKeyDown={event=>{if(isOpen&&event.key==='Escape'){event.preventDefault();event.stopPropagation();setIsOpen(false);triggerRef.current?.focus({preventScroll:true})}}}>
       <button
         id={id}
+        ref={triggerRef}
         type="button"
+        disabled={disabled}
+        aria-label={label}
         className="searchable-select__trigger"
         aria-haspopup="listbox"
+        aria-controls={isOpen ? `${id}-options` : undefined}
         aria-expanded={isOpen}
         onClick={() => setIsOpen((open) => !open)}
         onKeyDown={(event) => {
@@ -105,7 +135,7 @@ function SearchableSelect({
       </button>
 
       {isOpen && (
-        <div className="searchable-select__panel">
+        <div className="searchable-select__panel" style={contained ? { top: placement.up ? 'auto' : 'calc(100% + 7px)', bottom: placement.up ? 'calc(100% + 7px)' : 'auto', maxHeight: placement.height } : undefined}>
           {searchable && (
             <div className="searchable-select__search-wrap">
               <i className="fa-solid fa-magnifying-glass" aria-hidden="true" />

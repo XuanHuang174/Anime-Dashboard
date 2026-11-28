@@ -124,15 +124,16 @@ function AnimeList({
                     </td>
 
                     <td className="flex-1 min-w-[50%] md:w-auto md:py-5 md:px-6 cursor-pointer">
-                      <div className="flex flex-col justify-center h-full md:block pr-16 md:pr-0">
-                        <span className={`${isMemphis ? 'memphis-anime-title' : 'group-hover:text-indigo-600'} line-clamp-2 text-base font-extrabold text-slate-700 transition-all duration-300 ease-out group-hover:translate-x-1 md:line-clamp-1 md:text-lg`}>
+                      <div className="flex flex-col justify-center h-full md:block">
+                        <span className={`${isMemphis ? 'memphis-anime-title' : 'group-hover:text-indigo-600'} pr-16 md:pr-0 line-clamp-2 text-base font-extrabold text-slate-700 transition-all duration-300 ease-out group-hover:translate-x-1 md:line-clamp-1 md:text-lg`}>
                           {item.title}
                         </span>
                         <span className="text-[10px] md:text-xs text-slate-400 mt-1 font-medium tracking-normal transition-all duration-500 ease-out group-hover:translate-x-3.5 group-hover:tracking-[0.05em] opacity-90 group-hover:opacity-100 line-clamp-1">
                           {item.japaneseTitle || ' '}
                         </span>
-                        {onFindResources && <button type="button" className="journal-row-resource-button md:!hidden"
+                        {(onFindResources||onCollect)&&<div className="journal-mobile-actions md:!hidden">{onFindResources && <button type="button" className="journal-row-resource-button"
                           aria-label={`寻找${item.title}的资源`} onClick={(event) => { event.stopPropagation(); onFindResources(item) }}>🧲</button>}
+                          {onCollect&&<button type="button" className="journal-row-resource-button journal-mobile-collect" aria-label={`将${item.title}收录到片单`} onClick={event=>{event.stopPropagation();onCollect(item)}}><i className="fa-solid fa-layer-group" aria-hidden="true"/> 收录片单</button>}</div>}
 
                         <div className="flex md:hidden flex-wrap gap-1.5 mt-2.5">
                           {item.status === 'watching' && onIncrementProgress ? (

@@ -56,7 +56,37 @@ def entry_data(row, request=None):
 
 
 def current_record(record, request=None):
-    return {**record_summary(record, request), 'personal_score': str(record.personal_score) if record.personal_score is not None else None}
+    return {**record_summary(record, request), 'personal_score': str(record.personal_score) if record.personal_score is not None else None,
+            'tags': list(dict.fromkeys([*record.effective_anime_metadata()['base_tags'], *(record.custom_tags or [])]))}
+
+
+def filtered_members(collection, query, request):
+    """Filter the bounded, complete private collection before pagination."""
+    search = query.get('search', '').strip().casefold()
+    status, tag, year = (query.get(key, 'all') for key in ('status', 'tag', 'year'))
+    availability = query.get('availability', 'all')
+    if (len(search) > 100 or len(tag) > 100 or status not in ('all', 'plan', 'watching', 'completed', 'on_hold')
+            or availability not in ('all', 'available', 'unavailable')
+            or year != 'all' and (len(year) != 4 or not year.isascii() or not year.isdigit() or int(year) < 1000)):
+        raise serializers.ValidationError('片单作品筛选无效。')
+    members = list(entries(collection))
+    collection._members = members
+    rows = [entry_data(row, request) for row in members]
+    tags, years, matched = set(), set(), []
+    for row in rows:
+        record = row['record']
+        if record:
+            tags.update(record['tags'])
+            if record['period'][:4].isdigit(): years.add(record['period'][:4])
+        title = record['title'] if record else row['title_snapshot']['title']
+        original = record['japanese_title'] if record else row['title_snapshot']['original_title']
+        if search and search not in title.casefold() and search not in original.casefold(): continue
+        if availability != 'all' and row['unavailable'] != (availability == 'unavailable'): continue
+        if status != 'all' and (not record or record['watch_status'] != status): continue
+        if tag != 'all' and (not record or tag not in record['tags']): continue
+        if year != 'all' and (not record or record['period'][:4] != year): continue
+        matched.append(row)
+    return matched, {'tags': sorted(tags), 'years': sorted(years, reverse=True)}
 
 
 def list_data(row, request=None):
@@ -88,14 +118,19 @@ def pagination(query, allowed):
 def read(user, query, list_id=None, request=None):
     # Serialize a whole page with mutations, without materializing any empty state.
     lock_owner(user)
-    page, size = pagination(query, () if list_id else ('search', 'state', 'pinned'))
+    page, size = pagination(query, ('search', 'status', 'tag', 'year', 'availability') if list_id else ('search', 'state', 'pinned'))
     rev = version(user)
     if 'version' in query and int(query['version']) != rev: raise CurationConflict()
     rows = CurationList.objects.filter(library__user=user)
     collection = None
     if list_id:
         collection = get_object_or_404(rows, portable_id=list_id)
-        rows = entries(collection)
+        members, options = filtered_members(collection, query, request)
+        count = len(members)
+        return {'contract_version': CONTRACT, 'version': rev, 'page': page, 'page_size': size,
+                'count': count, 'total_count': len(collection._members), 'filter_options': options,
+                'next_page': page + 1 if page * size < count else None,
+                'collection': list_data(collection, request), 'results': members[(page-1)*size:page*size]}
     else:
         state = query.get('state', 'active')
         if state not in ('active', 'archived', 'all') or query.get('pinned', 'any') not in ('any', 'true', 'false') or len(query.get('search', '')) > 80:

@@ -32,7 +32,7 @@ function PrivateImagePreview({ Sheet, ...props }) {
     </div>
   </div></>
 }
-export default function PrivateImageExporter({ source, onClose, title, options, defaults, load, verify, blocks: makeBlocks, Sheet, filename, hint, downloadLabel, privateKeys = ['notes'], dependentKeys = [] }) {
+export default function PrivateImageExporter({ source, onClose, title, options, defaults, load, verify, blocks: makeBlocks, Sheet, filename, hint, downloadLabel, privateKeys = ['notes'], dependentKeys = [], footerClassName = '' }) {
   const [selection,setSelection]=useState(defaults)
   const [report,setReport]=useState(null),[pages,setPages]=useState([]),[covers,setCovers]=useState({}),[page,setPage]=useState(0)
   const [prepared,setPrepared] = useState(false)
@@ -129,7 +129,7 @@ export default function PrivateImageExporter({ source, onClose, title, options, 
     }catch(e){if(live())setError(e.response?.status===409?'资料已变化，未下载旧报告。请关闭面板并刷新后重新预览。':e.message||'导出失败，请重试。')}
     finally{gate.current=false;if(live())setBusy(false)}
   }
-  return <div className="memphis-rec-container"><RecommendationDialog title={title} onClose={close} kind="review-export" footer={<div className="review-export-actions"><button className="rec-button" disabled={busy||!options.some(([key])=>key !== 'covers' && selection[key])} onClick={prepare}>读取并预览完整内容</button>{report&&prepared&&<button className="rec-button rec-button--primary" disabled={busy} onClick={download}>{downloadLabel}</button>}{busy&&<button className="rec-button" onClick={close}>取消并关闭</button>}</div>}>
+  return <div className="memphis-rec-container"><RecommendationDialog title={title} onClose={close} kind="review-export" footer={<div className={`review-export-actions ${footerClassName}`}><button className="rec-button" disabled={busy||!options.some(([key])=>key !== 'covers' && selection[key])} onClick={prepare}>读取并预览完整内容</button>{report&&prepared&&<button className="rec-button rec-button--primary" disabled={busy} onClick={download}>{downloadLabel}</button>}{busy&&<button className="rec-button" onClick={close}>取消并关闭</button>}</div>}>
     <div className="review-export-options"><p>{hint}</p>
       <fieldset disabled={busy}><legend>选择导出内容</legend>{options.map(([key,label])=><label key={key}><input type="checkbox" disabled={dependentKeys.includes(key)&&!selection.works} checked={selection[key]} onChange={e=>change(key,e.target.checked)}/>{label}</label>)}</fieldset>
       {privateKeys.some(key=>selection[key])&&<p className="review-export-private">所选文件包含私人内容，请核对后再决定是否分享。</p>}

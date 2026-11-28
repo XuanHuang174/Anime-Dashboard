@@ -19,7 +19,7 @@ const detail=()=>api('get',`curations/${f.list_id}/`)
 const closeCollect=async()=>{await collect().getByRole('button',{name:'取消',exact:true}).click();if(await collect().getByRole('button',{name:'放弃并关闭收录',exact:true}).count())await collect().getByRole('button',{name:'放弃并关闭收录',exact:true}).click();await collect().waitFor({state:'detached'})}
 const exp=()=>dialog('导出私人片单'),stage=()=>page.locator('.review-export-stage'),eb=name=>exp().getByRole('button',{name,exact:true})
 const prepare=async()=>{await eb('读取并预览完整内容').click();await eb('下载片单长图').waitFor();assert.equal(await eb('下载片单长图').isEnabled(),true)}
-const openExport=async()=>{await btn('导出片单长图').click();await exp().waitFor()}
+const openExport=async()=>{await btn('导出完整片单长图').click();await exp().waitFor()}
 const closeExport=async()=>{await eb('关闭面板').click();await exp().waitFor({state:'detached'})}
 try{
   await page.goto(base+'/dashboard');await page.getByLabel('选择每页显示数量',{exact:true}).selectOption('12');await page.getByRole('button',{name:'收录本页作品到片单',exact:true}).waitFor()
@@ -38,7 +38,7 @@ try{
   assert.equal(await ws().locator('.curation-entry').count(),1)
   // Deep link is read-only navigation and consumed once; later workspace switches keep page 2.
   const beforeLink=writes.length;await page.goto(base+`/dashboard?curation=${f.list_id}`);await ready();assert.equal(new URL(page.url()).searchParams.has('curation'),false);assert.equal(writes.length,beforeLink)
-  await btn('下一页成员').click();await ready();await nav('回顾').click();await nav('片单').click();await ready();assert.equal(await ws().locator('.curation-number').first().innerText(),'13')
+  await btn('下一页').click();await ready();await nav('回顾').click();await nav('片单').click();await ready();assert.equal(await ws().locator('.curation-number').first().innerText(),'13')
   const first=(await detail()).results[0]
   const beforeRecord=await api('get',`records/${first.record.id}/`)
   // Direct viewing arrangement uses its independent save; collection page and reason stay intact.

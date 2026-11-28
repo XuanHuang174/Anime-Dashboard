@@ -9,7 +9,7 @@ function Sheet({report,blocks,index,count,covers}) {
   </article>
 }
 export default function CurationExporter({source,onClose}) {
-  return <PrivateImageExporter source={source} onClose={onClose} title="导出私人片单" downloadLabel="下载片单长图"
+  return <PrivateImageExporter source={source} onClose={onClose} title="导出私人片单" footerClassName="curation-export-actions" downloadLabel="下载片单长图"
     defaults={{intro:false,works:true,reasons:false,status:false,score:false,covers:false}} privateKeys={['intro','reasons','status','score']} dependentKeys={['reasons','status','score','covers']}
     options={[["works","完整作品清单"],["intro","专题简介"],["reasons","入选理由"],["status","观看状态与进度"],["score","个人评分"],["covers","包含海报（最多24张，失败或超限显示占位）"]]}
     load={(source,selection,signal,live)=>loadCurationExport(api,source,selection,signal,live)} verify={(source,signal,live)=>verifyCurationExport(api,source,signal,live)} blocks={curationExportBlocks} Sheet={Sheet} filename={curationExportFilename}
