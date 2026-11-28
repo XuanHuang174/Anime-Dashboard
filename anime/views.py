@@ -1890,6 +1890,8 @@ class UserJournalExportView(APIView):
 
     @transaction.atomic
     def get(self, request):
+        from . import curations
+        curations.lock_owner(request.user)
         records = (
             UserAnimeRecord.objects.filter(user=request.user)
             .select_for_update(of=('self',))
@@ -1907,6 +1909,8 @@ class UserJournalExportView(APIView):
         except DatabaseError:
             logger.warning('Optional identity references unavailable during export')
             identity_rows = {}
+        records = list(records)
+        record_refs = {row.pk: f'r{index}' for index, row in enumerate(records)}
         for record in records:
             from .watch_history import export_history
             from .watch_plans import plan_data
@@ -1921,6 +1925,7 @@ class UserJournalExportView(APIView):
 
             exported_records.append(
                 {
+                    'record_ref': record_refs[record.pk],
                     "anime": {
                         "identity_reference": None if getattr(getattr(record, "identity_override", None), "enabled", False) else export_reference(request.user, identity_rows.get(record.pk)),
                         "identity_correction": export_correction(request.user, record),
@@ -1957,6 +1962,7 @@ class UserJournalExportView(APIView):
             "version": 2,
             "exported_at": timezone.now().isoformat(),
             "records": exported_records,
+            'curations': curations.export_backup(request.user, record_refs),
         }
         content = json.dumps(payload, ensure_ascii=False, indent=2)
         filename = timezone.localdate().strftime("anime-journal-%Y%m%d.json")
@@ -1965,6 +1971,8 @@ class UserJournalExportView(APIView):
             content_type="application/json; charset=utf-8",
         )
         response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        response['Cache-Control'] = 'private, no-store'
+        response['Vary'] = 'Authorization, Cookie'
         return response
 
 
@@ -2034,6 +2042,8 @@ class UserJournalImportView(APIView):
         serializer = JournalRecordImportSerializer(data=record_data, many=True)
         serializer.is_valid(raise_exception=True)
         validated_records = serializer.validated_data
+        from . import curations
+        curation_backup = curations.validate_backup(payload.get('curations', curations.MISSING) if isinstance(payload, dict) else curations.MISSING, validated_records)
 
         anime_keys = [
             (
@@ -2058,12 +2068,13 @@ class UserJournalImportView(APIView):
                 from .watch_plans import lock_queue, plan_data, restore_plan, bump
                 plan_queue = lock_queue(request.user.pk)
                 if request.query_params.get('preview') == 'true':
-                    return Response(restore_preview(request.user, validated_records, imported_rating), headers={'Cache-Control': 'private, no-store'})
+                    return Response(restore_preview(request.user, validated_records, imported_rating, curation_backup), headers={'Cache-Control': 'private, no-store'})
                 confirmation = request.data.get('confirmation_token') if hasattr(request.data, 'get') else None
                 if request.query_params.get('confirm') == 'true' and not confirmation:
                     raise DRFValidationError('请先预览恢复影响并确认。')
-                if confirmation and not valid_restore_token(confirmation, request.user, validated_records, imported_rating):
+                if confirmation and not valid_restore_token(confirmation, request.user, validated_records, imported_rating, curation_backup):
                     return Response({'detail': '手账或文件已变化，或确认已过期。请重新预览后再恢复。'}, status=409)
+                curation_restore = curations.prepare_restore(request.user, validated_records, curation_backup)
                 from .watch_history import export_history, restore_history, observe_change, record_state
                 previous_history = {}
                 previous_by_key = {}
@@ -2156,6 +2167,8 @@ class UserJournalImportView(APIView):
                 from .signals import suppress_showcase_cleanup
 
                 with suppress_showcase_cleanup():
+                    # Preserve curation identities/reasons before replacing record PKs.
+                    curations.CurationEntry.objects.filter(collection__library__user=request.user).update(record=None)
                     # Delete the newly introduced child rows explicitly before
                     # replacing records. This keeps SQLite's deferred foreign-key
                     # checks valid even when a long-running development server
@@ -2165,6 +2178,7 @@ class UserJournalImportView(APIView):
                     ).delete()
                     UserAnimeRecord.objects.filter(user=request.user).delete()
                     UserAnimeRecord.objects.bulk_create(replacement_records)
+                    curations.apply_restore(request.user, curation_restore, replacement_records, curation_backup is not curations.MISSING)
                     for restored in replacement_records:
                         supplied, previous = histories_by_anime_id[restored.anime_id]
                         if supplied is not None:
@@ -2434,6 +2448,12 @@ class UserAnimeRecordViewSet(viewsets.ModelViewSet):
     @transaction.atomic
     def update(self, request, *args, **kwargs):
         return super().update(request, *args, **kwargs)
+
+    @transaction.atomic
+    def destroy(self, request, *args, **kwargs):
+        # Same owner-first lock as curation commands and whole-journal restore.
+        get_user_model().objects.select_for_update().get(pk=request.user.pk)
+        return super().destroy(request, *args, **kwargs)
 
     @action(detail=True, methods=('get', 'post'), url_path='watch-history')
     @transaction.atomic

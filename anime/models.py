@@ -510,6 +510,55 @@ class UserAnimeRecord(models.Model):
             return result
 
 
+class CurationLibrary(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='curation_library')
+    revision = models.PositiveBigIntegerField(default=0)
+
+
+class CurationList(models.Model):
+    library = models.ForeignKey(CurationLibrary, on_delete=models.CASCADE, related_name='lists')
+    portable_id = models.UUIDField(default=uuid.uuid4)
+    title = models.CharField(max_length=80)
+    description = models.TextField(blank=True, default='')
+    pinned = models.BooleanField(default=False)
+    archived = models.BooleanField(default=False)
+    cover_entry_id = models.UUIDField(null=True, blank=True)
+    position = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('-pinned', 'position', 'pk')
+        constraints = [models.UniqueConstraint(fields=('library', 'portable_id'), name='curation_list_portable_id')]
+
+
+class CurationEntry(models.Model):
+    collection = models.ForeignKey(CurationList, on_delete=models.CASCADE, related_name='entries')
+    portable_id = models.UUIDField(default=uuid.uuid4)
+    record = models.ForeignKey(UserAnimeRecord, null=True, on_delete=models.SET_NULL, related_name='curation_entries')
+    title_snapshot = models.JSONField(default=dict)
+    reason = models.TextField(blank=True, default='')
+    position = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ('position', 'pk')
+        constraints = [
+            models.UniqueConstraint(fields=('collection', 'portable_id'), name='curation_entry_portable_id'),
+            models.UniqueConstraint(fields=('collection', 'record'), name='curation_entry_record'),
+        ]
+
+
+class CurationOperation(models.Model):
+    library = models.ForeignKey(CurationLibrary, on_delete=models.CASCADE, related_name='operations')
+    operation_id = models.UUIDField()
+    request_hash = models.CharField(max_length=64)
+    list_id = models.UUIDField(null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=('library', 'operation_id'), name='curation_operation')]
+
+
 class WatchPlanQueue(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='watch_plan_queue')
     revision = models.PositiveBigIntegerField(default=0)

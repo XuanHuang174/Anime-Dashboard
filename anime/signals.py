@@ -2,7 +2,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 
 from django.conf import settings
-from django.db.models.signals import post_delete, post_save, pre_save
+from django.db.models.signals import post_delete, post_save, pre_save, pre_delete
 from django.dispatch import receiver
 from .showcase_services import withdraw_showcase_anime
 
@@ -38,6 +38,13 @@ DEFAULT_QUICK_FILTERS = (
         "title_keywords": ["OVA"],
     },
 )
+
+
+@receiver(pre_delete, sender=UserAnimeRecord)
+def preserve_private_curation_entry(sender, instance, **kwargs):
+    from .curations import preserve_deleted_record
+    preserve_deleted_record(instance)
+
 
 _suppress_showcase_cleanup = ContextVar("suppress_showcase_cleanup", default=False)
 

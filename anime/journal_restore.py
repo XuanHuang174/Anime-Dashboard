@@ -6,23 +6,27 @@ from django.core import signing
 from rest_framework.exceptions import ValidationError
 
 from .models import UserAnimeRecord, UserAnimeTag, UserProfile, WatchPlan, WatchPlanQueue
+from .curations import MISSING, CurationLibrary, CurationList, CurationEntry
 
 
 def fingerprint(value):
     return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True, default=str).encode()).hexdigest()
 
 
-def restore_binding(user, records, rating):
-    return {'user': user.pk, 'file': fingerprint([records, rating]), 'state': fingerprint([
+def restore_binding(user, records, rating, curations=MISSING):
+    return {'user': user.pk, 'file': fingerprint([records, rating, {'omitted': True} if curations is MISSING else curations]), 'state': fingerprint([
         list(UserAnimeRecord.objects.filter(user=user).order_by('pk').values()),
         list(UserAnimeTag.objects.filter(record__user=user).order_by('pk').values()),
         list(UserProfile.objects.filter(user=user).values('rating_preferences', 'rating_revision')),
         list(WatchPlan.objects.filter(record__user=user).order_by('record_id').values()),
         list(WatchPlanQueue.objects.filter(user=user).values('revision')),
+        list(CurationLibrary.objects.filter(user=user).values()),
+        list(CurationList.objects.filter(library__user=user).order_by('pk').values()),
+        list(CurationEntry.objects.filter(collection__library__user=user).order_by('pk').values()),
     ])}
 
 
-def restore_preview(user, records, rating):
+def restore_preview(user, records, rating, curations=MISSING):
     existing = list(UserAnimeRecord.objects.filter(user=user).select_related('anime').prefetch_related('watch_events', 'watch_rounds', 'watch_plan'))
     matched = set()
     summary = {'incoming_count': len(records), 'with_history': 0, 'events_in_file': 0,
@@ -60,12 +64,14 @@ def restore_preview(user, records, rating):
     summary['removed_history_events'] = sum(len(row.watch_events.all()) for row in removed)
     summary['removed_plans'] = sum(getattr(row, 'watch_plan', None) is not None for row in removed)
     summary['removed_titles'] = [row.effective_anime_metadata()['chinese_title'] for row in removed[:20]]
-    summary['token'] = signing.dumps(restore_binding(user, records, rating), salt='journal-restore-a3', compress=True)
+    from .curations import restore_impact
+    summary['curations'] = restore_impact(user, records, curations)
+    summary['token'] = signing.dumps(restore_binding(user, records, rating, curations), salt='journal-restore-a3', compress=True)
     return summary
 
 
-def valid_restore_token(token, user, records, rating):
+def valid_restore_token(token, user, records, rating, curations=MISSING):
     try:
-        return signing.loads(token, salt='journal-restore-a3', max_age=600) == restore_binding(user, records, rating)
+        return signing.loads(token, salt='journal-restore-a3', max_age=600) == restore_binding(user, records, rating, curations)
     except signing.BadSignature:
         return False

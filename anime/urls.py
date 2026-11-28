@@ -6,6 +6,7 @@ from .tag_cleanup import TagCleanupViewSet
 from .rating_views import RatingPreferencesView
 from .watch_plan_views import WatchPlanDetailView, WatchPlanQueueView, WatchPlanReorderView, WatchPlanBatchView
 from .watch_review_views import WatchReviewView, WatchReviewEntriesView
+from .curation_views import PrivateCurationView, CurationDeletionImpactView
 
 from .views import (
     AdminFeaturedSubmissionViewSet,
@@ -85,6 +86,9 @@ router.register(
 
 app_name = "anime_api"
 urlpatterns = [
+    path('curations/', PrivateCurationView.as_view(), name='private-curations'),
+    path('curations/<uuid:list_id>/', PrivateCurationView.as_view(), name='private-curation-detail'),
+    path('records/<int:record_id>/curation-impact/', CurationDeletionImpactView.as_view(), name='curation-deletion-impact'),
     path('watch-review/', WatchReviewView.as_view(), name='watch-review'),
     path('watch-review/entries/', WatchReviewEntriesView.as_view(), name='watch-review-entries'),
     path('watch-plans/', WatchPlanQueueView.as_view(), name='watch-plan-queue'),

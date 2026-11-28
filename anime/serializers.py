@@ -682,6 +682,7 @@ class JournalRecordImportSerializer(serializers.Serializer):
     """Validate one portable record without accepting user or database IDs."""
 
     anime = JournalAnimeImportSerializer()
+    record_ref = serializers.RegexField(r'^[A-Za-z0-9_-]{1,64}$', required=False)
     watch_history = serializers.DictField(required=False)
     watch_plan = serializers.DictField(required=False, allow_null=True)
 
