@@ -41,7 +41,7 @@ function ReviewEntry({ row, section, onOpenRecord }) {
   </article>
 }
 
-export default function WatchReviewWorkspace({ active, refreshKey, onOpenRecord }) {
+export default function WatchReviewWorkspace({ active, refreshKey, onOpenRecord, onCollect, collecting = false, editable = false }) {
   const engine = useMemo(() => createReviewController({ client: api, getSession: seriesSession }), [])
   const state = useSyncExternalStore(engine.subscribe, engine.getSnapshot, engine.getSnapshot)
   const [draft, setDraft] = useState(() => ({ mode: 'month', month: currentReviewMonth(), year: currentReviewMonth().slice(0, 4), start: '', end: '' }))
@@ -53,16 +53,16 @@ export default function WatchReviewWorkspace({ active, refreshKey, onOpenRecord 
   const data = state.data, loading = state.status === 'loading'
   useEffect(() => { engine.activate(); return () => engine.dispose() }, [engine])
   useEffect(() => {
-    if (active) engine.refresh()
+    if (active && !collecting) engine.refresh()
     return () => engine.cancel()
-  }, [active, refreshKey, engine])
+  }, [active, refreshKey, engine, collecting])
   useEffect(() => {
-    if (!active || exportSource) return undefined
+    if (!active || exportSource || collecting) return undefined
     let timer
     const refresh = () => { if (document.visibilityState !== 'hidden') { clearTimeout(timer); timer = setTimeout(() => engine.refresh(), 120) } }
     window.addEventListener('focus', refresh); document.addEventListener('visibilitychange', refresh)
     return () => { clearTimeout(timer); window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', refresh) }
-  }, [active, engine, exportSource])
+  }, [active, engine, exportSource, collecting])
   useLayoutEffect(() => {
     if (state.status !== 'ready' || !moveFocus.current || !active) return
     const target = moveFocus.current; moveFocus.current = false
@@ -116,7 +116,7 @@ export default function WatchReviewWorkspace({ active, refreshKey, onOpenRecord 
   </nav>
   return <section ref={workspaceRef} className="watch-review-workspace" hidden={!active} aria-label="私人观看回顾工作区">
     <header className="review-header"><div><span className="review-sticker">WATCH REVIEW</span><h2><i className="fa-solid fa-clock-rotate-left" aria-hidden="true" /> 观看回顾</h2><p>回到那些与动画相遇的日子 <span><i className="fa-solid fa-lock" aria-hidden="true" /> 仅本人可见 · 只读查看</span></p></div>
-      <div className="review-entry-actions"><button type="button" disabled={loading||!data} onClick={()=>setExportSource(data)}>导出回顾长图</button><button type="button" disabled={loading} onClick={() => engine.refresh()}>刷新回顾</button></div></header>
+      <div className="review-entry-actions">{onCollect&&<button type="button" disabled={loading||!data||!data.summary.related_works} onClick={()=>onCollect(data)}>{editable?'从回顾创建片单':'创建片单（进入编辑）'}</button>}<button type="button" disabled={loading||!data} onClick={()=>setExportSource(data)}>导出回顾长图</button><button type="button" disabled={loading} onClick={() => engine.refresh()}>刷新回顾</button></div></header>
     <div className="review-controls"><div className="review-period-modes" role="group" aria-label="回顾时间类型">
       <button type="button" aria-pressed={draft.mode === 'month'} onClick={() => { setDraft(d => ({ ...d, mode: 'month' })); setFormError('') }}>按月份</button>
       <button type="button" aria-pressed={draft.mode === 'year'} onClick={() => { setDraft(d => ({ ...d, mode: 'year' })); setFormError('') }}>按年度</button>

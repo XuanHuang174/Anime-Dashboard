@@ -33,3 +33,19 @@ class CurationDeletionImpactView(PrivateCurationView):
         if request.query_params: raise ValidationError('删除影响不接受筛选参数。')
         curations.lock_owner(request.user)
         return Response(curations.deletion_impact(request.user, record_id), headers=HEADERS)
+
+
+class CurationExportView(PrivateCurationView):
+    http_method_names = ('get', 'head', 'options')
+
+    def get(self, request, list_id):
+        query = request.query_params
+        if set(query) - {'snapshot', 'version'} or any(len(query.getlist(key)) != 1 for key in query):
+            raise ValidationError('片单导出依据参数无效。')
+        if 'snapshot' in query and (not query['snapshot'] or len(query['snapshot']) > 2048): raise ValidationError('片单导出凭据无效。')
+        version = query.get('version')
+        if version is not None:
+            if not version.isdigit() or len(version) > 19 or int(version) > 9223372036854775806: raise ValidationError('片单导出版本无效。')
+            version = int(version)
+        from .curation_exports import read_export
+        return Response(read_export(request.user, list_id, query.get('snapshot'), version, request), headers=HEADERS)

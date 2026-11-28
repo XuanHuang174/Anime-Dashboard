@@ -292,6 +292,15 @@ def fingerprint(records, rounds, events):
     return hashlib.sha256(json.dumps(source, sort_keys=True, ensure_ascii=False, default=str).encode()).hexdigest()
 
 
+def verify_snapshot(user, token, period, revision):
+    try:
+        proof = signing.loads(token, salt=SALT, max_age=900)
+    except signing.BadSignature:
+        raise ReviewChanged() from None
+    if proof != {'owner': user.pk, 'period': period, 'revision': revision, 'policy': POLICY}:
+        raise ReviewChanged()
+
+
 def read_review(user, params, request=None, *, entries=False):
     query = ReviewQuery(data=params)
     query.is_valid(raise_exception=True)
@@ -303,12 +312,7 @@ def read_review(user, params, request=None, *, entries=False):
             records, rounds, events = read_source(user)
             revision = fingerprint(records, rounds, events)
             if options.get('snapshot'):
-                try:
-                    proof = signing.loads(options['snapshot'], salt=SALT, max_age=900)
-                except signing.BadSignature:
-                    raise ReviewChanged() from None
-                if proof != {'owner': user.pk, 'period': options['period'], 'revision': revision, 'policy': POLICY}:
-                    raise ReviewChanged()
+                verify_snapshot(user, options['snapshot'], options['period'], revision)
             token = options.get('snapshot') or signing.dumps(
                 {'owner': user.pk, 'period': options['period'], 'revision': revision, 'policy': POLICY}, salt=SALT)
             facts = build_facts(records, rounds, events, options['period'])

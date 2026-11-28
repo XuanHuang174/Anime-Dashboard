@@ -114,7 +114,7 @@ def read(user, query, list_id=None, request=None):
 
 
 class Command(serializers.Serializer):
-    action = serializers.ChoiceField(choices=('create', 'update', 'delete', 'add', 'update-entry', 'remove-entry', 'relink', 'reorder'))
+    action = serializers.ChoiceField(choices=('create', 'create-with-members', 'create-from-review', 'update', 'delete', 'add', 'update-entry', 'remove-entry', 'relink', 'reorder'))
     version = serializers.IntegerField(min_value=0, max_value=9223372036854775806)
     operation_id = serializers.UUIDField()
     list_id = serializers.UUIDField(required=False)
@@ -124,7 +124,8 @@ class Command(serializers.Serializer):
     pinned = serializers.BooleanField(required=False)
     archived = serializers.BooleanField(required=False)
     cover_entry_id = serializers.UUIDField(required=False, allow_null=True)
-    record_ids = serializers.ListField(child=serializers.IntegerField(min_value=1, max_value=2147483647), min_length=1, max_length=100, required=False)
+    record_ids = serializers.ListField(child=serializers.IntegerField(min_value=1, max_value=2147483647), min_length=1, max_length=MAX_ENTRIES, required=False)
+    review = serializers.DictField(required=False)
     record_id = serializers.IntegerField(min_value=1, max_value=2147483647, required=False)
     entry_ids = serializers.ListField(child=serializers.UUIDField(), max_length=MAX_ENTRIES, required=False)
     reason = serializers.CharField(max_length=2000, allow_blank=True, required=False, trim_whitespace=False)
@@ -144,16 +145,27 @@ class Command(serializers.Serializer):
         common = {'action', 'version', 'operation_id'}
         metadata = {'title', 'description', 'pinned', 'archived', 'cover_entry_id'}
         allowed = {'create': metadata - {'cover_entry_id'}, 'update': metadata, 'delete': set(), 'add': {'record_ids'},
+                   'create-with-members': (metadata - {'cover_entry_id'}) | {'record_ids'}, 'create-from-review': (metadata - {'cover_entry_id'}) | {'record_ids', 'review'},
                    'update-entry': {'entry_id', 'reason'}, 'remove-entry': {'entry_id'}, 'relink': {'entry_id', 'record_id'}, 'reorder': {'entry_ids'}}[data['action']]
-        if data['action'] != 'create': common.add('list_id')
+        creating = data['action'] in ('create', 'create-with-members', 'create-from-review')
+        if not creating: common.add('list_id')
         if set(data) - common - allowed: raise serializers.ValidationError('此操作包含不适用的字段。')
         required = {'create': {'title'}, 'update': set(), 'delete': set(), 'add': {'record_ids'}, 'update-entry': {'entry_id', 'reason'},
+                    'create-with-members': {'title', 'record_ids'}, 'create-from-review': {'title', 'record_ids', 'review'},
                     'remove-entry': {'entry_id'}, 'relink': {'entry_id', 'record_id'}, 'reorder': {'entry_ids'}}[data['action']]
-        if data['action'] != 'create': required.add('list_id')
+        if not creating: required.add('list_id')
         if not required.issubset(data) or data['action'] == 'update' and not set(data).intersection(metadata):
             raise serializers.ValidationError('片单操作缺少必要字段。')
         for key in ('record_ids', 'entry_ids'):
             if key in data and len(data[key]) != len(set(data[key])): raise serializers.ValidationError('选择不能包含重复条目。')
+        if data['action'] in ('add', 'create-with-members') and len(data.get('record_ids', [])) > 100:
+            raise serializers.ValidationError('一次明确收录最多 100 部作品。')
+        if data['action'] == 'create-from-review':
+            raw = data['review']
+            if set(raw) - {'year', 'month', 'start', 'end', 'snapshot'} or not raw.get('snapshot') or not set(raw).intersection({'year', 'month', 'start'}):
+                raise serializers.ValidationError('请使用已应用期间的完整回顾依据。')
+            from .watch_review import ReviewQuery
+            query = ReviewQuery(data=raw); query.is_valid(raise_exception=True)
         return data
 
 
@@ -176,16 +188,39 @@ def command(user, raw, request=None):
         return receipt(library, previous.list_id, request, True)
     if data['version'] != (library.revision if library else 0): raise CurationConflict()
     action = data['action']
-    collection = get_object_or_404(CurationList, library__user=user, portable_id=data['list_id']) if action != 'create' else None
+    creating = action in ('create', 'create-with-members', 'create-from-review')
+    collection = get_object_or_404(CurationList, library__user=user, portable_id=data['list_id']) if not creating else None
+    if action == 'create-from-review':
+        # Freeze all private source records before verifying the original review.
+        # History/progress writers also lock their record; never start a read-only
+        # transaction inside this write transaction.
+        from . import watch_review
+        locked = list(UserAnimeRecord.objects.select_for_update(of=('self',)).filter(user=user).order_by('pk').values_list('pk', flat=True)[:watch_review.LIMITS['records']+1])
+        if len(locked) > watch_review.LIMITS['records']: raise watch_review.ReviewUnavailable()
+        query = watch_review.ReviewQuery(data=data['review']); query.is_valid(raise_exception=True)
+        period = query.validated_data['period']
+        source_records, rounds, events = watch_review.read_source(user)
+        watch_review.verify_snapshot(user, data['review']['snapshot'], period, watch_review.fingerprint(source_records, rounds, events))
+        facts = watch_review.build_facts(source_records, rounds, events, period)
+        allowed = {fact['record_id'] for fact in facts if fact['attribution'] == 'definite'}
+        if set(data['record_ids']) - allowed: raise serializers.ValidationError('所选作品不属于本次确定回顾清单。')
     # All record lookup is owner-scoped. A whole batch fails before any add.
     ids = data.get('record_ids', [data['record_id']] if 'record_id' in data else [])
     records = list(UserAnimeRecord.objects.select_for_update(of=('self',)).filter(user=user, pk__in=ids).select_related('anime').order_by('pk'))
     if len(records) != len(ids): raise serializers.ValidationError('所选私人作品不存在或已移除，请重新选择。')
     if library is None: library = CurationLibrary.objects.create(user=user)
     else: library = CurationLibrary.objects.select_for_update().get(pk=library.pk)
-    if action == 'create':
+    if creating:
         if library.lists.count() >= MAX_LISTS: raise serializers.ValidationError('片单最多 100 张。')
         collection = CurationList.objects.create(library=library, position=library.lists.count(), **{k: data[k] for k in ('title', 'description', 'pinned', 'archived') if k in data})
+        if action == 'create-from-review':
+            collection.description = f"创建自 {period['start']} 至 {period['end']} 的观看回顾（{'年度' if period['mode'] == 'year' else '月度' if period['mode'] == 'month' else '自选期间'}）\n" + collection.description
+            if len(collection.description) > 2000: raise serializers.ValidationError('简介加上回顾来源说明不能超过 2000 字符。')
+            collection.save(update_fields=['description'])
+        if 'record_ids' in data:
+            if CurationEntry.objects.filter(collection__library=library).count() + len(ids) > MAX_TOTAL: raise serializers.ValidationError('全部片单合计最多 5000 项。')
+            record_map = {row.pk: row for row in records}
+            CurationEntry.objects.bulk_create([CurationEntry(collection=collection, record=record_map[rid], position=i, title_snapshot=snapshot(record_map[rid])) for i, rid in enumerate(ids)])
     elif action == 'update':
         if data.get('cover_entry_id') and not collection.entries.filter(portable_id=data['cover_entry_id'], record__isnull=False).exists():
             raise serializers.ValidationError('封面须选择本片单内可用的作品。')

@@ -6,6 +6,7 @@ import { WATCH_LABELS } from '../utils/watchHistory.js'
 import CurationDialog from './CurationDialog.jsx'
 import CurationPicker from './CurationPicker.jsx'
 import CurationArtwork from './CurationArtwork.jsx'
+import CurationExporter from './CurationExporter.jsx'
 import './Curations.css'
 
 const emptyForm = { title: '', description: '', pinned: false, archived: false }
@@ -22,9 +23,10 @@ function OrderRow({ entry, index, count, blocked, move, drag }) {
   </li>
 }
 
-export default function CurationWorkspace({ active, editable, refreshKey, paused, onEnterEdit, onOpenRecord, closeGuardRef, quickFilters = [] }) {
+export default function CurationWorkspace({ active, editable, refreshKey, paused, onEnterEdit, onOpenRecord, closeGuardRef, quickFilters = [], openRequest }) {
   const session = useSeriesSession(), engine = useMemo(() => createCurationController({ client: api, getSession: seriesSession }), [session])
   const state = useSyncExternalStore(engine.subscribe, engine.getSnapshot), data = state.data
+  const [exportSource,setExportSource] = useState(null)
   const [listId, setListId] = useState(null), [home, setHome] = useState({ search: '', state: 'active', pinned: 'any', page: 1 }), [search, setSearch] = useState('')
   const [dialog, setDialog] = useState(null), [form, setForm] = useState(emptyForm), [selected, setSelected] = useState([])
   const [order, setOrder] = useState(null), [ids, setIds] = useState([]), [confirm, setConfirm] = useState(null)
@@ -42,23 +44,23 @@ export default function CurationWorkspace({ active, editable, refreshKey, paused
   const refresh = () => listId ? detailRead() : homeRead()
   useEffect(() => {
     if (active && !paused && (!wasActive.current || wasPaused.current || lastRefresh.current !== refreshKey || engine.getSnapshot().status === 'idle')) {
-      if (!dirty && !dialog && !order && !engine.getSnapshot().pending) refresh()
+      if (!dirty && !dialog && !order && !exportSource && !engine.getSnapshot().pending) refresh()
       else setMessage('手账资料已有更新；当前调整仍保留，保存时会核对片单版本。')
     }
     wasActive.current = active; wasPaused.current = paused; lastRefresh.current = refreshKey
   }, [active, paused, refreshKey, engine])
   useEffect(() => {
-    if (!active || paused || dialog || order || dirty || state.pending || preparing) return
+    if (!active || paused || dialog || order || exportSource || dirty || state.pending || preparing) return
     const read = () => { if (document.visibilityState === 'visible' && engine.getSnapshot().status === 'ready') refresh() }
     window.addEventListener('focus', read); document.addEventListener('visibilitychange', read)
     return () => { window.removeEventListener('focus', read); document.removeEventListener('visibilitychange', read) }
-  }, [active, paused, dialog, order, dirty, state.pending, preparing, engine, listId, home, data?.page])
+  }, [active, paused, dialog, order, exportSource, dirty, state.pending, preparing, engine, listId, home, data?.page])
   useEffect(() => {
     if (!dirty && !state.pending && !busy) return
     const warn = event => { event.preventDefault(); event.returnValue = '' }
     window.addEventListener('beforeunload', warn); return () => window.removeEventListener('beforeunload', warn)
   }, [dirty, state.pending, busy])
-  const clearDraft = () => { setDialog(null); setOrder(null); setSelected([]); setConfirm(null); setPrepareError('') }
+  const clearDraft = () => { setExportSource(null); setDialog(null); setOrder(null); setSelected([]); setConfirm(null); setPrepareError('') }
   const guard = (run, label = '关闭面板') => {
     if (busy || preparingGate.current) return
     if (dirty || state.pending) { confirmOrigin.current = document.activeElement; setConfirm({ run, label }); return }
@@ -78,6 +80,8 @@ export default function CurationWorkspace({ active, editable, refreshKey, paused
     returnHome.current = { scrollY: window.scrollY, width: window.innerWidth, id, page: data.page }
     setHome(value => ({ ...value, page: data.page })); setListId(id); moveFocus.current = {}; detailRead(id, 1)
   }
+  const openedRequest = useRef(null)
+  useEffect(()=>{if(active&&openRequest?.id&&openedRequest.current!==openRequest.key){openedRequest.current=openRequest.key;guard(()=>{setListId(openRequest.id);moveFocus.current={};detailRead(openRequest.id,1)},'查看片单')}},[active,openRequest?.key,engine])
   const back = () => guard(() => { setListId(null); moveFocus.current = returnHome.current || {}; homeRead() }, '返回片单首页')
   async function prepare(kind, entry = null) {
     if (blocked || preparingGate.current) return
@@ -130,11 +134,12 @@ export default function CurationWorkspace({ active, editable, refreshKey, paused
     </>}
     {listId && <>
       <div className="plan-actions curation-detail-tools"><button type="button" disabled={busy || preparing} onClick={back}>← 返回片单首页</button><button type="button" disabled={busy || preparing || !!state.pending} onClick={() => guard(refresh, '刷新片单')}>刷新当前片单</button></div>
-      {collection && <><div className="plan-controls curation-intro"><div><h3 className="curation-section-title" tabIndex={-1}>{collection.title}</h3><div className="plan-actions"><small>{collection.entry_count} 部作品</small>{collection.pinned && <span className="curation-badge">置顶</span>}{collection.archived && <span className="curation-badge">已归档</span>}</div><p>{collection.description || '暂无专题简介。'}</p></div>{editable && !order && <div className="plan-actions"><button type="button" disabled={blocked} className="plan-primary" onClick={() => prepare('picker')}>＋ 收录作品</button><button type="button" disabled={blocked} onClick={() => prepare('metadata')}>编辑片单</button><button type="button" disabled={blocked || !collection.entry_count} onClick={() => prepare('order')}>调整片单顺序</button><button type="button" disabled={blocked} className="curation-danger" onClick={() => setDialog({ kind: 'delete', version: data.version })}>删除片单</button></div>}</div>
+      {collection && <><div className="plan-controls curation-intro"><div><h3 className="curation-section-title" tabIndex={-1}>{collection.title}</h3><div className="plan-actions"><small>{collection.entry_count} 部作品</small>{collection.pinned && <span className="curation-badge">置顶</span>}{collection.archived && <span className="curation-badge">已归档</span>}</div><p>{collection.description || '暂无专题简介。'}</p></div><div className="plan-actions"><button type="button" disabled={blocked||!!order||!!dialog} onClick={()=>setExportSource({id:listId,version:data.version})}>导出片单长图</button></div>{editable && !order && <div className="plan-actions"><button type="button" disabled={blocked} className="plan-primary" onClick={() => prepare('picker')}>＋ 收录作品</button><button type="button" disabled={blocked} onClick={() => prepare('metadata')}>编辑片单</button><button type="button" disabled={blocked || !collection.entry_count} onClick={() => prepare('order')}>调整片单顺序</button><button type="button" disabled={blocked} className="curation-danger" onClick={() => setDialog({ kind: 'delete', version: data.version })}>删除片单</button></div>}</div>
       {order ? <section className="plan-order" aria-label="调整片单顺序"><h3>编排完整片单</h3><p className="curation-hint">共 {ids.length} 项，包含其他分页及失效条目。支持上移、下移、指定位置及桌面拖动；保存后才生效。</p><ol className="plan-order-list curation-order">{ids.map((id, index) => <OrderRow key={id} entry={order.rows.find(row => row.id === id)} index={index} count={ids.length} blocked={blocked} drag={drag} move={(id, position) => setIds(values => moveCuration(values, id, position))}/>)}</ol><div className="plan-actions"><button type="button" className="plan-primary" disabled={blocked || !orderDirty} onClick={() => submit({ action: 'reorder', list_id: listId, version: order.version, entry_ids: ids })}>保存片单顺序</button><button type="button" disabled={busy} onClick={() => guard(() => {}, '取消排序')}>取消排序</button></div></section>
-      : <><ol className="curation-entry-list" aria-busy={loading}>{data.results.map((entry, index) => <li key={entry.id} data-entry-id={entry.id}><article className={`curation-entry${entry.unavailable ? ' is-unavailable' : ''}`}><span className="curation-number">{(data.page-1)*12+index+1}</span><div className="curation-entry-cover"><CurationArtwork source={entry.record?.cover}/></div><div className="curation-entry-content"><h4>{titleOf(entry)}</h4>{entry.record ? <><small>{entry.record.japanese_title}</small><p className="curation-hint">{WATCH_LABELS[entry.record.watch_status]} · {entry.record.watched_eps}/{entry.record.total_eps || '?'} 集{entry.record.personal_score !== null && ` · 个人评分 ${entry.record.personal_score}`}</p></> : <p className="curation-hint">作品已从手账移除，原位置和入选理由仍保留。</p>}<p className="curation-reason">{entry.reason || '尚未填写入选理由。'}</p></div><div className="plan-actions curation-entry-actions">{entry.record && <button type="button" disabled={blocked} onClick={() => onOpenRecord(entry.record.id, { readOnly: true })}>查看作品详情</button>}{editable && <><button type="button" disabled={blocked} onClick={() => { const base = { reason: entry.reason }; setForm(base); setDialog({ kind: 'reason', base, entry, version: data.version }) }}>编辑入选理由</button>{entry.unavailable && <button type="button" disabled={blocked} onClick={() => prepare('relink', entry)}>重新关联作品</button>}<button type="button" disabled={blocked} onClick={() => setDialog({ kind: 'remove', entry, version: data.version })}>移出片单</button></>}</div></article></li>)}</ol>{!data.count && !loading && <div className="plan-empty"><h3>这张片单还没有作品</h3><p>{editable ? '收录几部作品，开始自己的主题编排。' : '可以进入编辑管理收录作品。'}</p></div>}<div className="plan-pagination"><button type="button" disabled={blocked || data.page <= 1} onClick={() => { moveFocus.current = {}; detailRead(listId, data.page-1) }}>上一页成员</button><span>{data.page} / {Math.max(1, Math.ceil(data.count/12))}</span><button type="button" disabled={blocked || !data.next_page} onClick={() => { moveFocus.current = {}; detailRead(listId, data.next_page) }}>下一页成员</button></div></>}
+      : <><ol className="curation-entry-list" aria-busy={loading}>{data.results.map((entry, index) => <li key={entry.id} data-entry-id={entry.id}><article className={`curation-entry${entry.unavailable ? ' is-unavailable' : ''}`}><span className="curation-number">{(data.page-1)*12+index+1}</span><div className="curation-entry-cover"><CurationArtwork source={entry.record?.cover}/></div><div className="curation-entry-content"><h4>{titleOf(entry)}</h4>{entry.record ? <><small>{entry.record.japanese_title}</small><p className="curation-hint">{WATCH_LABELS[entry.record.watch_status]} · {entry.record.watched_eps}/{entry.record.total_eps || '?'} 集{entry.record.personal_score !== null && ` · 个人评分 ${entry.record.personal_score}`}</p></> : <p className="curation-hint">作品已从手账移除，原位置和入选理由仍保留。</p>}<p className="curation-reason">{entry.reason || '尚未填写入选理由。'}</p></div><div className="plan-actions curation-entry-actions">{entry.record && <button type="button" disabled={blocked} onClick={() => onOpenRecord(entry.record.id, { readOnly: true })}>查看作品详情</button>}{editable&&entry.record&&<button type="button" disabled={blocked} onClick={()=>onOpenRecord(entry.record.id,{edit:true,plan:true})}>观看安排</button>}{editable && <><button type="button" disabled={blocked} onClick={() => { const base = { reason: entry.reason }; setForm(base); setDialog({ kind: 'reason', base, entry, version: data.version }) }}>编辑入选理由</button>{entry.unavailable && <button type="button" disabled={blocked} onClick={() => prepare('relink', entry)}>重新关联作品</button>}<button type="button" disabled={blocked} onClick={() => setDialog({ kind: 'remove', entry, version: data.version })}>移出片单</button></>}</div></article></li>)}</ol>{!data.count && !loading && <div className="plan-empty"><h3>这张片单还没有作品</h3><p>{editable ? '收录几部作品，开始自己的主题编排。' : '可以进入编辑管理收录作品。'}</p></div>}<div className="plan-pagination"><button type="button" disabled={blocked || data.page <= 1} onClick={() => { moveFocus.current = {}; detailRead(listId, data.page-1) }}>上一页成员</button><span>{data.page} / {Math.max(1, Math.ceil(data.count/12))}</span><button type="button" disabled={blocked || !data.next_page} onClick={() => { moveFocus.current = {}; detailRead(listId, data.next_page) }}>下一页成员</button></div></>}
       </>}
     </>}
+    {exportSource&&<CurationExporter source={exportSource} onClose={()=>setExportSource(null)}/>}
     {editable && dialog && <CurationDialog title={{ create: '新建主题片单', metadata: '编辑片单资料', reason: '编辑入选理由', picker: '从私人手账收录作品', relink: '重新关联片单作品', delete: '删除这张片单', remove: '移出片单作品' }[dialog.kind]} onClose={close} busy={busy} returnFocus={dialog.trigger} drawer={['picker', 'relink'].includes(dialog.kind)} footer={<div className="plan-actions">
       <button type="button" disabled={busy} onClick={close}>取消</button>
       {['create','metadata','reason'].includes(dialog.kind) && <button type="submit" form="curation-editor-form" className="plan-primary" disabled={blocked || !formDirty || ('title' in form && !form.title.trim())}>保存片单修改</button>}

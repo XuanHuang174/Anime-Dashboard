@@ -16,6 +16,7 @@ function AnimeList({
   onAddAnime,
   onIncrementProgress,
   onFindResources,
+  onCollect,
   progressUpdatingIds = new Set(),
 }) {
   const isMemphis = theme === 'memphis'
@@ -207,6 +208,7 @@ function AnimeList({
                         <i className={`fa-solid ${editable ? 'fa-pen-to-square' : 'fa-layer-group'}`} aria-hidden="true"></i>
                         {editable ? '修改' : '详情'}
                       </button>
+                      {onCollect && <button type="button" className="journal-row-resource-button" aria-label={`将${item.title}收录到片单`} title="收录到片单" onClick={event=>{event.stopPropagation();onCollect(item)}}>▤</button>}
                       {onFindResources && <button type="button" className="journal-row-resource-button"
                         title="寻找资源" aria-label={`寻找${item.title}的资源`}
                         onClick={(event) => { event.stopPropagation(); onFindResources(item) }}>🧲</button>}

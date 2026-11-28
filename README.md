@@ -42,6 +42,7 @@ Anime Dashboard 将这些事情放在同一本手账中：记录个人评分、�
 | 追随熟悉的声音与制作 | 搜索声优或制作公司，浏览有来源依据的参与作品 |
 | 和别人交换片单灵感 | 浏览精选专栏与番剧共创宇宙，按流程公开自己的手账 |
 | 留存自己的整理成果 | 导入 Bangumi 收藏、备份 JSON、导出 CSV、生成结案报告图片 |
+| 按自己的主题整理作品 | 建立私人片单，从手账、推荐或观看回顾收录，独立编排并向本机导出长图 |
 
 ## 界面预览
 
@@ -267,7 +268,7 @@ SQLite 下的后端回归可以使用隔离配置运行；涉及 PostgreSQL 并�
 | 观看历程与重看记录 | [A1 数据、接口与迁移 0033](docs/watch-history-a1.md)、[A2 详情交互](docs/watch-history-a2.md)、[A3 管理、清空恢复与迁移 0034](docs/watch-history-a3.md) |
 | 待看计划与观看优先级 | [B1 数据与迁移 0035](docs/watch-plans-b1.md)、[B2 计划工作区](docs/watch-plans-b2.md)、[B3 视觉整合、私人筛选与批量安排](docs/watch-plans-b3.md) |
 | 私人观看回顾 | [C1 日期口径、统计与只读接口](docs/watch-review-c1.md)、[C2 回顾工作区与日期／感想浏览](docs/watch-review-c2.md)、[C3 长图导出与完整验收](docs/watch-review-c3.md)、[D1 年度统计与月份归属接口](docs/watch-review-d1.md)、[D2 年度页面与月份往返](docs/watch-review-d2.md)、[D3 年度长图导出与完整验收](docs/watch-review-d3.md) |
-| 主题片单与私人策展 | [E1 数据、私人接口、备份恢复与删除关联保护](docs/curations-e1.md)、[E2 片单工作区与编排](docs/curations-e2.md) |
+| 主题片单与私人策展 | [E1 数据、私人接口、备份恢复与删除关联保护](docs/curations-e1.md)、[E2 片单工作区与编排](docs/curations-e2.md)、[E3 收录联动、本机长图与完整验收](docs/curations-e3.md) |
 | 资源检索服务 | [检索代理与抽屉说明](docs/anime-resource-search.md) |
 | 推荐资料与封面准备 | [资料来源](docs/recommendation-data-sources.md)、[入库与封面验收](docs/recommendation-production-checklist.md) |
 | 系列资料与发布 | [系列模块方案](docs/recommendations-extension-12-plan.md)、[发布验收](docs/recommendations-12f.md) |
@@ -296,10 +297,10 @@ SQLite 下的后端回归可以使用隔离配置运行；涉及 PostgreSQL 并�
   - [x] D1：[年度统计、十二个月分布与月份待补充接口](docs/watch-review-d1.md)。
   - [x] D2：[年度页面、月份往返与推荐批次操作区留白](docs/watch-review-d2.md)。
   - [x] D3：[年度长图导出、月份分布、完整分页及隐私验收](docs/watch-review-d3.md)。
-- [ ] 主题片单与私人策展。
+- [x] 主题片单与私人策展。
   - [x] E1：[片单与成员、独立理由、稳定排序、私人接口、并发保护及 JSON 备份恢复基础](docs/curations-e1.md)。
   - [x] E2：[片单首页与详情、选片编辑、排序、置顶归档、只读预览、草稿保护及移动端布局](docs/curations-e2.md)。
-  - [ ] E3：手账／推荐收录、计划与详情往返、从回顾创建、本机长图及完整验收。
+  - [x] E3：[手账／推荐收录、计划与详情往返、从回顾创建、本机长图及完整验收](docs/curations-e3.md)。
 - [ ] 导入差异预览、资料整理与同步增强。
   - [x] 标签整理、标准题材重建、身份核对及海报备份往返修复。
   - [x] JSON 恢复影响确认、观看历程替换与保留提示、过期状态保护。

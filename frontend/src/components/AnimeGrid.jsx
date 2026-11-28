@@ -12,6 +12,7 @@ function AnimeGrid({
   showAddPlaceholder = false,
   onAddAnime,
   onIncrementProgress,
+  onCollect,
   progressUpdatingIds = new Set(),
 }) {
   const isMemphis = theme === 'memphis'
@@ -119,6 +120,7 @@ function AnimeGrid({
 
             <div className="p-3.5 flex flex-col flex-1 justify-between gap-3 relative z-10">
               <div>
+                {onCollect && <button type="button" className="curation-grid-collect" aria-label={`将${item.title}收录到片单`} title="收录到片单" onClick={event=>{event.stopPropagation();onCollect(item)}}>▤</button>}
                 <h3
                   className="font-bold text-slate-700 text-sm leading-tight line-clamp-2 group-hover:text-indigo-600 transition-colors"
                   title={item.title}

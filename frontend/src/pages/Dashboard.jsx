@@ -19,6 +19,8 @@ import DetailModal from '../components/DetailModal.jsx'
 import EditableDetailModal from '../components/EditableDetailModal.jsx'
 import WatchReviewWorkspace from '../components/WatchReviewWorkspace.jsx'
 import CurationWorkspace from '../components/CurationWorkspace.jsx'
+import CurationCollectDialog from '../components/CurationCollectDialog.jsx'
+import { isCurationId } from '../utils/curations.js'
 import FeaturedActionConfirmModal from '../components/FeaturedActionConfirmModal.jsx'
 import FilterBar from '../components/FilterBar.jsx'
 import MemphisToastStack from '../components/MemphisToastStack.jsx'
@@ -117,9 +119,11 @@ function Dashboard() {
   const [historyDetailId, setHistoryDetailId] = useState(null)
   const planSession = useSeriesSession()
   const [workspace, setWorkspace] = useState('journal'), [planRequest, setPlanRequest] = useState(null), [planRefreshKey, setPlanRefreshKey] = useState(0), [planRecordLoading, setPlanRecordLoading] = useState(false)
+  const [collectRequest,setCollectRequest] = useState(null), [curationRequest,setCurationRequest] = useState(null)
   const planWorkspaceGuard = useRef(null), curationWorkspaceGuard = useRef(null), workspaceScroll = useRef({ journal: 0, plans: 0, review: 0, curations: 0 }), planRecordRead = useRef(null)
   useEffect(() => {
     setWorkspace('journal'); setPlanRequest(null); setSelectedItem(null); setDetailReadOnly(false); workspaceScroll.current = { journal: 0, plans: 0, review: 0, curations: 0 }
+    setCollectRequest(null); setCurationRequest(null)
     return () => planRecordRead.current?.abort()
   }, [planSession])
   const [identityPanel, setIdentityPanel] = useState(null)
@@ -759,6 +763,20 @@ function Dashboard() {
     else change()
   }
 
+  const openCuration = id => {
+    setCollectRequest(null); setSelectedItem(null); setDetailReadOnly(false)
+    workspaceScroll.current[workspace] = window.scrollY
+    setCurationRequest({id,key:Date.now()});setWorkspace('curations')
+  }
+  const collectWork = item => setCollectRequest({records:[{id:item.id,title:item.title}]})
+  useEffect(()=>{
+    if(isSharedJournal||isAdminJournalReview)return
+    const params=new URLSearchParams(location.search), id=params.get('curation')
+    if(!id||params.has('arrange'))return
+    params.delete('curation');navigate({pathname:location.pathname,search:params.toString()},{replace:true})
+    if(isCurationId(id))openCuration(id)
+  },[location.search,planSession,isSharedJournal,isAdminJournalReview])
+
   useEffect(() => {
     if (isSharedJournal || isAdminJournalReview) return
     const params = new URLSearchParams(location.search), id = params.get('arrange')
@@ -1174,6 +1192,7 @@ function Dashboard() {
             </div>
 
             <div className="dashboard-content-piece dashboard-entrance-piece mb-5 h-2 w-full border-2 border-black bg-[repeating-linear-gradient(135deg,#111_0,#111_8px,#ffe66d_8px,#ffe66d_16px)]" />
+            {isEditMode&&filteredAnime.length>0&&<div className="curation-journal-batch"><button type="button" disabled={isLoading||filteredAnime.length>100} title={filteredAnime.length>100?'请将每页数量调整到 100 部以内后明确勾选':''} onClick={()=>setCollectRequest({records:filteredAnime.map(item=>({id:item.id,title:item.title}))})}>收录本页作品到片单</button><small>打开后明确勾选，仅处理本页；单次最多 100 部。</small></div>}
 
             {isContentEntranceComplete && (filteredAnime.length > 0 || showAddPlaceholder) && view === 'list' && (
               <div className="dashboard-content-piece">
@@ -1190,6 +1209,7 @@ function Dashboard() {
                 onIncrementProgress={isEditMode ? handleProgressIncrement : undefined}
                 progressUpdatingIds={progressUpdatingIds}
                 onFindResources={isSharedJournal ? undefined : openResourceSearch}
+                onCollect={isEditMode?collectWork:undefined}
               />
               </div>
             )}
@@ -1205,6 +1225,7 @@ function Dashboard() {
                   onAddAnime={() => setIsAddModalOpen(true)}
                   onIncrementProgress={isEditMode ? handleProgressIncrement : undefined}
                   progressUpdatingIds={progressUpdatingIds}
+                  onCollect={isEditMode?collectWork:undefined}
                 />
               </div>
             )}
@@ -1267,8 +1288,9 @@ function Dashboard() {
       </section>
       </div>
       {!isSharedJournal && !isAdminJournalReview && <WatchPlanWorkspace key={planSession} active={workspace === 'plans'} editable={isEditMode} refreshKey={`${recordsRefreshKey}:${planRefreshKey}`} onOpenRecord={openPlanRecord} onEnterEdit={() => enterEditMode()} closeGuardRef={planWorkspaceGuard} onChanged={() => { setPlanRefreshKey(key => key + 1); setRecordsRefreshKey(key => key + 1) }} />}
-      {!isSharedJournal && !isAdminJournalReview && <WatchReviewWorkspace key={`review:${planSession}`} active={workspace === 'review' && !exploringAway} refreshKey={recordsRefreshKey} onOpenRecord={openPlanRecord} />}
-      {!isSharedJournal && !isAdminJournalReview && <CurationWorkspace key={`curations:${planSession}`} active={workspace === 'curations'} editable={isEditMode} paused={!!selectedItem || exploringAway} refreshKey={recordsRefreshKey} onEnterEdit={() => enterEditMode()} onOpenRecord={openPlanRecord} closeGuardRef={curationWorkspaceGuard} quickFilters={customQuickFilters} />}
+      {!isSharedJournal && !isAdminJournalReview && <WatchReviewWorkspace key={`review:${planSession}`} active={workspace === 'review' && !exploringAway} refreshKey={recordsRefreshKey} onOpenRecord={openPlanRecord} editable={isEditMode} collecting={!!collectRequest} onCollect={source=>{enterEditMode();setCollectRequest({review:source})}} />}
+      {!isSharedJournal && !isAdminJournalReview && <CurationWorkspace key={`curations:${planSession}`} active={workspace === 'curations'} editable={isEditMode} paused={!!selectedItem || exploringAway || !!collectRequest} refreshKey={recordsRefreshKey} onEnterEdit={() => enterEditMode()} onOpenRecord={openPlanRecord} closeGuardRef={curationWorkspaceGuard} quickFilters={customQuickFilters} openRequest={curationRequest} />}
+      {!isSharedJournal&&!isAdminJournalReview&&collectRequest&&<CurationCollectDialog key={planSession} {...collectRequest} onClose={()=>setCollectRequest(null)} onViewList={openCuration}/>}
       {planRecordLoading && <p role="status" className="relative z-10 mx-auto max-w-7xl px-6 py-3 font-bold">正在读取作品详情…</p>}
 
       {!exploringAway && (isPreviewMode || isSharedJournal || detailReadOnly) ? (
@@ -1301,6 +1323,7 @@ function Dashboard() {
           initialPlanOpen={Boolean(planRequest && planRequest.id === selectedItem?.id)}
           initialPlanAction={planRequest && planRequest.id === selectedItem?.id ? planRequest.action : ''}
           onPlanCommitted={handlePlanCommitted}
+          onCollect={collectWork}
           showToast={showToast}
         />
       ) : null}

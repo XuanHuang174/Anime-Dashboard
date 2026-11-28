@@ -8,6 +8,7 @@ import ExplorationTagChips from './ExplorationTagChips.jsx'
 import { SeriesBadges } from './SeriesExploration.jsx'
 import { openCardDetail } from '../../utils/recommendationCardInteraction.js'
 import RecommendationPlanEntry from './RecommendationPlanEntry.jsx'
+import RecommendationCurationEntry from './RecommendationCurationEntry.jsx'
 
 export function RecommendationCover({ item, priority = false, onDetail, disabled = false }) {
   const safeSrc = item.contentRating === 'adult' ? '' : getRecommendationCover(item.coverUrl)
@@ -43,6 +44,7 @@ export function RecommendationActions({ item, onDetail, detailLabel = '查看详
       {button.label}
     </button>
     <RecommendationPlanEntry item={item} disabled={writeBlocked || operation?.status === 'adding'} />
+    <RecommendationCurationEntry item={item} disabled={writeBlocked || operation?.status === 'adding'} />
   </div>{operation?.error && <p className="rec-inline-error rec-want-error" role="alert">{operation.error.message}</p>}
   {operation?.syncWarning && <p className="rec-muted" role="status">{operation.syncWarning}</p>}</>
 }

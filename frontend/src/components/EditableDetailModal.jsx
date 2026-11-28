@@ -71,6 +71,7 @@ function EditableDetailModal({
   initialPlanOpen = false,
   initialPlanAction = '',
   onPlanCommitted,
+  onCollect,
   showToast,
 }) {
   const overlayRef = useRef(null)
@@ -732,6 +733,7 @@ function EditableDetailModal({
           </button>
           <button ref={historyEntryRef} type="button" disabled={busy || hasUnsavedChanges || planLocked} aria-describedby={hasUnsavedChanges ? 'edit-history-hint' : undefined} title={hasUnsavedChanges ? '请先保存当前作品修改后再查看历程' : '查看观看历程与重看记录'} onClick={openHistory} className={`${arcadeButton} bg-white`}>观看历程</button>
           <button ref={planEntryRef} type="button" disabled={busy || hasUnsavedChanges} title={hasUnsavedChanges ? '请先保存当前作品修改' : '管理观看计划与优先级'} onClick={openPlan} className={`${arcadeButton} bg-white`}>观看安排</button>
+          {onCollect&&<button type="button" disabled={busy||hasUnsavedChanges||planLocked} className={`${arcadeButton} bg-white`} title={hasUnsavedChanges?'请先保存当前作品修改':'收录到私人片单'} onClick={()=>onCollect(renderedItem)}>收录到片单</button>}
           </div>
           <div className="flex flex-wrap gap-3">
             <button type="button" onClick={handleSave} disabled={busy || planLocked} className={`${arcadeButton} bg-[#ff4f9a]`}>

@@ -13,6 +13,7 @@ export default function CurationDialog({ title, onClose, busy, children, footer,
     onPointerDown={event => { const box = ref.current.getBoundingClientRect(); ref.current.dataset.outside = String(event.target === ref.current && (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom)) }}
     onClick={event => { const box = ref.current.getBoundingClientRect(); if (!busy && ref.current.dataset.outside === 'true' && event.target === ref.current && (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom)) onClose(); delete ref.current.dataset.outside }}
     onKeyDown={event => {
+      if (event.key === 'Escape') event.stopPropagation()
       if (event.key !== 'Tab') return
       const nodes = [...ref.current.querySelectorAll('button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [tabindex="0"]')].filter(node => node.getClientRects().length)
       if (!nodes.length) { event.preventDefault(); return }

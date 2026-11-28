@@ -28,7 +28,7 @@ export function validCurationPage(data, { listId = null, page = 1, page_size: si
 }
 export function validCurationReceipt(data, body) {
   return Boolean(data?.contract_version === 'journal.curations.v1' && natural(data.version) && data.version > body.version
-    && typeof data.replayed === 'boolean' && isCurationId(data.list_id) && (body.action === 'create' || data.list_id === body.list_id)
+    && typeof data.replayed === 'boolean' && isCurationId(data.list_id) && (['create', 'create-with-members', 'create-from-review'].includes(body.action) || data.list_id === body.list_id)
     && (data.collection === null ? body.action === 'delete' || data.replayed : validCuration(data.collection) && data.collection.id === data.list_id))
 }
 export function changedCurationFields(base, form) {

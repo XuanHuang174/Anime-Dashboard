@@ -64,6 +64,15 @@
 .curation-selected li { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:8px; }
 .curation-selected li span { min-width:0; overflow-wrap:anywhere; }
 .curation-selected li button { flex-shrink:0; }
+.curation-collect-choices { list-style:none; padding:0; margin:12px 0; max-height:40dvh; overflow-y:auto; border-top:1px solid #d8cbbb; }
+.curation-collect-choices li { padding:8px 0; border-bottom:1px solid #d8cbbb; }
+.curation-form .curation-collect-choices label { margin:0; }
+.curation-journal-batch { display:flex; align-items:center; flex-wrap:wrap; gap:12px; margin:0 0 18px; }
+.curation-journal-batch button { border:2px solid #111; background:#ffe66d; padding:10px 14px; font-weight:800; min-height:44px; box-shadow:3px 3px #111; }
+.curation-journal-batch button:disabled { opacity:.5; }
+.curation-journal-batch small { color:#62584d; font-size:12px; }
+.curation-grid-collect { float:right; position:relative; z-index:1; margin:0 0 8px 8px; width:32px; height:32px; border:2px solid #111; background:#ffe66d; box-shadow:2px 2px #111; font-weight:900; }
+.rec-card-actions .rec-curation-entry { grid-column:1/-1; background:#eff9f5; }
 @keyframes curation-reveal { from { opacity:0; transform:translateY(7px); } to { opacity:1; transform:translateY(0); } }
 @media(max-width:1000px) { .curation-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .curation-toolbar { grid-template-columns:repeat(2,minmax(0,1fr)); } .curation-toolbar > label:first-child { grid-column:1/-1; } }
 @media(max-width:600px) {
