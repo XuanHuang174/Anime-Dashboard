@@ -30,8 +30,7 @@ import { matchesCustomQuickFilter } from '../utils/quickFilter.js'
 import { loadCompleteQuickFilters, sortedQuickFilters } from '../utils/quickFilterOrder.js'
 import {
   PageNavigation,
-  PageSizeSelector,
-  PriorityNotice,
+  JournalListTools,
 } from '../components/RecordPaginationControls.jsx'
 import StatsSummary from '../components/StatsSummary.jsx'
 import { comparePeriod } from '../utils/animeDisplay.js'
@@ -1181,7 +1180,8 @@ function Dashboard() {
               id="dashboardPaginationTop"
               className="dashboard-content-piece dashboard-entrance-piece mb-5 grid grid-cols-2 scroll-mt-5 items-stretch gap-3"
             >
-              <PageSizeSelector
+              <JournalListTools
+                unratedCount={visibleUnratedCount}
                 pageSize={pageSize}
                 onChange={handlePageSizeChange}
                 totalCount={recordsTotal}
@@ -1189,7 +1189,6 @@ function Dashboard() {
                 theme="memphis"
                 batchAction={isEditMode?{count:filteredAnime.length,disabled:isLoading||searchQuery.trim()!==debouncedSearchQuery||(pageSize!=='all'&&lastLoadedPage!==currentPage),onCollect:()=>setCollectRequest({records:filteredAnime.map(item=>({id:item.id,title:item.title}))})}:undefined}
               />
-              <PriorityNotice unratedCount={visibleUnratedCount} theme="memphis" />
             </div>
 
             <div className="dashboard-content-piece dashboard-entrance-piece mb-5 h-2 w-full border-2 border-black bg-[repeating-linear-gradient(135deg,#111_0,#111_8px,#ffe66d_8px,#ffe66d_16px)]" />

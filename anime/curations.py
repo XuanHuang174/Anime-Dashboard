@@ -28,7 +28,9 @@ class CurationConflict(APIException):
 
 
 def lock_owner(user):
-    get_user_model().objects.select_for_update().get(pk=user.pk)
+    # Serialize owner commands without blocking deferred FK KEY SHARE checks
+    # from record/history writers that already hold their private record lock.
+    get_user_model().objects.select_for_update(no_key=True).get(pk=user.pk)
 
 
 def version(user):

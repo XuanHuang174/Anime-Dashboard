@@ -982,12 +982,12 @@ select {
 }
 
 .memphis-public #showcasePaginationTop > div:first-child,
-.memphis-public #dashboardPaginationTop > div:first-child {
+.memphis-public #dashboardPaginationTop > div:not(.journal-list-tools):first-child {
   background: var(--memphis-yellow) !important;
 }
 
 .memphis-public #showcasePaginationTop > div:last-child,
-.memphis-public #dashboardPaginationTop > div:last-child {
+.memphis-public #dashboardPaginationTop > div:not(.journal-list-tools):last-child {
   background: var(--memphis-teal) !important;
 }
 

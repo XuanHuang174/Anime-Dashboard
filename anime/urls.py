@@ -7,6 +7,7 @@ from .rating_views import RatingPreferencesView
 from .watch_plan_views import WatchPlanDetailView, WatchPlanQueueView, WatchPlanReorderView, WatchPlanBatchView
 from .watch_review_views import WatchReviewView, WatchReviewEntriesView
 from .curation_views import PrivateCurationView, CurationDeletionImpactView, CurationExportView
+from .import_plan_views import ImportPlanCollectionView, ImportPlanDetailView, ImportPlanScanView, ImportPlanApplyView, JournalRestoreDiffView
 
 from .views import (
     AdminFeaturedSubmissionViewSet,
@@ -189,6 +190,11 @@ urlpatterns = [
     path("export/", UserJournalExportView.as_view(), name="journal-export"),
     path('rating-preferences/', RatingPreferencesView.as_view(), name='rating-preferences'),
     path("import/", UserJournalImportView.as_view(), name="journal-import"),
+    path('import-plans/', ImportPlanCollectionView.as_view()),
+    path('import-plans/json-diff/', JournalRestoreDiffView.as_view()),
+    path('import-plans/<uuid:plan_id>/', ImportPlanDetailView.as_view()),
+    path('import-plans/<uuid:plan_id>/scan/', ImportPlanScanView.as_view()),
+    path('import-plans/<uuid:plan_id>/apply/', ImportPlanApplyView.as_view()),
     path("showcase-profile/", PublicShowcaseProfileView.as_view(), name="showcase-profile"),
     *router.urls,
 ]

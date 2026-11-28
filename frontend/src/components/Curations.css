@@ -102,6 +102,13 @@
 .journal-batch-tools button { border:2px solid #111; background:#fff; padding:8px 12px; min-height:40px; box-shadow:2px 2px #111; font-size:12px; font-weight:800; }
 .journal-batch-tools button:disabled { background:#f5e9ab; color:#746d59; border-color:#a99c63; box-shadow:none; }
 .journal-batch-tools small { color:#504837; font-size:11px; }
+.memphis-public #dashboardPaginationTop > .journal-list-tools { grid-column:1/-1; padding:12px 16px; background:#fff5ee !important; }
+.journal-list-tools-row { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px 24px; }
+.journal-list-tools-row > .memphis-page-size { flex:0 1 auto; height:auto; padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; backdrop-filter:none; }
+.journal-list-tools-row > .memphis-priority-notice { flex:0 1 auto; height:auto; padding:7px 10px; gap:10px; border:1px solid #111; border-radius:0; background:#d9f3ef; box-shadow:none; backdrop-filter:none; }
+.journal-list-tools-row .memphis-page-size > div:first-child { background:#ffe66d; color:#111; padding:4px 8px; border:1px solid #111; }
+.journal-list-tools-row .memphis-page-size .text-slate-400 { color:#504837; }
+.journal-list-tools > .journal-batch-tools { margin-top:10px; padding-top:10px; }
 .journal-mobile-actions { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-top:8px; }
 .journal-mobile-actions .journal-row-resource-button { margin:0; min-height:36px; }
 .journal-mobile-actions .journal-mobile-collect { font-size:11px; gap:5px; white-space:nowrap; flex:0 0 auto; }

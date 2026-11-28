@@ -925,6 +925,66 @@ class UserQuickFilter(models.Model):
         return f"{self.user.get_username()} - {self.name}"
 
 
+class JournalImportPlan(models.Model):
+    """Frozen, owner-only external source and field decisions, separate from records."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='journal_import_plans')
+    request_id = models.UUIDField()
+    source_uid = models.CharField(max_length=64)
+    status = models.CharField(max_length=16, default='reading')
+    total = models.PositiveIntegerField(default=0)
+    cursor = models.PositiveIntegerField(default=0)
+    revision = models.PositiveIntegerField(default=0)
+    payload_bytes = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+
+    class Meta:
+        ordering = ('-created_at',)
+        constraints = [models.UniqueConstraint(fields=('user','request_id'), name='import_plan_owner_request')]
+
+
+class JournalImportItem(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    plan = models.ForeignKey(JournalImportPlan, on_delete=models.CASCADE, related_name='items')
+    position = models.PositiveIntegerField()
+    subject_id = models.PositiveIntegerField(null=True)
+    record = models.ForeignKey(UserAnimeRecord, on_delete=models.SET_NULL, null=True)
+    kind = models.CharField(max_length=16)
+    source = models.JSONField(default=dict)
+    comparison = models.JSONField(default=dict)
+    binding = models.CharField(max_length=64, default='')
+    applied = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ('position',)
+        constraints = [models.UniqueConstraint(fields=('plan','position'), name='import_item_plan_position')]
+
+
+class JournalSyncBaseline(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='journal_sync_baselines')
+    source_uid = models.CharField(max_length=64)
+    subject_id = models.PositiveIntegerField()
+    record = models.ForeignKey(UserAnimeRecord, on_delete=models.SET_NULL, null=True)
+    source_values = models.JSONField(default=dict)
+    local_values = models.JSONField(default=dict)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=('user','source_uid','subject_id'), name='sync_baseline_owner_source')]
+
+
+class JournalImportOperation(models.Model):
+    plan = models.ForeignKey(JournalImportPlan, on_delete=models.CASCADE, related_name='operations')
+    operation_id = models.UUIDField()
+    request_hash = models.CharField(max_length=64)
+    receipt = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=('plan','operation_id'), name='import_operation_plan_uuid')]
+
+
 class FeaturedQuickFilter(models.Model):
     """A global featured-column filter maintained by superusers."""
 

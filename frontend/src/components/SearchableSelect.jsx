@@ -59,6 +59,8 @@ function SearchableSelect({
     setActiveIndex(0)
     if (searchable) {
       window.requestAnimationFrame(() => searchRef.current?.focus())
+    } else {
+      window.requestAnimationFrame(() => rootRef.current?.querySelector('[role="option"][aria-selected="true"]')?.focus())
     }
   }, [isOpen, searchable])
 
@@ -111,7 +113,14 @@ function SearchableSelect({
   }
 
   return (
-    <div ref={rootRef} className="searchable-select" onKeyDown={event=>{if(isOpen&&event.key==='Escape'){event.preventDefault();event.stopPropagation();setIsOpen(false);triggerRef.current?.focus({preventScroll:true})}}}>
+    <div ref={rootRef} className="searchable-select" onKeyDown={event=>{
+      if(isOpen&&event.key==='Escape'){event.preventDefault();event.stopPropagation();setIsOpen(false);triggerRef.current?.focus({preventScroll:true})}
+      if(isOpen&&!searchable&&['ArrowDown','ArrowUp','Home','End'].includes(event.key)){
+        event.preventDefault();const nodes=[...rootRef.current.querySelectorAll('[role="option"]')],index=nodes.indexOf(document.activeElement)
+        const next=event.key==='Home'?0:event.key==='End'?nodes.length-1:(index+(event.key==='ArrowDown'?1:-1)+nodes.length)%nodes.length
+        setActiveIndex(next);nodes[next]?.focus()
+      }
+    }}>
       <button
         id={id}
         ref={triggerRef}
