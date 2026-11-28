@@ -17,6 +17,7 @@ import WatchHistoryPanel from './WatchHistoryPanel.jsx'
 import WatchPlanPanel from './WatchPlanPanel.jsx'
 import useTagPresets from '../hooks/useTagPresets.js'
 import { bangumiSubjectUrl, moegirlTitleUrl } from '../utils/journalSourceLinks.js'
+import { seriesSession } from '../hooks/useSeriesSession.js'
 
 gsap.registerPlugin(useGSAP)
 
@@ -96,6 +97,8 @@ function EditableDetailModal({
   const [newTag, setNewTag] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const deleteGate = useRef(false), deleteAlive = useRef(true)
+  useEffect(() => { deleteAlive.current = true; return () => { deleteAlive.current = false } }, [])
   const [error, setError] = useState('')
   const [activeEditorPanel, setActiveEditorPanel] = useState('tags')
   const personalPresets = useTagPresets(Boolean(selectedItem))
@@ -421,22 +424,39 @@ function EditableDetailModal({
   }
 
   const handleDelete = async () => {
-    if (!window.confirm(
-      `确定删除${formData.title}的私人追番记录吗？\n\n如果该作品已提交或已入选精选专栏，对应的精选专栏内容也会同步删除。\n\n此操作不可恢复。`,
-    )) return
+    if (deleteGate.current || busy) return
+    deleteGate.current = true
+    const owner = seriesSession()
     setIsDeleting(true)
     setError('')
+    let checked = false, succeeded = false
     try {
+      const { data: impact } = await api.get(`records/${renderedItem.id}/curation-impact/`)
+      if (!deleteAlive.current || owner !== seriesSession()) return
+      if (impact?.contract_version !== 'journal.curations.v1' || !Number.isSafeInteger(impact.count) || impact.count < 0 || !Array.isArray(impact.lists) || impact.lists.length !== impact.count || impact.retains_reasons_and_positions !== true) throw new Error('删除影响未完整读取')
+      const curationMessage = impact.count ? `\n\n该作品被 ${impact.count} 张私人片单收录（${impact.lists.slice(0,5).map(row => row.title).join('、')}${impact.count > 5 ? '等' : ''}）。删除后保留失效条目、原顺序和入选理由，可稍后重新关联。` : ''
+      if (!window.confirm(`确定删除${formData.title}的私人追番记录吗？\n\n如果该作品已提交或已入选精选专栏，对应的精选专栏内容也会同步删除。${curationMessage}\n\n私人作品删除不可恢复。`)) return
+      if (!deleteAlive.current || owner !== seriesSession()) return
+      checked = true
       await api.delete(`records/${renderedItem.id}/`)
+      if (!deleteAlive.current || owner !== seriesSession()) return
+      succeeded = true
       showToast('私人追番记录及其精选专栏内容已同步删除。', 'success')
       playExit(() => {
+        deleteGate.current = false
         setIsDeleting(false)
         onRecordDeleted(renderedItem.id)
       })
     } catch {
-      setError('删除失败，请稍后重试。')
-      showToast('删除失败，请稍后重试。', 'error')
-      setIsDeleting(false)
+      if (deleteAlive.current && owner === seriesSession()) {
+        const message = checked ? '删除失败，请稍后重试。' : '删除影响暂未完整核对，请重试；尚未删除。'
+        setError(message); showToast(message, 'error')
+      }
+    } finally {
+      if (!succeeded) {
+        deleteGate.current = false
+        if (deleteAlive.current && owner === seriesSession()) setIsDeleting(false)
+      }
     }
   }
 
@@ -708,7 +728,7 @@ function EditableDetailModal({
           {historyOpen ? <><button type="button" className={`${arcadeButton} bg-white`} onClick={() => historyGuardRef.current?.(() => setHistoryOpen(false), '返回作品编辑')}>返回作品编辑</button><button type="button" onClick={handleClose} className={`${arcadeButton} bg-white`}>关闭</button></> : planOpen ? <><button type="button" className={`${arcadeButton} bg-white`} onClick={() => planGuardRef.current?.(() => setPlanOpen(false), '返回作品编辑')}>返回作品编辑</button><button type="button" onClick={handleClose} className={`${arcadeButton} bg-white`}>关闭</button></> : <>
           <div className="flex flex-wrap gap-4">
           <button type="button" onClick={handleDelete} disabled={busy || planLocked} className={`${arcadeButton} bg-red-500`}>
-            <i className={`fa-solid ${isDeleting ? 'fa-spinner animate-spin' : 'fa-trash-can'} mr-2`}></i>{isDeleting ? '删除中...' : '删除私人记录'}
+            <i aria-hidden="true" className={`fa-solid ${isDeleting ? 'fa-spinner animate-spin' : 'fa-trash-can'} mr-2`}></i>{isDeleting ? '核对／删除中...' : '删除私人记录'}
           </button>
           <button ref={historyEntryRef} type="button" disabled={busy || hasUnsavedChanges || planLocked} aria-describedby={hasUnsavedChanges ? 'edit-history-hint' : undefined} title={hasUnsavedChanges ? '请先保存当前作品修改后再查看历程' : '查看观看历程与重看记录'} onClick={openHistory} className={`${arcadeButton} bg-white`}>观看历程</button>
           <button ref={planEntryRef} type="button" disabled={busy || hasUnsavedChanges} title={hasUnsavedChanges ? '请先保存当前作品修改' : '管理观看计划与优先级'} onClick={openPlan} className={`${arcadeButton} bg-white`}>观看安排</button>

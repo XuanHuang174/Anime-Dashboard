@@ -18,6 +18,7 @@ import { downloadJournalCsv } from '../utils/journalCsv.js'
 import DetailModal from '../components/DetailModal.jsx'
 import EditableDetailModal from '../components/EditableDetailModal.jsx'
 import WatchReviewWorkspace from '../components/WatchReviewWorkspace.jsx'
+import CurationWorkspace from '../components/CurationWorkspace.jsx'
 import FeaturedActionConfirmModal from '../components/FeaturedActionConfirmModal.jsx'
 import FilterBar from '../components/FilterBar.jsx'
 import MemphisToastStack from '../components/MemphisToastStack.jsx'
@@ -116,9 +117,9 @@ function Dashboard() {
   const [historyDetailId, setHistoryDetailId] = useState(null)
   const planSession = useSeriesSession()
   const [workspace, setWorkspace] = useState('journal'), [planRequest, setPlanRequest] = useState(null), [planRefreshKey, setPlanRefreshKey] = useState(0), [planRecordLoading, setPlanRecordLoading] = useState(false)
-  const planWorkspaceGuard = useRef(null), workspaceScroll = useRef({ journal: 0, plans: 0, review: 0 }), planRecordRead = useRef(null)
+  const planWorkspaceGuard = useRef(null), curationWorkspaceGuard = useRef(null), workspaceScroll = useRef({ journal: 0, plans: 0, review: 0, curations: 0 }), planRecordRead = useRef(null)
   useEffect(() => {
-    setWorkspace('journal'); setPlanRequest(null); setSelectedItem(null); setDetailReadOnly(false); workspaceScroll.current = { journal: 0, plans: 0, review: 0 }
+    setWorkspace('journal'); setPlanRequest(null); setSelectedItem(null); setDetailReadOnly(false); workspaceScroll.current = { journal: 0, plans: 0, review: 0, curations: 0 }
     return () => planRecordRead.current?.abort()
   }, [planSession])
   const [identityPanel, setIdentityPanel] = useState(null)
@@ -632,12 +633,14 @@ function Dashboard() {
   const handleLogout = () => {
     const run = () => { setLogoutDestination('login'); setIsLogoutConfirmOpen(true) }
     if (workspace === 'plans' && planWorkspaceGuard.current) planWorkspaceGuard.current(run, '退出登录')
+    else if (workspace === 'curations' && curationWorkspaceGuard.current) curationWorkspaceGuard.current(run, '退出登录')
     else run()
   }
 
   const handleReturnHome = () => {
     const run = () => { setLogoutDestination('home'); setIsLogoutConfirmOpen(true) }
     if (workspace === 'plans' && planWorkspaceGuard.current) planWorkspaceGuard.current(run, '返回主界面')
+    else if (workspace === 'curations' && curationWorkspaceGuard.current) curationWorkspaceGuard.current(run, '返回主界面')
     else run()
   }
 
@@ -752,6 +755,7 @@ function Dashboard() {
       requestAnimationFrame(() => window.scrollTo({ top: workspaceScroll.current[next] || 0, behavior: 'instant' }))
     }
     if (workspace === 'plans' && planWorkspaceGuard.current) planWorkspaceGuard.current(change, next === 'journal' ? '返回手账' : '查看回顾')
+    else if (workspace === 'curations' && curationWorkspaceGuard.current) curationWorkspaceGuard.current(change, { journal: '返回手账', plans: '查看观看计划', review: '查看回顾' }[next])
     else change()
   }
 
@@ -943,6 +947,7 @@ function Dashboard() {
   }
   const togglePreviewMode = () => {
     if (workspace === 'plans' && planWorkspaceGuard.current) planWorkspaceGuard.current(performTogglePreviewMode, '切换查看模式')
+    else if (workspace === 'curations' && curationWorkspaceGuard.current) curationWorkspaceGuard.current(performTogglePreviewMode, '切换查看模式')
     else performTogglePreviewMode()
   }
 
@@ -1053,7 +1058,7 @@ function Dashboard() {
       </div>
 
       <DashboardHeader
-        workspaceNavigation={!isSharedJournal && !isAdminJournalReview && <nav className="plan-workspace-switch" aria-label="私人手账工作区"><button type="button" aria-pressed={workspace === 'journal'} onClick={() => selectWorkspace('journal')}>手账</button><button type="button" aria-pressed={workspace === 'plans'} onClick={() => selectWorkspace('plans')}>观看计划</button><button type="button" aria-pressed={workspace === 'review'} onClick={() => selectWorkspace('review')}>回顾</button></nav>}
+        workspaceNavigation={!isSharedJournal && !isAdminJournalReview && <nav className="plan-workspace-switch" aria-label="私人手账工作区"><button type="button" aria-pressed={workspace === 'journal'} onClick={() => selectWorkspace('journal')}>手账</button><button type="button" aria-pressed={workspace === 'plans'} onClick={() => selectWorkspace('plans')}>观看计划</button><button type="button" aria-pressed={workspace === 'review'} onClick={() => selectWorkspace('review')}>回顾</button><button type="button" aria-pressed={workspace === 'curations'} onClick={() => selectWorkspace('curations')}>片单</button></nav>}
         isPreviewMode={isPreviewMode}
         onTogglePreview={togglePreviewMode}
         onAddAnime={() => setIsAddModalOpen(true)}
@@ -1263,6 +1268,7 @@ function Dashboard() {
       </div>
       {!isSharedJournal && !isAdminJournalReview && <WatchPlanWorkspace key={planSession} active={workspace === 'plans'} editable={isEditMode} refreshKey={`${recordsRefreshKey}:${planRefreshKey}`} onOpenRecord={openPlanRecord} onEnterEdit={() => enterEditMode()} closeGuardRef={planWorkspaceGuard} onChanged={() => { setPlanRefreshKey(key => key + 1); setRecordsRefreshKey(key => key + 1) }} />}
       {!isSharedJournal && !isAdminJournalReview && <WatchReviewWorkspace key={`review:${planSession}`} active={workspace === 'review' && !exploringAway} refreshKey={recordsRefreshKey} onOpenRecord={openPlanRecord} />}
+      {!isSharedJournal && !isAdminJournalReview && <CurationWorkspace key={`curations:${planSession}`} active={workspace === 'curations'} editable={isEditMode} paused={!!selectedItem || exploringAway} refreshKey={recordsRefreshKey} onEnterEdit={() => enterEditMode()} onOpenRecord={openPlanRecord} closeGuardRef={curationWorkspaceGuard} quickFilters={customQuickFilters} />}
       {planRecordLoading && <p role="status" className="relative z-10 mx-auto max-w-7xl px-6 py-3 font-bold">正在读取作品详情…</p>}
 
       {!exploringAway && (isPreviewMode || isSharedJournal || detailReadOnly) ? (
